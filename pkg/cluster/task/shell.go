@@ -17,9 +17,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/logger/log"
 )
 
 // Shell is used to create directory on the target host

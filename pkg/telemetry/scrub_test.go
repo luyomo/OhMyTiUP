@@ -18,8 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/luyomo/tisample/pkg/set"
 	"github.com/pingcap/check"
-	"github.com/pingcap/tiup/pkg/set"
 )
 
 type scrubSuite struct{}

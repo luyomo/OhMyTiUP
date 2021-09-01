@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/crypto"
 )
 
 // KeyStore tracks roles, keys, etc. and verifies signatures against this metadata. (map[string]roleKeys)

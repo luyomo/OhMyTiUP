@@ -19,10 +19,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/meta"
 )
 
 // InitConfig is used to copy all configurations to the target directory of path

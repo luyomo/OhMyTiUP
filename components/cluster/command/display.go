@@ -21,11 +21,11 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/luyomo/tisample/pkg/cluster/api"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/meta"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/api"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/crypto"
-	"github.com/pingcap/tiup/pkg/meta"
 	"github.com/spf13/cobra"
 )
 

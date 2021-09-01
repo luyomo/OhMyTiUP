@@ -27,10 +27,10 @@ import (
 	"time"
 
 	cjson "github.com/gibson042/canonicaljson-go"
+	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/crypto"
-	"github.com/pingcap/tiup/pkg/set"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 // ErrorInsufficientKeys indicates that the key number is less than threshold

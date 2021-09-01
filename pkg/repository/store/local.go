@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 type localStore struct {

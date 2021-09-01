@@ -23,16 +23,16 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
+	"github.com/luyomo/tisample/pkg/cluster/clusterutil"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/cluster/task"
+	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/clusterutil"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	operator "github.com/pingcap/tiup/pkg/cluster/operation"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/cluster/task"
-	"github.com/pingcap/tiup/pkg/set"
-	"github.com/pingcap/tiup/pkg/tui"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 // Patch the cluster.

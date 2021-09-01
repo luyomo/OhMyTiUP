@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
 )
 
 // scope can be either "system", "user" or "global"

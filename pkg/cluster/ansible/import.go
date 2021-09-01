@@ -24,10 +24,10 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/set"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/set"
 	"github.com/relex/aini"
 )
 

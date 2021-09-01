@@ -17,9 +17,9 @@ import (
 	"context"
 	"fmt"
 
-	operator "github.com/pingcap/tiup/pkg/cluster/operation"
-	"github.com/pingcap/tiup/pkg/environment"
-	"github.com/pingcap/tiup/pkg/repository"
+	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/tisample/pkg/repository"
 )
 
 // Downloader is used to download the specific version of a component from

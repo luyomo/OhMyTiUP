@@ -17,10 +17,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/luyomo/tisample/pkg/cluster/clusterutil"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/clusterutil"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 // Download the specific version of a component from

@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/check"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 var _ = check.Suite(&profileTestSuite{})

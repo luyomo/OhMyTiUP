@@ -19,11 +19,11 @@ import (
 	"path/filepath"
 
 	"github.com/fatih/color"
-	"github.com/pingcap/tiup/pkg/cluster/ansible"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/tui"
-	tiuputils "github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/cluster/ansible"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/tui"
+	tiuputils "github.com/luyomo/tisample/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

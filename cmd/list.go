@@ -19,12 +19,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/environment"
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
-	"github.com/pingcap/tiup/pkg/set"
-	"github.com/pingcap/tiup/pkg/tui"
-	"github.com/pingcap/tiup/pkg/utils"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
 )

@@ -23,9 +23,9 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/version"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/version"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/semaphore"

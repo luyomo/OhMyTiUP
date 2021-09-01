@@ -19,7 +19,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/pingcap/tiup/pkg/localdata"
+	"github.com/luyomo/tisample/pkg/localdata"
 	"github.com/spf13/cobra"
 )
 

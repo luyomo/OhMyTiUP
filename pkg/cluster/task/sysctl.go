@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
 )
 
 var (

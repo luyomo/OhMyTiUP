@@ -19,10 +19,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/tisample/pkg/proxy"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/meta"
-	"github.com/pingcap/tiup/pkg/proxy"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 

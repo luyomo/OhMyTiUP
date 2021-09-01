@@ -14,8 +14,8 @@
 package command
 
 import (
+	"github.com/luyomo/tisample/components/dm/spec"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/components/dm/spec"
 	"github.com/spf13/cobra"
 )
 

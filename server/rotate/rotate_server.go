@@ -9,11 +9,11 @@ import (
 
 	cjson "github.com/gibson042/canonicaljson-go"
 	"github.com/gorilla/mux"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/tisample/pkg/tui/progress"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/fn"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
-	"github.com/pingcap/tiup/pkg/tui/progress"
 )
 
 type statusRender struct {

@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/set"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/set"
 )
 
 // UpdateMeta is used to maintain the cluster meta information

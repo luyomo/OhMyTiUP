@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 // PDInstance represent a running pd-server

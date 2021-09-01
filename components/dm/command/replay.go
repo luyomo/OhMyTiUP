@@ -18,11 +18,11 @@ import (
 	"path"
 	"strings"
 
+	"github.com/luyomo/tisample/pkg/checkpoint"
+	"github.com/luyomo/tisample/pkg/cluster/audit"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/checkpoint"
-	"github.com/pingcap/tiup/pkg/cluster/audit"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/tui"
 	"github.com/spf13/cobra"
 )
 

@@ -19,10 +19,10 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/luyomo/tisample/pkg/crypto/rand"
+	"github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/tisample/pkg/localdata"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/crypto/rand"
-	"github.com/pingcap/tiup/pkg/environment"
-	"github.com/pingcap/tiup/pkg/localdata"
 	"gopkg.in/yaml.v2"
 )
 

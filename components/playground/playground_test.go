@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pingcap/tiup/pkg/localdata"
+	"github.com/luyomo/tisample/pkg/localdata"
 	"github.com/stretchr/testify/assert"
 )
 

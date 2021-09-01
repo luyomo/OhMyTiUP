@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/utils"
 )
 
 // TiCDC represent a ticdc instance.

@@ -22,8 +22,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/luyomo/tisample/pkg/crypto/rand"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/crypto/rand"
 )
 
 var serialNumberLimit = new(big.Int).Lsh(big.NewInt(1), 128)

@@ -17,9 +17,9 @@ import (
 	"context"
 	"strings"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/module"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/module"
 )
 
 // GetServiceStatus return the Acitive line of status.

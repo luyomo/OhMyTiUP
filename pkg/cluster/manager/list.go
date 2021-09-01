@@ -16,10 +16,10 @@ package manager
 import (
 	"errors"
 
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/tisample/pkg/tui"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/meta"
-	"github.com/pingcap/tiup/pkg/tui"
 )
 
 // Cluster represents a clsuter

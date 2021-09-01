@@ -23,9 +23,9 @@ import (
 	"sync"
 
 	cjson "github.com/gibson042/canonicaljson-go"
+	"github.com/luyomo/tisample/pkg/localdata"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/localdata"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 // LocalManifests methods for accessing a store of manifests.

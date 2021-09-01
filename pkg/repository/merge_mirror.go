@@ -18,10 +18,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/luyomo/tisample/pkg/repository/model"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/repository/model"
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 type diffItem struct {

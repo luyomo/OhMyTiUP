@@ -16,9 +16,9 @@ package command
 import (
 	"crypto/tls"
 
-	operator "github.com/pingcap/tiup/pkg/cluster/operation"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/cluster/task"
+	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/cluster/task"
 	"github.com/spf13/cobra"
 )
 

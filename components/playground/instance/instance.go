@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/utils"
 )
 
 // Config of the instance.

@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/meta"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/meta"
 
+	"github.com/luyomo/tisample/pkg/utils/mock"
 	"github.com/pingcap/check"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/utils/mock"
 )
 
 type initConfigSuite struct {

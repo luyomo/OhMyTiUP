@@ -65,6 +65,10 @@ cluster:
 	@# Target: build the tiup-cluster component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tiup-cluster ./components/cluster
 
+candle:
+	@# Target: build the tisample-candle component
+	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-candle ./components/candle
+
 dm:
 	@# Target: build the tiup-dm component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tiup-dm ./components/dm

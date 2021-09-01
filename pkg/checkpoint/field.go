@@ -16,7 +16,7 @@ package checkpoint
 import (
 	"reflect"
 
-	"github.com/pingcap/tiup/pkg/set"
+	"github.com/luyomo/tisample/pkg/set"
 )
 
 // FieldSet is an ordered set stores fields and comparators, it's []CheckField

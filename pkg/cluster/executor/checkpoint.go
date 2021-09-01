@@ -19,8 +19,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/checkpoint"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/checkpoint"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
 	"go.uber.org/zap"
 )
 

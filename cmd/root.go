@@ -23,15 +23,15 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/google/uuid"
+	"github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/tisample/pkg/exec"
+	"github.com/luyomo/tisample/pkg/localdata"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/repository"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/tisample/pkg/telemetry"
+	"github.com/luyomo/tisample/pkg/version"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/environment"
-	"github.com/pingcap/tiup/pkg/exec"
-	"github.com/pingcap/tiup/pkg/localdata"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/repository"
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
-	"github.com/pingcap/tiup/pkg/telemetry"
-	"github.com/pingcap/tiup/pkg/version"
 	"github.com/spf13/cobra"
 )
 

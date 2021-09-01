@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/utils"
 	"golang.org/x/mod/semver"
 )
 

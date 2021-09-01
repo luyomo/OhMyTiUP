@@ -16,7 +16,7 @@ package manager
 import (
 	"testing"
 
-	"github.com/pingcap/tiup/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"

@@ -18,8 +18,8 @@ import (
 	"fmt"
 
 	cjson "github.com/gibson042/canonicaljson-go"
+	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/crypto"
 )
 
 // ShortKeyIDLength is the number of bytes used for filenames

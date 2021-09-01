@@ -20,9 +20,9 @@ package api
 import (
 	"time"
 
+	"github.com/luyomo/tisample/pkg/cluster/api/typeutil"
 	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/pingcap/kvproto/pkg/pdpb"
-	"github.com/pingcap/tiup/pkg/cluster/api/typeutil"
 )
 
 // PDReplicationConfig is the replication type configuration ReplicationConfig from PD.

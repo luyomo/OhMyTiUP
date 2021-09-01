@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/joomcode/errorx"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/localdata"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/localdata"
 )
 
 // SSHType represent the type of the chanel used by ssh

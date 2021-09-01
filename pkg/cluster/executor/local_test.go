@@ -20,7 +20,7 @@ import (
 	"os/user"
 	"testing"
 
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
 	"github.com/stretchr/testify/require"
 )
 

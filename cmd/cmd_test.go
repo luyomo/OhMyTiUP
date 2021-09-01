@@ -20,8 +20,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/luyomo/tisample/pkg/repository"
 	. "github.com/pingcap/check"
-	"github.com/pingcap/tiup/pkg/repository"
 )
 
 func TestCMD(t *testing.T) {

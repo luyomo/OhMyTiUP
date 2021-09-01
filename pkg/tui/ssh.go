@@ -17,7 +17,7 @@ import (
 	"os"
 
 	"github.com/ScaleFT/sshkeys"
-	"github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/utils"
 	"golang.org/x/crypto/ssh"
 )
 

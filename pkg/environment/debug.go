@@ -16,7 +16,7 @@ package environment
 import (
 	"os"
 
-	"github.com/pingcap/tiup/pkg/localdata"
+	"github.com/luyomo/tisample/pkg/localdata"
 )
 
 // Global flags

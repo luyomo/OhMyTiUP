@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/appleboy/easyssh-proxy"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/utils"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 )

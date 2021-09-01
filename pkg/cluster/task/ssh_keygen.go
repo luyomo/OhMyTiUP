@@ -22,10 +22,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/crypto/rand"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/crypto/rand"
-	"github.com/pingcap/tiup/pkg/utils"
 	"golang.org/x/crypto/ssh"
 )
 

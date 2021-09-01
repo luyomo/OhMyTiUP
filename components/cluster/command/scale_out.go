@@ -17,10 +17,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pingcap/tiup/pkg/cluster/manager"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/cluster/task"
-	"github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/cluster/manager"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/cluster/task"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

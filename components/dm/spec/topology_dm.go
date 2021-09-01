@@ -22,11 +22,11 @@ import (
 	"time"
 
 	"github.com/creasty/defaults"
+	"github.com/luyomo/tisample/pkg/cluster/api"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/tisample/pkg/set"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/api"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/meta"
-	"github.com/pingcap/tiup/pkg/set"
 )
 
 const (

@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
 )
 
 const (

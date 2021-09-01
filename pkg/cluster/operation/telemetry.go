@@ -20,12 +20,12 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/luyomo/tisample/pkg/checkpoint"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/telemetry"
+	"github.com/luyomo/tisample/pkg/version"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/checkpoint"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/telemetry"
-	"github.com/pingcap/tiup/pkg/version"
 	"golang.org/x/sync/errgroup"
 )
 

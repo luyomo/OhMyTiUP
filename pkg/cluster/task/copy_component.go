@@ -17,9 +17,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/environment"
-	"github.com/pingcap/tiup/pkg/repository"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/tisample/pkg/repository"
 )
 
 // CopyComponent is used to copy all files related the specific version a component

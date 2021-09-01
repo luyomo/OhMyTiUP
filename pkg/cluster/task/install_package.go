@@ -19,8 +19,8 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
 )
 
 // InstallPackage is used to copy all files related the specific version a component

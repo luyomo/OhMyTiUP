@@ -22,8 +22,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/luyomo/tisample/components/playground/instance"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/components/playground/instance"
 	"github.com/spf13/cobra"
 )
 

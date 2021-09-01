@@ -14,7 +14,7 @@
 package main
 
 import (
-	"github.com/pingcap/tiup/cmd"
+	"github.com/luyomo/tisample/cmd"
 )
 
 func main() {

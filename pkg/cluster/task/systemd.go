@@ -17,9 +17,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/module"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/module"
 )
 
 // SystemCtl run systemctl command on host

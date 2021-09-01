@@ -17,11 +17,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/repository"
+	"github.com/luyomo/tisample/pkg/repository/model"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
 	"github.com/pingcap/fn"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/repository"
-	"github.com/pingcap/tiup/pkg/repository/model"
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
 )
 
 // RotateRoot handles requests to re-sign root manifest

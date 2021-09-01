@@ -21,8 +21,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/check"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 func Test(t *testing.T) { check.TestingT(t) }

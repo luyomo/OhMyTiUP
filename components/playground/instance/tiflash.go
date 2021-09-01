@@ -25,11 +25,11 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/luyomo/tisample/pkg/cluster/api"
+	"github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/tisample/pkg/repository"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/api"
-	"github.com/pingcap/tiup/pkg/environment"
-	"github.com/pingcap/tiup/pkg/repository"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 // TiFlashInstance represent a running TiFlash

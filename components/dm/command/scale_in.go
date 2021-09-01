@@ -19,15 +19,15 @@ import (
 	"fmt"
 	"time"
 
+	dm "github.com/luyomo/tisample/components/dm/spec"
+	dmtask "github.com/luyomo/tisample/components/dm/task"
+	"github.com/luyomo/tisample/pkg/cluster/api"
+	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/cluster/task"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/set"
 	"github.com/pingcap/errors"
-	dm "github.com/pingcap/tiup/components/dm/spec"
-	dmtask "github.com/pingcap/tiup/components/dm/task"
-	"github.com/pingcap/tiup/pkg/cluster/api"
-	operator "github.com/pingcap/tiup/pkg/cluster/operation"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/cluster/task"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/set"
 	"github.com/spf13/cobra"
 )
 

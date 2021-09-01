@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/tui/progress"
+	"github.com/luyomo/tisample/pkg/tui/progress"
 )
 
 func ExampleSingleBar() {

@@ -20,7 +20,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/utils"
 )
 
 // Syncer sync diff files to target

@@ -18,8 +18,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/luyomo/tisample/pkg/cluster/spec"
 	. "github.com/pingcap/check"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 )

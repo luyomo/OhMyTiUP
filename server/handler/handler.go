@@ -16,8 +16,8 @@ package handler
 import (
 	"context"
 
+	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/pingcap/fn"
-	"github.com/pingcap/tiup/pkg/logger/log"
 )
 
 // errorMessage is used for error response

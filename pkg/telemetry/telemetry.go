@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 var defaultURL = "https://telemetry.pingcap.com/api/v1/clusters/report"

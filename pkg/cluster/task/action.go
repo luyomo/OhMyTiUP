@@ -18,9 +18,9 @@ import (
 	"crypto/tls"
 	"fmt"
 
+	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
 	"github.com/pingcap/errors"
-	operator "github.com/pingcap/tiup/pkg/cluster/operation"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
 )
 
 // ClusterOperate represents the cluster operation task.

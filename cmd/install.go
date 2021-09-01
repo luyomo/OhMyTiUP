@@ -14,7 +14,7 @@
 package cmd
 
 import (
-	"github.com/pingcap/tiup/pkg/environment"
+	"github.com/luyomo/tisample/pkg/environment"
 	"github.com/spf13/cobra"
 )
 

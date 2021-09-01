@@ -20,10 +20,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/template/config"
-	"github.com/pingcap/tiup/pkg/cluster/template/scripts"
-	"github.com/pingcap/tiup/pkg/meta"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/template/config"
+	"github.com/luyomo/tisample/pkg/cluster/template/scripts"
+	"github.com/luyomo/tisample/pkg/meta"
 )
 
 // AlertmanagerSpec represents the AlertManager topology specification in topology.yaml

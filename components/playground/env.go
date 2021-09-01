@@ -17,8 +17,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/luyomo/tisample/pkg/localdata"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/localdata"
 )
 
 // targetTag find the target playground we want to send the command.

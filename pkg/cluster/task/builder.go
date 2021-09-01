@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/pingcap/tiup/pkg/cluster/executor"
-	operator "github.com/pingcap/tiup/pkg/cluster/operation"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/crypto"
-	"github.com/pingcap/tiup/pkg/meta"
-	"github.com/pingcap/tiup/pkg/proxy"
+	"github.com/luyomo/tisample/pkg/cluster/executor"
+	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/tisample/pkg/proxy"
 )
 
 // Builder is used to build TiUP task

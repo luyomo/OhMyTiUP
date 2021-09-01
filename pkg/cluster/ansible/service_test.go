@@ -14,8 +14,8 @@
 package ansible
 
 import (
+	"github.com/luyomo/tisample/pkg/cluster/spec"
 	"github.com/pingcap/check"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
 )
 
 var tiflashConfig = `

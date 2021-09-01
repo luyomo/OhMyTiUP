@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/version"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/version"
 	"github.com/spf13/cobra"
 )
 

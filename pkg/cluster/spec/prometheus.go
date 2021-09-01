@@ -23,12 +23,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/template/config"
+	"github.com/luyomo/tisample/pkg/cluster/template/scripts"
+	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/tisample/pkg/set"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/template/config"
-	"github.com/pingcap/tiup/pkg/cluster/template/scripts"
-	"github.com/pingcap/tiup/pkg/meta"
-	"github.com/pingcap/tiup/pkg/set"
 )
 
 // PrometheusSpec represents the Prometheus Server topology specification in topology.yaml

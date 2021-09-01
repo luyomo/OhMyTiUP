@@ -17,7 +17,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
 )
 
 // Store represents the storage level

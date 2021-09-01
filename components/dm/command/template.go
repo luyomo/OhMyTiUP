@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/pingcap/tiup/embed"
+	"github.com/luyomo/tisample/embed"
 	"github.com/spf13/cobra"
 )
 

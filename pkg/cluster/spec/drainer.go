@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/template/scripts"
-	"github.com/pingcap/tiup/pkg/meta"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/template/scripts"
+	"github.com/luyomo/tisample/pkg/meta"
 )
 
 // DrainerSpec represents the Drainer topology specification in topology.yaml

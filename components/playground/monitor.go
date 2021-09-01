@@ -22,11 +22,11 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/luyomo/tisample/components/playground/instance"
+	"github.com/luyomo/tisample/pkg/environment"
+	tiupexec "github.com/luyomo/tisample/pkg/exec"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/components/playground/instance"
-	"github.com/pingcap/tiup/pkg/environment"
-	tiupexec "github.com/pingcap/tiup/pkg/exec"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 // ref: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#file_sd_config

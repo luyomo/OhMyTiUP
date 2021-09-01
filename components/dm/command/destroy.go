@@ -14,10 +14,10 @@
 package command
 
 import (
+	"github.com/luyomo/tisample/components/dm/spec"
+	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/tisample/pkg/set"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/components/dm/spec"
-	operator "github.com/pingcap/tiup/pkg/cluster/operation"
-	"github.com/pingcap/tiup/pkg/set"
 	"github.com/spf13/cobra"
 )
 

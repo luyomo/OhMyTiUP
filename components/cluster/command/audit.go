@@ -14,8 +14,8 @@
 package command
 
 import (
-	"github.com/pingcap/tiup/pkg/cluster/audit"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/cluster/audit"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
 	"github.com/spf13/cobra"
 )
 

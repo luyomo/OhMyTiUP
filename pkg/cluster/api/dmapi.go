@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/luyomo/tisample/pkg/cluster/api/dmpb"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/api/dmpb"
-	"github.com/pingcap/tiup/pkg/utils"
 	"go.uber.org/zap"
 )
 

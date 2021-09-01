@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/utils"
 )
 
 // TiDBInstance represent a running tidb-server

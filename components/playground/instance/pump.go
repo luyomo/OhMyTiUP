@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/utils"
+	"github.com/luyomo/tisample/pkg/utils"
 )
 
 // Pump represent a pump instance.

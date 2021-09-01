@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	"github.com/creasty/defaults"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
 	. "github.com/pingcap/check"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
 	"gopkg.in/yaml.v3"
 )
 

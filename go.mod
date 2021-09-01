@@ -1,4 +1,4 @@
-module github.com/pingcap/tiup
+module github.com/luyomo/tisample
 
 go 1.16
 

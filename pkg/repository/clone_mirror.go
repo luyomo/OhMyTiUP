@@ -21,13 +21,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/cluster/template/install"
+	"github.com/luyomo/tisample/pkg/cluster/template/install"
 
+	ru "github.com/luyomo/tisample/pkg/repository/utils"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	ru "github.com/pingcap/tiup/pkg/repository/utils"
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
-	"github.com/pingcap/tiup/pkg/set"
-	"github.com/pingcap/tiup/pkg/utils"
 	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"
 )

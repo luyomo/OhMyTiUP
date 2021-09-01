@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pingcap/tiup/pkg/checkpoint"
-	"github.com/pingcap/tiup/pkg/cluster/executor"
-	"github.com/pingcap/tiup/pkg/meta"
+	"github.com/luyomo/tisample/pkg/checkpoint"
+	"github.com/luyomo/tisample/pkg/cluster/executor"
+	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/stretchr/testify/assert"
 )
 

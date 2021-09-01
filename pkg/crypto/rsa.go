@@ -22,8 +22,8 @@ import (
 	"encoding/pem"
 	"net"
 
+	"github.com/luyomo/tisample/pkg/crypto/rand"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/crypto/rand"
 	"software.sslmate.com/src/go-pkcs12"
 )
 

@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"github.com/luyomo/tisample/pkg/cluster/template/scripts"
 	. "github.com/pingcap/check"
-	"github.com/pingcap/tiup/pkg/cluster/template/scripts"
 	"gopkg.in/yaml.v2"
 )
 

@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pingcap/tiup/pkg/set"
+	"github.com/luyomo/tisample/pkg/set"
 	"github.com/r3labs/diff/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )

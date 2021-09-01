@@ -19,10 +19,10 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/crypto"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 func genAndSaveClusterCA(name, tlsPath string) (*crypto.CertificateAuthority, error) {

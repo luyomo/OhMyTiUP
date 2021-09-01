@@ -18,9 +18,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/pingcap/tiup/pkg/repository/model"
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
-	"github.com/pingcap/tiup/pkg/utils/mock"
+	"github.com/luyomo/tisample/pkg/repository/model"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/tisample/pkg/utils/mock"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -23,11 +23,11 @@ import (
 	"strings"
 
 	"github.com/AstroProfundis/sysinfo"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/module"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/pingcap/tidb-insight/collector/insight"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/module"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
-	"github.com/pingcap/tiup/pkg/logger/log"
 )
 
 // CheckOptions control the list of checks to be performed

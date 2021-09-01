@@ -20,10 +20,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/tisample/pkg/cluster/template/scripts"
+	"github.com/luyomo/tisample/pkg/meta"
 	perrs "github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	"github.com/pingcap/tiup/pkg/cluster/template/scripts"
-	"github.com/pingcap/tiup/pkg/meta"
 	"golang.org/x/mod/semver"
 )
 

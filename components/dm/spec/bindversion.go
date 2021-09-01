@@ -1,6 +1,6 @@
 package spec
 
-import "github.com/pingcap/tiup/pkg/cluster/spec"
+import "github.com/luyomo/tisample/pkg/cluster/spec"
 
 // DMComponentVersion maps the dm version to the third components binding version
 // Empty version means the latest stable one

@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/pingcap/tiup/pkg/environment"
-	"github.com/pingcap/tiup/pkg/telemetry"
+	"github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/tisample/pkg/telemetry"
 	"github.com/spf13/cobra"
 )
 

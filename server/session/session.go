@@ -20,9 +20,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/luyomo/tisample/pkg/localdata"
+	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/localdata"
-	"github.com/pingcap/tiup/pkg/logger/log"
 )
 
 // Max alive time of a session

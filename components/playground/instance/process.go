@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/luyomo/tisample/pkg/environment"
+	tiupexec "github.com/luyomo/tisample/pkg/exec"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"
-	"github.com/pingcap/tiup/pkg/environment"
-	tiupexec "github.com/pingcap/tiup/pkg/exec"
-	"github.com/pingcap/tiup/pkg/utils"
 )
 
 // Process represent process to be run by playground

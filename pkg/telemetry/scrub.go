@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/pingcap/tiup/pkg/set"
+	"github.com/luyomo/tisample/pkg/set"
 	"gopkg.in/yaml.v2"
 )
 

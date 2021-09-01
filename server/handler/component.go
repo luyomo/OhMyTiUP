@@ -18,12 +18,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/repository"
+	"github.com/luyomo/tisample/pkg/repository/model"
+	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/tisample/server/session"
 	"github.com/pingcap/fn"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/pkg/repository"
-	"github.com/pingcap/tiup/pkg/repository/model"
-	"github.com/pingcap/tiup/pkg/repository/v1manifest"
-	"github.com/pingcap/tiup/server/session"
 )
 
 // SignComponent handles requests to re-sign component manifest

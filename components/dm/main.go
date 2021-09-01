@@ -14,8 +14,8 @@
 package main
 
 import (
-	"github.com/pingcap/tiup/components/dm/command"
-	"github.com/pingcap/tiup/pkg/tui"
+	"github.com/luyomo/tisample/components/dm/command"
+	"github.com/luyomo/tisample/pkg/tui"
 )
 
 func main() {

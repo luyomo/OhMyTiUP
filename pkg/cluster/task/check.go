@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pingcap/tiup/pkg/cluster/ctxt"
-	operator "github.com/pingcap/tiup/pkg/cluster/operation"
-	"github.com/pingcap/tiup/pkg/cluster/spec"
+	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/tisample/pkg/cluster/spec"
 )
 
 // the check types

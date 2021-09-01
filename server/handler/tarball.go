@@ -17,9 +17,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/server/session"
 	"github.com/pingcap/fn"
-	"github.com/pingcap/tiup/pkg/logger/log"
-	"github.com/pingcap/tiup/server/session"
 )
 
 // MaxMemory is the a total of max bytes of its file parts stored in memory
