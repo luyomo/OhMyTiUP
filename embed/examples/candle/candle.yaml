@@ -1,0 +1,13 @@
+dbconn:
+    host: localhost
+    port: 4000
+    name: tickdata
+    user: tickuser
+    password: tickpass
+nginx:
+    host: localhost
+    image:
+candle-api:
+    host: localhost
+candle-web:
+    host: localhost

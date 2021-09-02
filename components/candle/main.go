@@ -14,7 +14,7 @@
 package main
 
 import (
-	"github.com/luyomo/tisample/components/cluster/command"
+	"github.com/luyomo/tisample/components/candle/command"
 	"github.com/luyomo/tisample/pkg/tui"
 )
 
