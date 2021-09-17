@@ -21,9 +21,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/candle/api"
 	"github.com/luyomo/tisample/pkg/candle/spec"
+	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/set"
 	perrs "github.com/pingcap/errors"

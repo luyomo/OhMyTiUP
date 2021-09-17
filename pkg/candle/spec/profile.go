@@ -63,7 +63,7 @@ func Initialize(base string) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		profileDir = path.Join(homeDir, ".tiup", tiuplocaldata.StorageParentDir, base)
+		profileDir = path.Join(homeDir, ".tisample", tiuplocaldata.StorageParentDir, base)
 	} else {
 		profileDir = tiupData
 	}

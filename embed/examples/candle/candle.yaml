@@ -6,7 +6,7 @@ dbconn:
     password: tickpass
 nginx:
     host: localhost
-    image:
+    image: test
 candle-api:
     host: localhost
 candle-web:

@@ -54,6 +54,7 @@ const (
 	ComponentBlackboxExporter = "blackbox_exporter"
 	ComponentNodeExporter     = "node_exporter"
 	ComponentCheckCollector   = "insight"
+    ComponentNginx            = "nginx"
 )
 
 var (

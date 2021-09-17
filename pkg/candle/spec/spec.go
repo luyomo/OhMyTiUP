@@ -75,6 +75,11 @@ type (
 		OS              string               `yaml:"os,omitempty" default:"linux"`
 		Arch            string               `yaml:"arch,omitempty"`
 		Custom          interface{}          `yaml:"custom,omitempty" validate:"custom:ignore"`
+        DBHost          string               `yaml:"db_host"     default:"localhost"`
+        DBPort          int                  `yaml:"db_port"     default:"4000"`
+        DBName          string               `yaml:"db_name"     default:"mysql"`
+        DBUser          string               `yaml:"db_user"     default:"root"`
+        DBPassword      string               `yaml:"db_password" default:""`
 	}
 
 	// MonitoredOptions represents the monitored node configuration
@@ -98,6 +103,7 @@ type (
 		Pump           map[string]interface{} `yaml:"pump"`
 		Drainer        map[string]interface{} `yaml:"drainer"`
 		CDC            map[string]interface{} `yaml:"cdc"`
+        Nginx          map[string]interface{} `yaml:"nginx"`
 	}
 
 	// Specification represents the specification of topology.yaml
@@ -117,6 +123,7 @@ type (
 		Monitors         []*PrometheusSpec    `yaml:"monitoring_servers"`
 		Grafanas         []*GrafanaSpec       `yaml:"grafana_servers,omitempty"`
 		Alertmanagers    []*AlertmanagerSpec  `yaml:"alertmanager_servers,omitempty"`
+        NginxServers     []*NginxSpec         `yaml:"nginx_servers"`
 	}
 )
 
@@ -340,6 +347,7 @@ func (s *Specification) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			s.TiFlashServers[i].DataDir = dataDir
 		}
 	}
+    fmt.Printf("The specification is <%#v>\n\n", s)
 
 	return s.Validate()
 }
@@ -441,6 +449,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		Monitors:         append(s.Monitors, spec.Monitors...),
 		Grafanas:         append(s.Grafanas, spec.Grafanas...),
 		Alertmanagers:    append(s.Alertmanagers, spec.Alertmanagers...),
+		NginxServers:     append(s.NginxServers, spec.NginxServers...),
 	}
 }
 
@@ -656,6 +665,7 @@ func (s *Specification) ComponentsByStartOrder() (comps []Component) {
 	comps = append(comps, &AlertManagerComponent{s})
 	comps = append(comps, &TiSparkMasterComponent{s})
 	comps = append(comps, &TiSparkWorkerComponent{s})
+	comps = append(comps, &NginxComponent{s})
 	return
 }
 
@@ -674,6 +684,7 @@ func (s *Specification) ComponentsByUpdateOrder() (comps []Component) {
 	comps = append(comps, &AlertManagerComponent{s})
 	comps = append(comps, &TiSparkMasterComponent{s})
 	comps = append(comps, &TiSparkWorkerComponent{s})
+	comps = append(comps, &NginxComponent{s})
 	return
 }
 

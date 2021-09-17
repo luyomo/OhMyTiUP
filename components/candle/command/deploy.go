@@ -15,6 +15,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 
@@ -58,12 +59,15 @@ func newDeploy() *cobra.Command {
 			}
 			clusterReport.ID = scrubClusterName(clusterName)
 			teleCommand = append(teleCommand, scrubClusterName(clusterName))
+			fmt.Printf("The command here is %v \n", teleCommand)
 			teleCommand = append(teleCommand, version)
+			fmt.Printf("The command here is %v \n", teleCommand)
 
 			topoFile := args[2]
 			if data, err := os.ReadFile(topoFile); err == nil {
 				teleTopology = string(data)
 			}
+			fmt.Printf("The command here is %v \n", teleCommand)
 
 			return cm.Deploy(clusterName, version, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},

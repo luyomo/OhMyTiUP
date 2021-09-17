@@ -18,9 +18,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/candle/audit"
 	"github.com/luyomo/tisample/pkg/candle/spec"
+	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/pingcap/errors"
 	"github.com/spf13/cobra"

@@ -20,8 +20,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/candle/ctxt"
+	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/logger/log"
 )
 

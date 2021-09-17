@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/candle/ctxt"
 	"github.com/luyomo/tisample/pkg/candle/module"
 	"github.com/luyomo/tisample/pkg/candle/spec"
+	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/pingcap/errors"

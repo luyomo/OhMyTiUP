@@ -102,7 +102,7 @@ func init() {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 			var env *tiupmeta.Environment
-			if err = spec.Initialize("cluster"); err != nil {
+			if err = spec.Initialize("candle"); err != nil {
 				return err
 			}
 
@@ -120,6 +120,8 @@ func init() {
 			}
 			tiupmeta.SetGlobalEnv(env)
 
+			fmt.Println("This is the test for debugging ")
+			fmt.Printf("This is the calue %v \n", teleCommand)
 			teleCommand = getParentNames(cmd)
 
 			if gOpt.NativeSSH {

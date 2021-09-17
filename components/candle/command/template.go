@@ -18,7 +18,7 @@ import (
 	"path"
 
 	"github.com/luyomo/tisample/embed"
-//	"github.com/pingcap/errors"
+	//	"github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )
 
