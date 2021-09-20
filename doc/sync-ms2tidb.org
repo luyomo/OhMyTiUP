@@ -1,0 +1,107 @@
+* Installation
+  - docker
+    #+BEGIN_SRC
+$Sudo yum install docker
+    #+END_SRC
+  - docker image
+    + debezium/connect
+    #+BEGIN_SRC
+$docker pull debezium/connect
+    #+END_SRC
+    + debezium/kafka
+    #+BEGIN_SRC
+$docker pull debezium/kafka
+    #+END_SRC
+    + debezium/zookeeper
+    #+BEGIN_SRC      
+$docker pull debezium/zookeeper
+    #+END_SRC
+    + mysql:5.7
+    #+BEGIN_SRC
+$docker pull mysql:5.7
+    #+END_SRC
+    + mcr.microsoft.com/mssql/server
+    #+BEGIN_SRC
+$docker pull mcr.microsoft.com/mssql/server
+    #+END_SRC
+  - jdbc-sink-connect
+    #+BEGIN_SRC
+$wget https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-jdbc/versions/10.2.2/confluentinc-kafka-connect-jdbc-10.2.2.zip
+$sudo unzip confluentinc-kafka-connect-jdbc-10.2.2.zip
+$mkdir -p external-connector/confluentinc-kafka-connect-jdbc-10.2.2
+$cp confluentinc-kafka-connect-jdbc-10.2.2/lib/*.jar external-connector/confluentinc-kafka-connect-jdbc-10.2.2/
+    #+END_SRC    
+  - mysql driver
+    #+BEGIN_SRC
+$wget https://download.jar-download.com/cache_jars/mysql/mysql-connector-java/8.0.26/jar_files.zip
+$unzip jar_files.zip -d mysql_jdbc
+$cp mysql_jdbc/*.jar external-connector/confluentinc-kafka-connect-jdbc-10.2.2/
+    #+END_SRC        
+* Service startup
+  refer to https://github.com/debezium/debezium-examples/blob/master/tutorial/docker-compose-sqlserver.yaml
+  - mssqlserver
+    #+BEGIN_SRC
+$docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=passwd1234" -e "MSSQL_PID=Standard" -e "MSSQL_AGENT_ENABLED=true" -p 1433:1433 -d mcr.microsoft.com/mssql/server
+$docker exec -it 64236a40437c /opt/mssql-tools/bin/sqlcmd -S 172.16.30.10 -U sa -P passwd1234
+    #+END_SRC
+  - zookeeper
+    #+BEGIN_SRC
+$docker run -d -p 2181:2181 -p 2888:2888 -p 3888:3888 debezium/zookeeper
+    #+END_SRC
+  - kafka
+    #+BEGIN_SRC
+$docker run -d -p 9092:9092 -e ZOOKEEPER_CONNECT=172.16.30.10:2181 debezium/kafka
+    #+END_SRC
+  - connect
+    #+BEGIN_SRC
+$docker run -d -p 8083:8083 -e BOOTSTRAP_SERVERS=172.16.30.10:9092 -e GROUP_ID=1 -e CONFIG_STORAGE_TOPIC=my_connect_configs -e OFFSET_STORAGE_TOPIC=my_connect_offsets -e STATUS_STORAGE_TOPIC=my_connect_statuses debezium/connect
+    #+END_SRC
+  - mysql
+    #+BEGIN_SRC
+$docker run -d --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=passwd1234 -e MYSQL_DATABASE=cdctest mysql:5.7
+    #+END_SRC    
+* Configuration
+  + source connector
+  + sink connector
+* APP
+  + Prepare one application to keep inserting data into mssql
+    #+BEGIN_SRC
+{
+    "name": "inventory-connector",
+    "config": {
+        "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        "database.hostname": "172.16.30.10",
+        "database.port": "1433",
+        "database.user": "sa",
+        "database.password": "passwd1234",
+        "database.dbname": "cdctest",
+        "database.server.name": "fullfillment",
+        "table.include.list": "dbo.cdctable",
+        "database.history.kafka.bootstrap.servers": "172.16.30.10:9092",
+        "database.history.kafka.topic": "dbhistory.fullfillment"
+    }
+}
+    #+END_SRC
+  + Prepare one application to count source and destination DB's count
+    #+BEGIN_SRC
+{
+    "name": "jdbc-sink",
+    "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "tasks.max": "1",
+        "topics.regex": "fullfillment.dbo.(.*)",
+        "connection.url": "jdbc:mysql://172.16.30.10:3306/cdctest?user=root&password=passwd1234",
+        "transforms": "dropPrefix, unwrap",
+        "transforms.dropPrefix.type": "org.apache.kafka.connect.transforms.RegexRouter",
+        "transforms.dropPrefix.regex": "fullfillment.dbo.(.*)",
+        "transforms.dropPrefix.replacement": "$1",
+        "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+        "transforms.unwrap.drop.tombstones": "false",
+        "auto.create": "false",
+        "insert.mode": "upsert",
+        "delete.enabled": "true",
+        "pk.fields": "col01",
+        "pk.mode": "record_key"
+    }
+}
+    #+END_SRC
