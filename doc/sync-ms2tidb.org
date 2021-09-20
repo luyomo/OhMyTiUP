@@ -1,0 +1,279 @@
+* Installation
+  - docker
+    #+BEGIN_SRC
+$cd /tmp
+$wget https://download.docker.com/linux/static/stable/x86_64/docker-20.10.8.tgz
+$tar xvf docker-20.10.8.tgz
+$sudo cp docker/* /usr/bin/
+$sudo groupadd -g 10001 docker
+$more /etc/docker/daemon.json
+{
+    "experimental": false
+}
+$$ rpm -qa | grep iptables 
+iptables-1.8.4-17.el8.x86_64
+iptables-libs-1.8.4-17.el8.x86_64
+$more /etc/systemd/system/containerd.service
+[Unit]
+Description=containerd container runtime
+Documentation=https://containerd.io
+After=network.target local-fs.target
+
+[Service]
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/bin/containerd
+
+Type=notify
+Delegate=yes
+KillMode=process
+Restart=always
+RestartSec=5
+
+LimitNPROC=infinity
+LimitCORE=infinity
+LimitNOFILE=1048576
+
+TasksMax=infinity
+OOMScoreAdjust=-999
+ 
+[Install]
+WantedBy=multi-user.target
+$more /etc/systemd/system/docker.socket
+[Unit]
+Description=Docker Socket for the API
+
+[Socket]
+ListenStream=/var/run/docker.sock
+SocketMode=0660
+SocketUser=root
+SocketGroup=docker
+
+[Install]
+WantedBy=sockets.target
+$more /etc/systemd/system/docker.service
+[Unit]
+Description=Docker Application Container Engine
+Documentation=https://docs.docker.com
+After=network-online.target firewalld.service containerd.service
+Wants=network-online.target
+Requires=docker.socket containerd.service
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+ExecReload=/bin/kill -s HUP $MAINPID
+TimeoutSec=0
+RestartSec=2
+Restart=always
+StartLimitBurst=3
+StartLimitInterval=60s
+ 
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+ 
+TasksMax=infinity
+ 
+Delegate=yes
+ 
+KillMode=process
+OOMScoreAdjust=-500
+ 
+[Install]
+WantedBy=multi-user.target
+    #+END_SRC
+  - docker image
+    + debezium/connect
+    #+BEGIN_SRC
+$docker pull debezium/connect
+    #+END_SRC
+    + debezium/kafka
+    #+BEGIN_SRC
+$docker pull debezium/kafka
+    #+END_SRC
+    + debezium/zookeeper
+    #+BEGIN_SRC      
+$docker pull debezium/zookeeper
+    #+END_SRC
+    + mysql:5.7
+    #+BEGIN_SRC
+$docker pull mysql:5.7
+    #+END_SRC
+    + mcr.microsoft.com/mssql/server
+    #+BEGIN_SRC
+$docker pull mcr.microsoft.com/mssql/server
+    #+END_SRC
+  - jdbc-sink-connect
+    #+BEGIN_SRC
+$wget https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-jdbc/versions/10.2.2/confluentinc-kafka-connect-jdbc-10.2.2.zip
+$sudo unzip confluentinc-kafka-connect-jdbc-10.2.2.zip
+$mkdir -p external-connector/confluentinc-kafka-connect-jdbc-10.2.2
+$cp confluentinc-kafka-connect-jdbc-10.2.2/lib/*.jar external-connector/confluentinc-kafka-connect-jdbc-10.2.2/
+    #+END_SRC    
+  - mysql driver
+    #+BEGIN_SRC
+$wget https://download.jar-download.com/cache_jars/mysql/mysql-connector-java/8.0.26/jar_files.zip
+$unzip jar_files.zip -d mysql_jdbc
+$cp mysql_jdbc/*.jar external-connector/confluentinc-kafka-connect-jdbc-10.2.2/
+    #+END_SRC        
+* Service startup
+  refer to https://github.com/debezium/debezium-examples/blob/master/tutorial/docker-compose-sqlserver.yaml
+  - preparation
+    #+BEGIN_SRC
+$ sudo docker network create --driver=bridge cdcnetwork
+    #+END_SRC
+  - mssqlserver
+    + reference
+      https://docs.microsoft.com/en-us/sql/relational-databases/databases/create-a-database?view=sql-server-ver15
+      https://www.bookstack.cn/read/tidb-in-action/session4-chapter5-from-sqlserver-to-tidb.md#ciariy
+    + Preparation
+    #+BEGIN_SRC
+$docker run --name ms2ti-ms --network cdcnetwork -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=Passwd@1234" -e "MSSQL_PID=Standard" -e "MSSQL_AGENT_ENABLED=true" -p 1433:1433 -d mcr.microsoft.com/mssql/server
+$docker exec -it ms2ti-ms /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Passwd@1234
+1>use master;
+2> CREATE DATABASE cdcdb ON
+3> (NAME = cdcdb_dat, FILENAME = '/tmp/MSSQL/DATA/cdcdbdat.mdf', SIZE = 1, MAXSIZE = 10, FILEGROWTH = 5)
+4> LOG ON
+5> (NAME = cdcdb_log, FILENAME = '/tmp/MSSQL/DATA/cdcdblog.ldf', SIZE = 5MB, MAXSIZE = 25MB, FILEGROWTH = 5MB) ;
+6> go
+1> use cdcdb
+2> go
+Changed database context to 'cdcdb'.
+1> sys.sp_cdc_enable_db;
+2> go
+1> create table cdc_src_table(col01 int primary key, col02 varchar(32) , col03 date);
+2> go
+1> select * from cdc_src_table;
+2> go
+col01       col02                            col03           
+----------- -------------------------------- ----------------
+
+(0 rows affected)
+1> EXEC sys.sp_cdc_enable_table @source_schema= N'dbo',@source_name= N'cdc_src_table',@role_name= NULL;
+2> go
+Job 'cdc.cdcdb_capture' started successfully.
+Job 'cdc.cdcdb_cleanup' started successfully.
+1> SELECT name, is_cdc_enabled from sys.databases where is_cdc_enabled =1;
+2> go
+name                                                                                                                             is_cdc_enabled
+-------------------------------------------------------------------------------------------------------------------------------- --------------
+cdcdb                                                                                                                                         1
+
+(1 rows affected)
+1> insert into cdc_src_table values(1, 'cdc test text', '2020-01-01');
+2> go
+
+(1 rows affected)
+1> select * from cdc_src_table;
+2> go
+col01       col02                            col03           
+----------- -------------------------------- ----------------
+          1 cdc test text                          2020-01-01
+
+(1 rows affected)
+1> select * from cdc.dbo_cdc_src_table_ct;
+2> go
+__$start_lsn           __$end_lsn             __$seqval              __$operation __$update_mask                                                                                                                                                                                                                                                     col01       col02                            col03            __$command_id
+---------------------- ---------------------- ---------------------- ------------ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ ----------- -------------------------------- ---------------- -------------
+0x0000002600000318001C NULL                   0x0000002600000318001B            2 0x07                                                                                                                                                                                                                                                                         1 cdc test text                          2020-01-01             1
+
+(1 rows affected)
+    #+END_SRC
+  - zookeeper
+    #+BEGIN_SRC
+$docker run --name ms2ti-zk --network cdcnetwork -d -p 2181:2181 -p 2888:2888 -p 3888:3888 debezium/zookeeper
+    #+END_SRC
+  - kafka
+    #+BEGIN_SRC
+$docker run --name ms2ti-kf --network cdcnetwork -d -p 9092:9092 -e ZOOKEEPER_CONNECT=ms2ti-zk:2181 debezium/kafka
+    #+END_SRC
+  - connect
+    #+BEGIN_SRC
+$docker run --name ms2ti-connect --network cdcnetwork -d -p 8083:8083 -e BOOTSTRAP_SERVERS=ms2ti-kf:9092 -e GROUP_ID=1 -e CONFIG_STORAGE_TOPIC=my_connect_configs -e OFFSET_STORAGE_TOPIC=my_connect_offsets -e STATUS_STORAGE_TOPIC=my_connect_statuses -v $(pwd)/external-connector/confluentinc-kafka-connect-jdbc-10.2.2:/kafka/connect/confluentinc-kafka-connect-jdbc debezium/connect
+    #+END_SRC
+  - mysql
+    #+BEGIN_SRC
+$docker run -d --name mysql --network cdcnetwork -p 3306:3306 -e MYSQL_ROOT_PASSWORD=passwd1234 -e MYSQL_DATABASE=cdctest mysql:5.7
+$docker exec -it mysql mysql -h mysql -u root mysql -p
+mysql>create database ms2t
+mysql>create table cdc_src_table(col01 int primary key, col02 varchar(32), col03 date );
+    #+END_SRC    
+* Configuration
+  + source connector
+  + sink connector
+* APP
+  + Prepare one application to keep inserting data into mssql
+    #+BEGIN_SRC
+$more source.config
+{
+    "name": "ms2ti-connector",
+    "config": {
+        "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        "database.hostname": "ms2ti-ms",
+        "database.port": "1433",
+        "database.user": "sa",
+        "database.password": "Passwd@1234",
+        "database.dbname": "cdcdb",
+        "database.server.name": "cdcms2ti",
+        "table.include.list": "dbo.cdc_src_table",
+        "database.history.kafka.bootstrap.servers": "ms2ti-kf:9092",
+        "database.history.kafka.topic": "dbhistory.cdcms2ti"
+    }
+}
+$curl -X POST -H "Content-Type: application/json" http://localhost:8083/connectors -d @source.config
+$curl http://localhost:8083/connectors | jq
+[
+  "ms2ti-connector"
+]
+$curl http://localhost:8083/connectors/ms2ti-connector/status  | jq
+{
+  "name": "ms2ti-connector",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "172.18.0.5:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "RUNNING",
+      "worker_id": "172.18.0.5:8083"
+    }
+  ],
+  "type": "source"
+}
+$docker exec -it ms2ti-kf bash
+$/kafka/bin/kafka-topics.sh --list --zookeeper ms2ti-zk:2181
+__consumer_offsets
+cdcms2ti
+cdcms2ti.dbo.cdc_src_table
+dbhistory.cdcms2ti
+my_connect_configs
+my_connect_offsets
+my_connect_statuses
+    #+END_SRC
+  + Prepare one application to count source and destination DB's count
+    #+BEGIN_SRC
+$more sinke.config
+{
+    "name": "jdbc-sink",
+    "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "tasks.max": "1",
+        "topics.regex": "cdcms2ti.dbo.(.*)",
+        "connection.url": "jdbc:mysql://mysql:3306/ms2ti?user=root&password=passwd1234",
+        "transforms": "dropPrefix, unwrap",
+        "transforms.dropPrefix.type": "org.apache.kafka.connect.transforms.RegexRouter",
+        "transforms.dropPrefix.regex": "cdcms2ti.dbo.(.*)",
+        "transforms.dropPrefix.replacement": "$1",
+        "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+        "transforms.unwrap.drop.tombstones": "false",
+        "time.precision.mode": "connect",
+        "auto.create": "false",
+        "insert.mode": "upsert",
+        "delete.enabled": "true",
+        "pk.fields": "col01",
+        "pk.mode": "record_key"
+    }
+}
+$curl -X POST -H "Content-Type: application/json" http://localhost:8083/connectors -d @sink.config
+    #+END_SRC
