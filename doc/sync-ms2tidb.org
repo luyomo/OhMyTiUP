@@ -1,7 +1,41 @@
 * Installation
   - docker
     #+BEGIN_SRC
-$Sudo yum install docker
+$cd /tmp
+$wget https://download.docker.com/linux/static/stable/x86_64/docker-20.10.8.tgz
+$tar xvf docker-20.10.8.tgz
+$sudo cp docker/* /usr/bin/
+$more /etc/systemd/system/docker.service
+[Unit]
+Description=Docker Application Container Engine
+Documentation=https://docs.docker.com
+After=network-online.target firewalld.service containerd.service
+Wants=network-online.target
+Requires=docker.socket containerd.service
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+ExecReload=/bin/kill -s HUP $MAINPID
+TimeoutSec=0
+RestartSec=2
+Restart=always
+StartLimitBurst=3
+StartLimitInterval=60s
+ 
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+ 
+TasksMax=infinity
+ 
+Delegate=yes
+ 
+KillMode=process
+OOMScoreAdjust=-500
+ 
+[Install]
+WantedBy=multi-user.target
     #+END_SRC
   - docker image
     + debezium/connect
