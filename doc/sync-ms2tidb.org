@@ -5,6 +5,32 @@ $cd /tmp
 $wget https://download.docker.com/linux/static/stable/x86_64/docker-20.10.8.tgz
 $tar xvf docker-20.10.8.tgz
 $sudo cp docker/* /usr/bin/
+$more /etc/systemd/system/containerd.service
+[Unit]
+Description=containerd container runtime
+Documentation=https://containerd.io
+After=network.target local-fs.target
+
+[Service]
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/bin/containerd
+
+Type=notify
+Delegate=yes
+KillMode=process
+Restart=always
+RestartSec=5
+
+LimitNPROC=infinity
+LimitCORE=infinity
+LimitNOFILE=1048576
+
+TasksMax=infinity
+OOMScoreAdjust=-999
+ 
+[Install]
+WantedBy=multi-user.target
+
 $more /etc/systemd/system/docker.service
 [Unit]
 Description=Docker Application Container Engine
