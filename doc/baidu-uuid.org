@@ -1,0 +1,71 @@
+* docker image installation
+  #+BEGIN_SRC
+  docker run -it --network cdcnetwork --entrypoint bash adoptopenjdk/openjdk8
+  #+END_SRC
+* maven installation
+  #+BEGIN_SRC
+  apt-get update
+  apt-get install -y wget git
+  wget https://downloads.apache.org/maven/maven-3/3.8.2/binaries/apache-maven-3.8.2-bin.tar.gz -P /tmp/
+  tar xvf /tmp/apache-maven-3.8.2-bin.tar.gz -C /opt/
+  export MAVEN_HOME=/opt/apache-maven-3.8.2
+  export PATH=$MAVEN_HOME/bin:$PATH
+  #+END_SRC
+
+* Table preparation
+  #+BEGIN_SRC
+  $docker exec -it mysql mysql -h mysql -u root mysql -p
+  mysql>DROP DATABASE IF EXISTS `uidgenerator`;
+  mysql>CREATE DATABASE `uidgenerator`;
+  mysql>use `uidgenerator`;
+  mysql>DROP TABLE IF EXISTS WORKER_NODE;
+  mysql>set sql_mode="NO_ENGINE_SUBSTITUTION";
+  mysql>CREATE TABLE WORKER_NODE
+        (
+          ID BIGINT NOT NULL AUTO_INCREMENT COMMENT 'auto increment id',
+          HOST_NAME VARCHAR(64) NOT NULL COMMENT 'host name',
+          PORT VARCHAR(64) NOT NULL COMMENT 'port',
+          TYPE INT NOT NULL COMMENT 'node type: ACTUAL or CONTAINER',
+          LAUNCH_DATE DATE NOT NULL COMMENT 'launch date',
+          MODIFIED TIMESTAMP NOT NULL COMMENT 'modified time',
+          CREATED TIMESTAMP NOT NULL COMMENT 'created time',
+          PRIMARY KEY(ID)
+        )
+         COMMENT='DB WorkerID Assigner for UID Generator',ENGINE = INNODB;
+ #+END_SRC
+
+* Building
+  #+BEGIN_SRC
+  $git clone https://github.com/baidu/uid-generator.git
+  $cd uid-generator
+  $mvn compile
+  ... ...
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 22 source files to /tmp/uid-generator/target/classes
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  52.630 s
+[INFO] Finished at: 2021-09-22T03:03:32Z
+[INFO] ------------------------------------------------------------------------
+
+  $more mysql.properties
+  $mvn compile
+  $mvn test -Dtest=DefaultUidGeneratorTest
+...
+UID-generator-0 No.98 >>> {"UID":"2714219666632401094","timestamp":"2021-09-22 13:39:38","workerId":"7","sequence":"198"}
+UID-generator-0 No.99 >>> {"UID":"2714219666632401095","timestamp":"2021-09-22 13:39:38","workerId":"7","sequence":"199"}
+...
+  mysql> select * from WORKER_NODE;
++----+------------+---------------------+------+-------------+---------------------+---------------------+
+| ID | HOST_NAME  | PORT                | TYPE | LAUNCH_DATE | MODIFIED            | CREATED             |
++----+------------+---------------------+------+-------------+---------------------+---------------------+
+|  1 | 172.18.0.7 | 1632285368542-1357  |    2 | 2021-09-22  | 2021-09-22 04:36:08 | 2021-09-22 04:36:08 |
+|  2 | 172.18.0.3 | 1632289047734-79411 |    2 | 2021-09-22  | 2021-09-22 05:37:27 | 2021-09-22 05:37:27 |
+|  3 | 172.18.0.3 | 1632296525352-96740 |    2 | 2021-09-22  | 2021-09-22 07:42:05 | 2021-09-22 07:42:05 |
+|  4 | 172.18.0.3 | 1632296539032-56471 |    2 | 2021-09-22  | 2021-09-22 07:42:19 | 2021-09-22 07:42:19 |
+|  5 | 172.18.0.3 | 1632296556082-58560 |    2 | 2021-09-22  | 2021-09-22 07:42:36 | 2021-09-22 07:42:36 |
+|  6 | 172.18.0.3 | 1632296590137-66592 |    2 | 2021-09-22  | 2021-09-22 07:43:10 | 2021-09-22 07:43:10 |
++----+------------+---------------------+------+-------------+---------------------+---------------------+
+6 rows in set (0.00 sec)
+  #+END_SRC
