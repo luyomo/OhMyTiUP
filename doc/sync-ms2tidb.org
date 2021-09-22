@@ -215,6 +215,7 @@ $more source.config
         "database.password": "Passwd@1234",
         "database.dbname": "cdcdb",
         "database.server.name": "cdcms2ti",
+        "time.precision.mode": "connect",
         "table.include.list": "dbo.cdc_src_table",
         "database.history.kafka.bootstrap.servers": "ms2ti-kf:9092",
         "database.history.kafka.topic": "dbhistory.cdcms2ti"
@@ -267,7 +268,6 @@ $more sinke.config
         "transforms.dropPrefix.replacement": "$1",
         "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
         "transforms.unwrap.drop.tombstones": "false",
-        "time.precision.mode": "connect",
         "auto.create": "false",
         "insert.mode": "upsert",
         "delete.enabled": "true",
