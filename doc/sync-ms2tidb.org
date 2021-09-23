@@ -1,3 +1,26 @@
+* Diagram
+  #+BEGIN_SRC plantuml :file ./png/ms2ti.png
+  !theme spacelab
+  left to right direction
+  database "SQL Server" {
+    folder "Souce DB" {
+      [Source Schema]
+    }
+  }
+  database "TiDB" {
+    folder "Destination DB" {
+      [Destination Schema]
+    }
+  }
+  () "Producer"
+  () "Consumer"
+  queue kafka
+
+  [Source Schema] --> Producer
+  Producer --> kafka
+  kafka --> Consumer
+  Consumer --> [Destination Schema]
+  #+END_SRC
 * Installation
   - docker
     #+BEGIN_SRC
