@@ -1,4 +1,7 @@
 * Diagram
+  #+CAPTION: Data Migration from SQL Server to TiDB
+  [[./png/ms2ti.png]]
+#+BEGIN_COMMENT
   #+BEGIN_SRC plantuml :file ./png/ms2ti.png
   !theme spacelab
   left to right direction
@@ -21,6 +24,7 @@
   kafka --> Consumer
   Consumer --> [Destination Schema]
   #+END_SRC
+#+END_COMMENT
 * Installation
   - docker
     #+BEGIN_SRC
