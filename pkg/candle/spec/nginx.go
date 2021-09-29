@@ -32,12 +32,12 @@ import (
 
 // NginxSpec represents the PD topology specification in topology.yaml
 type NginxSpec struct {
-	Host                string `yaml:"host"`
-    ListenHost          string `yaml:"listen_host,omitempty"`
-	SSHPort             int    `yaml:"ssh_port,omitempty" validate:"ssh_port:editable"`
-    Imported            bool   `yaml:"imported,omitempty"`
-    Patched             bool   `yaml:"patched,omitempty"`
-    IgnoreExporter      bool   `yaml:"ignore_exporter,omitempty"`
+	Host           string `yaml:"host"`
+	ListenHost     string `yaml:"listen_host,omitempty"`
+	SSHPort        int    `yaml:"ssh_port,omitempty" validate:"ssh_port:editable"`
+	Imported       bool   `yaml:"imported,omitempty"`
+	Patched        bool   `yaml:"patched,omitempty"`
+	IgnoreExporter bool   `yaml:"ignore_exporter,omitempty"`
 	// Use Name to get the name with a default value if it's empty.
 	Name            string                 `yaml:"name"`
 	ClientPort      int                    `yaml:"client_port" default:"18080"`
@@ -90,12 +90,12 @@ func (s *NginxSpec) GetMainPort() int {
 
 // IsImported returns if the node is imported from TiDB-Ansible
 func (s *NginxSpec) IsImported() bool {
-    return s.Imported
+	return s.Imported
 }
 
 // IgnoreMonitorAgent returns if the node does not have monitor agents available
 func (s *NginxSpec) IgnoreMonitorAgent() bool {
-    return s.IgnoreExporter
+	return s.IgnoreExporter
 }
 
 // NginxComponent represents PD component.
@@ -291,4 +291,3 @@ func (i *NginxInstance) ScaleConfig(
 	}
 	return nil
 }
-

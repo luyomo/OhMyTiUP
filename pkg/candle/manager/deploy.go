@@ -82,7 +82,6 @@ func (m *Manager) Deploy(
 	}
 
 	metadata := m.specManager.NewMetadata()
-	fmt.Printf("The meta data is %#v \n", metadata)
 	topo := metadata.GetTopology()
 
 	if err := spec.ParseTopologyYaml(topoFile, topo); err != nil {
@@ -180,7 +179,6 @@ func (m *Manager) Deploy(
 	uniqueHosts := make(map[string]hostInfo) // host -> ssh-port, os, arch
 	noAgentHosts := set.NewStringSet()
 	globalOptions := base.GlobalOptions
-    fmt.Printf("The global options are <%#v> \n", globalOptions)
 
 	// generate CA and client cert for TLS enabled cluster
 	var ca *crypto.CertificateAuthority
@@ -201,7 +199,6 @@ func (m *Manager) Deploy(
 		}
 	}
 
-    fmt.Printf("The unique hosts are <%#v> \n", uniqueHosts)
 	var iterErr error // error when itering over instances
 	iterErr = nil
 	topo.IterInstance(func(inst spec.Instance) {
@@ -216,7 +213,6 @@ func (m *Manager) Deploy(
 				return // skip the host to avoid issues
 			}
 
-            fmt.Printf("The ignore monitor agent is <%#v> \n", inst.IgnoreMonitorAgent())
 			// add the instance to ignore list if it marks itself as ignore_exporter
 			if inst.IgnoreMonitorAgent() {
 				noAgentHosts.Insert(inst.GetHost())
@@ -227,7 +223,6 @@ func (m *Manager) Deploy(
 				os:   inst.OS(),
 				arch: inst.Arch(),
 			}
-            fmt.Printf("The unique hosts here <%#v> \n", uniqueHosts)
 			var dirs []string
 			for _, dir := range []string{globalOptions.DeployDir, globalOptions.LogDir} {
 				if dir == "" {
@@ -235,12 +230,10 @@ func (m *Manager) Deploy(
 				}
 				dirs = append(dirs, spec.Abs(globalOptions.User, dir))
 			}
-            fmt.Printf("Preparing the dirs for each servers <%#v> \n", dirs)
 			// the default, relative path of data dir is under deploy dir
 			if strings.HasPrefix(globalOptions.DataDir, "/") {
 				dirs = append(dirs, globalOptions.DataDir)
 			}
-            fmt.Printf("After fixing dirs <%#v> \n", dirs)
 			t := task.NewBuilder().
 				RootSSH(
 					inst.GetHost(),
@@ -263,14 +256,12 @@ func (m *Manager) Deploy(
 				).
 				EnvInit(inst.GetHost(), globalOptions.User, globalOptions.Group, opt.SkipCreateUser || globalOptions.User == opt.User).
 				Mkdir(globalOptions.User, inst.GetHost(), dirs...).
+                GcloudCreateInstance(globalOptions.User, inst.GetHost()).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
 	})
 
-    fmt.Printf("The env init tasks are <%#v> \n", envInitTasks)
-
-    return nil
 
 	if iterErr != nil {
 		return iterErr
@@ -404,11 +395,12 @@ func (m *Manager) Deploy(
 	deployCompTasks = append(deployCompTasks, dpTasks...)
 
 	builder := task.NewBuilder().
-		Step("+ Generate SSH keys",
+		//Step("+ Generate SSH keys",
+		Step("+ Generate SSH keys *****************************",
 			task.NewBuilder().SSHKeyGen(m.specManager.Path(name, "ssh", "id_rsa")).Build()).
-		ParallelStep("+ Download TiDB components", false, downloadCompTasks...).
-		ParallelStep("+ Initialize target host environments", false, envInitTasks...).
-		ParallelStep("+ Copy files", false, deployCompTasks...)
+		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
+		//ParallelStep("+ Download TiDB components", false, downloadCompTasks...).
+		//ParallelStep("+ Copy files", false, deployCompTasks...)
 
 	if afterDeploy != nil {
 		afterDeploy(builder, topo)
@@ -423,6 +415,7 @@ func (m *Manager) Deploy(
 		}
 		return err
 	}
+    return nil
 
 	metadata.SetUser(globalOptions.User)
 	metadata.SetVersion(clusterVersion)

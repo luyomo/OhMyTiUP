@@ -476,3 +476,12 @@ func (b *Builder) BuildAsStep(prefix string) *StepDisplay {
 	inner := b.Build()
 	return newStepDisplay(prefix, inner)
 }
+
+// GcloudCreateInstance appends a GcloudCreateInstance task to the current task collection
+func (b *Builder) GcloudCreateInstance(user, host string) *Builder {
+	b.tasks = append(b.tasks, &GcloudCreateInstance{
+		user: user,
+		host: host,
+	})
+	return b
+}
