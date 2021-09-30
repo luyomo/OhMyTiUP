@@ -27,8 +27,6 @@ import (
 	"github.com/luyomo/tisample/pkg/version"
 	"github.com/prometheus/common/expfmt"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
-
-    "runtime/debug"
 )
 
 var tidbSpec *SpecManager
@@ -70,7 +68,6 @@ func (m *ClusterMeta) GetTopology() Topology {
 
 // SetTopology implement Metadata interface.
 func (m *ClusterMeta) SetTopology(topo Topology) {
-    debug.PrintStack()
 	tidbTopo, ok := topo.(*Specification)
 	if !ok {
 		panic(fmt.Sprintln("wrong type: ", reflect.TypeOf(topo)))

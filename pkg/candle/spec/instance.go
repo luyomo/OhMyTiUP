@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/candle/ctxt"
 	"github.com/luyomo/tisample/pkg/candle/module"
 	system "github.com/luyomo/tisample/pkg/candle/template/systemd"
+	"github.com/luyomo/tisample/pkg/checkpoint"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/pingcap/errors"
 	"go.uber.org/zap"
@@ -54,7 +54,7 @@ const (
 	ComponentBlackboxExporter = "blackbox_exporter"
 	ComponentNodeExporter     = "node_exporter"
 	ComponentCheckCollector   = "insight"
-    ComponentNginx            = "nginx"
+	ComponentNginx            = "nginx"
 )
 
 var (

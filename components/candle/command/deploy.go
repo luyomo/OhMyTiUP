@@ -14,16 +14,16 @@
 package command
 
 import (
-	"context"
+	//"context"
 	"fmt"
 	"os"
 	"path"
 
 	"github.com/luyomo/tisample/pkg/candle/manager"
-	operator "github.com/luyomo/tisample/pkg/candle/operation"
+	//operator "github.com/luyomo/tisample/pkg/candle/operation"
 	"github.com/luyomo/tisample/pkg/candle/spec"
 	"github.com/luyomo/tisample/pkg/candle/task"
-	"github.com/luyomo/tisample/pkg/telemetry"
+	//"github.com/luyomo/tisample/pkg/telemetry"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/spf13/cobra"
@@ -84,21 +84,21 @@ func newDeploy() *cobra.Command {
 }
 
 func postDeployHook(builder *task.Builder, topo spec.Topology) {
-	nodeInfoTask := task.NewBuilder().Func("Check status", func(ctx context.Context) error {
-		var err error
-		teleNodeInfos, err = operator.GetNodeInfo(ctx, topo)
-		_ = err
-		// intend to never return error
-		return nil
-	}).BuildAsStep("Check status").SetHidden(true)
+	//nodeInfoTask := task.NewBuilder().Func("Check status", func(ctx context.Context) error {
+	//	var err error
+	//	teleNodeInfos, err = operator.GetNodeInfo(ctx, topo)
+	//	_ = err
+	//	// intend to never return error
+	//	return nil
+	//}).BuildAsStep("Check status").SetHidden(true)
 
-	if telemetry.Enabled() {
-		builder.ParallelStep("+ Check status", false, nodeInfoTask)
-	}
+	//if telemetry.Enabled() {
+	//	builder.ParallelStep("+ Check status", false, nodeInfoTask)
+	//}
 
-	enableTask := task.NewBuilder().Func("Setting service auto start on boot", func(ctx context.Context) error {
-		return operator.Enable(ctx, topo, operator.Options{}, true)
-	}).BuildAsStep("Enable service").SetHidden(true)
+	//enableTask := task.NewBuilder().Func("Setting service auto start on boot", func(ctx context.Context) error {
+	//	return operator.Enable(ctx, topo, operator.Options{}, true)
+	//}).BuildAsStep("Enable service").SetHidden(true)
 
-	builder.Parallel(false, enableTask)
+	//builder.Parallel(false, enableTask)
 }

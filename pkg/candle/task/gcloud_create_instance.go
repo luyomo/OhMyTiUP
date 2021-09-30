@@ -16,10 +16,13 @@ package task
 import (
 	"context"
 	"fmt"
+    "regexp"
 
+    //"strings"
 	"github.com/luyomo/tisample/pkg/candle/ctxt"
+	"github.com/luyomo/tisample/pkg/candle/executor"
 	"github.com/pingcap/errors"
-    "github.com/luyomo/tisample/pkg/candle/executor"
+    "github.com/luyomo/tisample/pkg/logger/log"
 )
 
 // Mkdir is used to create directory on the target host
@@ -28,39 +31,33 @@ type GcloudCreateInstance struct {
 	host string
 }
 
-
 // Execute implements the Task interface
 func (r *GcloudCreateInstance) Execute(ctx context.Context) error {
-    fmt.Println("\n------------------------------------------------")
-    local, testErr := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: r.user})
-    if testErr != nil {
-        return errors.Trace(testErr)
-    }
-    testA, testB, testErr := local.Execute(ctx, "ls .", false)
-    fmt.Printf("\n--------------------------------- ++++++++++  The result is < %#v > and < %#v > \n", string(testA), testB)
+    fmt.Printf("****** ****** The user is <%s> \n\n\n", r.user)
+	local, testErr := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: r.user})
+	if testErr != nil {
+		return errors.Trace(testErr)
+	}
+	testctx := ctxt.New(context.Background(), 0)
+	testA, testB, testErr := local.Execute(testctx, "/opt/google-cloud-sdk/bin/gcloud compute instances create instance-1 --machine-type=n1-standard-1 --zone=asia-northeast3-b --preemptible --no-restart-on-failure --maintenance-policy=terminate", false)
+    fmt.Println(string(testB))
+    re := regexp.MustCompile(`\r?\n`)
+    testStrA := string(testA)
+    testStrA = re.ReplaceAllString(testStrA, " ") 
+    log.Infof("This is the test messge to log file")
+    fmt.Printf("***** ***** < %s > \n\n\n", testStrA)
 
-    exec, found := ctxt.GetInner(ctx).GetExecutor(r.host)
-    if !found {
-        return ErrNoExecutor
-    }
+	//// gcloud compute instances create instance-1 --machine-type=n1-standard-1 --zone=asia-northeast3-b --preemptible --no-restart-on-failure --maintenance-policy=terminate
 
-    // gcloud compute instances create instance-1 --machine-type=n1-standard-1 --zone=asia-northeast3-b --preemptible --no-restart-on-failure --maintenance-policy=terminate
-    cmd := fmt.Sprintf(`echo "test" > %s`, "/tmp/gcloud.txt")
-    _, _, err := exec.Execute(ctx, cmd, false)
-    if err != nil {
-        return errors.Trace(err)
-    }
-
-    return nil
+	return nil
 }
 
 // Rollback implements the Task interface
 func (r *GcloudCreateInstance) Rollback(ctx context.Context) error {
-    return ErrUnsupportedRollback
+	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
 func (r *GcloudCreateInstance) String() string {
-    return fmt.Sprintf("Echo: host=%s ", r.host )
+	return fmt.Sprintf("Echo: host=%s ", r.host)
 }
-

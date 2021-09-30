@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
+	//	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -30,10 +30,10 @@ import (
 	"github.com/luyomo/tisample/pkg/candle/spec"
 	"github.com/luyomo/tisample/pkg/candle/task"
 	"github.com/luyomo/tisample/pkg/crypto"
-	"github.com/luyomo/tisample/pkg/environment"
+	//	"github.com/luyomo/tisample/pkg/environment"
 	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/meta"
-	"github.com/luyomo/tisample/pkg/repository"
+	//	"github.com/luyomo/tisample/pkg/meta"
+	//	"github.com/luyomo/tisample/pkg/repository"
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
@@ -170,9 +170,9 @@ func (m *Manager) Deploy(
 	}
 
 	var (
-		envInitTasks      []*task.StepDisplay // tasks which are used to initialize environment
-		downloadCompTasks []*task.StepDisplay // tasks which are used to download components
-		deployCompTasks   []*task.StepDisplay // tasks which are used to copy components to remote host
+		envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
+		//downloadCompTasks []*task.StepDisplay // tasks which are used to download components
+		//deployCompTasks   []*task.StepDisplay // tasks which are used to copy components to remote host
 	)
 
 	// Initialize environment
@@ -235,169 +235,168 @@ func (m *Manager) Deploy(
 				dirs = append(dirs, globalOptions.DataDir)
 			}
 			t := task.NewBuilder().
-				RootSSH(
-					inst.GetHost(),
-					inst.GetSSHPort(),
-					opt.User,
-					sshConnProps.Password,
-					sshConnProps.IdentityFile,
-					sshConnProps.IdentityFilePassphrase,
-					gOpt.SSHTimeout,
-					gOpt.OptTimeout,
-					gOpt.SSHProxyHost,
-					gOpt.SSHProxyPort,
-					gOpt.SSHProxyUser,
-					sshProxyProps.Password,
-					sshProxyProps.IdentityFile,
-					sshProxyProps.IdentityFilePassphrase,
-					gOpt.SSHProxyTimeout,
-					gOpt.SSHType,
-					globalOptions.SSHType,
-				).
-				EnvInit(inst.GetHost(), globalOptions.User, globalOptions.Group, opt.SkipCreateUser || globalOptions.User == opt.User).
-				Mkdir(globalOptions.User, inst.GetHost(), dirs...).
-                GcloudCreateInstance(globalOptions.User, inst.GetHost()).
+				//RootSSH(
+				//	inst.GetHost(),
+				//	inst.GetSSHPort(),
+				//	opt.User,
+				//	sshConnProps.Password,
+				//	sshConnProps.IdentityFile,
+				//	sshConnProps.IdentityFilePassphrase,
+				//	gOpt.SSHTimeout,
+				//	gOpt.OptTimeout,
+				//	gOpt.SSHProxyHost,
+				//	gOpt.SSHProxyPort,
+				//	gOpt.SSHProxyUser,
+				//	sshProxyProps.Password,
+				//	sshProxyProps.IdentityFile,
+				//	sshProxyProps.IdentityFilePassphrase,
+				//	gOpt.SSHProxyTimeout,
+				//	gOpt.SSHType,
+				//	globalOptions.SSHType,
+				//).
+				//EnvInit(inst.GetHost(), globalOptions.User, globalOptions.Group, opt.SkipCreateUser || globalOptions.User == opt.User).
+				//Mkdir(globalOptions.User, inst.GetHost(), dirs...).
+				GcloudCreateInstance(globalOptions.User, inst.GetHost()).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
 	})
 
-
 	if iterErr != nil {
 		return iterErr
 	}
 
-	// Download missing component
-	downloadCompTasks = buildDownloadCompTasks(clusterVersion, topo, m.bindVersion)
+	//// Download missing component
+	//downloadCompTasks = buildDownloadCompTasks(clusterVersion, topo, m.bindVersion)
 
-	// Deploy components to remote
-	topo.IterInstance(func(inst spec.Instance) {
-		version := m.bindVersion(inst.ComponentName(), clusterVersion)
-		deployDir := spec.Abs(globalOptions.User, inst.DeployDir())
-		// data dir would be empty for components which don't need it
-		dataDirs := spec.MultiDirAbs(globalOptions.User, inst.DataDir())
-		// log dir will always be with values, but might not used by the component
-		logDir := spec.Abs(globalOptions.User, inst.LogDir())
-		// Deploy component
-		// prepare deployment server
-		deployDirs := []string{
-			deployDir, logDir,
-			filepath.Join(deployDir, "bin"),
-			filepath.Join(deployDir, "conf"),
-			filepath.Join(deployDir, "scripts"),
-		}
-		if globalOptions.TLSEnabled {
-			deployDirs = append(deployDirs, filepath.Join(deployDir, "tls"))
-		}
-		t := task.NewBuilder().
-			UserSSH(
-				inst.GetHost(),
-				inst.GetSSHPort(),
-				globalOptions.User,
-				gOpt.SSHTimeout,
-				gOpt.OptTimeout,
-				gOpt.SSHProxyHost,
-				gOpt.SSHProxyPort,
-				gOpt.SSHProxyUser,
-				sshProxyProps.Password,
-				sshProxyProps.IdentityFile,
-				sshProxyProps.IdentityFilePassphrase,
-				gOpt.SSHProxyTimeout,
-				gOpt.SSHType,
-				globalOptions.SSHType,
-			).
-			Mkdir(globalOptions.User, inst.GetHost(), deployDirs...).
-			Mkdir(globalOptions.User, inst.GetHost(), dataDirs...)
+	//// Deploy components to remote
+	//topo.IterInstance(func(inst spec.Instance) {
+	//	version := m.bindVersion(inst.ComponentName(), clusterVersion)
+	//	deployDir := spec.Abs(globalOptions.User, inst.DeployDir())
+	//	// data dir would be empty for components which don't need it
+	//	dataDirs := spec.MultiDirAbs(globalOptions.User, inst.DataDir())
+	//	// log dir will always be with values, but might not used by the component
+	//	logDir := spec.Abs(globalOptions.User, inst.LogDir())
+	//	// Deploy component
+	//	// prepare deployment server
+	//	deployDirs := []string{
+	//		deployDir, logDir,
+	//		filepath.Join(deployDir, "bin"),
+	//		filepath.Join(deployDir, "conf"),
+	//		filepath.Join(deployDir, "scripts"),
+	//	}
+	//	if globalOptions.TLSEnabled {
+	//		deployDirs = append(deployDirs, filepath.Join(deployDir, "tls"))
+	//	}
+	//	t := task.NewBuilder().
+	//		UserSSH(
+	//			inst.GetHost(),
+	//			inst.GetSSHPort(),
+	//			globalOptions.User,
+	//			gOpt.SSHTimeout,
+	//			gOpt.OptTimeout,
+	//			gOpt.SSHProxyHost,
+	//			gOpt.SSHProxyPort,
+	//			gOpt.SSHProxyUser,
+	//			sshProxyProps.Password,
+	//			sshProxyProps.IdentityFile,
+	//			sshProxyProps.IdentityFilePassphrase,
+	//			gOpt.SSHProxyTimeout,
+	//			gOpt.SSHType,
+	//			globalOptions.SSHType,
+	//		).
+	//		Mkdir(globalOptions.User, inst.GetHost(), deployDirs...).
+	//		Mkdir(globalOptions.User, inst.GetHost(), dataDirs...)
 
-		if deployerInstance, ok := inst.(DeployerInstance); ok {
-			deployerInstance.Deploy(t, "", deployDir, version, name, clusterVersion)
-		} else {
-			// copy dependency component if needed
-			switch inst.ComponentName() {
-			case spec.ComponentTiSpark:
-				env := environment.GlobalEnv()
-				var sparkVer utils.Version
-				if sparkVer, _, iterErr = env.V1Repository().WithOptions(repository.Options{
-					GOOS:   inst.OS(),
-					GOARCH: inst.Arch(),
-				}).LatestStableVersion(spec.ComponentSpark, false); iterErr != nil {
-					return
-				}
-				t = t.DeploySpark(inst, sparkVer.String(), "" /* default srcPath */, deployDir)
-			default:
-				t = t.CopyComponent(
-					inst.ComponentName(),
-					inst.OS(),
-					inst.Arch(),
-					version,
-					"", // use default srcPath
-					inst.GetHost(),
-					deployDir,
-				)
-			}
-		}
+	//	if deployerInstance, ok := inst.(DeployerInstance); ok {
+	//		deployerInstance.Deploy(t, "", deployDir, version, name, clusterVersion)
+	//	} else {
+	//		// copy dependency component if needed
+	//		switch inst.ComponentName() {
+	//		case spec.ComponentTiSpark:
+	//			env := environment.GlobalEnv()
+	//			var sparkVer utils.Version
+	//			if sparkVer, _, iterErr = env.V1Repository().WithOptions(repository.Options{
+	//				GOOS:   inst.OS(),
+	//				GOARCH: inst.Arch(),
+	//			}).LatestStableVersion(spec.ComponentSpark, false); iterErr != nil {
+	//				return
+	//			}
+	//			t = t.DeploySpark(inst, sparkVer.String(), "" /* default srcPath */, deployDir)
+	//		default:
+	//			t = t.CopyComponent(
+	//				inst.ComponentName(),
+	//				inst.OS(),
+	//				inst.Arch(),
+	//				version,
+	//				"", // use default srcPath
+	//				inst.GetHost(),
+	//				deployDir,
+	//			)
+	//		}
+	//	}
 
-		// generate and transfer tls cert for instance
-		if globalOptions.TLSEnabled {
-			t = t.TLSCert(
-				inst.GetHost(),
-				inst.ComponentName(),
-				inst.Role(),
-				inst.GetMainPort(),
-				ca,
-				meta.DirPaths{
-					Deploy: deployDir,
-					Cache:  m.specManager.Path(name, spec.TempConfigPath),
-				})
-		}
+	//	// generate and transfer tls cert for instance
+	//	if globalOptions.TLSEnabled {
+	//		t = t.TLSCert(
+	//			inst.GetHost(),
+	//			inst.ComponentName(),
+	//			inst.Role(),
+	//			inst.GetMainPort(),
+	//			ca,
+	//			meta.DirPaths{
+	//				Deploy: deployDir,
+	//				Cache:  m.specManager.Path(name, spec.TempConfigPath),
+	//			})
+	//	}
 
-		// generate configs for the component
-		t = t.InitConfig(
-			name,
-			clusterVersion,
-			m.specManager,
-			inst,
-			globalOptions.User,
-			opt.IgnoreConfigCheck,
-			meta.DirPaths{
-				Deploy: deployDir,
-				Data:   dataDirs,
-				Log:    logDir,
-				Cache:  m.specManager.Path(name, spec.TempConfigPath),
-			},
-		)
+	//	// generate configs for the component
+	//	t = t.InitConfig(
+	//		name,
+	//		clusterVersion,
+	//		m.specManager,
+	//		inst,
+	//		globalOptions.User,
+	//		opt.IgnoreConfigCheck,
+	//		meta.DirPaths{
+	//			Deploy: deployDir,
+	//			Data:   dataDirs,
+	//			Log:    logDir,
+	//			Cache:  m.specManager.Path(name, spec.TempConfigPath),
+	//		},
+	//	)
 
-		deployCompTasks = append(deployCompTasks,
-			t.BuildAsStep(fmt.Sprintf("  - Copy %s -> %s", inst.ComponentName(), inst.GetHost())),
-		)
-	})
+	//	deployCompTasks = append(deployCompTasks,
+	//		t.BuildAsStep(fmt.Sprintf("  - Copy %s -> %s", inst.ComponentName(), inst.GetHost())),
+	//	)
+	//})
 
-	if iterErr != nil {
-		return iterErr
-	}
+	//if iterErr != nil {
+	//	return iterErr
+	//}
 
-	// Deploy monitor relevant components to remote
-	dlTasks, dpTasks, err := buildMonitoredDeployTask(
-		m,
-		name,
-		uniqueHosts,
-		noAgentHosts,
-		globalOptions,
-		topo.GetMonitoredOptions(),
-		clusterVersion,
-		gOpt,
-		sshProxyProps,
-	)
-	if err != nil {
-		return err
-	}
-	downloadCompTasks = append(downloadCompTasks, dlTasks...)
-	deployCompTasks = append(deployCompTasks, dpTasks...)
+	//// Deploy monitor relevant components to remote
+	//dlTasks, dpTasks, err := buildMonitoredDeployTask(
+	//	m,
+	//	name,
+	//	uniqueHosts,
+	//	noAgentHosts,
+	//	globalOptions,
+	//	topo.GetMonitoredOptions(),
+	//	clusterVersion,
+	//	gOpt,
+	//	sshProxyProps,
+	//)
+	//if err != nil {
+	//	return err
+	//}
+	//downloadCompTasks = append(downloadCompTasks, dlTasks...)
+	//deployCompTasks = append(deployCompTasks, dpTasks...)
 
 	builder := task.NewBuilder().
 		//Step("+ Generate SSH keys",
-		Step("+ Generate SSH keys *****************************",
-			task.NewBuilder().SSHKeyGen(m.specManager.Path(name, "ssh", "id_rsa")).Build()).
+		//Step("+ Generate SSH keys *****************************",
+		//	task.NewBuilder().SSHKeyGen(m.specManager.Path(name, "ssh", "id_rsa")).Build()).
 		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
 		//ParallelStep("+ Download TiDB components", false, downloadCompTasks...).
 		//ParallelStep("+ Copy files", false, deployCompTasks...)
@@ -415,7 +414,7 @@ func (m *Manager) Deploy(
 		}
 		return err
 	}
-    return nil
+	return nil
 
 	metadata.SetUser(globalOptions.User)
 	metadata.SetVersion(clusterVersion)
