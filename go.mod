@@ -8,6 +8,7 @@ replace (
 )
 
 require (
+	cloud.google.com/go v0.97.0
 	github.com/AstroProfundis/sysinfo v0.0.0-20210610033012-3aad056e509d
 	github.com/AstroProfundis/tabby v1.1.1-color
 	github.com/BurntSushi/toml v0.4.1
@@ -68,11 +69,12 @@ require (
 	golang.org/x/mod v0.4.2
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
+	golang.org/x/sys v0.0.0-20210908233432-aa78b53d3365
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b
+	google.golang.org/api v0.57.0
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84
-	google.golang.org/grpc v1.38.0
+	google.golang.org/genproto v0.0.0-20210930144712-2e2e1008e8a3
+	google.golang.org/grpc v1.40.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/ini.v1 v1.62.0
 	gopkg.in/yaml.v2 v2.4.0
