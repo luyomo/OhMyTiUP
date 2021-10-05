@@ -1,0 +1,122 @@
+* One command to deploy tidb on the GKE
+gcloud container clusters create tidb-gke --region asia-northeast1 --machine-type n1-standard-4 --num-nodes=1
+
+gcloud container node-pools create pd   --cluster tidb-gke --region asia-northeast1 --machine-type n1-standard-4 --num-nodes=1 --node-labels=dedicated=pd   --node-taints=dedicated=pd:NoSchedule
+gcloud container node-pools create tikv --cluster tidb-gke --region asia-northeast1 --machine-type n1-standard-4 --num-nodes=1 --node-labels=dedicated=tikv --node-taints=dedicated=tikv:NoSchedule
+gcloud container node-pools create tidb --cluster tidb-gke --region asia-northeast1 --machine-type n1-standard-8 --num-nodes=1 --node-labels=dedicated=tidb --node-taints=dedicated=tidb:NoSchedule
+
+//gcloud container node-pools create tikv --cluster tidb-gke --machine-type n1-highmem-8 --num-nodes=1 --node-labels=dedicated=tikv --node-taints=dedicated=tikv:NoSchedule
+
+$ curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+$ chmod 700 get_helm.sh
+$ ./get_helm.sh
+
+$ kubectl apply -f https://raw.githubusercontent.com/pingcap/tidb-operator/master/manifests/crd.yaml
+Warning: apiextensions.k8s.io/v1beta1 CustomResourceDefinition is deprecated in v1.16+, unavailable in v1.22+; use apiextensions.k8s.io/v1 CustomResourceDefinition
+customresourcedefinition.apiextensions.k8s.io/tidbclusters.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/dmclusters.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/backups.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/restores.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/backupschedules.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbmonitors.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbinitializers.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbclusterautoscalers.pingcap.com created
+
+$ helm repo add pingcap https://charts.pingcap.org/
+"pingcap" has been added to your repositories
+
+$ kubectl create namespace tidb-admin
+namespace/tidb-admin created
+
+$ helm install --namespace tidb-admin tidb-operator pingcap/tidb-operator --version v1.2.3
+NAME: tidb-operator
+LAST DEPLOYED: Mon Oct  4 02:39:56 2021
+NAMESPACE: tidb-admin
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Make sure tidb-operator components are running:
+
+    kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
+
+$ kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
+NAME                                       READY   STATUS    RESTARTS   AGE
+tidb-controller-manager-6cd9ff6967-496mn   1/1     Running   0          31s
+tidb-scheduler-6594bcbbd6-p9b8d            2/2     Running   0          31s
+
+$ kubectl create namespace tidb-cluster
+namespace/tidb-cluster created
+
+$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/gcp/tidb-cluster.yaml
+$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/gcp/tidb-monitor.yaml
+
+$ kubectl create -f tidb-cluster.yaml -n tidb-cluster
+tidbcluster.pingcap.com/basic created
+
+$ kubectl get pods -n tidb-cluster 
+NAME                               READY   STATUS    RESTARTS   AGE
+basic-discovery-5d6c5c49b9-vh8m8   1/1     Running   0          2m19s
+basic-pd-0                         1/1     Running   0          2m19s
+basic-pd-1                         1/1     Running   1          2m19s
+basic-pd-2                         1/1     Running   0          2m19s
+basic-tidb-0                       2/2     Running   0          34s
+basic-tidb-1                       2/2     Running   0          34s
+basic-tikv-0                       1/1     Running   0          104s
+basic-tikv-1                       1/1     Running   0          104s
+basic-tikv-2                       1/1     Running   0          104s
+
+$ kubectl create -f tidb-monitor.yaml -n tidb-cluster
+$ kubectl get pods -n tidb-cluster 
+NAME                               READY   STATUS    RESTARTS   AGE
+basic-discovery-5d6c5c49b9-vh8m8   1/1     Running   0          3m43s
+basic-monitor-0                    3/3     Running   0          62s
+basic-pd-0                         1/1     Running   0          3m43s
+basic-pd-1                         1/1     Running   1          3m43s
+basic-pd-2                         1/1     Running   0          3m43s
+basic-tidb-0                       2/2     Running   0          118s
+basic-tidb-1                       2/2     Running   0          118s
+basic-tikv-0                       1/1     Running   0          3m8s
+basic-tikv-1                       1/1     Running   0          3m8s
+basic-tikv-2                       1/1     Running   0          3m8s
+
+$kubectl -n tidb-cluster get svc basic-grafana
+NAME            TYPE           CLUSTER-IP   EXTERNAL-IP      PORT(S)          AGE
+basic-grafana   LoadBalancer   10.3.244.6   34.146.186.240   3000:30337/TCP   2m12s
+
+
+$gcloud container node-pools create tiflash --cluster tidb-gke --region asia-northeast1 --machine-type n1-standard-8 --num-nodes=1 --node-labels dedicated=tiflash --node-taints dedicated=tiflash:NoSchedule
+
+$kubectl edit tc tidb-gke -n tidb-cluster
+  tiflash:
+    baseImage: pingcap/tiflash
+    replicas: 1
+    storageClaims:
+    - resources:
+        requests:
+          storage: 100Gi
+    nodeSelector:
+      dedicated: tiflash
+    tolerations:
+    - effect: NoSchedule
+      key: dedicated
+      operator: Equal
+      value: tiflash
+
+
+curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh
+
+$tiup bench tpch --sf=1 prepare -H 10.146.0.61 -P 4000 -U root -D test
+
+
+$ tiup bench tpch --sf=1 run --queries=22 -H 10.146.0.61 -P 4000 -U root -D test
+
+
+alter table customer set tiflash replica 2;
+alter table lineitem set tiflash replica 2;
+alter table nation   set tiflash replica 2;
+alter table orders   set tiflash replica 2;
+alter table part     set tiflash replica 2;
+alter table partsupp set tiflash replica 2;
+alter table region   set tiflash replica 2;
+alter table supplier set tiflash replica 2;

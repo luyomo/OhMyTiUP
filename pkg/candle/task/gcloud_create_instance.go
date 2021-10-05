@@ -58,7 +58,36 @@ func (r *GcloudCreateInstance) Execute(ctx context.Context) error {
 	//// gcloud compute instances create instance-1 --machine-type=n1-standard-1 --zone=asia-northeast3-b --preemptible --no-restart-on-failure --maintenance-policy=terminate
 
     gcloudctx := context.Background()
- 
+
+    c, err := compute.NewZonesRESTClient(gcloudctx, option.WithCredentialsFile("/etc/gcp/sales-demo.json"))
+	if err != nil {
+		// TODO: Handle error.
+	}
+	defer c.Close()
+
+	zoneReq := &computepb.ListZonesRequest{
+        Project: "sales-demo-321300",
+		// TODO: Fill request struct fields.
+		// See https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/compute/v1#ListZonesRequest.
+	}
+	zoneit := c.List(gcloudctx, zoneReq)
+	for {
+		resp, err := zoneit.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			// TODO: Handle error.
+		}
+		// TODO: Use resp.
+        fmt.Printf("The zone is <%#v>\n\n\n", *resp )
+        fmt.Printf("The Region is <%#v>\n\n\n", *(*resp).Region )
+        fmt.Printf("The kind is <%#v>\n\n\n", *(*resp).Region )
+        if *(*resp).Region == "asia-northeast1" {
+            fmt.Printf("The zone is <%s>\n\n\n", *(*resp).Name )
+        }
+	}
+
     instancesClient, err := compute.NewInstancesRESTClient(gcloudctx, option.WithCredentialsFile("/etc/gcp/sales-demo.json"))
     if err != nil {
         fmt.Printf("NewInstancesRESTClient: %v", err)

@@ -1,0 +1,21 @@
+* online use case 01
+The transactions which started before the table layout change will fail.
+
+[[./png/online_use_case_01.png]]
+#+BEGIN_COMMENT
+#+BEGIN_SRC plantuml :file ./png/online_use_case_01.png
+transaction1 -> transaction1: begin
+transaction1 -> transaction1: insert
+transaction2 -> transaction2: add column
+transaction1 -> transaction1: error
+#+END_SRC
+#+END_COMMENT
+
+#+attr_html: :width 600px
+#+attr_latex: :width 600px
+[[file:./gif/online_ddl_test01.gif]]
+
+* online use case 02
+#+attr_html: :width 600px
+#+attr_latex: :width 600px
+[[file:./gif/online_ddl_test02.gif]]
