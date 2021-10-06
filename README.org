@@ -120,3 +120,14 @@ alter table part     set tiflash replica 2;
 alter table partsupp set tiflash replica 2;
 alter table region   set tiflash replica 2;
 alter table supplier set tiflash replica 2;
+
+
+alter table customer set tiflash replica 0;
+alter table lineitem set tiflash replica 0;
+alter table nation   set tiflash replica 0;
+alter table orders   set tiflash replica 0;
+alter table part     set tiflash replica 0;
+alter table partsupp set tiflash replica 0;
+alter table region   set tiflash replica 0;
+alter table supplier set tiflash replica 0;
+

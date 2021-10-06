@@ -1,3 +1,4 @@
+#+OPTIONS: ^:nil
 * online use case 01
 The transactions which started before the table layout change will fail.
 
@@ -7,7 +8,7 @@ The transactions which started before the table layout change will fail.
 transaction1 -> transaction1: begin
 transaction1 -> transaction1: insert
 transaction2 -> transaction2: add column
-transaction1 -> transaction1: error
+transaction1 ->x transaction1: commit
 #+END_SRC
 #+END_COMMENT
 
@@ -16,6 +17,23 @@ transaction1 -> transaction1: error
 [[file:./gif/online_ddl_test01.gif]]
 
 * online use case 02
+  + Test result
+#+CAPTION: Test result
+#+ATTR_HTML: :border 2 :rules all :frame border :align center
+  | Table Name             | Count | Size  | Action        | Time      |
+  |------------------------+-------+-------+---------------+-----------|
+  | online_ddl_performance | 500k  | 965MB | add column    | 1 Second  |
+  | online_ddl_performance | 500k  | 965MB | modify column | 36 Second |
+  + Test Environment - GKE
+#+CAPTION: GKE component server spec
+#+ATTR_HTML: border 2 :rules all :frame border :align center
+  | Component Name | Instance Name | # of Nodes |
+  |----------------+---------------+------------|
+  | pd             | n1-standard-4 |          3 |
+  | TiDB           | n1-standard-4 |          2 |
+  | TiKV           | n1-standard-8 |          3 |
+  | TiFlash        | n1-standard-8 |          3 |
+
 #+attr_html: :width 600px
 #+attr_latex: :width 600px
 [[file:./gif/online_ddl_test02.gif]]
