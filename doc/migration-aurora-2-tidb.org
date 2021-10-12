@@ -1,0 +1,832 @@
+* Aurora preparation
+** Network preparation
+*** VPC preparation
+   #+BEGIN_SRC
+ $ aws ec2 create-vpc --cidr-block 172.10.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=aurora2tidb}]'
+{
+    "Vpc": {
+        "CidrBlock": "172.10.0.0/16",
+        "DhcpOptionsId": "dopt-d74aa6b0",
+        "State": "pending",
+        "VpcId": "vpc-091c204687ddca980",
+        "OwnerId": "385595570414",
+        "InstanceTenancy": "default",
+        "Ipv6CidrBlockAssociationSet": [],
+        "CidrBlockAssociationSet": [
+            {
+                "AssociationId": "vpc-cidr-assoc-0c530e2338d0e6525",
+                "CidrBlock": "172.10.0.0/16",
+                "CidrBlockState": {
+                    "State": "associated"
+                }
+            }
+        ],
+        "IsDefault": false,
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "aurora2tidb"
+            }
+        ]
+    }
+}
+
+   #+END_SRC
+*** VPC subnets preparation
+#+BEGIN_SRC
+$ aws ec2 create-subnet --cidr-block 172.10.10.0/24 --vpc-id vpc-091c204687ddca980 --availability-zone=ap-northeast-1a --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb},{Key=id,Value=1}]'
+{
+    "Subnet": {
+        "AvailabilityZone": "ap-northeast-1a",
+        "AvailabilityZoneId": "apne1-az4",
+        "AvailableIpAddressCount": 251,
+        "CidrBlock": "172.10.10.0/24",
+        "DefaultForAz": false,
+        "MapPublicIpOnLaunch": false,
+        "State": "available",
+        "SubnetId": "subnet-00598c0b1cd32b5a2",
+        "VpcId": "vpc-091c204687ddca980",
+        "OwnerId": "385595570414",
+        "AssignIpv6AddressOnCreation": false,
+        "Ipv6CidrBlockAssociationSet": [],
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "aurora2tidb"
+            },
+            {
+                "Key": "id",
+                "Value": "1"
+            }
+        ],
+        "SubnetArn": "arn:aws:ec2:ap-northeast-1:385595570414:subnet/subnet-00598c0b1cd32b5a2"
+    }
+}
+#+END_SRC
+
+*** Create the route table
+   #+BEGIN_SRC
+$ aws ec2 create-route-table --vpc-id vpc-091c204687ddca980 --tag-specification 'ResourceType=route-table,Tags=[{Key=Name,Value=aurora2tidb}]'
+{
+    "RouteTable": {
+        "Associations": [],
+        "PropagatingVgws": [],
+        "RouteTableId": "rtb-088d43baf496c5485",
+        "Routes": [
+            {
+                "DestinationCidrBlock": "172.10.0.0/16",
+                "GatewayId": "local",
+                "Origin": "CreateRouteTable",
+                "State": "active"
+            }
+        ],
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "aurora2tidb"
+            }
+        ],
+        "VpcId": "vpc-091c204687ddca980",
+        "OwnerId": "385595570414"
+    }
+}
+   #+END_SRC
+
+*** Associate the subnets to route table
+ #+BEGIN_SRC
+$ aws ec2 associate-route-table --route-table-id rtb-088d43baf496c5485 --subnet-id subnet-00598c0b1cd32b5a2
+{
+    "AssociationId": "rtbassoc-0e6df90cd968497ec",
+    "AssociationState": {
+        "State": "associated"
+    }
+}
+$ aws ec2 associate-route-table --route-table-id rtb-088d43baf496c5485 --subnet-id subnet-067ce865fce56058b
+{
+    "AssociationId": "rtbassoc-06622f28cfc4868f9",
+    "AssociationState": {
+        "State": "associated"
+    }
+}
+$ aws ec2 associate-route-table --route-table-id rtb-088d43baf496c5485 --subnet-id subnet-0e23f3f8320d73682
+{
+    "AssociationId": "rtbassoc-0a4ddea7364500ddb",
+    "AssociationState": {
+        "State": "associated"
+    }
+}
+ #+END_SRC
+
+
+*** create the security group for vpc-id
+ #+BEGIN_SRC
+ $ aws ec2 create-security-group --group-name aurora2tidb --description "aurora 2 tidb migration PoC" --vpc-id vpc-091c204687ddca980 --tag-specification 'ResourceType=security-group,Tags=[{Key=Name,Value=aurora2tidb}]'
+{
+    "GroupId": "sg-0dab38ad7711fe808",
+    "Tags": [
+        {
+            "Key": "Name",
+            "Value": "aurora2tidb"
+        }
+    ]
+}
+ #+END_SRC
+
+** DB preparation
+*** create db subnet group
+#+BEGIN_SRC
+$ aws rds create-db-subnet-group \
+    --db-subnet-group-name aurora2tidb \
+    --db-subnet-group-description "migration from aurora to tidb" \
+    --subnet-ids '["subnet-00598c0b1cd32b5a2","subnet-067ce865fce56058b","subnet-0e23f3f8320d73682"]'
+{
+    "DBSubnetGroup": {
+        "DBSubnetGroupName": "aurora2tidb",
+        "DBSubnetGroupDescription": "migration from aurora to tidb",
+        "VpcId": "vpc-091c204687ddca980",
+        "SubnetGroupStatus": "Complete",
+        "Subnets": [
+            {
+                "SubnetIdentifier": "subnet-00598c0b1cd32b5a2",
+                "SubnetAvailabilityZone": {
+                    "Name": "ap-northeast-1a"
+                },
+                "SubnetOutpost": {},
+                "SubnetStatus": "Active"
+            },
+            {
+                "SubnetIdentifier": "subnet-0e23f3f8320d73682",
+                "SubnetAvailabilityZone": {
+                    "Name": "ap-northeast-1c"
+                },
+                "SubnetOutpost": {},
+                "SubnetStatus": "Active"
+            },
+            {
+                "SubnetIdentifier": "subnet-067ce865fce56058b",
+                "SubnetAvailabilityZone": {
+                    "Name": "ap-northeast-1d"
+                },
+                "SubnetOutpost": {},
+                "SubnetStatus": "Active"
+            }
+        ],
+        "DBSubnetGroupArn": "arn:aws:rds:ap-northeast-1:385595570414:subgrp:aurora2tidb"
+    }
+}
+#+END_SRC
+
+*** db cluster parameter
+#+BEGIN_SRC
+$ aws rds create-db-cluster-parameter-group \
+    --db-cluster-parameter-group-name aurora2tidb-db-cluster-params \
+    --db-parameter-group-family aurora-mysql5.7 \
+    --description "aurora2tidb db cluster parameter"
+{
+    "DBClusterParameterGroup": {
+        "DBClusterParameterGroupName": "aurora2tidb-db-cluster-params",
+        "DBParameterGroupFamily": "aurora-mysql5.7",
+        "Description": "aurora2tidb db cluster parameter",
+        "DBClusterParameterGroupArn": "arn:aws:rds:ap-northeast-1:385595570414:cluster-pg:aurora2tidb-db-cluster-params"
+    }
+}
+$ aws rds modify-db-cluster-parameter-group \
+    --db-cluster-parameter-group-name aurora2tidb-db-cluster-params \
+    --parameters "ParameterName=binlog_format,ParameterValue=row,ApplyMethod=pending-reboot"
+{
+    "DBClusterParameterGroupName": "aurora2tidb-db-cluster-params"
+}
+#+END_SRC
+
+*** db parameter
+#+BEGIN_SRC
+aws rds create-db-parameter-group \
+    --db-parameter-group-name aurora2tidb-db-params \
+    --db-parameter-group-family aurora-mysql5.7 \
+    --description "aurora2tidb db parameter"
+#+END_SRC
+
+*** DB cluster creation
+#+BEGIN_SRC
+$ aws rds create-db-cluster \
+    --db-cluster-identifier aurora2tidb-db \
+    --engine aurora-mysql \
+    --engine-version 5.7.12 \
+    --master-username master \
+    --master-user-password 1234Abcd \
+    --db-subnet-group-name aurora2tidb \
+    --db-cluster-parameter-group-name aurora2tidb-db-cluster-params \
+    --vpc-security-group-ids sg-0dab38ad7711fe808
+{
+    "DBCluster": {
+        "AllocatedStorage": 1,
+        "AvailabilityZones": [
+            "ap-northeast-1c",
+            "ap-northeast-1a",
+            "ap-northeast-1d"
+        ],
+        "BackupRetentionPeriod": 1,
+        "DBClusterIdentifier": "aurora2tidb-db",
+        "DBClusterParameterGroup": "aurora2tidb-db-cluster-params",
+        "DBSubnetGroup": "aurora2tidb",
+        "Status": "creating",
+        "Endpoint": "aurora2tidb-db.cluster-ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com",
+        "ReaderEndpoint": "aurora2tidb-db.cluster-ro-ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com",
+        "MultiAZ": false,
+        "Engine": "aurora-mysql",
+        "EngineVersion": "5.7.12",
+        "Port": 3306,
+        "MasterUsername": "master",
+        "PreferredBackupWindow": "14:37-15:07",
+        "PreferredMaintenanceWindow": "tue:13:10-tue:13:40",
+        "ReadReplicaIdentifiers": [],
+        "DBClusterMembers": [],
+        "VpcSecurityGroups": [
+            {
+                "VpcSecurityGroupId": "sg-0dab38ad7711fe808",
+                "Status": "active"
+            }
+        ],
+        "HostedZoneId": "Z24O6O9L7SGTNB",
+        "StorageEncrypted": false,
+        "DbClusterResourceId": "cluster-UZ4FOR2NMACNY4BDZEADJSV7S4",
+        "DBClusterArn": "arn:aws:rds:ap-northeast-1:385595570414:cluster:aurora2tidb-db",
+        "AssociatedRoles": [],
+        "IAMDatabaseAuthenticationEnabled": false,
+        "ClusterCreateTime": "2021-10-10T00:17:32.862000+00:00",
+        "EngineMode": "provisioned",
+        "DeletionProtection": false,
+        "HttpEndpointEnabled": false,
+        "CopyTagsToSnapshot": false,
+        "CrossAccountClone": false,
+        "DomainMemberships": [],
+        "TagList": []
+    }
+}
+#+END_SRC
+
+*** db instance preparation
+#+BEGIN_SRC
+$ aws rds create-db-instance \
+    --db-instance-identifier aurora2tidb-master \
+    --db-cluster-identifier aurora2tidb-db \
+    --db-parameter-group-name aurora2tidb-db-params \
+    --engine aurora-mysql \
+    --engine-version 5.7.12 \
+    --db-instance-class db.r5.large
+{
+    "DBInstance": {
+        "DBInstanceIdentifier": "aurora2tidb-master",
+        "DBInstanceClass": "db.r5.large",
+        "Engine": "aurora-mysql",
+        "DBInstanceStatus": "creating",
+        "MasterUsername": "master",
+        "AllocatedStorage": 1,
+        "PreferredBackupWindow": "14:37-15:07",
+        "BackupRetentionPeriod": 1,
+        "DBSecurityGroups": [],
+        "VpcSecurityGroups": [
+            {
+                "VpcSecurityGroupId": "sg-0dab38ad7711fe808",
+                "Status": "active"
+            }
+        ],
+        "DBParameterGroups": [
+            {
+                "DBParameterGroupName": "aurora2tidb-db-params",
+                "ParameterApplyStatus": "in-sync"
+            }
+        ],
+        "DBSubnetGroup": {
+            "DBSubnetGroupName": "aurora2tidb",
+            "DBSubnetGroupDescription": "migration from aurora to tidb",
+            "VpcId": "vpc-091c204687ddca980",
+            "SubnetGroupStatus": "Complete",
+            "Subnets": [
+                {
+                    "SubnetIdentifier": "subnet-00598c0b1cd32b5a2",
+                    "SubnetAvailabilityZone": {
+                        "Name": "ap-northeast-1a"
+                    },
+                    "SubnetOutpost": {},
+                    "SubnetStatus": "Active"
+                },
+                {
+                    "SubnetIdentifier": "subnet-0e23f3f8320d73682",
+                    "SubnetAvailabilityZone": {
+                        "Name": "ap-northeast-1c"
+                    },
+                    "SubnetOutpost": {},
+                    "SubnetStatus": "Active"
+                },
+                {
+                    "SubnetIdentifier": "subnet-067ce865fce56058b",
+                    "SubnetAvailabilityZone": {
+                        "Name": "ap-northeast-1d"
+                    },
+                    "SubnetOutpost": {},
+                    "SubnetStatus": "Active"
+                }
+            ]
+        },
+... ...
+
+$ aws rds create-db-instance \
+    --db-instance-identifier aurora2tidb-slave \
+    --db-cluster-identifier aurora2tidb-db \
+    --db-parameter-group-name aurora2tidb-db-params \
+    --engine aurora-mysql \
+    --engine-version 5.7.12 \
+    --db-instance-class db.r5.large
+#+END_SRC
+
+* DM workstation
+** VPC preparation
+#+BEGIN_SRC
+$ aws ec2 create-vpc --cidr-block 172.20.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=aurora2tidb-ws}]'
+#+END_SRC
+
+** VPC subnets preparation
+#+BEGIN_SRC
+$ aws ec2 create-subnet --cidr-block 172.20.10.0/24 \
+                        --vpc-id vpc-06d0878ce02ba7fa5 \
+                        --availability-zone=ap-northeast-1a \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb-ws},{Key=id,Value=1}]'
+{
+    "Subnet": {
+        "AvailabilityZone": "ap-northeast-1a",
+        "AvailabilityZoneId": "apne1-az4",
+        "AvailableIpAddressCount": 251,
+        "CidrBlock": "172.20.10.0/24",
+        "DefaultForAz": false,
+        "MapPublicIpOnLaunch": false,
+        "State": "available",
+        "SubnetId": "subnet-0f7baf5aa5b453298",
+        "VpcId": "vpc-06d0878ce02ba7fa5",
+        "OwnerId": "385595570414",
+        "AssignIpv6AddressOnCreation": false,
+        "Ipv6CidrBlockAssociationSet": [],
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "aurora2tidb-ws"
+            },
+            {
+                "Key": "id",
+                "Value": "1"
+            }
+        ],
+        "SubnetArn": "arn:aws:ec2:ap-northeast-1:385595570414:subnet/subnet-0f7baf5aa5b453298"
+    }
+}
+
+$ aws ec2 create-subnet --cidr-block 172.20.20.0/24 \
+                        --vpc-id vpc-06d0878ce02ba7fa5aws ec2 create-route-table --vpc-id vpc-091c204687ddca980 --tag-specification 'ResourceType=route-table,Tags=[{Key=Name,Value=aurora2tidb}]' \
+                        --availability-zone=ap-northeast-1c \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb-ws},{Key=id,Value=2}]'
+
+$ aws ec2 create-subnet --cidr-block 172.20.30.0/24 \
+                        --vpc-id vpc-06d0878ce02ba7fa5 \
+                        --availability-zone=ap-northeast-1d \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb-ws},{Key=id,Value=3}]'
+#+END_SRC
+*** Create internet gateway and attache it to VPC
+#+BEGIN_SRC
+$ aws ec2 create-internet-gateway --tag-specification 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=aurora2tidb-gw}]'
+{
+    "InternetGateway": {
+        "Attachments": [],
+        "InternetGatewayId": "igw-0c9afe2e45ba84cee",
+        "OwnerId": "385595570414",
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "aurora2tidb-gw"
+            }
+        ]
+    }
+}
+$ aws ec2 attach-internet-gateway --internet-gateway-id igw-0c9afe2e45ba84cee --vpc-id vpc-06d0878ce02ba7fa5
+#+END_SRC
+
+*** Route table preparation
+#+BEGIN_SRC
+$ aws ec2 create-route-table --vpc-id vpc-06d0878ce02ba7fa5 --tag-specification 'ResourceType=route-table,Tags=[{Key=Name,Value=aurora2tidb-ws}]'
+{
+    "RouteTable": {
+        "Associations": [],
+        "PropagatingVgws": [],
+        "RouteTableId": "rtb-0fda0b8d03fd15de8",
+        "Routes": [
+            {
+                "DestinationCidrBlock": "172.20.0.0/16",
+                "GatewayId": "local",
+                "Origin": "CreateRouteTable",
+                "State": "active"
+            }
+        ],
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "aurora2tidb-ws"
+            }
+        ],
+        "VpcId": "vpc-06d0878ce02ba7fa5",
+        "OwnerId": "385595570414"
+    }
+}
+
+$ aws ec2 create-route --route-table-id rtb-0fda0b8d03fd15de8 --destination-cidr-block 0.0.0.0/0 --gateway-id igw-0c9afe2e45ba84cee
+{
+    "Return": true
+}
+#+END_SRC
+
+*** Associate route table to subnets
+#+BEGIN_SRC
+$ aws ec2 associate-route-table --route-table-id rtb-0fda0b8d03fd15de8  --subnet-id subnet-092f9d392b66ce8c6
+{
+    "AssociationId": "rtbassoc-019267be11d290eaf",
+    "AssociationState": {
+        "State": "associated"
+    }
+}
+$ aws ec2 associate-route-table --route-table-id rtb-0fda0b8d03fd15de8 --subnet-id subnet-0f7baf5aa5b453298
+$ aws ec2 associate-route-table --route-table-id rtb-0fda0b8d03fd15de8 --subnet-id subnet-044df6d1315c02e00
+#+END_SRC
+
+*** Security group preparation for workstation
+#+BEGIN_SRC
+$ aws ec2 create-security-group --group-name aurora2tidb-ws \
+                                --description "aurora 2 tidb migration PoC - workstation" \
+                                --vpc-id vpc-06d0878ce02ba7fa5 \
+                                --tag-specification 'ResourceType=security-group,Tags=[{Key=Name,Value=aurora2tidb-ws}]'
+{
+    "GroupId": "sg-09f059a3c95b8d1a7",
+    "Tags": [
+        {
+            "Key": "Name",
+            "Value": "aurora2tidb-ws"
+        }
+    ]
+}
+$ aws ec2 authorize-security-group-ingress \
+--group-id sg-09f059a3c95b8d1a7 \
+--protocol tcp \
+--port 22 \
+--cidr 0.0.0.0/0
+#+END_SRC
+
+
+
+*** Create Ec2 instance
+#+BEGIN_SRC
+$ aws ec2 run-instances \
+--count 1 \
+--image-id ami-0bccc42bba4dedac1 \
+--instance-type t2.micro \
+--associate-public-ip-address \
+--key-name jay.pingcap \
+--security-group-ids sg-09f059a3c95b8d1a7 \
+--subnet-id subnet-092f9d392b66ce8c6 \
+--region ap-northeast-1 \
+--tag-specification 'ResourceType=instance,Tags=[{Key=Name,Value=aurora2tidb-ws}]'
+{
+    "Groups": [],
+    "Instances": [
+        {
+            "AmiLaunchIndex": 0,
+            "ImageId": "ami-0bccc42bba4dedac1",
+            "InstanceId": "i-02a9110aa8a73d796",
+            "InstanceType": "t2.micro",
+            "KeyName": "jay.pingcap",
+            "LaunchTime": "2021-10-10T06:05:02+00:00",
+            "Monitoring": {
+                "State": "disabled"
+            },
+            "Placement": {
+                "AvailabilityZone": "ap-northeast-1d",
+                "GroupName": "",
+                "Tenancy": "default"
+            },
+... ...
+#+END_SRC
+
+*** add vpc peering between EC2 and aurora
+ #+BEGIN_SRC
+$ aws ec2 create-vpc-peering-connection \
+--vpc-id vpc-091c204687ddca980 \
+--peer-vpc-id vpc-06d0878ce02ba7fa5 \
+--tag-specification 'ResourceType=vpc-peering-connection,Tags=[{Key=Name,Value=aurora2tidb-ws-ec2db}]'
+{
+    "VpcPeeringConnection": {
+        "AccepterVpcInfo": {
+            "OwnerId": "385595570414",
+            "VpcId": "vpc-06d0878ce02ba7fa5",
+            "Region": "ap-northeast-1"
+        },
+        "ExpirationTime": "2021-10-18T01:57:28+00:00",
+        "RequesterVpcInfo": {
+            "CidrBlock": "172.10.0.0/16",
+            "CidrBlockSet": [
+                {
+                    "CidrBlock": "172.10.0.0/16"
+                }
+            ],
+            "OwnerId": "385595570414",
+            "PeeringOptions": {
+                "AllowDnsResolutionFromRemoteVpc": false,
+                "AllowEgressFromLocalClassicLinkToRemoteVpc": false,
+                "AllowEgressFromLocalVpcToRemoteClassicLink": false
+            },
+            "VpcId": "vpc-091c204687ddca980",
+            "Region": "ap-northeast-1"
+        },
+        "Status": {
+            "Code": "initiating-request",
+            "Message": "Initiating Request to 385595570414"
+        },
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "aurora2tidb-ws-ec2db"
+            }
+        ],
+        "VpcPeeringConnectionId": "pcx-0cb446c37266e956f"
+    }
+}
+
+$ aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id pcx-0cb446c37266e956f
+{
+    "VpcPeeringConnection": {
+        "AccepterVpcInfo": {
+            "CidrBlock": "172.20.0.0/16",
+            "CidrBlockSet": [
+                {
+                    "CidrBlock": "172.20.0.0/16"
+                }
+            ],
+            "OwnerId": "385595570414",
+            "PeeringOptions": {
+                "AllowDnsResolutionFromRemoteVpc": false,
+                "AllowEgressFromLocalClassicLinkToRemoteVpc": false,
+                "AllowEgressFromLocalVpcToRemoteClassicLink": false
+            },
+            "VpcId": "vpc-06d0878ce02ba7fa5",
+            "Region": "ap-northeast-1"
+        },
+        "RequesterVpcInfo": {
+            "CidrBlock": "172.10.0.0/16",
+            "CidrBlockSet": [
+                {
+                    "CidrBlock": "172.10.0.0/16"
+                }
+            ],
+            "OwnerId": "385595570414",
+            "PeeringOptions": {
+                "AllowDnsResolutionFromRemoteVpc": false,
+                "AllowEgressFromLocalClassicLinkToRemoteVpc": false,
+                "AllowEgressFromLocalVpcToRemoteClassicLink": false
+            },
+            "VpcId": "vpc-091c204687ddca980",
+            "Region": "ap-northeast-1"
+        },
+        "Status": {
+            "Code": "provisioning",
+            "Message": "Provisioning"
+        },
+        "Tags": [],
+        "VpcPeeringConnectionId": "pcx-0cb446c37266e956f"
+    }
+}
+
+#+END_SRC
+
+** route table and sg preparation for aurora db access
+#+BEGIN_SRC
+$ aws ec2 authorize-security-group-ingress \
+--group-id sg-0dab38ad7711fe808 \
+--protocol tcp \
+--port 3306 \
+--cidr 0.0.0.0/0
+
+$ aws ec2 create-route --route-table-id rtb-0fda0b8d03fd15de8 --destination-cidr-block 172.10.0.0/16 --vpc-peering-connection-id pcx-0cb446c37266e956f
+$ aws ec2 create-route --route-table-id rtb-088d43baf496c5485 --destination-cidr-block 172.20.0.0/16 --vpc-peering-connection-id pcx-0cb446c37266e956f
+#+END_SRC
+
+
+
+* Test data
+#+BEGIN_SRC
+  create table test02(
+    col01 bigint primary key not null, 
+    col02 CHAR(1),
+    col03 VARCHAR(32),
+    col04 TINYTEXT,
+    col05 TEXT,
+    col06 BLOB,
+    col07 MEDIUMTEXT,
+    col08 MEDIUMBLOB,
+    col09 LONGTEXT,
+    col10 LONGBLOB,
+    col11 TINYINT,
+    col12 SMALLINT,
+    col13 MEDIUMINT,
+    col14 INT,
+    col15 BIGINT,
+    col16 FLOAT(20,8),
+    col17 DOUBLE(20,8),
+    col18 DECIMAL(20,8),
+    col19 DATE,
+    col20 DATETIME,
+    col21 TIMESTAMP,
+    col22 TIME,
+    col23 ENUM ('x-small', 'small', 'medium', 'large', 'x-large'),
+    col24 SET('a', 'b', 'c', 'd'),
+    col25 boolean);
+
+    insert into test02 values(
+     1,'a','This is the test', 'This is tinytext', 'This is text', 'This is blob', 'This is mediumtext', 'This is mediumblob',
+     'This longtext', 'thi longblob', 1,1,1,1,1,10.00000008,10.00000008, 10.00000008, '2021-01-01', '2021-12-31 23:59:59', '2021-12-31 23:59:59', 
+     '11:23:21', 'small', 'c', 1);
+ #+END_SRC
+
+** Build vpc peering between TiDB Cloud and workstation
+  + Request the VPC peering from TiDB Cloud
+  + Accept the vpc peering
+#+BEGIN_SRC
+$ aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id pcx-0ef2f55806ca55e38
+{
+    "VpcPeeringConnection": {
+        "AccepterVpcInfo": {
+            "CidrBlock": "172.20.0.0/16",
+            "CidrBlockSet": [
+                {
+                    "CidrBlock": "172.20.0.0/16"
+                }
+            ],
+            "OwnerId": "385595570414",
+            "PeeringOptions": {
+                "AllowDnsResolutionFromRemoteVpc": false,
+                "AllowEgressFromLocalClassicLinkToRemoteVpc": false,
+                "AllowEgressFromLocalVpcToRemoteClassicLink": false
+            },
+            "VpcId": "vpc-06d0878ce02ba7fa5",
+            "Region": "ap-northeast-1"
+        },
+... ...
+#+END_SRC
+
+** Add the routing rule from EC2 instance to TiDB Cloud
+#+BEGIN_SRC
+$ aws ec2 create-route --route-table-id rtb-0fda0b8d03fd15de8 --destination-cidr-block 10.242.192.0/18 --vpc-peering-connection-id pcx-0ef2f55806ca55e38
+{
+    "Return": true
+}
+
+$ setenforce 0
+#+END_SRC
+** Make sure binlog is open
+#+BEGIN_SRC
+mysql> show binary logs;
++----------------------------+-----------+
+| Log_name                   | File_size |
++----------------------------+-----------+
+| mysql-bin-changelog.000004 |       154 |
+| mysql-bin-changelog.000005 |      1390 |
++----------------------------+-----------+
+2 rows in set (0.02 sec)
+
+mysql> show binlog events;
++----------------------------+-----+----------------+-----------+-------------+---------------------------------------+
+| Log_name                   | Pos | Event_type     | Server_id | End_log_pos | Info                                  |
++----------------------------+-----+----------------+-----------+-------------+---------------------------------------+
+| mysql-bin-changelog.000004 |   4 | Format_desc    | 880713995 |         123 | Server ver: 5.7.12-log, Binlog ver: 4 |
+| mysql-bin-changelog.000004 | 123 | Previous_gtids | 880713995 |         154 |                                       |
++----------------------------+-----+----------------+-----------+-------------+---------------------------------------+
+2 rows in set (0.01 sec)
+#+END_SRC
+
+** take a rds snapshot
+#+BEGIN_SRC
+$ aws rds create-db-cluster-snapshot \
+    --db-cluster-identifier aurora2tidb-db \
+    --db-cluster-snapshot-identifier aurora2tidb-snap03
+{
+    "DBClusterSnapshot": {
+        "AvailabilityZones": [
+            "ap-northeast-1a",
+            "ap-northeast-1c",
+            "ap-northeast-1d"
+        ],
+        "DBClusterSnapshotIdentifier": "aurora2tidb-snap03",
+        "DBClusterIdentifier": "aurora2tidb-db",
+        "SnapshotCreateTime": "2021-10-12T06:23:13.469000+00:00",
+        "Engine": "aurora-mysql",
+        "EngineMode": "provisioned",
+        "AllocatedStorage": 1,
+        "Status": "creating",
+        "Port": 0,
+        "VpcId": "vpc-091c204687ddca980",
+        "ClusterCreateTime": "2021-10-10T00:17:32.862000+00:00",
+        "MasterUsername": "master",
+        "EngineVersion": "5.7.12",
+        "LicenseModel": "aurora-mysql",
+        "SnapshotType": "manual",
+        "PercentProgress": 0,
+        "StorageEncrypted": false,
+        "DBClusterSnapshotArn": "arn:aws:rds:ap-northeast-1:385595570414:cluster-snapshot:aurora2tidb-snap03",
+        "IAMDatabaseAuthenticationEnabled": false,
+        "TagList": []
+    }
+}
+
+$ aws rds describe-db-cluster-snapshots     --db-cluster-snapshot-identifier aurora2tidb-snap03
+{
+    "DBClusterSnapshots": [
+        {
+            "AvailabilityZones": [
+                "ap-northeast-1a",
+                "ap-northeast-1c",
+                "ap-northeast-1d"
+            ],
+            "DBClusterSnapshotIdentifier": "aurora2tidb-snap03",
+            "DBClusterIdentifier": "aurora2tidb-db",
+            "SnapshotCreateTime": "2021-10-12T06:23:13.469000+00:00",
+            "Engine": "aurora-mysql",
+            "EngineMode": "provisioned",
+            "AllocatedStorage": 0,
+            "Status": "available",
+            "Port": 0,
+            "VpcId": "vpc-091c204687ddca980",
+            "ClusterCreateTime": "2021-10-10T00:17:32.862000+00:00",
+            "MasterUsername": "master",
+            "EngineVersion": "5.7.12",
+            "LicenseModel": "aurora-mysql",
+            "SnapshotType": "manual",
+            "PercentProgress": 100,
+            "StorageEncrypted": false,
+            "DBClusterSnapshotArn": "arn:aws:rds:ap-northeast-1:385595570414:cluster-snapshot:aurora2tidb-snap03",
+            "IAMDatabaseAuthenticationEnabled": false,
+            "TagList": []
+        }
+    ]
+}
+
+$ aws rds start-export-task \
+    --export-task-identifier aurora2tidb-snap03 \
+    --source-arn arn:aws:rds:ap-northeast-1:385595570414:cluster-snapshot:aurora2tidb-snap03 \
+    --s3-bucket-name tidb-jay \
+    --iam-role-arn arn:aws:iam::385595570414:instance-profile/tidb-jay-export \
+    --s3-prefix aurora2tidb-snap01 \
+    --kms-key-id arn:aws:kms:ap-northeast-1:385595570414:key/0056c14f-4bd4-4c1a-8b83-bd265e0b7e7e
+#+eND_SRC
+
+** tiup install
+#+BEGIN_SRC
+$ curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh
+
+$ /home/ec2-user/.bash_profile
+
+$ more dm.yaml
+global:
+  user: "ec2-user"
+  ssh_port: 22
+  deploy_dir: "/home/ec2-user/dm/dm-deploy"
+  data_dir: "/home/ec2-user/dm/dm-data"
+
+server_configs:
+  master:
+    log-level: info
+  worker:
+    log-level: info
+
+master_servers:
+  - host: 172.20.30.173
+    name: master1
+    ssh_port: 22
+    port: 8261
+    config:
+      log-level: info
+
+worker_servers:
+  - host: 172.20.30.173
+    ssh_port: 22
+    port: 8262
+    config:
+      log-level: info
+
+monitoring_servers:
+  - host: 172.20.30.173
+    ssh_port: 22
+    port: 9090
+
+grafana_servers:
+  - host: 172.20.30.173
+    port: 3000
+
+alertmanager_servers:
+  - host: 172.20.30.173
+    ssh_port: 22
+    web_port: 9093
+#+END_SRC

@@ -40,29 +40,40 @@
   | Q22        |      |         |
 
 * BigQuery vs TiFlash
+** Performance comparison
 #+CAPTION: BigQuery vs TiFlash (ms)
 #+ATTR_HTML: border 2 :rules all :frame border :align center
-    | Query Type | BigQuery | TiFlash |
-    |------------+----------+---------|
-    | Q1         |        2 |    3.85 |
-    | Q2         |      3.7 |    1.08 |
-    | Q3         |      5.2 |    2.25 |
-    | Q4         |      1.8 |   25.57 |
-    | Q5         |     10.4 |    3.68 |
-    | Q6         |      0.7 |    0.51 |
-    | Q7         |      4.1 |    2.19 |
-    | Q8         |      6.5 |    3.42 |
-    | Q9         |        4 |   10.35 |
-    | Q10        |     13.3 |    2.06 |
-    | Q11        |      2.2 |    1.04 |
-    | Q12        |      2.8 |    1.87 |
-    | Q13        |      3.7 |    1.87 |
-    | Q14        |      1.5 |    0.48 |
-    | Q15        |      1.3 |    1.16 |
-    | Q16        |      5.8 |    0.62 |
-    | Q17        |      4.4 |    5.08 |
-    | Q18        |     10.6 |    7.56 |
-    | Q19        |      0.7 |    1.22 |
-    | Q20        |      2.8 |    1.12 |
-    | Q21        |      9.3 |      78 |
-    | Q22        |      1.9 |    0.65 |
+    | Query Type | BigQuery | TiFlash | TiFlash better |
+    |------------+----------+---------+----------------|
+    | Q1         |        2 |    3.85 |                |
+    | Q2         |      3.7 |    1.08 | O              |
+    | Q3         |      5.2 |    2.25 | O              |
+    | Q4         |      1.8 |   25.57 |                |
+    | Q5         |     10.4 |    3.68 | O              |
+    | Q6         |      0.7 |    0.51 | O              |
+    | Q7         |      4.1 |    2.19 | O              |
+    | Q8         |      6.5 |    3.42 | O              |
+    | Q9         |        4 |   10.35 |                |
+    | Q10        |     13.3 |    2.06 | O              |
+    | Q11        |      2.2 |    1.04 | O              |
+    | Q12        |      2.8 |    1.87 | O              |
+    | Q13        |      3.7 |    1.87 | O              |
+    | Q14        |      1.5 |    0.48 | O              |
+    | Q15        |      1.3 |    1.16 | O              |
+    | Q16        |      5.8 |    0.62 | O              |
+    | Q17        |      4.4 |    5.08 |                |
+    | Q18        |     10.6 |    7.56 | O              |
+    | Q19        |      0.7 |    1.22 |                |
+    | Q20        |      2.8 |    1.12 | O              |
+    | Q21        |      9.3 |      78 |                |
+    | Q22        |      1.9 |    0.65 | O              |
+
+** Server spec
+#+CAPTION: Server spec
+#+ATTR_HTML: border 2 :rules all :frame border :align center
+   | Component Name | # of nodes | Instance Name  | vCPU | Memory | Disk type |
+   |----------------+------------+----------------+------+--------+-----------|
+   | TiDB           |          3 | N1-standard-8  |    8 |     29 | nvme      |
+   | PD             |          3 | N1-standard-2  |    2 |      8 | nvme      |
+   | TiKV           |          3 | N1-standard-8  |    8 |     29 | nvme      |
+   | TiFlash        |          6 | N1-standard-32 |   32 |    118 | nvme      |
