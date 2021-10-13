@@ -34,7 +34,10 @@
    #+END_SRC
 *** VPC subnets preparation
 #+BEGIN_SRC
-$ aws ec2 create-subnet --cidr-block 172.10.10.0/24 --vpc-id vpc-091c204687ddca980 --availability-zone=ap-northeast-1a --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb},{Key=id,Value=1}]'
+$ aws ec2 create-subnet --cidr-block 172.10.10.0/24 \
+                        --vpc-id vpc-091c204687ddca980 \
+                        --availability-zone=ap-northeast-1a \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb},{Key=id,Value=1}]'
 {
     "Subnet": {
         "AvailabilityZone": "ap-northeast-1a",
@@ -62,6 +65,14 @@ $ aws ec2 create-subnet --cidr-block 172.10.10.0/24 --vpc-id vpc-091c204687ddca9
         "SubnetArn": "arn:aws:ec2:ap-northeast-1:385595570414:subnet/subnet-00598c0b1cd32b5a2"
     }
 }
+$ aws ec2 create-subnet --cidr-block 172.10.20.0/24 \
+                        --vpc-id vpc-091c204687ddca980 \
+                        --availability-zone=ap-northeast-1c \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb},{Key=id,Value=2}]'
+$ aws ec2 create-subnet --cidr-block 172.10.20.0/24 \
+                        --vpc-id vpc-091c204687ddca980 \
+                        --availability-zone=ap-northeast-1d \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb},{Key=id,Value=3}]'
 #+END_SRC
 
 *** Create the route table
@@ -120,7 +131,10 @@ $ aws ec2 associate-route-table --route-table-id rtb-088d43baf496c5485 --subnet-
 
 *** create the security group for vpc-id
  #+BEGIN_SRC
- $ aws ec2 create-security-group --group-name aurora2tidb --description "aurora 2 tidb migration PoC" --vpc-id vpc-091c204687ddca980 --tag-specification 'ResourceType=security-group,Tags=[{Key=Name,Value=aurora2tidb}]'
+ $ aws ec2 create-security-group --group-name aurora2tidb \
+                                 --description "aurora 2 tidb migration PoC" \
+                                 --vpc-id vpc-091c204687ddca980 \
+                                 --tag-specification 'ResourceType=security-group,Tags=[{Key=Name,Value=aurora2tidb}]'
 {
     "GroupId": "sg-0dab38ad7711fe808",
     "Tags": [
@@ -200,7 +214,7 @@ $ aws rds modify-db-cluster-parameter-group \
 
 *** db parameter
 #+BEGIN_SRC
-aws rds create-db-parameter-group \
+$ aws rds create-db-parameter-group \
     --db-parameter-group-name aurora2tidb-db-params \
     --db-parameter-group-family aurora-mysql5.7 \
     --description "aurora2tidb db parameter"
@@ -230,39 +244,29 @@ $ aws rds create-db-cluster \
         "DBClusterParameterGroup": "aurora2tidb-db-cluster-params",
         "DBSubnetGroup": "aurora2tidb",
         "Status": "creating",
-        "Endpoint": "aurora2tidb-db.cluster-ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com",
-        "ReaderEndpoint": "aurora2tidb-db.cluster-ro-ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com",
-        "MultiAZ": false,
-        "Engine": "aurora-mysql",
-        "EngineVersion": "5.7.12",
-        "Port": 3306,
-        "MasterUsername": "master",
-        "PreferredBackupWindow": "14:37-15:07",
-        "PreferredMaintenanceWindow": "tue:13:10-tue:13:40",
-        "ReadReplicaIdentifiers": [],
-        "DBClusterMembers": [],
+        ... ...
         "VpcSecurityGroups": [
             {
                 "VpcSecurityGroupId": "sg-0dab38ad7711fe808",
                 "Status": "active"
             }
         ],
-        "HostedZoneId": "Z24O6O9L7SGTNB",
-        "StorageEncrypted": false,
-        "DbClusterResourceId": "cluster-UZ4FOR2NMACNY4BDZEADJSV7S4",
-        "DBClusterArn": "arn:aws:rds:ap-northeast-1:385595570414:cluster:aurora2tidb-db",
-        "AssociatedRoles": [],
-        "IAMDatabaseAuthenticationEnabled": false,
-        "ClusterCreateTime": "2021-10-10T00:17:32.862000+00:00",
-        "EngineMode": "provisioned",
-        "DeletionProtection": false,
-        "HttpEndpointEnabled": false,
-        "CopyTagsToSnapshot": false,
-        "CrossAccountClone": false,
-        "DomainMemberships": [],
-        "TagList": []
+        ... ...
     }
 }
+
+$ aws rds describe-db-clusters --db-cluster-identifier aurora2tidb-db
+{
+    "DBClusters": [
+        {
+            "AllocatedStorage": 1,
+            ... ...
+            "Status": "available",
+            ... ...
+         }
+    ]
+}
+
 #+END_SRC
 
 *** db instance preparation
@@ -280,56 +284,47 @@ $ aws rds create-db-instance \
         "DBInstanceClass": "db.r5.large",
         "Engine": "aurora-mysql",
         "DBInstanceStatus": "creating",
-        "MasterUsername": "master",
-        "AllocatedStorage": 1,
-        "PreferredBackupWindow": "14:37-15:07",
-        "BackupRetentionPeriod": 1,
-        "DBSecurityGroups": [],
-        "VpcSecurityGroups": [
-            {
-                "VpcSecurityGroupId": "sg-0dab38ad7711fe808",
-                "Status": "active"
-            }
-        ],
+        ... ...
         "DBParameterGroups": [
             {
                 "DBParameterGroupName": "aurora2tidb-db-params",
                 "ParameterApplyStatus": "in-sync"
             }
         ],
-        "DBSubnetGroup": {
-            "DBSubnetGroupName": "aurora2tidb",
-            "DBSubnetGroupDescription": "migration from aurora to tidb",
-            "VpcId": "vpc-091c204687ddca980",
-            "SubnetGroupStatus": "Complete",
-            "Subnets": [
-                {
-                    "SubnetIdentifier": "subnet-00598c0b1cd32b5a2",
-                    "SubnetAvailabilityZone": {
-                        "Name": "ap-northeast-1a"
-                    },
-                    "SubnetOutpost": {},
-                    "SubnetStatus": "Active"
-                },
-                {
-                    "SubnetIdentifier": "subnet-0e23f3f8320d73682",
-                    "SubnetAvailabilityZone": {
-                        "Name": "ap-northeast-1c"
-                    },
-                    "SubnetOutpost": {},
-                    "SubnetStatus": "Active"
-                },
-                {
-                    "SubnetIdentifier": "subnet-067ce865fce56058b",
-                    "SubnetAvailabilityZone": {
-                        "Name": "ap-northeast-1d"
-                    },
-                    "SubnetOutpost": {},
-                    "SubnetStatus": "Active"
+        ... ...
+
                 }
             ]
         },
 ... ...
+     }
+}
+
+$ aws rds describe-db-instances --db-instance-identifier aurora2tidb-master
+{
+     "DBInstances": [
+         {
+             "DBInstanceIdentifier": "aurora2tidb-master",
+             "DBInstanceClass": "db.r5.large",
+             "Engine": "aurora-mysql",
+             "DBInstanceStatus": "creating",
+             ... ...
+         }
+     ]
+ }
+
+
+{
+    "DBInstances": [
+        {
+            "DBInstanceIdentifier": "aurora2tidb-master",
+            "DBInstanceClass": "db.r5.large",
+            "Engine": "aurora-mysql",
+            "DBInstanceStatus": "available",
+         }
+     ]
+ }
+
 
 $ aws rds create-db-instance \
     --db-instance-identifier aurora2tidb-slave \
@@ -344,6 +339,18 @@ $ aws rds create-db-instance \
 ** VPC preparation
 #+BEGIN_SRC
 $ aws ec2 create-vpc --cidr-block 172.20.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=aurora2tidb-ws}]'
+$ aws ec2 describe-vpcs --vpc-id vpc-00931dac4cf6d28e6 
+{
+    "Vpcs": [
+        {
+            "CidrBlock": "172.20.0.0/16",
+            "DhcpOptionsId": "dopt-d74aa6b0",
+            "State": "available",
+            ... ...
+        }
+    ]
+}
+
 #+END_SRC
 
 ** VPC subnets preparation
@@ -381,7 +388,7 @@ $ aws ec2 create-subnet --cidr-block 172.20.10.0/24 \
 }
 
 $ aws ec2 create-subnet --cidr-block 172.20.20.0/24 \
-                        --vpc-id vpc-06d0878ce02ba7fa5aws ec2 create-route-table --vpc-id vpc-091c204687ddca980 --tag-specification 'ResourceType=route-table,Tags=[{Key=Name,Value=aurora2tidb}]' \
+                        --vpc-id vpc-06d0878ce02ba7fa5aws \
                         --availability-zone=ap-northeast-1c \
                         --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=aurora2tidb-ws},{Key=id,Value=2}]'
 
@@ -510,9 +517,10 @@ $ aws ec2 run-instances \
                 "Tenancy": "default"
             },
 ... ...
+$ aws ec2 describe-instances --filters "Name=tag-key,Values=Name" "Name=tag-value,Values=aurora2tidb-ws"
 #+END_SRC
 
-*** add vpc peering between EC2 and aurora
+** add vpc peering between EC2 and aurora
  #+BEGIN_SRC
 $ aws ec2 create-vpc-peering-connection \
 --vpc-id vpc-091c204687ddca980 \
@@ -616,9 +624,34 @@ $ aws ec2 create-route --route-table-id rtb-088d43baf496c5485 --destination-cidr
 
 
 
-* Test data
+* Initial data copy from qurora to TiDB Cloud
 #+BEGIN_SRC
-  create table test02(
+mysql> show binary logs; 
++----------------------------+-----------+
+| Log_name                   | File_size |
++----------------------------+-----------+
+| mysql-bin-changelog.000001 |       154 |
+| mysql-bin-changelog.000002 |       401 |
+| mysql-bin-changelog.000003 |       154 |
++----------------------------+-----------+
+3 rows in set (0.01 sec)
+
+mysql> show binlog events; 
++----------------------------+-----+----------------+------------+-------------+---------------------------------------+
+| Log_name                   | Pos | Event_type     | Server_id  | End_log_pos | Info                                  |
++----------------------------+-----+----------------+------------+-------------+---------------------------------------+
+| mysql-bin-changelog.000001 |   4 | Format_desc    | 1234826627 |         123 | Server ver: 5.7.12-log, Binlog ver: 4 |
+| mysql-bin-changelog.000001 | 123 | Previous_gtids | 1234826627 |         154 |                                       |
++----------------------------+-----+----------------+------------+-------------+---------------------------------------+
+2 rows in set (0.00 sec)
+
+mysql> create database dm_test;
+Query OK, 1 row affected (0.01 sec)
+
+mysql> use dm_test;
+Database changed
+
+mysql> create table test02(
     col01 bigint primary key not null, 
     col02 CHAR(1),
     col03 VARCHAR(32),
@@ -645,7 +678,7 @@ $ aws ec2 create-route --route-table-id rtb-088d43baf496c5485 --destination-cidr
     col24 SET('a', 'b', 'c', 'd'),
     col25 boolean);
 
-    insert into test02 values(
+mysql> insert into test02 values(
      1,'a','This is the test', 'This is tinytext', 'This is text', 'This is blob', 'This is mediumtext', 'This is mediumblob',
      'This longtext', 'thi longblob', 1,1,1,1,1,10.00000008,10.00000008, 10.00000008, '2021-01-01', '2021-12-31 23:59:59', '2021-12-31 23:59:59', 
      '11:23:21', 'small', 'c', 1);
@@ -653,28 +686,23 @@ $ aws ec2 create-route --route-table-id rtb-088d43baf496c5485 --destination-cidr
 
 ** Build vpc peering between TiDB Cloud and workstation
   + Request the VPC peering from TiDB Cloud
+    #+attr_html: :width 800px
+    #+attr_latex: :width 800px
+    [[./png/vpc-request-from-tidb-cloud.png]]
+  + Created the vpc peering
+    #+attr_html: :width 800px
+    #+attr_latex: :width 800px
+    [[./png/tidb-cloud-vpc.png]]
   + Accept the vpc peering
 #+BEGIN_SRC
-$ aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id pcx-0ef2f55806ca55e38
+$ aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id pcx-0236bb762da547d0b
 {
     "VpcPeeringConnection": {
-        "AccepterVpcInfo": {
-            "CidrBlock": "172.20.0.0/16",
-            "CidrBlockSet": [
-                {
-                    "CidrBlock": "172.20.0.0/16"
-                }
-            ],
-            "OwnerId": "385595570414",
-            "PeeringOptions": {
-                "AllowDnsResolutionFromRemoteVpc": false,
-                "AllowEgressFromLocalClassicLinkToRemoteVpc": false,
-                "AllowEgressFromLocalVpcToRemoteClassicLink": false
-            },
-            "VpcId": "vpc-06d0878ce02ba7fa5",
-            "Region": "ap-northeast-1"
-        },
-... ...
+        ... ...
+        "Tags": [],
+        "VpcPeeringConnectionId": "pcx-0236bb762da547d0b"
+    }
+}
 #+END_SRC
 
 ** Add the routing rule from EC2 instance to TiDB Cloud
@@ -686,27 +714,6 @@ $ aws ec2 create-route --route-table-id rtb-0fda0b8d03fd15de8 --destination-cidr
 
 $ setenforce 0
 #+END_SRC
-** Make sure binlog is open
-#+BEGIN_SRC
-mysql> show binary logs;
-+----------------------------+-----------+
-| Log_name                   | File_size |
-+----------------------------+-----------+
-| mysql-bin-changelog.000004 |       154 |
-| mysql-bin-changelog.000005 |      1390 |
-+----------------------------+-----------+
-2 rows in set (0.02 sec)
-
-mysql> show binlog events;
-+----------------------------+-----+----------------+-----------+-------------+---------------------------------------+
-| Log_name                   | Pos | Event_type     | Server_id | End_log_pos | Info                                  |
-+----------------------------+-----+----------------+-----------+-------------+---------------------------------------+
-| mysql-bin-changelog.000004 |   4 | Format_desc    | 880713995 |         123 | Server ver: 5.7.12-log, Binlog ver: 4 |
-| mysql-bin-changelog.000004 | 123 | Previous_gtids | 880713995 |         154 |                                       |
-+----------------------------+-----+----------------+-----------+-------------+---------------------------------------+
-2 rows in set (0.01 sec)
-#+END_SRC
-
 ** take a rds snapshot
 #+BEGIN_SRC
 $ aws rds create-db-cluster-snapshot \
@@ -792,6 +799,8 @@ $ aws rds start-export-task \
     "PercentProgress": 0,
     "TotalExtractedDataInGB": 0
 }
+
+$ aws rds describe-export-tasks --export-task-identifier aurora2tidb-snap04
 
 $ aws s3api put-bucket-encryption \
     --bucket tidb-jay  \
