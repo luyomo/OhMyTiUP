@@ -69,6 +69,10 @@ candle:
 	@# Target: build the tisample-candle component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-candle ./components/candle
 
+aurora:
+	@# Target: build the tisample-aurora component
+	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-aurora ./components/aurora
+
 dm:
 	@# Target: build the tiup-dm component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tiup-dm ./components/dm
