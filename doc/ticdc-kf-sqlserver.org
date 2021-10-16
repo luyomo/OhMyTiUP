@@ -1,0 +1,379 @@
+* Overview
+[[./png/roadmap.png]]
+#+BEGIN_COMMENT
+#+BEGIN_SRC plantuml :file ./png/roadmap.png
+[JDBC sink] as jdbcsink
+[TiDB] -> [TiCDC]
+[TiCDC] -> [Confluent]
+[Confluent] -> [jdbcsink]
+[jdbcsink] -> [SQLServer]
+#+END_SRC
+#+END_COMMENT
+* TiDB install
+** EC2 preparation
+   + 1 TiDB nodes
+   + 3 TiKV nodes
+   + 3 TiPD nodes
+   + 2 TiCDC nodes
+*** VPC
+#+BEGIN_SRC
+$ aws ec2 create-vpc --cidr-block 172.50.0.0/16 --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=ticdc2sqlserver}]'
+{
+    "Vpc": {
+        "CidrBlock": "172.50.0.0/16",
+        "DhcpOptionsId": "dopt-d74aa6b0",
+        "State": "pending",
+        "VpcId": "vpc-0bc1317fe40867335",
+        "OwnerId": "385595570414",
+        "InstanceTenancy": "default",
+        "Ipv6CidrBlockAssociationSet": [],
+        "CidrBlockAssociationSet": [
+            {
+                "AssociationId": "vpc-cidr-assoc-07abe66172c340e4a",
+                "CidrBlock": "172.50.0.0/16",
+                "CidrBlockState": {
+                    "State": "associated"
+                }
+            }
+        ],
+        "IsDefault": false,
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "ticdc2sqlserver"
+            }
+        ]
+    }
+}
+#+END_SRC
+*** subnets
+#+BEGIN_SRC
+$ aws ec2 create-subnet --cidr-block 172.50.10.0/24 \
+                        --vpc-id vpc-0bc1317fe40867335 \
+                        --availability-zone=ap-northeast-1a \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=ticdc2sqlserver},{Key=id,Value=1}]'
+$ aws ec2 create-subnet --cidr-block 172.50.20.0/24 \
+                        --vpc-id vpc-0bc1317fe40867335 \
+                        --availability-zone=ap-northeast-1c \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=ticdc2sqlserver},{Key=id,Value=2}]'
+$ aws ec2 create-subnet --cidr-block 172.50.30.0/24 \
+                        --vpc-id vpc-0bc1317fe40867335 \
+                        --availability-zone=ap-northeast-1d \
+                        --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=ticdc2sqlserver},{Key=id,Value=3}]'
+#+END_SRC
+*** route table
+#+BEGIN_SRC
+$ aws ec2 create-route-table --vpc-id vpc-0bc1317fe40867335 --tag-specification 'ResourceType=route-table,Tags=[{Key=Name,Value=ticdc2sqlserver}]'
+{            
+    "RouteTable": {
+        "Associations": [],
+        "PropagatingVgws": [],
+        "RouteTableId": "rtb-0b0a9d68a7aceee93",                                                      
+        "Routes": [
+            {
+                "DestinationCidrBlock": "172.50.0.0/16",
+                "GatewayId": "local",
+                "Origin": "CreateRouteTable",
+                "State": "active"
+            }
+        ],
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "ticdc2sqlserver"
+            }
+        ],
+        "VpcId": "vpc-0bc1317fe40867335",
+        "OwnerId": "385595570414"
+    }
+}
+$ aws ec2 associate-route-table --route-table-id rtb-0b0a9d68a7aceee93 --subnet-id subnet-01dffc3b1b6eb1758
+{
+    "AssociationId": "rtbassoc-0d34b2dc4aa46dd82",
+    "AssociationState": {
+        "State": "associated"
+    }
+}
+$ aws ec2 associate-route-table --route-table-id rtb-0b0a9d68a7aceee93 --subnet-id subnet-0b6412d0791ba770e
+{
+    "AssociationId": "rtbassoc-0a9d9b119a8e92d68",
+    "AssociationState": {
+        "State": "associated"
+    }
+}
+$ aws ec2 associate-route-table --route-table-id rtb-0b0a9d68a7aceee93 --subnet-id subnet-02730e7393d36fefc
+{
+    "AssociationId": "rtbassoc-0580cb8fdad9bbfd0",
+    "AssociationState": {
+        "State": "associated"
+    }
+}
+#+END_SRC
+*** internet gateway
+#+BEGIN_SRC
+$ aws ec2 create-internet-gateway --tag-specification 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=ticdc2sqlserver}]'
+{
+    "InternetGateway": {
+        "Attachments": [],
+        "InternetGatewayId": "igw-08988fd163c7abe49",
+        "OwnerId": "385595570414",
+        "Tags": [
+            {
+                "Key": "Name",
+                "Value": "ticdc2sqlserver"
+            }
+        ]
+    }
+}
+$ aws ec2 attach-internet-gateway --internet-gateway-id igw-08988fd163c7abe49 --vpc-id vpc-0bc1317fe40867335
+$ aws ec2 create-route --route-table-id rtb-0b0a9d68a7aceee93 --destination-cidr-block 0.0.0.0/0 --gateway-id igw-08988fd163c7abe49
+{
+    "Return": true
+}
+$ aws ec2 modify-vpc-attribute --vpc-id vpc-0bc1317fe40867335 --enable-dns-hostnames
+$ aws ec2 modify-vpc-attribute --vpc-id vpc-0bc1317fe40867335 --enable-dns-support
+#+END_SRC
+*** Security group
+#+BEGIN_SRC
+$ aws ec2 create-security-group --group-name ticdc2sqlserver-ws \
+                                --vpc-id vpc-0bc1317fe40867335 \
+                                --description "ticdc2sqlserver" \
+                                --tag-specification 'ResourceType=security-group,Tags=[{Key=Name,Value=ticdc2sqlserver}]'
+{
+    "GroupId": "sg-0a43a669d4f301c39",
+    "Tags": [
+        {
+            "Key": "Name",
+            "Value": "ticdc2sqlserver"
+        }
+    ]
+}
+
+$ aws ec2 authorize-security-group-ingress \
+--group-id sg-0a43a669d4f301c39 \
+--protocol tcp \
+--port 22 \
+--cidr 0.0.0.0/0
+{
+    "GroupId": "sg-0a43a669d4f301c39",
+    "Tags": [
+        {
+            "Key": "Name",
+            "Value": "ticdc2sqlserver"
+        }
+    ]
+}
+
+$ aws ec2 authorize-security-group-ingress \
+--group-id sg-0a43a669d4f301c39 \
+--protocol tcp \
+--port 0-65535 \
+--cidr 0.0.0.0/0
+#+END_SRC
+*** EC2 preparation
+    + One workstation
+#+BEGIN_SRC
+$ aws ec2 run-instances \
+--count 1 \
+--image-id ami-0ac97798ccf296e02 \
+--instance-type t2.large \
+--associate-public-ip-address \
+--key-name jay.pingcap \
+--security-group-ids sg-0a43a669d4f301c39 \
+--subnet-id subnet-01dffc3b1b6eb1758 \
+--region ap-northeast-1 \
+--block-device-mapping '[ { "DeviceName": "/dev/xvda", "Ebs": { "VolumeSize": 30 } } ]' \
+--tag-specification 'ResourceType=instance,Tags=[{Key=Name,Value=ticdc2sqlserver-ws}]'
+
+$ssh -i "~/.ssh/jaypingcap.pem" admin@54.150.246.155
+
+$ sudo tee /etc/apt/sources.list<<EOF
+deb http://deb.debian.org/debian/ buster main
+deb-src http://deb.debian.org/debian/ buster main
+
+deb http://deb.debian.org/debian/ buster-updates main
+deb-src http://deb.debian.org/debian/ buster-updates main
+
+deb http://security.debian.org/debian-security buster/updates main
+deb-src http://security.debian.org/debian-security buster/updates main
+EOF
+
+$ sudo apt-get -y update
+$ sudo apt-get install rsync
+
+$ aws ec2 run-instances \
+--count 1 \
+--image-id ami-0ac97798ccf296e02 \
+--instance-type t2.xlarge \
+--key-name jay.pingcap \
+--security-group-ids sg-0a43a669d4f301c39 \
+--subnet-id subnet-01dffc3b1b6eb1758 \
+--region ap-northeast-1 \
+--block-device-mapping '[ { "DeviceName": "/dev/xvda", "Ebs": { "VolumeSize": 30 } } ]' \
+--tag-specification 'ResourceType=instance,Tags=[{Key=Name,Value=ticdc2sqlserver-node01}, {Key=clusterName, Value=ticdcsqlserver}]'
+
+$ aws ec2 run-instances \
+--count 1 \
+--image-id ami-0ac97798ccf296e02 \
+--instance-type t2.xlarge \
+--key-name jay.pingcap \
+--security-group-ids sg-0a43a669d4f301c39 \
+--subnet-id subnet-0b6412d0791ba770e \
+--region ap-northeast-1 \
+--block-device-mapping '[ { "DeviceName": "/dev/xvda", "Ebs": { "VolumeSize": 30 } } ]' \
+--tag-specification 'ResourceType=instance,Tags=[{Key=Name,Value=ticdc2sqlserver-node02}, {Key=clusterName, Value=ticdcsqlserver}]'
+
+$ aws ec2 run-instances \
+--count 1 \
+--image-id ami-0ac97798ccf296e02 \
+--instance-type t2.xlarge \
+--key-name jay.pingcap \
+--security-group-ids sg-0a43a669d4f301c39 \
+--subnet-id subnet-02730e7393d36fefc \
+--region ap-northeast-1 \
+--block-device-mapping '[ { "DeviceName": "/dev/xvda", "Ebs": { "VolumeSize": 30 } } ]' \
+--tag-specification 'ResourceType=instance,Tags=[{Key=Name,Value=ticdc2sqlserver-node03}, {Key=clusterName, Value=ticdcsqlserver}]'
+
+$ aws ec2 run-instances \
+--count 1 \
+--image-id ami-0ac97798ccf296e02 \
+--instance-type t2.large \
+--key-name jay.pingcap \
+--security-group-ids sg-0a43a669d4f301c39 \
+--subnet-id subnet-01dffc3b1b6eb1758 \
+--region ap-northeast-1 \
+--block-device-mapping '[ { "DeviceName": "/dev/xvda", "Ebs": { "VolumeSize": 30 } } ]' \
+--tag-specification 'ResourceType=instance,Tags=[{Key=Name,Value=ticdc2sqlserver-kf01}, {Key=clusterName, Value=ticdcsqlserver}]'
+
+$ aws ec2 run-instances \
+--count 1 \
+--image-id ami-0ac97798ccf296e02 \
+--instance-type t2.large \
+--key-name jay.pingcap \
+--security-group-ids sg-0a43a669d4f301c39 \
+--subnet-id subnet-0b6412d0791ba770e \
+--region ap-northeast-1 \
+--block-device-mapping '[ { "DeviceName": "/dev/xvda", "Ebs": { "VolumeSize": 30 } } ]' \
+--tag-specification 'ResourceType=instance,Tags=[{Key=Name,Value=ticdc2sqlserver-kf02}, {Key=clusterName, Value=ticdcsqlserver}]'
+
+$ aws ec2 run-instances \
+--count 1 \
+--image-id ami-0ac97798ccf296e02 \
+--instance-type t2.large \
+--key-name jay.pingcap \
+--security-group-ids sg-0a43a669d4f301c39 \
+--subnet-id subnet-02730e7393d36fefc \
+--region ap-northeast-1 \
+--block-device-mapping '[ { "DeviceName": "/dev/xvda", "Ebs": { "VolumeSize": 30 } } ]' \
+--tag-specification 'ResourceType=instance,Tags=[{Key=Name,Value=ticdc2sqlserver-kf03}, {Key=clusterName, Value=ticdcsqlserver}]'
+#+END_SrC
+    + Three TiDB
+** TiUP deployment
+*** TiUP binary install
+#+BEGIN_SRC
+$ curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh
+$ source ~/.bashrc
+$ more topology.yaml
+global:
+  user: "admin"
+  ssh_port: 22
+  deploy_dir: "/home/admin/tidb-deploy"
+  data_dir: "/home/admin/tidb-data"
+
+monitored:
+  node_exporter_port: 9100
+  blackbox_exporter_port: 9115
+
+server_configs:
+  tidb:
+    log.slow-threshold: 300
+  tikv:
+    readpool.storage.use-unified-pool: false
+    readpool.coprocessor.use-unified-pool: true
+  pd:
+    schedule.leader-schedule-limit: 4
+    schedule.region-schedule-limit: 2048
+    schedule.replica-schedule-limit: 64
+  cdc:
+
+pd_servers:
+  - host: 172.50.10.141
+  - host: 172.50.20.102
+  - host: 172.50.30.250
+
+tidb_servers:
+  - host: 172.50.10.141
+  - host: 172.50.20.102
+  - host: 172.50.30.250
+
+tikv_servers:
+  - host: 172.50.10.141
+  - host: 172.50.20.102
+  - host: 172.50.30.250
+
+cdc_servers:
+  - host: 172.50.10.141
+  - host: 172.50.20.102
+  - host: 172.50.30.250
+
+monitoring_servers:
+  - host: 172.50.10.141
+
+grafana_servers:
+  - host: 172.50.10.141
+
+alertmanager_servers:
+  - host: 172.50.10.141
+
+#+END_SRC
+* Confluent install
+** Self managment
+*** Binary download
+#+BEGIN_SRC
+$ wget http://packages.confluent.io/archive/5.2/confluent-5.2.3-2.12.tar.gz
+$ tar xvf confluent-5.2.3-2.12.tar.gz
+$ export CONFLUENT_HOME=$(pwd)/confluent-5.2.3
+$ export PATH=$PATH:$CONFLUENT_HOME/bin
+$ sed -i 's|^dataDir=\(.*\)|dataDir=/home/admin/confluent/zookeeper|g' confluent-5.2.3/etc/kafka/zookeeper.propertie
+$ mkdir -p /home/admin/confluent/zookeeper
+$ sed -i 's|^log.dirs=\(.*\)|log.dirs=/home/admin/confluent/kafka/data|g' confluent-5.2.3/etc/kafka/server.properties
+$ mkdir -p /home/admin/confluent/kafka/data
+$ sudo apt-get install -y openjdk-11-jdk
+#+END_SRC
+*** Install
+*** Deployment
+#+BEGIN_SRC
+$ tiup cdc cli changefeed remove --pd="http://172.50.10.141:2379" -c df3aa6e8-691c-413a-8d45-1ea8eefaab0d
+Starting component `cdc`: /home/admin/.tiup/components/cdc/v5.2.1/cdc cli changefeed remove --pd=http://172.50.10.141:2379 -c df3aa6e8-691c-413a-8d45-1ea8eefaab0d
+
+$ tiup cdc cli changefeed create --pd="http://172.50.10.141:2379" --sink-uri="kafka://172.50.10.202:9092/test?protocol=avro" --opts "registry=http://172.50.10.202:8081
+Starting component `cdc`: /home/admin/.tiup/components/cdc/v5.2.1/cdc cli changefeed create --pd=http://172.50.10.141:2379 --sink-uri=kafka://172.50.10.202:9092/test?protocol=avro --opts registry=http://172.50.10.202:8081
+Create changefeed successfully!
+ID: ffe98a1c-ef60-4ea7-baad-8fb371a4214a
+Info: {"sink-uri":"kafka://172.50.10.202:9092/test?protocol=avro","opts":{"registry":"http://172.50.10.202:8081"},"create-time":"2021-10-15T02:02:27.55378369Z","start-ts":428412330966777857,"target-ts":0,"admin-job-type":0,"sort-engine":"unified","sort-dir":"","config":{"case-sensitive":true,"enable-old-value":true,"force-replicate":false,"check-gc-safe-point":true,"filter":{"rules":["*.*"],"ignore-txn-start-ts":null},"mounter":{"worker-num":16},"sink":{"dispatchers":null,"protocol":"avro"},"cyclic-replication":{"enable":false,"replica-id":0,"filter-replica-ids":null,"id-buckets":0,"sync-ddl":false},"scheduler":{"type":"table-number","polling-time":-1}},"state":"normal","history":null,"error":null,"sync-point-enabled":false,"sync-point-interval":600000000000,"creator-version":"v5.2.1"}
+
+$ tiup cdc cli changefeed list --pd=http://172.50.10.141:2379
+Starting component `cdc`: /home/admin/.tiup/components/cdc/v5.2.1/cdc cli changefeed list --pd=http://172.50.10.141:2379
+[
+  {
+    "id": "ffe98a1c-ef60-4ea7-baad-8fb371a4214a",
+    "summary": {
+      "state": "normal",
+      "tso": 428412340063436802,
+      "checkpoint": "2021-10-15 02:03:02.200",
+      "error": null
+    }
+  }
+]
+
+$ tiup cdc cli changefeed create --pd="http://172.50.10.141:2379" --sink-uri="mysql://master:1234Abcd@172.10.10.118:3306" --opts "registry=http://172.50.10.202:8081"
+
+$ tiup cdc cli changefeed list --pd=http://172.50.10.141:2379
+
+#+END_SRC
+
+#+BEGIN_SRC
+$curl -X POST -H "Content-Type: application/json" -d @jdbc-sink-connector.json http://127.0.0.1:8083/connectors
+#+END_SRC
+** Services
+* SQL server install
