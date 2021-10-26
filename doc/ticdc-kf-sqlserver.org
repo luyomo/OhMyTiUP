@@ -9,6 +9,16 @@
 [jdbcsink] -> [SQLServer]
 #+END_SRC
 #+END_COMMENT
+** TiDB -> Aurora -> SQLServer
+   [[./png/tidb2aurora2sqlserver.png]]
+#+BEGIN_COMMENT
+#+BEGIN_SRC plantuml :file ./png/tidb2aurora2sqlserver.png
+[TiDB] -> [TiCDC]
+[TiCDC] -> [Aurora]
+[Aurora] -> [DMS]
+[DMS] -> [SQLServer]
+#+END_SRC
+#+END_COMMENT
 * TiDB install
 ** EC2 preparation
    + 1 TiDB nodes
@@ -347,7 +357,7 @@ $ tiup cdc cli changefeed remove --pd="http://172.50.10.141:2379" -c df3aa6e8-69
 Starting component `cdc`: /home/admin/.tiup/components/cdc/v5.2.1/cdc cli changefeed remove --pd=http://172.50.10.141:2379 -c df3aa6e8-691c-413a-8d45-1ea8eefaab0d
 
 $ tiup cdc cli changefeed create --pd="http://172.50.10.141:2379" --sink-uri="kafka://172.50.10.202:9092/test?protocol=avro" --opts "registry=http://172.50.10.202:8081
-Starting component `cdc`: /home/admin/.tiup/components/cdc/v5.2.1/cdc cli changefeed create --pd=http://172.50.10.141:2379 --sink-uri=kafka://172.50.10.202:9092/test?protocol=avro --opts registry=http://172.50.10.202:8081
+Starting component `cdc`: /home/admin/.tiup/components/cdc/v5.2.1/cdc cli changefeed create --pd=http://172.50.10.141:2379 --sink-uri=kafka://172.50.10.202:9092/test?protocol=avro --opts registr
 Create changefeed successfully!
 ID: ffe98a1c-ef60-4ea7-baad-8fb371a4214a
 Info: {"sink-uri":"kafka://172.50.10.202:9092/test?protocol=avro","opts":{"registry":"http://172.50.10.202:8081"},"create-time":"2021-10-15T02:02:27.55378369Z","start-ts":428412330966777857,"target-ts":0,"admin-job-type":0,"sort-engine":"unified","sort-dir":"","config":{"case-sensitive":true,"enable-old-value":true,"force-replicate":false,"check-gc-safe-point":true,"filter":{"rules":["*.*"],"ignore-txn-start-ts":null},"mounter":{"worker-num":16},"sink":{"dispatchers":null,"protocol":"avro"},"cyclic-replication":{"enable":false,"replica-id":0,"filter-replica-ids":null,"id-buckets":0,"sync-ddl":false},"scheduler":{"type":"table-number","polling-time":-1}},"state":"normal","history":null,"error":null,"sync-point-enabled":false,"sync-point-interval":600000000000,"creator-version":"v5.2.1"}
@@ -366,7 +376,7 @@ Starting component `cdc`: /home/admin/.tiup/components/cdc/v5.2.1/cdc cli change
   }
 ]
 
-$ tiup cdc cli changefeed create --pd="http://172.50.10.141:2379" --sink-uri="mysql://master:1234Abcd@172.10.10.118:3306" --opts "registry=http://172.50.10.202:8081"
+$ tiup cdc cli changefeed create --pd="http://172.50.10.141:2379" --sink-uri="mysql://master:1234Abcd@172.10.10.118:3306"
 
 $ tiup cdc cli changefeed list --pd=http://172.50.10.141:2379
 
@@ -377,3 +387,402 @@ $curl -X POST -H "Content-Type: application/json" -d @jdbc-sink-connector.json h
 #+END_SRC
 ** Services
 * SQL server install
+#+BEGIN_SRC
+https://docs.microsoft.com/en-us/sql/linux/sql-server-linux-setup-tools?view=sql-server-ver15
+
+apt-get install gnupg2
+curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+curl https://packages.microsoft.com/config/ubuntu/16.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+sudo apt-get update
+sudo apt-get install mssql-tools unixodbc-dev
+echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
+(%ZS8v6U3;
+#+END_SRC
+
+
+* QPS test
+
+
+https://github.com/Percona-Lab/ontime-airline-performance/blob/master/mysql/create_table.sql
+
+#+BEGIN_SRC
+CREATE TABLE `ontime` (
+   id bigint primary key auto_random, 
+  `Year` year(4) DEFAULT NULL,
+  `Quarter` tinyint(4) DEFAULT NULL,
+  `Month` tinyint(4) DEFAULT NULL,
+  `DayofMonth` tinyint(4) DEFAULT NULL,
+  `DayOfWeek` tinyint(4) DEFAULT NULL,
+  `FlightDate` date DEFAULT NULL,
+  `UniqueCarrier` char(7) DEFAULT NULL,
+  `AirlineID` int(11) DEFAULT NULL,
+  `Carrier` char(2) DEFAULT NULL,
+  `TailNum` varchar(50) DEFAULT NULL,
+  `FlightNum` varchar(10) DEFAULT NULL,
+  `OriginAirportID` int(11) DEFAULT NULL,
+  `OriginAirportSeqID` int(11) DEFAULT NULL,
+  `OriginCityMarketID` int(11) DEFAULT NULL,
+  `Origin` char(5) DEFAULT NULL,
+  `OriginCityName` varchar(100) DEFAULT NULL,
+  `OriginState` char(2) DEFAULT NULL,
+  `OriginStateFips` varchar(10) DEFAULT NULL,
+  `OriginStateName` varchar(100) DEFAULT NULL,
+  `OriginWac` int(11) DEFAULT NULL,
+  `DestAirportID` int(11) DEFAULT NULL,
+  `DestAirportSeqID` int(11) DEFAULT NULL,
+  `DestCityMarketID` int(11) DEFAULT NULL,
+  `Dest` char(5) DEFAULT NULL,
+  `DestCityName` varchar(100) DEFAULT NULL,
+  `DestState` char(2) DEFAULT NULL,
+  `DestStateFips` varchar(10) DEFAULT NULL,
+  `DestStateName` varchar(100) DEFAULT NULL,
+  `DestWac` int(11) DEFAULT NULL,
+  `CRSDepTime` int(11) DEFAULT NULL,
+  `DepTime` int(11) DEFAULT NULL,
+  `DepDelay` int(11) DEFAULT NULL,
+  `DepDelayMinutes` int(11) DEFAULT NULL,
+  `DepDel15` int(11) DEFAULT NULL,
+  `DepartureDelayGroups` int(11) DEFAULT NULL,
+  `DepTimeBlk` varchar(20) DEFAULT NULL,
+  `TaxiOut` int(11) DEFAULT NULL,
+  `WheelsOff` int(11) DEFAULT NULL,
+  `WheelsOn` int(11) DEFAULT NULL,
+  `TaxiIn` int(11) DEFAULT NULL,
+  `CRSArrTime` int(11) DEFAULT NULL,
+  `ArrTime` int(11) DEFAULT NULL,
+  `ArrDelay` int(11) DEFAULT NULL,
+  `ArrDelayMinutes` int(11) DEFAULT NULL,
+  `ArrDel15` int(11) DEFAULT NULL,
+  `ArrivalDelayGroups` int(11) DEFAULT NULL,
+  `ArrTimeBlk` varchar(20) DEFAULT NULL,
+  `Cancelled` tinyint(4) DEFAULT NULL,
+  `CancellationCode` char(1) DEFAULT NULL,
+  `Diverted` tinyint(4) DEFAULT NULL,
+  `CRSElapsedTime` int(11) DEFAULT NULL,
+  `ActualElapsedTime` int(11) DEFAULT NULL,
+  `AirTime` int(11) DEFAULT NULL,
+  `Flights` int(11) DEFAULT NULL,
+  `Distance` int(11) DEFAULT NULL,
+  `DistanceGroup` tinyint(4) DEFAULT NULL,
+  `CarrierDelay` int(11) DEFAULT NULL,
+  `WeatherDelay` int(11) DEFAULT NULL,
+  `NASDelay` int(11) DEFAULT NULL,
+  `SecurityDelay` int(11) DEFAULT NULL,
+  `LateAircraftDelay` int(11) DEFAULT NULL,
+  `FirstDepTime` varchar(10) DEFAULT NULL,
+  `TotalAddGTime` varchar(10) DEFAULT NULL,
+  `LongestAddGTime` varchar(10) DEFAULT NULL,
+  `DivAirportLandings` varchar(10) DEFAULT NULL,
+  `DivReachedDest` varchar(10) DEFAULT NULL,
+  `DivActualElapsedTime` varchar(10) DEFAULT NULL,
+  `DivArrDelay` varchar(10) DEFAULT NULL,
+  `DivDistance` varchar(10) DEFAULT NULL,
+  `Div1Airport` varchar(10) DEFAULT NULL,
+  `Div1AirportID` int(11) DEFAULT NULL,
+  `Div1AirportSeqID` int(11) DEFAULT NULL,
+  `Div1WheelsOn` varchar(10) DEFAULT NULL,
+  `Div1TotalGTime` varchar(10) DEFAULT NULL,
+  `Div1LongestGTime` varchar(10) DEFAULT NULL,
+  `Div1WheelsOff` varchar(10) DEFAULT NULL,
+  `Div1TailNum` varchar(10) DEFAULT NULL,
+  `Div2Airport` varchar(10) DEFAULT NULL,
+  `Div2AirportID` int(11) DEFAULT NULL,
+  `Div2AirportSeqID` int(11) DEFAULT NULL,
+  `Div2WheelsOn` varchar(10) DEFAULT NULL,
+  `Div2TotalGTime` varchar(10) DEFAULT NULL,
+  `Div2LongestGTime` varchar(10) DEFAULT NULL,
+  `Div2WheelsOff` varchar(10) DEFAULT NULL,
+  `Div2TailNum` varchar(10) DEFAULT NULL,
+  `Div3Airport` varchar(10) DEFAULT NULL,
+  `Div3AirportID` int(11) DEFAULT NULL,
+  `Div3AirportSeqID` int(11) DEFAULT NULL,
+  `Div3WheelsOn` varchar(10) DEFAULT NULL,
+  `Div3TotalGTime` varchar(10) DEFAULT NULL,
+  `Div3LongestGTime` varchar(10) DEFAULT NULL,
+  `Div3WheelsOff` varchar(10) DEFAULT NULL,
+  `Div3TailNum` varchar(10) DEFAULT NULL,
+  `Div4Airport` varchar(10) DEFAULT NULL,
+  `Div4AirportID` int(11) DEFAULT NULL,
+  `Div4AirportSeqID` int(11) DEFAULT NULL,
+  `Div4WheelsOn` varchar(10) DEFAULT NULL,
+  `Div4TotalGTime` varchar(10) DEFAULT NULL,
+  `Div4LongestGTime` varchar(10) DEFAULT NULL,
+  `Div4WheelsOff` varchar(10) DEFAULT NULL,
+  `Div4TailNum` varchar(10) DEFAULT NULL,
+  `Div5Airport` varchar(10) DEFAULT NULL,
+  `Div5AirportID` int(11) DEFAULT NULL,
+  `Div5AirportSeqID` int(11) DEFAULT NULL,
+  `Div5WheelsOn` varchar(10) DEFAULT NULL,
+  `Div5TotalGTime` varchar(10) DEFAULT NULL,
+  `Div5LongestGTime` varchar(10) DEFAULT NULL,
+  `Div5WheelsOff` varchar(10) DEFAULT NULL,
+  `Div5TailNum` varchar(10) DEFAULT NULL,
+  `timestamp_tidb` timestamp default current_timestamp
+) DEFAULT CHARSET=latin1 ;
+
+CREATE TABLE `ontime` (
+   id bigint primary key, 
+  `Year` year(4) DEFAULT NULL,
+  `Quarter` tinyint(4) DEFAULT NULL,
+  `Month` tinyint(4) DEFAULT NULL,
+  `DayofMonth` tinyint(4) DEFAULT NULL,
+  `DayOfWeek` tinyint(4) DEFAULT NULL,
+  `FlightDate` date DEFAULT NULL,
+  `UniqueCarrier` char(7) DEFAULT NULL,
+  `AirlineID` int(11) DEFAULT NULL,
+  `Carrier` char(2) DEFAULT NULL,
+  `TailNum` varchar(50) DEFAULT NULL,
+  `FlightNum` varchar(10) DEFAULT NULL,
+  `OriginAirportID` int(11) DEFAULT NULL,
+  `OriginAirportSeqID` int(11) DEFAULT NULL,
+  `OriginCityMarketID` int(11) DEFAULT NULL,
+  `Origin` char(5) DEFAULT NULL,
+  `OriginCityName` varchar(100) DEFAULT NULL,
+  `OriginState` char(2) DEFAULT NULL,
+  `OriginStateFips` varchar(10) DEFAULT NULL,
+  `OriginStateName` varchar(100) DEFAULT NULL,
+  `OriginWac` int(11) DEFAULT NULL,
+  `DestAirportID` int(11) DEFAULT NULL,
+  `DestAirportSeqID` int(11) DEFAULT NULL,
+  `DestCityMarketID` int(11) DEFAULT NULL,
+  `Dest` char(5) DEFAULT NULL,
+  `DestCityName` varchar(100) DEFAULT NULL,
+  `DestState` char(2) DEFAULT NULL,
+  `DestStateFips` varchar(10) DEFAULT NULL,
+  `DestStateName` varchar(100) DEFAULT NULL,
+  `DestWac` int(11) DEFAULT NULL,
+  `CRSDepTime` int(11) DEFAULT NULL,
+  `DepTime` int(11) DEFAULT NULL,
+  `DepDelay` int(11) DEFAULT NULL,
+  `DepDelayMinutes` int(11) DEFAULT NULL,
+  `DepDel15` int(11) DEFAULT NULL,
+  `DepartureDelayGroups` int(11) DEFAULT NULL,
+  `DepTimeBlk` varchar(20) DEFAULT NULL,
+  `TaxiOut` int(11) DEFAULT NULL,
+  `WheelsOff` int(11) DEFAULT NULL,
+  `WheelsOn` int(11) DEFAULT NULL,
+  `TaxiIn` int(11) DEFAULT NULL,
+  `CRSArrTime` int(11) DEFAULT NULL,
+  `ArrTime` int(11) DEFAULT NULL,
+  `ArrDelay` int(11) DEFAULT NULL,
+  `ArrDelayMinutes` int(11) DEFAULT NULL,
+  `ArrDel15` int(11) DEFAULT NULL,
+  `ArrivalDelayGroups` int(11) DEFAULT NULL,
+  `ArrTimeBlk` varchar(20) DEFAULT NULL,
+  `Cancelled` tinyint(4) DEFAULT NULL,
+  `CancellationCode` char(1) DEFAULT NULL,
+  `Diverted` tinyint(4) DEFAULT NULL,
+  `CRSElapsedTime` int(11) DEFAULT NULL,
+  `ActualElapsedTime` int(11) DEFAULT NULL,
+  `AirTime` int(11) DEFAULT NULL,
+  `Flights` int(11) DEFAULT NULL,
+  `Distance` int(11) DEFAULT NULL,
+  `DistanceGroup` tinyint(4) DEFAULT NULL,
+  `CarrierDelay` int(11) DEFAULT NULL,
+  `WeatherDelay` int(11) DEFAULT NULL,
+  `NASDelay` int(11) DEFAULT NULL,
+  `SecurityDelay` int(11) DEFAULT NULL,
+  `LateAircraftDelay` int(11) DEFAULT NULL,
+  `FirstDepTime` varchar(10) DEFAULT NULL,
+  `TotalAddGTime` varchar(10) DEFAULT NULL,
+  `LongestAddGTime` varchar(10) DEFAULT NULL,
+  `DivAirportLandings` varchar(10) DEFAULT NULL,
+  `DivReachedDest` varchar(10) DEFAULT NULL,
+  `DivActualElapsedTime` varchar(10) DEFAULT NULL,
+  `DivArrDelay` varchar(10) DEFAULT NULL,
+  `DivDistance` varchar(10) DEFAULT NULL,
+  `Div1Airport` varchar(10) DEFAULT NULL,
+  `Div1AirportID` int(11) DEFAULT NULL,
+  `Div1AirportSeqID` int(11) DEFAULT NULL,
+  `Div1WheelsOn` varchar(10) DEFAULT NULL,
+  `Div1TotalGTime` varchar(10) DEFAULT NULL,
+  `Div1LongestGTime` varchar(10) DEFAULT NULL,
+  `Div1WheelsOff` varchar(10) DEFAULT NULL,
+  `Div1TailNum` varchar(10) DEFAULT NULL,
+  `Div2Airport` varchar(10) DEFAULT NULL,
+  `Div2AirportID` int(11) DEFAULT NULL,
+  `Div2AirportSeqID` int(11) DEFAULT NULL,
+  `Div2WheelsOn` varchar(10) DEFAULT NULL,
+  `Div2TotalGTime` varchar(10) DEFAULT NULL,
+  `Div2LongestGTime` varchar(10) DEFAULT NULL,
+  `Div2WheelsOff` varchar(10) DEFAULT NULL,
+  `Div2TailNum` varchar(10) DEFAULT NULL,
+  `Div3Airport` varchar(10) DEFAULT NULL,
+  `Div3AirportID` int(11) DEFAULT NULL,
+  `Div3AirportSeqID` int(11) DEFAULT NULL,
+  `Div3WheelsOn` varchar(10) DEFAULT NULL,
+  `Div3TotalGTime` varchar(10) DEFAULT NULL,
+  `Div3LongestGTime` varchar(10) DEFAULT NULL,
+  `Div3WheelsOff` varchar(10) DEFAULT NULL,
+  `Div3TailNum` varchar(10) DEFAULT NULL,
+  `Div4Airport` varchar(10) DEFAULT NULL,
+  `Div4AirportID` int(11) DEFAULT NULL,
+  `Div4AirportSeqID` int(11) DEFAULT NULL,
+  `Div4WheelsOn` varchar(10) DEFAULT NULL,
+  `Div4TotalGTime` varchar(10) DEFAULT NULL,
+  `Div4LongestGTime` varchar(10) DEFAULT NULL,
+  `Div4WheelsOff` varchar(10) DEFAULT NULL,
+  `Div4TailNum` varchar(10) DEFAULT NULL,
+  `Div5Airport` varchar(10) DEFAULT NULL,
+  `Div5AirportID` int(11) DEFAULT NULL,
+  `Div5AirportSeqID` int(11) DEFAULT NULL,
+  `Div5WheelsOn` varchar(10) DEFAULT NULL,
+  `Div5TotalGTime` varchar(10) DEFAULT NULL,
+  `Div5LongestGTime` varchar(10) DEFAULT NULL,
+  `Div5WheelsOff` varchar(10) DEFAULT NULL,
+  `Div5TailNum` varchar(10) DEFAULT NULL,
+  `timestamp_tidb` timestamp default current_timestamp,
+  `timestamp_mysql` timestamp default current_timestamp
+) DEFAULT CHARSET=latin1 ;
+
+CREATE TABLE tidbtest.test.ontime (
+  id bigint primary key,
+  Year int DEFAULT NULL,
+  Quarter tinyint DEFAULT NULL,
+  Month tinyint DEFAULT NULL,
+  DayofMonth tinyint DEFAULT NULL,
+  DayOfWeek tinyint DEFAULT NULL,
+  FlightDate date DEFAULT NULL,
+  UniqueCarrier char(7) DEFAULT NULL,
+  AirlineID int DEFAULT NULL,
+  Carrier char(2) DEFAULT NULL,
+  TailNum varchar(50) DEFAULT NULL,
+  FlightNum varchar(10) DEFAULT NULL,
+  OriginAirportID int DEFAULT NULL,
+  OriginAirportSeqID int DEFAULT NULL,
+  OriginCityMarketID int DEFAULT NULL,
+  Origin char(5) DEFAULT NULL,
+  OriginCityName varchar(100) DEFAULT NULL,
+  OriginState char(2) DEFAULT NULL,
+  OriginStateFips varchar(10) DEFAULT NULL,
+  OriginStateName varchar(100) DEFAULT NULL,
+  OriginWac int DEFAULT NULL,
+  DestAirportID int DEFAULT NULL,
+  DestAirportSeqID int DEFAULT NULL,
+  DestCityMarketID int DEFAULT NULL,
+  Dest char(5) DEFAULT NULL,
+  DestCityName varchar(100) DEFAULT NULL,
+  DestState char(2) DEFAULT NULL,
+  DestStateFips varchar(10) DEFAULT NULL,
+  DestStateName varchar(100) DEFAULT NULL,
+  DestWac int DEFAULT NULL,
+  CRSDepTime int DEFAULT NULL,
+  DepTime int DEFAULT NULL,
+  DepDelay int DEFAULT NULL,
+  DepDelayMinutes int DEFAULT NULL,
+  DepDel15 int DEFAULT NULL,
+  DepartureDelayGroups int DEFAULT NULL,
+  DepTimeBlk varchar(20) DEFAULT NULL,
+  TaxiOut int DEFAULT NULL,
+  WheelsOff int DEFAULT NULL,
+  WheelsOn int DEFAULT NULL,
+  TaxiIn int DEFAULT NULL,
+  CRSArrTime int DEFAULT NULL,
+  ArrTime int DEFAULT NULL,
+  ArrDelay int DEFAULT NULL,
+  ArrDelayMinutes int DEFAULT NULL,
+  ArrDel15 int DEFAULT NULL,
+  ArrivalDelayGroups int DEFAULT NULL,
+  ArrTimeBlk varchar(20) DEFAULT NULL,
+  Cancelled tinyint DEFAULT NULL,
+  CancellationCode char(1) DEFAULT NULL,
+  Diverted tinyint DEFAULT NULL,
+  CRSElapsedTime int DEFAULT NULL,
+  ActualElapsedTime int DEFAULT NULL,
+  AirTime int DEFAULT NULL,
+  Flights int DEFAULT NULL,
+  Distance int DEFAULT NULL,
+  DistanceGroup tinyint DEFAULT NULL,
+   CarrierDelay int DEFAULT NULL,
+  WeatherDelay int DEFAULT NULL,
+  NASDelay int DEFAULT NULL,
+  SecurityDelay int DEFAULT NULL,
+  LateAircraftDelay int DEFAULT NULL,
+  FirstDepTime varchar(10) DEFAULT NULL,
+  TotalAddGTime varchar(10) DEFAULT NULL,
+  LongestAddGTime varchar(10) DEFAULT NULL,
+  DivAirportLandings varchar(10) DEFAULT NULL,
+  DivReachedDest varchar(10) DEFAULT NULL,
+  DivActualElapsedTime varchar(10) DEFAULT NULL,
+  DivArrDelay varchar(10) DEFAULT NULL,
+  DivDistance varchar(10) DEFAULT NULL,
+  Div1Airport varchar(10) DEFAULT NULL,
+  Div1AirportID int DEFAULT NULL,
+  Div1AirportSeqID int DEFAULT NULL,
+  Div1WheelsOn varchar(10) DEFAULT NULL,
+  Div1TotalGTime varchar(10) DEFAULT NULL,
+  Div1LongestGTime varchar(10) DEFAULT NULL,
+  Div1WheelsOff varchar(10) DEFAULT NULL,
+  Div1TailNum varchar(10) DEFAULT NULL,
+  Div2Airport varchar(10) DEFAULT NULL,
+  Div2AirportID int DEFAULT NULL,
+  Div2AirportSeqID int DEFAULT NULL,
+  Div2WheelsOn varchar(10) DEFAULT NULL,
+  Div2TotalGTime varchar(10) DEFAULT NULL,
+  Div2LongestGTime varchar(10) DEFAULT NULL,
+  Div2WheelsOff varchar(10) DEFAULT NULL,
+  Div2TailNum varchar(10) DEFAULT NULL,
+  Div3Airport varchar(10) DEFAULT NULL,
+  Div3AirportID int DEFAULT NULL,
+  Div3AirportSeqID int DEFAULT NULL,
+  Div3WheelsOn varchar(10) DEFAULT NULL,
+  Div3TotalGTime varchar(10) DEFAULT NULL,
+  Div3LongestGTime varchar(10) DEFAULT NULL,
+  Div3WheelsOff varchar(10) DEFAULT NULL,
+  Div3TailNum varchar(10) DEFAULT NULL,
+  Div4Airport varchar(10) DEFAULT NULL,
+  Div4AirportID int DEFAULT NULL,
+  Div4AirportSeqID int DEFAULT NULL,
+  Div4WheelsOn varchar(10) DEFAULT NULL,
+  Div4TotalGTime varchar(10) DEFAULT NULL,
+  Div4LongestGTime varchar(10) DEFAULT NULL,
+  Div4WheelsOff varchar(10) DEFAULT NULL,
+  Div4TailNum varchar(10) DEFAULT NULL,
+  Div5Airport varchar(10) DEFAULT NULL,
+  Div5AirportID int DEFAULT NULL,
+  Div5AirportSeqID int DEFAULT NULL,
+  Div5WheelsOn varchar(10) DEFAULT NULL,
+  Div5TotalGTime varchar(10) DEFAULT NULL,
+  Div5LongestGTime varchar(10) DEFAULT NULL,
+  Div5WheelsOff varchar(10) DEFAULT NULL,
+  Div5TailNum varchar(10) DEFAULT NULL,
+  timestamp_tidb datetime default null,
+  timestamp_mysql datetime default null,
+  timestamp_sqlserver datetime default GETDATE()
+)
+;
+
+LOAD DATA LOCAL INFILE '... /On_Time_Reporting_Carrier_On_Time_Performance_2017_1_01.csv' INTO TABLE ontime FIELDS TERMINATED BY ',' ENCLOSED BY '\"' LINES TERMINATED BY '\n' (Year, Quarter, Month, DayofMonth, DayOfWeek, FlightDate, UniqueCarrier, AirlineID, Carrier, TailNum, FlightNum, OriginAirportID, OriginAirportSeqID, OriginCityMarketID, Origin, OriginCityName, OriginState,     OriginStateFips, OriginStateName, OriginWac, DestAirportID, DestAirportSeqID, DestCityMarketID, Dest, DestCityName, DestState, DestStateFips, DestStateName, DestWac, CRSDepTime, DepTime, DepDelay,        DepDelayMinutes, DepDel15, DepartureDelayGroups, DepTimeBlk, TaxiOut, WheelsOff, WheelsOn, TaxiIn, CRSArrTime, ArrTime, ArrDelay, ArrDelayMinutes, ArrDel15, ArrivalDelayGroups, ArrTimeBlk, Cancelled,     CancellationCode, Diverted, CRSElapsedTime, ActualElapsedTime, AirTime, Flights, Distance, DistanceGroup, CarrierDelay, WeatherDelay, NASDelay, SecurityDelay, LateAircraftDelay, FirstDepTime,             TotalAddGTime, LongestAddGTime, DivAirportLandings, DivReachedDest, DivActualElapsedTime, DivArrDelay, DivDistance, Div1Airport, Div1AirportID, Div1AirportSeqID, Div1WheelsOn, Div1TotalGTime,             Div1LongestGTime, Div1WheelsOff, Div1TailNum, Div2Airport, Div2AirportID, Div2AirportSeqID, Div2WheelsOn, Div2TotalGTime, Div2LongestGTime, Div2WheelsOff, Div2TailNum, Div3Airport, Div3AirportID,         Div3AirportSeqID, Div3WheelsOn, Div3TotalGTime, Div3LongestGTime, Div3WheelsOff, Div3TailNum, Div4Airport, Div4AirportID, Div4AirportSeqID, Div4WheelsOn, Div4TotalGTime, Div4LongestGTime, Div4WheelsOff,  Div4TailNum, Div5Airport, Div5AirportID, Div5AirportSeqID, Div5WheelsOn, Div5TotalGTime, Div5LongestGTime, Div5WheelsOff, Div5TailNum );
+#+END_SRC
+
+
+** Server spec
+
+   | Component    | Instance Name | CPU | Memory | Comment            |
+   |--------------+---------------+-----+--------+--------------------|
+   | RDS - Aurora | db.r5.large   |   2 |     16 | Master - Slave     |
+   | SQL Server   | t2.medium     |   2 |      4 |                    |
+   | TiDB Node    | t2.xlarge     |   4 |     16 | TiDB/TiKV/PD/TiCDC |
+** Peformance
+*** test 
+
+#+BEGIN_SRC
+select distinct 
+--timestamp_tidb, timestamp_mysql, timestamp_sqlserver,
+  count(*)
+, max(CAST(Datediff(s, '2020-01-01', timestamp_mysql    ) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_tidb ) AS BIGINT))          as max_cdc_latency
+, max(CAST(Datediff(s, '2020-01-01', timestamp_sqlserver) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_mysql) AS BIGINT))          as max_dms_latency
+, max(CAST(Datediff(s, '2020-01-01', timestamp_sqlserver) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_tidb ) AS BIGINT))          as max_time_latency
+, sum(CAST(Datediff(s, '2020-01-01', timestamp_mysql    ) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_tidb ) AS BIGINT))/COUNT(*) as avg_cdc_latency
+, sum(CAST(Datediff(s, '2020-01-01', timestamp_sqlserver) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_mysql) AS BIGINT))/COUNT(*) as avg_dms_latency
+, sum(CAST(Datediff(s, '2020-01-01', timestamp_sqlserver) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_tidb ) AS BIGINT))/COUNT(*) as avg_time_latency
+   from tidbtest.test.ontime;
+#+END_SRC
+         | rows/tps | Thread | count | Max TiCDC latency | Max DMS latency | Max latency | Avg TiCDC latency | Avg DMS latency | Avg latency | TiCDC QPS |  QPS |
+         |----------+--------+-------+-------------------+-----------------+-------------+-------------------+-----------------+-------------+-----------+------|
+         |      100 |      1 |   200 |                 3 |              29 |          32 |                 2 |              15 |          17 |     10000 | 1176 |
+         |      100 |      1 |   400 |                 3 |              59 |          61 |                 0 |              31 |          32 |         - | 1250 |
+         |    10000 |      1 |     5 |                 8 |              79 |          86 |                 4 |              40 |          44 |     12500 | 1136 |
+         |    10000 |      1 |    10 |                 8 |             149 |         156 |                 4 |              75 |          80 |     25000 | 1250 |
+
+   
