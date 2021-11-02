@@ -521,7 +521,7 @@ CREATE TABLE `ontime` (
 ) DEFAULT CHARSET=latin1 ;
 
 CREATE TABLE `ontime` (
-   id bigint primary key, 
+   id bigint primary key auto_increment, 
   `Year` year(4) DEFAULT NULL,
   `Quarter` tinyint(4) DEFAULT NULL,
   `Month` tinyint(4) DEFAULT NULL,
@@ -763,10 +763,12 @@ LOAD DATA LOCAL INFILE '... /On_Time_Reporting_Carrier_On_Time_Performance_2017_
    | RDS - Aurora | db.r5.large   |   2 |     16 | Master - Slave     |
    | SQL Server   | t2.medium     |   2 |      4 |                    |
    | TiDB Node    | t2.xlarge     |   4 |     16 | TiDB/TiKV/PD/TiCDC |
+   | DMS node     | dms.t3.medium |     |        | DMS                |
 ** Peformance
 *** test 
 
 #+BEGIN_SRC
+
 select distinct 
 --timestamp_tidb, timestamp_mysql, timestamp_sqlserver,
   count(*)
@@ -776,6 +778,9 @@ select distinct
 , sum(CAST(Datediff(s, '2020-01-01', timestamp_mysql    ) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_tidb ) AS BIGINT))/COUNT(*) as avg_cdc_latency
 , sum(CAST(Datediff(s, '2020-01-01', timestamp_sqlserver) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_mysql) AS BIGINT))/COUNT(*) as avg_dms_latency
 , sum(CAST(Datediff(s, '2020-01-01', timestamp_sqlserver) AS BIGINT) - CAST(Datediff(s, '2020-01-01', timestamp_tidb ) AS BIGINT))/COUNT(*) as avg_time_latency
+, CAST(Datediff(s, '2020-01-01', max(timestamp_tidb)    ) AS BIGINT) - CAST(Datediff(s, '2020-01-01', min(timestamp_tidb ) ) AS BIGINT)     as tidb_qps
+, CAST(Datediff(s, '2020-01-01', max(timestamp_mysql)   ) AS BIGINT) - CAST(Datediff(s, '2020-01-01', min(timestamp_mysql) ) AS BIGINT)     as mysql_qps
+, CAST(Datediff(s, '2020-01-01', max(timestamp_sqlserver)) AS BIGINT) - CAST(Datediff(s, '2020-01-01', min(timestamp_sqlserver) ) AS BIGINT)     as sqlserver_qps
    from tidbtest.test.ontime;
 #+END_SRC
          | rows/tps | Thread | count | Max TiCDC latency | Max DMS latency | Max latency | Avg TiCDC latency | Avg DMS latency | Avg latency | TiCDC QPS |  QPS |
@@ -786,3 +791,126 @@ select distinct
          |    10000 |      1 |    10 |                 8 |             149 |         156 |                 4 |              75 |          80 |     25000 | 1250 |
 
    
+
+** Use case 02
+   | Component    | Instance Name | CPU | Memory | Comment            |
+   |--------------+---------------+-----+--------+--------------------|
+   | RDS - Aurora | db.r5.large   |   2 |     16 | Master - Slave     |
+   | SQL Server   | t2.2xlarge    |   2 |      4 |                    |
+   | TiDB Node    | t2.xlarge     |   4 |     16 | TiDB/TiKV/PD/TiCDC |
+   | DMS node     | dms.t3.medium |     |        | DMS                |
+
+*** Performance
+         | rows/tps | Thread | count | Max TiCDC latency | Max DMS latency | Max latency | Avg TiCDC latency | Avg DMS latency | Avg latency | TiCDC QPS |  QPS |
+         |----------+--------+-------+-------------------+-----------------+-------------+-------------------+-----------------+-------------+-----------+------|
+         |      100 |      1 |   200 |                 4 |               6 |           9 |                 1 |               3 |           5 |     10000 | 1176 |
+         |      100 |      1 |   400 |                 3 |               6 |           9 |                 1 |               3 |           5 |         - | 1250 |
+         |      100 |      1 |  4500 |                 6 |               7 |          11 |                 2 |               4 |           7 |           |      |
+         |      100 |      1 |  4500 |                 5 |               7 |          11 |                 2 |               4 |           6 |           |      |
+         |      100 |      1 |  4500 |                 4 |               8 |          10 |                 1 |               4 |           6 |           |      |
+         |      100 |      5 |  1000 |                11 |             111 |         120 |                 7 |              57 |          65 |           |      |
+         |      100 |      5 |  1000 |                11 |             107 |         118 |                 7 |              55 |          63 |           |      |
+         |      100 |      5 |  1000 |                13 |             105 |         118 |                 8 |              54 |          63 |           |      |
+         |    10000 |      1 |     5 |                10 |              12 |          21 |                 7 |               8 |          16 |     12500 | 1136 |
+         |    10000 |      1 |    45 |                24 |              69 |          90 |                17 |              35 |          52 |     25000 | 1250 |
+         |    10000 |      1 |    45 |                14 |              65 |          79 |                 9 |              36 |          45 |     25000 | 1250 |
+         |    10000 |      1 |    45 |                23 |              61 |          83 |                15 |              33 |          48 |     25000 | 1250 |
+
+
+*** Use case 03
+**** Spec
+       | Component    | Instance Name  | CPU | Memory | Comment            |
+       |--------------+----------------+-----+--------+--------------------|
+       | RDS - Aurora | db.r5.large    |   2 |     16 | Master - Slave     |
+       | SQL Server   | t2.2xlarge     |   2 |      4 |                    |
+       | TiDB Node    | t2.xlarge      |   4 |     16 | TiDB/TiKV/PD/TiCDC |
+       | DMS node     | dms.c5.2xlarge |   8 |     16 | DMS                |
+
+**** Performance
+        | rows/tps | Thread | count | Max TiCDC latency | Max DMS latency | Max latency | Avg TiCDC latency | Avg DMS latency | Avg latency | TiCDC QPS | QPS |
+        |----------+--------+-------+-------------------+-----------------+-------------+-------------------+-----------------+-------------+-----------+-----|
+        |      100 |      1 |   200 |                   |                 |             |                   |                 |             |           |     |
+        |      100 |      1 |   400 |                   |                 |             |                   |                 |             |           |     |
+        |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |
+        |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |
+        |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |
+        |      100 |      5 |  1000 |               147 |               8 |         153 |                82 |               4 |          87 |           |     |
+        |      100 |      5 |  1000 |                   |                 |             |                   |                 |             |           |     |
+        |      100 |      5 |  1000 |                   |                 |             |                   |                 |             |           |     |
+        |    10000 |      1 |     5 |                   |                 |             |                   |                 |             |           |     |
+        |    10000 |      1 |    45 |               117 |              14 |         126 |                68 |               7 |          75 |           |     |
+        |    10000 |      1 |    45 |               155 |               9 |         162 |                86 |               4 |          91 | 2         |     |
+        |    10000 |      1 |    45 |                   |                 |             |                   |                 |             |           |     |
+
+*** User case 04
+**** spec
+       | Component    | Instance Name  | CPU | Memory | Comment            |
+       |--------------+----------------+-----+--------+--------------------|
+       | RDS - Aurora | db.r5.large    |   2 |     16 | Master - Slave     |
+       | SQL Server   | t2.2xlarge     |   2 |      4 |                    |
+       | TiDB Node    | t2.xlarge      |   4 |     16 | TiDB/TiKV/PD/TiCDC |
+       | TiCDC        |                |     |        |                    |
+       | DMS node     | dms.c5.2xlarge |   8 |     16 | DMS                |
+
+       
+**** Performance
+       | rows/tps | Thread | count | Max TiCDC latency | Max DMS latency | Max latency | Avg TiCDC latency | Avg DMS latency | Avg latency | TiCDC QPS | QPS |     |
+       |----------+--------+-------+-------------------+-----------------+-------------+-------------------+-----------------+-------------+-----------+-----+-----|
+       |      100 |      1 |  4500 |                 4 |               6 |           9 |                 1 |               4 |           5 |           |     |     |
+       |      100 |      1 |  4500 |                 5 |               6 |          10 |                 2 |               4 |           6 |       214 | 214 | 213 |
+       |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      5 |  1000 |                 4 |              94 |          96 |                 2 |              48 |          51 |           |     |     |
+       |      100 |      5 |  1000 |                 6 |              96 |          98 |                 2 |              48 |          50 |           |     |     |
+       |      100 |      5 |  1000 |                 7 |              95 |          99 |                 3 |              47 |          51 |        59 |  59 | 152 |
+       |    10000 |      1 |     5 |                   |                 |             |                   |                 |             |           |     |     |
+       |    10000 |      1 |    45 |                12 |              59 |          66 |                 7 |              31 |          38 |           |     |     |
+       |    10000 |      1 |    45 |                13 |              57 |          65 |                 7 |              30 |          38 |           |     |     |
+       |    10000 |      1 |    45 |                15 |              58 |          67 |                 8 |              30 |          39 |        88 |  87 | 142 |
+
+*** Use case 05 - Upgrade the spec of the db instance
+**** spec
+       | Component    | Instance Name  | CPU | Memory | Comment            |
+       |--------------+----------------+-----+--------+--------------------|
+       | RDS - Aurora | db.r5.2xlarge  |   8 |     16 | Master - Slave     |
+       | SQL Server   | t2.2xlarge     |   2 |      4 |                    |
+       | TiDB Node    | t2.xlarge      |   4 |     16 | TiDB/TiKV/PD/TiCDC |
+       | TiCDC        |                |     |        |                    |
+       | DMS node     | dms.c5.2xlarge |   8 |     16 | DMS                |
+
+**** Performance
+       | rows/tps | Thread | count | Max TiCDC latency | Max DMS latency | Max latency | Avg TiCDC latency | Avg DMS latency | Avg latency | TiCDC QPS | QPS |     |
+       |----------+--------+-------+-------------------+-----------------+-------------+-------------------+-----------------+-------------+-----------+-----+-----|
+       |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      5 |  1000 |                 6 |              97 |         101 |                 3 |              49 |          53 |        60 |  63 | 157 |
+       |      100 |      5 |  1000 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      5 |  1000 |                   |                 |             |                   |                 |             |           |     |     |
+       |    10000 |      1 |     5 |                   |                 |             |                   |                 |             |           |     |     |
+       |    10000 |      1 |    45 |                   |                 |             |                   |                 |             |           |     |     |
+       |    10000 |      1 |    45 |                   |                 |             |                   |                 |             |           |     |     |
+       |    10000 |      1 |    45 |                   |                 |             |                   |                 |             |           |     |     |
+
+*** Use case 06 - Upgrade the dms spec(memory, decrease the cpu)
+**** spec
+       | Component    | Instance Name  | CPU | Memory | Comment            |
+       |--------------+----------------+-----+--------+--------------------|
+       | RDS - Aurora | db.r5.2xlarge  |   8 |     16 | Master - Slave     |
+       | SQL Server   | t2.2xlarge     |   2 |      4 |                    |
+       | TiDB Node    | t2.xlarge      |   4 |     16 | TiDB/TiKV/PD/TiCDC |
+       | TiCDC        |                |     |        |                    |
+       | DMS node     | dms.r5.2xlarge |   8 |     64 | DMS                |
+
+**** Performance
+       | rows/tps | Thread | count | Max TiCDC latency | Max DMS latency | Max latency | Avg TiCDC latency | Avg DMS latency | Avg latency | TiCDC QPS | QPS |     |
+       |----------+--------+-------+-------------------+-----------------+-------------+-------------------+-----------------+-------------+-----------+-----+-----|
+       |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      1 |  4500 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      5 |  1000 |                 5 |             857 |         861 |                 3 |             429 |         433 |        62 |  64 | 920 |
+       |      100 |      5 |  1000 |                   |                 |             |                   |                 |             |           |     |     |
+       |      100 |      5 |  1000 |                   |                 |             |                   |                 |             |           |     |     |
+       |    10000 |      1 |     5 |                   |                 |             |                   |                 |             |           |     |     |
+       |    10000 |      1 |    45 |                 8 |             736 |         742 |                 5 |             368 |         374 |        89 |  89 | 823 |
+       |    10000 |      1 |    45 |                   |                 |             |                   |                 |             |           |     |     |
+       |    10000 |      1 |    45 |                   |                 |             |                   |                 |             |           |     |     |

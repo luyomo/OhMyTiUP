@@ -1,0 +1,11 @@
+* Flow
+  + Step 1: It takes about 15-20 minutes to complete.
+  + Step 2:
+    - Create node
+    - Add node into K8S cluster
+    - Create pod for data importing
+    - Data import
+    - Checksum calculation
+  + Step 3: Release resource
+* Notes:
+  Bug fix: https://github.com/tidbcloud/infra/pull/1562

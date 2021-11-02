@@ -1,0 +1,32 @@
+* Performance test
+  
+* Test Case
+** Test Case 01 (Aurora -> DMS -> SQLServer)
+*** Server spec
+   | Component  | Instance Name  | CPU | Memory | Comment                 |
+   |------------+----------------+-----+--------+-------------------------|
+   | Aurora     | db.r5.2xlarge  |   8 |     64 | Master / Slave          |
+   | DMS        | dms.c5.4xlarge |  16 |     32 |                         |
+   | SQL Server | t2.2xlarge     |   8 |     32 | SQL Server 2008 express |
+*** Test scenario
+**** small transaction/single session
+     Loop 4500 times insert which contain 100 rows.
+**** small transaction/5 session
+     5 session in each session loop 1000 times insert which contain 100 rows.
+**** big trsnsaction/Single session
+     Loop 45 times insert which contain 10000 rows
+*** Test results
+    | rows/tps | Thread | count | Max DMS latency | Avg DMS latency | Mysql QPS | DMS QPS | timeout | MemoryLimitTotal |
+    |----------+--------+-------+-----------------+-----------------+-----------+---------+---------+------------------|
+    |      100 |      1 |  4500 |              61 |              33 |      3688 |    2528 |         |                  |
+    |      100 |      1 |  4500 |              64 |              34 |       118 |     177 |         |                  |
+    |      100 |      1 |  4500 |              70 |              37 |       116 |     186 |         |                  |
+    |      100 |      5 |  1000 |             167 |              87 |     22500 |    2486 |         |                  |
+    |      100 |      5 |  1000 |                 |                 |           |         |         |                  |
+    |      100 |      5 |  1000 |                 |                 |           |         |         |                  |
+    |    10000 |      1 |    45 |             167 |              87 |           |         |         |                  |
+    |    10000 |      1 |    45 |              93 |              51 |        21 |      89 |      60 |                  |
+    |    10000 |      1 |    45 |              83 |              49 |        20 |      73 |      15 |                  |
+    |    10000 |      1 |    45 |              95 |              52 |        22 |      93 |       5 |             2048 |
+    |    10000 |      1 |    45 |                 |                 |           |         |         |              256 |
+   

@@ -1,0 +1,8 @@
+* Windows instance
+  + Search [Microsoft Windows Server 2012 R2 Base - ami-0830752a56a621876]
+  + Select [t2.medium] in the [Step 2: Choose an Instance Type]
+  + Set the value in [Step 3: Configure Instance Details]
+    - Network
+    - Subnet
+    - Auto-assign Public IP: Enable
+    - Size: 30G
