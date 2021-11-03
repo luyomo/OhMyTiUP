@@ -493,3 +493,11 @@ func (b *Builder) CreateVpc(user, host string) *Builder {
 	})
 	return b
 }
+
+func (b *Builder) CreateNetwork(user, host string) *Builder {
+	b.tasks = append(b.tasks, &CreateNetwork{
+		user: user,
+		host: host,
+	})
+	return b
+}

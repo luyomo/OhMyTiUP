@@ -15,79 +15,80 @@ package task
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-    "encoding/json"
-    "time"
-    "github.com/luyomo/tisample/pkg/aurora/executor"
+	"github.com/luyomo/tisample/pkg/aurora/executor"
+	"time"
 )
 
-
 type Vpc struct {
-    CidrBlock       string `json:"CidrBlock"`
-    State           string `json:"State"`
-    VpcId           string `json:"VpcId"`
-    OwnerId         string `json:"OwnerId"`
+	CidrBlock string `json:"CidrBlock"`
+	State     string `json:"State"`
+	VpcId     string `json:"VpcId"`
+	OwnerId   string `json:"OwnerId"`
 }
 
 type Vpcs struct {
-    Vpcs []Vpc `json:"Vpcs"`
+	Vpcs []Vpc `json:"Vpcs"`
 }
 
 // Mkdir is used to create directory on the target host
 type CreateVpc struct {
-	user string
-	host string
-    VpcId string
+	user  string
+	host  string
+	VpcId string
 }
+
+var VpcInfo Vpc
 
 // Execute implements the Task interface
 func (c *CreateVpc) Execute(ctx context.Context) error {
-    local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-    stdout, stderr, err := local.Execute(ctx, "aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisampletest\"", false)
-    if err != nil {
-        fmt.Printf("The error here is <%#v> \n\n", err)
-        fmt.Printf("----------\n\n")
-        fmt.Printf("The error here is <%s> \n\n", string(stderr))
-        return nil
-    }
-    var vpcs Vpcs
-    if err =  json.Unmarshal(stdout, &vpcs); err != nil {
-        fmt.Printf("The error here is %#v \n\n", err)
-        return nil
-    }
-    if len(vpcs.Vpcs) > 0 {
-        c.VpcId = vpcs.Vpcs[0].VpcId
-        return nil
-    }
+	stdout, stderr, err := local.Execute(ctx, "aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisampletest\"", false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+	var vpcs Vpcs
+	if err = json.Unmarshal(stdout, &vpcs); err != nil {
+		fmt.Printf("The error here is %#v \n\n", err)
+		return nil
+	}
+	if len(vpcs.Vpcs) > 0 {
+		VpcInfo = vpcs.Vpcs[0]
+		return nil
+	}
 
-    stdout, stderr, err = local.Execute(ctx, "aws ec2 create-vpc --cidr-block 172.80.0.0/16 --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=tisampletest}]\"", false)
-    if err != nil {
-        fmt.Printf("The error here is <%#v> \n\n", err)
-        fmt.Printf("----------\n\n")
-        fmt.Printf("The error here is <%s> \n\n", string(stderr))
-        return nil
-    }
+	stdout, stderr, err = local.Execute(ctx, "aws ec2 create-vpc --cidr-block 172.80.0.0/16 --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=tisampletest}]\"", false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
 
-    time.Sleep(5 * time.Second)
+	time.Sleep(5 * time.Second)
 
-    fmt.Printf("The output from ls is <%s> \n\n\r\r", stdout)
-    stdout, stderr, err = local.Execute(ctx, "aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisampletest\"", false)
-    if err != nil {
-        fmt.Printf("The error here is <%#v> \n\n", err)
-        fmt.Printf("----------\n\n")
-        fmt.Printf("The error here is <%s> \n\n", string(stderr))
-        return nil
-    }
-    fmt.Printf("The output data is <%s> \n\n\r\r", stdout)
-    if err =  json.Unmarshal(stdout, &vpcs); err != nil {
-        fmt.Printf("The error here is %#v \n\n", err)
-        return nil
-    }
-    fmt.Printf("The parsed data is %#v \n\n",  vpcs.Vpcs[0])
-    fmt.Printf("The context data is %#v \n\n", ctx)
-    c.VpcId = vpcs.Vpcs[0].VpcId
-    return nil
+	fmt.Printf("The output from ls is <%s> \n\n\r\r", stdout)
+	stdout, stderr, err = local.Execute(ctx, "aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisampletest\"", false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+	fmt.Printf("The output data is <%s> \n\n\r\r", stdout)
+	if err = json.Unmarshal(stdout, &vpcs); err != nil {
+		fmt.Printf("The error here is %#v \n\n", err)
+		return nil
+	}
+	fmt.Printf("The parsed data is %#v \n\n", vpcs.Vpcs[0])
+	fmt.Printf("The context data is %#v \n\n", ctx)
+	VpcInfo = vpcs.Vpcs[0]
+	return nil
 }
 
 // Rollback implements the Task interface
@@ -99,4 +100,3 @@ func (c *CreateVpc) Rollback(ctx context.Context) error {
 func (c *CreateVpc) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }
-
