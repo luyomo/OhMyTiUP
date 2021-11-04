@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/aurora/executor"
+	"strconv"
+	"strings"
 	//"time"
 )
 
@@ -37,8 +39,13 @@ type Subnet struct {
 	SubnetId         string `json:"SubnetId"`
 	VpcId            string `json:"VpcId"`
 }
+
 type Subnets struct {
 	Subnets []Subnet `json:"Subnets"`
+}
+
+type SubnetResult struct {
+	Subnet Subnet `json:"Subnet"`
 }
 
 // Mkdir is used to create directory on the target host
@@ -76,10 +83,44 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	fmt.Printf("The stdout from the local is <%s> \n\n\n", string(stdout))
-	fmt.Printf("The vpc id is <%#v> \n\n\n", VpcInfo)
+	//fmt.Printf("The stdout from the local is <%s> \n\n\n", string(stdout))
+	var subnets Subnets
+	if err = json.Unmarshal(stdout, &subnets); err != nil {
+		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		return nil
+	}
 	for idx, zone := range zones.Zones {
-		fmt.Printf("****** The zone <%d> is %s \n\n\n", idx, zone.ZoneName)
+		fmt.Printf("********** ****** The zone <%d> is %s \n", idx, zone.ZoneName)
+		fmt.Printf("cidr block : <%s> \n", getNextCidr(VpcInfo.CidrBlock, idx+1))
+		fmt.Printf("vpc id is <%s> \n", VpcInfo.VpcId)
+		fmt.Printf("The available zone is: <%s> \n\n\n", zone.ZoneName)
+		subnetExists := false
+		for idxNet, subnet := range subnets.Subnets {
+			if zone.ZoneName == subnet.AvailabilityZone {
+				fmt.Printf("The subnet is <%s> and index <%d> \n\n\n", subnet.AvailabilityZone, idxNet)
+				subnetExists = true
+			}
+		}
+		if subnetExists == true {
+			continue
+		}
+
+		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=tisampletest}]\"", getNextCidr(VpcInfo.CidrBlock, idx+1), VpcInfo.VpcId, zone.ZoneName)
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
+		sub_stdout, sub_stderr, sub_err := local.Execute(ctx, command, false)
+		if sub_err != nil {
+			fmt.Printf("The error here is <%#v> \n\n", sub_err)
+			fmt.Printf("----------\n\n")
+			fmt.Printf("The error here is <%s> \n\n", string(sub_stderr))
+			return nil
+		}
+		var newSubnet SubnetResult
+		if err = json.Unmarshal(sub_stdout, &newSubnet); err != nil {
+			fmt.Printf("*** *** The error here is %#v \n\n\n", err)
+			return nil
+		}
+		//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
+		fmt.Printf("The stdout from the subnett preparation: %s and %s \n\n\n", newSubnet.Subnet.State, newSubnet.Subnet.CidrBlock)
 	}
 
 	// Create the subnets for the tisampletest
@@ -140,4 +181,11 @@ func (c *CreateNetwork) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *CreateNetwork) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
+}
+
+func getNextCidr(cidr string, idx int) string {
+	ip := strings.Split(cidr, "/")[0]
+	ipSegs := strings.Split(ip, ".")
+	//	maskLen := strings.Split(cidr, "/")[1]
+	return ipSegs[0] + "." + ipSegs[1] + "." + strconv.Itoa(idx) + ".0/24"
 }
