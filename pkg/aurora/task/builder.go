@@ -501,3 +501,11 @@ func (b *Builder) CreateNetwork(user, host string) *Builder {
 	})
 	return b
 }
+
+func (b *Builder) CreateRouteTable(user, host string) *Builder {
+	b.tasks = append(b.tasks, &CreateRouteTable{
+		user: user,
+		host: host,
+	})
+	return b
+}

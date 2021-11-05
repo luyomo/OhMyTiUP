@@ -91,8 +91,8 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 	}
 	for idx, zone := range zones.Zones {
 		fmt.Printf("********** ****** The zone <%d> is %s \n", idx, zone.ZoneName)
-		fmt.Printf("cidr block : <%s> \n", getNextCidr(VpcInfo.CidrBlock, idx+1))
-		fmt.Printf("vpc id is <%s> \n", VpcInfo.VpcId)
+		fmt.Printf("cidr block : <%s> \n", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1))
+		fmt.Printf("vpc id is <%s> \n", clusterInfo.vpcInfo.VpcId)
 		fmt.Printf("The available zone is: <%s> \n\n\n", zone.ZoneName)
 		subnetExists := false
 		for idxNet, subnet := range subnets.Subnets {
@@ -105,7 +105,7 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 			continue
 		}
 
-		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=tisampletest}]\"", getNextCidr(VpcInfo.CidrBlock, idx+1), VpcInfo.VpcId, zone.ZoneName)
+		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=tisampletest}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1), clusterInfo.vpcInfo.VpcId, zone.ZoneName)
 		fmt.Printf("The comamnd is <%s> \n\n\n", command)
 		sub_stdout, sub_stderr, sub_err := local.Execute(ctx, command, false)
 		if sub_err != nil {

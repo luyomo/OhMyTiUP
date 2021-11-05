@@ -39,7 +39,12 @@ type CreateVpc struct {
 	VpcId string
 }
 
-var VpcInfo Vpc
+type ClusterInfo struct {
+	vpcInfo      Vpc
+	routeTableId string
+}
+
+var clusterInfo ClusterInfo
 
 // Execute implements the Task interface
 func (c *CreateVpc) Execute(ctx context.Context) error {
@@ -58,7 +63,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 		return nil
 	}
 	if len(vpcs.Vpcs) > 0 {
-		VpcInfo = vpcs.Vpcs[0]
+		clusterInfo.vpcInfo = vpcs.Vpcs[0]
 		return nil
 	}
 
@@ -87,7 +92,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The parsed data is %#v \n\n", vpcs.Vpcs[0])
 	fmt.Printf("The context data is %#v \n\n", ctx)
-	VpcInfo = vpcs.Vpcs[0]
+	clusterInfo.vpcInfo = vpcs.Vpcs[0]
 	return nil
 }
 
