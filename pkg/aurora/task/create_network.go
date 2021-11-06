@@ -67,7 +67,7 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	fmt.Printf("The stdout from the local is <%s> \n\n", string(stdout))
+	//fmt.Printf("The stdout from the local is <%s> \n\n", string(stdout))
 	var zones AvailabilityZones
 	if err = json.Unmarshal(stdout, &zones); err != nil {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
@@ -92,14 +92,15 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		return nil
 	}
 	for idx, zone := range zones.Zones {
-		fmt.Printf("********** ****** The zone <%d> is %s \n", idx, zone.ZoneName)
-		fmt.Printf("cidr block : <%s> \n", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1))
-		fmt.Printf("vpc id is <%s> \n", clusterInfo.vpcInfo.VpcId)
-		fmt.Printf("The available zone is: <%s> \n\n\n", zone.ZoneName)
+		//fmt.Printf("********** ****** The zone <%d> is %s \n", idx, zone.ZoneName)
+		//fmt.Printf("cidr block : <%s> \n", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1))
+		//fmt.Printf("vpc id is <%s> \n", clusterInfo.vpcInfo.VpcId)
+		//fmt.Printf("The available zone is: <%s> \n\n\n", zone.ZoneName)
 		subnetExists := false
 		for idxNet, subnet := range subnets.Subnets {
 			if zone.ZoneName == subnet.AvailabilityZone {
 				fmt.Printf("The subnet is <%s> and index <%d> \n\n\n", subnet.AvailabilityZone, idxNet)
+				clusterInfo.subnets = append(clusterInfo.subnets, subnet.SubnetId)
 				associateSubnet2RouteTable(subnet.SubnetId, clusterInfo.routeTableId, local, ctx)
 				subnetExists = true
 			}
@@ -125,9 +126,11 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
 		fmt.Printf("The stdout from the subnett preparation: %s and %s \n\n\n", newSubnet.Subnet.State, newSubnet.Subnet.CidrBlock)
 		associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, clusterInfo.routeTableId, local, ctx)
+		clusterInfo.subnets = append(clusterInfo.subnets, newSubnet.Subnet.SubnetId)
 	}
 
 	// Create the subnets for the tisampletest
+	fmt.Printf("All the subnets are %#v \n\n\n", clusterInfo.subnets)
 
 	return nil
 }

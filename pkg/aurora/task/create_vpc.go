@@ -43,6 +43,7 @@ type ClusterInfo struct {
 	vpcInfo         Vpc
 	routeTableId    string
 	securityGroupId string
+	subnets         []string
 }
 
 var clusterInfo ClusterInfo
