@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/luyomo/tisample/pkg/aurora/ctxt"
 	"github.com/luyomo/tisample/pkg/aurora/executor"
 	"strconv"
 	"strings"
@@ -57,6 +58,7 @@ type CreateNetwork struct {
 // Execute implements the Task interface
 func (c *CreateNetwork) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	fmt.Printf("The type of local is <%T> \n\n\n", local)
 	// Get the available zones
 	stdout, stderr, err := local.Execute(ctx, "aws ec2 describe-availability-zones", false)
 	if err != nil {
@@ -98,6 +100,7 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		for idxNet, subnet := range subnets.Subnets {
 			if zone.ZoneName == subnet.AvailabilityZone {
 				fmt.Printf("The subnet is <%s> and index <%d> \n\n\n", subnet.AvailabilityZone, idxNet)
+				associateSubnet2RouteTable(subnet.SubnetId, clusterInfo.routeTableId, local, ctx)
 				subnetExists = true
 			}
 		}
@@ -121,55 +124,11 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		}
 		//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
 		fmt.Printf("The stdout from the subnett preparation: %s and %s \n\n\n", newSubnet.Subnet.State, newSubnet.Subnet.CidrBlock)
+		associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, clusterInfo.routeTableId, local, ctx)
 	}
 
 	// Create the subnets for the tisampletest
 
-	/*
-		stdout, stderr, err := local.Execute(ctx, "aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisampletest\"", false)
-		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
-			return nil
-		}
-		var vpcs Vpcs
-		if err = json.Unmarshal(stdout, &vpcs); err != nil {
-			fmt.Printf("The error here is %#v \n\n", err)
-			return nil
-		}
-		if len(vpcs.Vpcs) > 0 {
-			c.VpcId = vpcs.Vpcs[0].VpcId
-			return nil
-		}
-
-		stdout, stderr, err = local.Execute(ctx, "aws ec2 create-vpc --cidr-block 172.80.0.0/16 --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=tisampletest}]\"", false)
-		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
-			return nil
-		}
-
-		time.Sleep(5 * time.Second)
-
-		fmt.Printf("The output from ls is <%s> \n\n\r\r", stdout)
-		stdout, stderr, err = local.Execute(ctx, "aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisampletest\"", false)
-		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
-			return nil
-		}
-		fmt.Printf("The output data is <%s> \n\n\r\r", stdout)
-		if err = json.Unmarshal(stdout, &vpcs); err != nil {
-			fmt.Printf("The error here is %#v \n\n", err)
-			return nil
-		}
-		fmt.Printf("The parsed data is %#v \n\n", vpcs.Vpcs[0])
-		fmt.Printf("The context data is %#v \n\n", ctx)
-		c.VpcId = vpcs.Vpcs[0].VpcId
-	*/
 	return nil
 }
 
@@ -188,4 +147,16 @@ func getNextCidr(cidr string, idx int) string {
 	ipSegs := strings.Split(ip, ".")
 	//	maskLen := strings.Split(cidr, "/")[1]
 	return ipSegs[0] + "." + ipSegs[1] + "." + strconv.Itoa(idx) + ".0/24"
+}
+
+func associateSubnet2RouteTable(subnet string, routeTableId string, executor ctxt.Executor, ctx context.Context) {
+	command := fmt.Sprintf("aws ec2 associate-route-table --route-table-id %s --subnet-id %s ", routeTableId, subnet)
+	fmt.Printf("The comamnd is <%s> \n\n\n", command)
+	stdout, stderr, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+	}
+	fmt.Printf("The stdout is <%s>\n\n\n", stdout)
+	fmt.Printf("The stderr is <%s>\n\n\n", stderr)
 }
