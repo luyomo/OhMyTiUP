@@ -509,3 +509,10 @@ func (b *Builder) CreateRouteTable(user, host string) *Builder {
 	})
 	return b
 }
+func (b *Builder) CreateSecurityGroup(user, host string) *Builder {
+	b.tasks = append(b.tasks, &CreateSecurityGroup{
+		user: user,
+		host: host,
+	})
+	return b
+}

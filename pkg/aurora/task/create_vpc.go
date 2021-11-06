@@ -40,8 +40,9 @@ type CreateVpc struct {
 }
 
 type ClusterInfo struct {
-	vpcInfo      Vpc
-	routeTableId string
+	vpcInfo         Vpc
+	routeTableId    string
+	securityGroupId string
 }
 
 var clusterInfo ClusterInfo
