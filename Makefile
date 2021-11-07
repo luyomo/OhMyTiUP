@@ -77,6 +77,10 @@ workstation:
 	@# Target: build the tisample-workstation component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-workstation ./components/workstation
 
+aws-tidb-nodes:
+	@# Target: build the tisample-workstation component
+	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-aws-tidb-nodes ./components/aws-tidb-nodes
+
 dm:
 	@# Target: build the tiup-dm component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tiup-dm ./components/dm
