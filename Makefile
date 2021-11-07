@@ -73,6 +73,10 @@ aurora:
 	@# Target: build the tisample-aurora component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-aurora ./components/aurora
 
+workstation:
+	@# Target: build the tisample-workstation component
+	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-workstation ./components/workstation
+
 dm:
 	@# Target: build the tiup-dm component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tiup-dm ./components/dm
