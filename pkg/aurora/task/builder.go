@@ -549,3 +549,11 @@ func (b *Builder) CreateDBCluster(user, host string) *Builder {
 	})
 	return b
 }
+
+func (b *Builder) CreateDBInstance(user, host string) *Builder {
+	b.tasks = append(b.tasks, &CreateDBInstance{
+		user: user,
+		host: host,
+	})
+	return b
+}

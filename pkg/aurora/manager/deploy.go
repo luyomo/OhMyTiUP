@@ -243,6 +243,7 @@ func (m *Manager) Deploy(
 				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost()).
 				CreateDBCluster(globalOptions.User, inst.GetHost()).
 				CreateDBParameterGroup(globalOptions.User, inst.GetHost()).
+				CreateDBInstance(globalOptions.User, inst.GetHost()).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
