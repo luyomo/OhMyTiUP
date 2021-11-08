@@ -14,28 +14,39 @@
 package command
 
 import (
-    "path"
-    "fmt"
+	"fmt"
+	"path"
 
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/manager"
+	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/spf13/cobra"
-    "github.com/luyomo/tisample/pkg/aws-tidb-nodes/manager"
-    "github.com/luyomo/tisample/pkg/utils"
 )
 
 func newListCmd() *cobra.Command {
-    opt := manager.DeployOptions{
-        IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
-    }
+	opt := manager.DeployOptions{
+		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
+	}
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all clusters",
+		Use:   "list <cluster-name>",
+		Short: "List all clusters or cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cm.ListCluster(opt)
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.ListCluster(clusterName, opt)
 		},
 	}
 
-    cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
+	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
 
-    fmt.Printf("The option is <%#v> \n", opt)
+	fmt.Printf("The option is <%#v> \n", opt)
 	return cmd
 }

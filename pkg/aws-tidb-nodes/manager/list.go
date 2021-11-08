@@ -36,7 +36,7 @@ type Cluster struct {
 }
 
 // ListCluster list the clusters.
-func (m *Manager) ListCluster(opt DeployOptions) error {
+func (m *Manager) ListCluster(clusterName string, opt DeployOptions) error {
 	//clusters, err := m.GetClusterList()
 	//if err != nil {
 	//	return err
@@ -46,7 +46,7 @@ func (m *Manager) ListCluster(opt DeployOptions) error {
 	//    List(globalOptions.User, inst.GetHost()).
 	//    BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 	insList := task.List{User: opt.User}
-	insList.Execute(ctxt.New(context.Background(), 1))
+	insList.Execute(ctxt.New(context.Background(), 1), clusterName)
 	//fmt.Printf("The list is <%#v>", insList)
 
 	clusterTable := [][]string{

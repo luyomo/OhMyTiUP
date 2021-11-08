@@ -41,10 +41,10 @@ type List struct {
 }
 
 // Execute implements the Task interface
-func (c *List) Execute(ctx context.Context) error {
+func (c *List) Execute(ctx context.Context, clusterName string) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User})
 
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "tisamplenodes"), false)
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -61,7 +61,7 @@ func (c *List) Execute(ctx context.Context) error {
 	for _, vpc := range vpcs.Vpcs {
 		c.ArnComponents = append(c.ArnComponents, ARNComponent{
 			"VPC",
-			"tisamplenode",
+			clusterName,
 			vpc.VpcId,
 			"-",
 			"-",
@@ -74,7 +74,7 @@ func (c *List) Execute(ctx context.Context) error {
 	}
 
 	// Get the route table
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "tisamplenodes"), false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -90,7 +90,7 @@ func (c *List) Execute(ctx context.Context) error {
 	for _, routeTable := range routeTables.RouteTables {
 		c.ArnComponents = append(c.ArnComponents, ARNComponent{
 			"Route Table",
-			"tisamplenode",
+			clusterName,
 			routeTable.RouteTableId,
 			"-",
 			"-",
@@ -102,7 +102,7 @@ func (c *List) Execute(ctx context.Context) error {
 		})
 	}
 
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "tisamplenodes"), false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -119,7 +119,7 @@ func (c *List) Execute(ctx context.Context) error {
 	for _, subnet := range subnets.Subnets {
 		c.ArnComponents = append(c.ArnComponents, ARNComponent{
 			"Subnet",
-			"tisamplenode",
+			clusterName,
 			subnet.SubnetId,
 			"-",
 			"-",
@@ -131,7 +131,7 @@ func (c *List) Execute(ctx context.Context) error {
 		})
 	}
 
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "tisamplenodes"), false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -148,7 +148,7 @@ func (c *List) Execute(ctx context.Context) error {
 	for _, securityGroup := range securityGroups.SecurityGroups {
 		c.ArnComponents = append(c.ArnComponents, ARNComponent{
 			"Security Group",
-			"tisamplenode",
+			clusterName,
 			securityGroup.GroupId,
 			"-",
 			"-",
@@ -160,7 +160,7 @@ func (c *List) Execute(ctx context.Context) error {
 		})
 	}
 
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", "tisamplenodes"), false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -178,7 +178,7 @@ func (c *List) Execute(ctx context.Context) error {
 		for _, instance := range reservations.Reservations[0].Instances {
 			c.ArnComponents = append(c.ArnComponents, ARNComponent{
 				"EC2 instance",
-				"tisamplenode",
+				clusterName,
 				instance.InstanceId,
 				instance.ImageId,
 				instance.InstanceType,
