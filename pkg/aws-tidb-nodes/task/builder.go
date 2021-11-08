@@ -518,10 +518,11 @@ func (b *Builder) CreateSecurityGroup(user, host string) *Builder {
 	return b
 }
 
-func (b *Builder) CreatePDNodes(user, host string) *Builder {
+func (b *Builder) CreatePDNodes(user, host string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreatePDNodes{
 		user: user,
 		host: host,
+        awsTopoConfigs:  awsTopoConfigs,
 	})
 	return b
 }

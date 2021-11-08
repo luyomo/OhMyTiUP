@@ -239,7 +239,7 @@ func (m *Manager) Deploy(
 				CreateRouteTable(globalOptions.User, inst.GetHost()).
 				CreateNetwork(globalOptions.User, inst.GetHost()).
 				CreateSecurityGroup(globalOptions.User, inst.GetHost()).
-				CreatePDNodes(globalOptions.User, inst.GetHost()).
+				CreatePDNodes(globalOptions.User, inst.GetHost(), base.AwsTopoConfigs).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
