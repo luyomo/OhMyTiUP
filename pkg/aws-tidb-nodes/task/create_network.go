@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/luyomo/tisample/pkg/aurora/ctxt"
 	"github.com/luyomo/tisample/pkg/aurora/executor"
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
 	"strconv"
 	"strings"
 	//"time"
@@ -51,8 +52,10 @@ type SubnetResult struct {
 
 // Mkdir is used to create directory on the target host
 type CreateNetwork struct {
-	user string
-	host string
+	user           string
+	host           string
+	awsTopoConfigs *spec.AwsTopoConfigs
+	clusterName    string
 }
 
 // Execute implements the Task interface
@@ -78,7 +81,7 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 	//fmt.Println("--------------------------- \n")
 
 	// Get the subnets
-	stdout, stderr, err = local.Execute(ctx, "aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisamplenodes\"", false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -109,7 +112,7 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 			continue
 		}
 
-		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=tisamplenodes}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1), clusterInfo.vpcInfo.VpcId, zone.ZoneName)
+		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1), clusterInfo.vpcInfo.VpcId, zone.ZoneName, c.clusterName)
 		fmt.Printf("The comamnd is <%s> \n\n\n", command)
 		sub_stdout, sub_stderr, sub_err := local.Execute(ctx, command, false)
 		if sub_err != nil {

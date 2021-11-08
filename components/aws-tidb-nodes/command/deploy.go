@@ -39,12 +39,12 @@ func newDeploy() *cobra.Command {
 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
 	}
 	cmd := &cobra.Command{
-		Use:          "deploy <cluster-name> <version> <topology.yaml>",
+		Use:          "deploy <cluster-name> <topology.yaml>",
 		Short:        "Deploy a cluster for production",
 		Long:         "Deploy a cluster for production. SSH connection will be used to deploy files, as well as creating system users for running the service.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 3)
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
 			if err != nil {
 				return err
 			}
@@ -53,23 +53,13 @@ func newDeploy() *cobra.Command {
 			}
 
 			clusterName := args[0]
-			version, err := utils.FmtVer(args[1])
-			if err != nil {
-				return err
-			}
-			clusterReport.ID = scrubClusterName(clusterName)
-			teleCommand = append(teleCommand, scrubClusterName(clusterName))
-			fmt.Printf("The command here is %v \n", teleCommand)
-			teleCommand = append(teleCommand, version)
-			fmt.Printf("The command here is %v \n", teleCommand)
-
-			topoFile := args[2]
+			topoFile := args[1]
 			if data, err := os.ReadFile(topoFile); err == nil {
 				teleTopology = string(data)
 			}
 			fmt.Printf("The command here is %v \n", teleCommand)
 
-			return cm.Deploy(clusterName, version, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.Deploy(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 

@@ -106,45 +106,34 @@ type (
 		Nginx          map[string]interface{} `yaml:"nginx"`
 	}
 
-    AwsTopoConfigsGeneral struct {
-        ImageId       string `yaml:"imageid,omitempty"`
-        Region        string `yaml:"region,omitempty"`
-        Name          string `yaml:"name,omitempty"`
-        KeyName       string `yaml:"keyname,omitempty"`
-    }
+	AwsTopoConfigsGeneral struct {
+		ImageId string `yaml:"imageid,omitempty"`
+		Region  string `yaml:"region,omitempty"`
+		Name    string `yaml:"name,omitempty"`
+		KeyName string `yaml:"keyname,omitempty"`
+		CIDR    string `yaml:"cidr,omitempty"`
+	}
 
-    AwsTopoConfigs struct {
-        General       AwsTopoConfigsGeneral `yaml:"general"`
-    }
+	AwsNodeModal struct {
+		InstanceType string `yaml:"instance_type"`
+		Count        int    `yaml:"count"`
+	}
 
-//AwsTopoConfigs:
-//   General:
-//     ImageId: ami-0ac97798ccf296e02
-//     Region: ap-northeast-1
-//     Name: tisamplenodes
-//     KeyName: jay.pingcap
-//   PD:
-//     InstanceType: t2.micro
-//     Count: 3
-//   TiDB:
-//     InstanceType: t2.micro
-//     Count: 2
-//   TiKV:
-//     InstanceType: t2.micro
-//     Count: 3
-//   DM:
-//     InstanceType: t2.micro
-//     Count: 1
-//   TiCDC:
-//     InstanceType: t2.micro
-//     Count: 1
+	AwsTopoConfigs struct {
+		General AwsTopoConfigsGeneral `yaml:"general"`
+		PD      AwsNodeModal          `yaml:"pd"`
+		TiDB    AwsNodeModal          `yaml:"tidb"`
+		TiKV    AwsNodeModal          `yaml:"tikv"`
+		DM      AwsNodeModal          `yaml:"dm"`
+		TiCDC   AwsNodeModal          `yaml:"ticdc"`
+	}
 
 	// Specification represents the specification of topology.yaml
 	Specification struct {
 		GlobalOptions    GlobalOptions        `yaml:"global,omitempty" validate:"global:editable"`
 		MonitoredOptions MonitoredOptions     `yaml:"monitored,omitempty" validate:"monitored:editable"`
 		ServerConfigs    ServerConfigs        `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
-        AwsTopoConfigs   AwsTopoConfigs       `yaml:"aws_topo_configs,omitempty"`
+		AwsTopoConfigs   AwsTopoConfigs       `yaml:"aws_topo_configs,omitempty"`
 		TiDBServers      []*TiDBSpec          `yaml:"tidb_servers"`
 		TiKVServers      []*TiKVSpec          `yaml:"tikv_servers"`
 		TiFlashServers   []*TiFlashSpec       `yaml:"tiflash_servers"`
@@ -165,7 +154,7 @@ type (
 type BaseTopo struct {
 	GlobalOptions    *GlobalOptions
 	MonitoredOptions *MonitoredOptions
-    AwsTopoConfigs   *AwsTopoConfigs
+	AwsTopoConfigs   *AwsTopoConfigs
 	MasterList       []string
 
 	Monitors      []*PrometheusSpec
@@ -473,7 +462,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		GlobalOptions:    s.GlobalOptions,
 		MonitoredOptions: s.MonitoredOptions,
 		ServerConfigs:    s.ServerConfigs,
-        AwsTopoConfigs:   s.AwsTopoConfigs,
+		AwsTopoConfigs:   s.AwsTopoConfigs,
 		TiDBServers:      append(s.TiDBServers, spec.TiDBServers...),
 		TiKVServers:      append(s.TiKVServers, spec.TiKVServers...),
 		PDServers:        append(s.PDServers, spec.PDServers...),
@@ -506,9 +495,9 @@ func fillCustomDefaults(globalOptions *GlobalOptions, data interface{}) error {
 }
 
 var (
-	globalOptionTypeName  = reflect.TypeOf(GlobalOptions{}).Name()
-	monitorOptionTypeName = reflect.TypeOf(MonitoredOptions{}).Name()
-	serverConfigsTypeName = reflect.TypeOf(ServerConfigs{}).Name()
+	globalOptionTypeName   = reflect.TypeOf(GlobalOptions{}).Name()
+	monitorOptionTypeName  = reflect.TypeOf(MonitoredOptions{}).Name()
+	serverConfigsTypeName  = reflect.TypeOf(ServerConfigs{}).Name()
 	awsTopoConfigsTypeName = reflect.TypeOf(AwsTopoConfigs{}).Name()
 )
 

@@ -19,9 +19,7 @@ import (
 	"fmt"
 	//	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/ctxt"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
-	//	"strconv"
-	//	"strings"
-	//"time"
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
 )
 
 //type SecurityGroups struct {
@@ -36,8 +34,10 @@ type SecurityGroup struct {
 }
 
 type CreateSecurityGroup struct {
-	user string
-	host string
+	user           string
+	host           string
+	awsTopoConfigs *spec.AwsTopoConfigs
+	clusterName    string
 }
 
 // Execute implements the Task interface
@@ -45,7 +45,7 @@ func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 	fmt.Printf("The type of local is <%T> \n\n\n", local)
 	// Get the available zones
-	stdout, stderr, err := local.Execute(ctx, "aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisamplenodes\"", false)
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -64,7 +64,7 @@ func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-security-group --group-name tisamplenodes --vpc-id %s --description tisamplenodes --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=tisamplews}]\"", clusterInfo.vpcInfo.VpcId)
+	command := fmt.Sprintf("aws ec2 create-security-group --group-name tisamplenodes --vpc-id %s --description tisamplenodes --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", clusterInfo.vpcInfo.VpcId, c.clusterName)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {

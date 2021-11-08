@@ -17,8 +17,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
 	"time"
+
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
 )
 
 type Vpc struct {
@@ -34,9 +36,10 @@ type Vpcs struct {
 
 // Mkdir is used to create directory on the target host
 type CreateVpc struct {
-	user  string
-	host  string
-	VpcId string
+	user           string
+	host           string
+	awsTopoConfigs *spec.AwsTopoConfigs
+	clusterName    string
 }
 
 type ClusterInfo struct {
@@ -52,7 +55,7 @@ var clusterInfo ClusterInfo
 func (c *CreateVpc) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	stdout, stderr, err := local.Execute(ctx, "aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisamplenodes\"", false)
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -69,7 +72,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	stdout, stderr, err = local.Execute(ctx, "aws ec2 create-vpc --cidr-block 172.82.0.0/16 --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=tisamplenodes}]\"", false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", c.awsTopoConfigs.General.CIDR, c.clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -80,7 +83,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 	time.Sleep(5 * time.Second)
 
 	fmt.Printf("The output from ls is <%s> \n\n\r\r", stdout)
-	stdout, stderr, err = local.Execute(ctx, "aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisamplenodes\"", false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")

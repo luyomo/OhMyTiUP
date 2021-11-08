@@ -486,44 +486,52 @@ func (b *Builder) Deploy(user, host string) *Builder {
 	return b
 }
 
-func (b *Builder) CreateVpc(user, host string) *Builder {
+func (b *Builder) CreateVpc(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateVpc{
-		user: user,
-		host: host,
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
 	})
 	return b
 }
 
-func (b *Builder) CreateNetwork(user, host string) *Builder {
+func (b *Builder) CreateNetwork(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateNetwork{
-		user: user,
-		host: host,
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
 	})
 	return b
 }
 
-func (b *Builder) CreateRouteTable(user, host string) *Builder {
+func (b *Builder) CreateRouteTable(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateRouteTable{
-		user: user,
-		host: host,
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
 	})
 	return b
 }
 
-func (b *Builder) CreateSecurityGroup(user, host string) *Builder {
+func (b *Builder) CreateSecurityGroup(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateSecurityGroup{
-		user: user,
-		host: host,
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
 	})
 	return b
 }
 
-func (b *Builder) CreatePDNodes(user, host string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreatePDNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreatePDNodes{
-		user: user,
-		host: host,
-        awsTopoConfigs:  awsTopoConfigs,
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
 	})
 	return b
 }
-

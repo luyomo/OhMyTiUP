@@ -18,9 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
-	//	"strconv"
-	//"strings"
-	//"time"
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
 )
 
 type RouteTable struct {
@@ -37,8 +35,10 @@ type RouteTables struct {
 
 // Mkdir is used to create directory on the target host
 type CreateRouteTable struct {
-	user string
-	host string
+	user           string
+	host           string
+	awsTopoConfigs *spec.AwsTopoConfigs
+	clusterName    string
 }
 
 // Execute implements the Task interface
@@ -46,7 +46,7 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
 	// Get the available zones
-	stdout, stderr, err := local.Execute(ctx, "aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=tisamplenodes\"", false)
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -66,7 +66,7 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=tisamplenodes}]\"", clusterInfo.vpcInfo.VpcId)
+	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", clusterInfo.vpcInfo.VpcId, c.clusterName)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	var retRouteTable ResultRouteTable
 	stdout, stderr, err = local.Execute(ctx, command, false)

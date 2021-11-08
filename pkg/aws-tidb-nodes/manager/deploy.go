@@ -37,7 +37,7 @@ import (
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
-	perrs "github.com/pingcap/errors"
+	//	perrs "github.com/pingcap/errors"
 )
 
 // DeployOptions contains the options for scale out.
@@ -58,7 +58,6 @@ type DeployerInstance interface {
 // Deploy a cluster.
 func (m *Manager) Deploy(
 	name string,
-	clusterVersion string,
 	topoFile string,
 	opt DeployOptions,
 	afterDeploy func(b *task.Builder, newPart spec.Topology),
@@ -112,20 +111,6 @@ func (m *Manager) Deploy(
 		base.GlobalOptions.SSHType = sshType
 	}
 
-	if topo, ok := topo.(*spec.Specification); ok {
-		topo.AdjustByVersion(clusterVersion)
-		if !opt.NoLabels {
-			// Check if TiKV's label set correctly
-			lbs, err := topo.LocationLabels()
-			if err != nil {
-				return err
-			}
-			if err := spec.CheckTiKVLabels(lbs, topo); err != nil {
-				return perrs.Errorf("check TiKV label failed, please fix that before continue:\n%s", err)
-			}
-		}
-	}
-
 	clusterList, err := m.specManager.GetAllClusters()
 	if err != nil {
 		return err
@@ -158,7 +143,7 @@ func (m *Manager) Deploy(
 	}
 
 	if !skipConfirm {
-		if err := m.confirmTopology(name, clusterVersion, topo, set.NewStringSet()); err != nil {
+		if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
 			return err
 		}
 	}
@@ -235,11 +220,11 @@ func (m *Manager) Deploy(
 				dirs = append(dirs, globalOptions.DataDir)
 			}
 			t := task.NewBuilder().
-				CreateVpc(globalOptions.User, inst.GetHost()).
-				CreateRouteTable(globalOptions.User, inst.GetHost()).
-				CreateNetwork(globalOptions.User, inst.GetHost()).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost()).
-				CreatePDNodes(globalOptions.User, inst.GetHost(), base.AwsTopoConfigs).
+				CreateVpc(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateRouteTable(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateNetwork(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreatePDNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
@@ -399,13 +384,13 @@ func (m *Manager) Deploy(
 	}
 	return nil
 
-	metadata.SetUser(globalOptions.User)
-	metadata.SetVersion(clusterVersion)
-	err = m.specManager.SaveMeta(name, metadata)
+	//metadata.SetUser(globalOptions.User)
+	//metadata.SetVersion(clusterVersion)
+	//err = m.specManager.SaveMeta(name, metadata)
 
-	if err != nil {
-		return err
-	}
+	//if err != nil {
+	//	return err
+	//}
 
 	hint := color.New(color.Bold).Sprintf("%s start %s", tui.OsArgs0(), name)
 	log.Infof("Cluster `%s` deployed successfully, you can start it with command: `%s`", name, hint)

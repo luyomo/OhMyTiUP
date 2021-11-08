@@ -25,10 +25,6 @@ import (
 	"time"
 )
 
-//type SecurityGroups struct {
-//
-//}
-
 type ECState struct {
 	Code int    `json:"Code"`
 	Name string `json:"Name"`
@@ -60,14 +56,15 @@ type CreatePDNodes struct {
 	user           string
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
+	clusterName    string
 }
 
 // Execute implements the Task interface
 func (c *CreatePDNodes) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	fmt.Printf("The aws topo config  <%#v> \n\n\n", c.awsTopoConfigs.General)
+	//	fmt.Printf("The aws topo config  <%#v> \n\n\n", c.awsTopoConfigs.General)
 	// Filter out the instance except the terminated one.
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.awsTopoConfigs.General.Name), false)
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -75,7 +72,7 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	fmt.Printf("The instance output is <%s>", string(stdout))
+	//fmt.Printf("The instance output is <%s>", string(stdout))
 	var reservations Reservations
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
@@ -86,7 +83,7 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 		return nil
 	}
 	// ImageId:"ami-0ac97798ccf296e02", Region:"ap-northeast-1", Name:"tisamplenodes", KeyName:"jay.pingcap"
-	command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s}]\"", c.awsTopoConfigs.General.ImageId, "t2.micro", c.awsTopoConfigs.General.KeyName, clusterInfo.securityGroupId, clusterInfo.subnets[0], c.awsTopoConfigs.General.Region, c.awsTopoConfigs.General.Name)
+	command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s}]\"", c.awsTopoConfigs.General.ImageId, "t2.micro", c.awsTopoConfigs.General.KeyName, clusterInfo.securityGroupId, clusterInfo.subnets[0], c.awsTopoConfigs.General.Region, c.clusterName)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
@@ -97,7 +94,7 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The created instance is <%s>\n\n\n", stdout)
 	for i := 1; i <= 20; i++ {
-		stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16\"", c.awsTopoConfigs.General.Name), false)
+		stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16\"", c.clusterName), false)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n", err)
 			fmt.Printf("----------\n\n")
