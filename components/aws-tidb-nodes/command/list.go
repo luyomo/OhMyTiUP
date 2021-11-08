@@ -14,16 +14,28 @@
 package command
 
 import (
+    "path"
+    "fmt"
+
 	"github.com/spf13/cobra"
+    "github.com/luyomo/tisample/pkg/aws-tidb-nodes/manager"
+    "github.com/luyomo/tisample/pkg/utils"
 )
 
 func newListCmd() *cobra.Command {
+    opt := manager.DeployOptions{
+        IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
+    }
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all clusters",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cm.ListCluster()
+			return cm.ListCluster(opt)
 		},
 	}
+
+    cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
+
+    fmt.Printf("The option is <%#v> \n", opt)
 	return cmd
 }

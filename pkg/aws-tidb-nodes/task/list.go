@@ -1,0 +1,206 @@
+// Copyright 2020 PingCAP, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package task
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
+	//"time"
+)
+
+type ARNComponent struct {
+	ComponentType string
+	ComponentName string
+	ComponentID   string
+	ImageID       string
+	InstanceName  string
+	KeyName       string
+	State         string
+	CIDR          string
+	Region        string
+	Zone          string
+}
+
+type List struct {
+	User          string
+	Host          string
+	ArnComponents []ARNComponent
+}
+
+// Execute implements the Task interface
+func (c *List) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User})
+
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "tisamplenodes"), false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+
+	var vpcs Vpcs
+	if err = json.Unmarshal(stdout, &vpcs); err != nil {
+		fmt.Printf("The error here is %#v \n\n", err)
+		return nil
+	}
+
+	for _, vpc := range vpcs.Vpcs {
+		c.ArnComponents = append(c.ArnComponents, ARNComponent{
+			"VPC",
+			"tisamplenode",
+			vpc.VpcId,
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+		})
+	}
+
+	// Get the route table
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "tisamplenodes"), false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+
+	var routeTables RouteTables
+	if err = json.Unmarshal(stdout, &routeTables); err != nil {
+		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		return nil
+	}
+	for _, routeTable := range routeTables.RouteTables {
+		c.ArnComponents = append(c.ArnComponents, ARNComponent{
+			"Route Table",
+			"tisamplenode",
+			routeTable.RouteTableId,
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+		})
+	}
+
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "tisamplenodes"), false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+	//fmt.Printf("The stdout from the local is <%s> \n\n\n", string(stdout))
+	var subnets Subnets
+	if err = json.Unmarshal(stdout, &subnets); err != nil {
+		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		return nil
+	}
+
+	for _, subnet := range subnets.Subnets {
+		c.ArnComponents = append(c.ArnComponents, ARNComponent{
+			"Subnet",
+			"tisamplenode",
+			subnet.SubnetId,
+			"-",
+			"-",
+			"-",
+			subnet.State,
+			subnet.CidrBlock,
+			subnet.AvailabilityZone,
+			"-",
+		})
+	}
+
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "tisamplenodes"), false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+
+	var securityGroups SecurityGroups
+	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
+		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		return nil
+	}
+
+	for _, securityGroup := range securityGroups.SecurityGroups {
+		c.ArnComponents = append(c.ArnComponents, ARNComponent{
+			"Security Group",
+			"tisamplenode",
+			securityGroup.GroupId,
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+		})
+	}
+
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", "tisamplenodes"), false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+
+	var reservations Reservations
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		return nil
+	}
+	if len(reservations.Reservations) > 0 && len(reservations.Reservations[0].Instances) > 0 {
+		fmt.Printf("*** *** *** Got the ec2 instance <%#v> \n\n\n", reservations.Reservations[0].Instances)
+		for _, instance := range reservations.Reservations[0].Instances {
+			c.ArnComponents = append(c.ArnComponents, ARNComponent{
+				"EC2 instance",
+				"tisamplenode",
+				instance.InstanceId,
+				instance.ImageId,
+				instance.InstanceType,
+				"-",
+				instance.State.Name,
+				instance.PrivateIpAddress,
+				"-",
+				instance.SubnetId,
+			})
+		}
+		return nil
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *List) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *List) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.Host)
+}

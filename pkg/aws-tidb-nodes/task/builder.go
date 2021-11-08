@@ -526,3 +526,11 @@ func (b *Builder) CreatePDNodes(user, host string, awsTopoConfigs *spec.AwsTopoC
 	})
 	return b
 }
+
+func (b *Builder) List(user, host string) *Builder {
+	b.tasks = append(b.tasks, &List{
+		User: user,
+		Host: host,
+	})
+	return b
+}

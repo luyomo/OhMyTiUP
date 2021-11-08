@@ -15,8 +15,12 @@ package manager
 
 import (
 	"errors"
+	//"fmt"
+	"context"
 
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/ctxt"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/task"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
 	perrs "github.com/pingcap/errors"
@@ -32,26 +36,37 @@ type Cluster struct {
 }
 
 // ListCluster list the clusters.
-func (m *Manager) ListCluster() error {
-	clusters, err := m.GetClusterList()
-	if err != nil {
-		return err
-	}
+func (m *Manager) ListCluster(opt DeployOptions) error {
+	//clusters, err := m.GetClusterList()
+	//if err != nil {
+	//	return err
+	//}
+
+	//t := task.NewBuilder().
+	//    List(globalOptions.User, inst.GetHost()).
+	//    BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
+	insList := task.List{User: opt.User}
+	insList.Execute(ctxt.New(context.Background(), 1))
+	//fmt.Printf("The list is <%#v>", insList)
 
 	clusterTable := [][]string{
 		// Header
-		{"Name", "User", "Version", "Path", "PrivateKey"},
+		{"Component Type", "Component Name", "Component Identifier", "Image ID", "Instance Name", "Key Name", "State", "CIDR", "Region", "Zone"},
 	}
-	for _, v := range clusters {
+	for _, v := range insList.ArnComponents {
 		clusterTable = append(clusterTable, []string{
-			v.Name,
-			v.User,
-			v.Version,
-			v.Path,
-			v.PrivateKey,
+			v.ComponentType,
+			v.ComponentName,
+			v.ComponentID,
+			v.ImageID,
+			v.InstanceName,
+			v.KeyName,
+			v.State,
+			v.CIDR,
+			v.Zone,
+			v.Region,
 		})
 	}
-
 	tui.PrintTable(clusterTable, true)
 	return nil
 }
