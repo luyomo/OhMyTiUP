@@ -535,3 +535,43 @@ func (b *Builder) CreatePDNodes(user, host, clusterName string, awsTopoConfigs *
 	})
 	return b
 }
+
+func (b *Builder) CreateTiDBNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateTiDBNodes{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+	})
+	return b
+}
+
+func (b *Builder) CreateTiKVNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateTiKVNodes{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+	})
+	return b
+}
+
+func (b *Builder) CreateDMNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateDMNodes{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+	})
+	return b
+}
+
+func (b *Builder) CreateTiCDCNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateTiCDCNodes{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+	})
+	return b
+}

@@ -225,6 +225,10 @@ func (m *Manager) Deploy(
 				CreateNetwork(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreatePDNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateDMNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

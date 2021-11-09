@@ -100,6 +100,7 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 		//	existsNodes++
 		//}
 	}
+	return nil
 
 	for _idx := 0; _idx < c.awsTopoConfigs.PD.Count-existsNodes; _idx++ {
 		fmt.Printf("Generating the instances <%d> \n\n\n", _idx)
