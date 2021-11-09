@@ -224,6 +224,8 @@ func (m *Manager) Deploy(
 				CreateRouteTable(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateNetwork(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateWorkstation(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreatePDNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).

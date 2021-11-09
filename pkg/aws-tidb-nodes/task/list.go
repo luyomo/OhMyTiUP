@@ -173,7 +173,23 @@ func (c *List) Execute(ctx context.Context, clusterName string) error {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
-	if len(reservations.Reservations) > 0 && len(reservations.Reservations[0].Instances) > 0 {
+	for _, reservation := range reservations.Reservations {
+		for _, instance := range reservation.Instances {
+			c.ArnComponents = append(c.ArnComponents, ARNComponent{
+				"EC2 instance",
+				clusterName,
+				instance.InstanceId,
+				instance.ImageId,
+				instance.InstanceType,
+				"-",
+				instance.State.Name,
+				instance.PrivateIpAddress,
+				"-",
+				instance.SubnetId,
+			})
+		}
+	}
+	/*	if len(reservations.Reservations) > 0 && len(reservations.Reservations[0].Instances) > 0 {
 		fmt.Printf("*** *** *** Got the ec2 instance <%#v> \n\n\n", reservations.Reservations[0].Instances)
 		for _, instance := range reservations.Reservations[0].Instances {
 			c.ArnComponents = append(c.ArnComponents, ARNComponent{
@@ -190,7 +206,7 @@ func (c *List) Execute(ctx context.Context, clusterName string) error {
 			})
 		}
 		return nil
-	}
+	}*/
 
 	return nil
 }

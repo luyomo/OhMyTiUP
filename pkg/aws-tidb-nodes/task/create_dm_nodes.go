@@ -68,8 +68,8 @@ func (c *CreateDMNodes) Execute(ctx context.Context) error {
 
 	for _idx := 0; _idx < c.awsTopoConfigs.DM.Count-existsNodes; _idx++ {
 		fmt.Printf("Generating the instances <%d> \n\n\n", _idx)
-		fmt.Printf("Subnets: <%s> \n\n\n", clusterInfo.subnets[_idx%len(clusterInfo.subnets)])
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Component,Value=dm}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.DM.InstanceType, c.awsTopoConfigs.General.KeyName, clusterInfo.securityGroupId, clusterInfo.subnets[_idx%len(clusterInfo.subnets)], c.awsTopoConfigs.General.Region, c.clusterName)
+		fmt.Printf("Subnets: <%s> \n\n\n", clusterInfo.privateSubnets[_idx%len(clusterInfo.privateSubnets)])
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Component,Value=dm}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.DM.InstanceType, c.awsTopoConfigs.General.KeyName, clusterInfo.privateSecurityGroupId, clusterInfo.privateSubnets[_idx%len(clusterInfo.privateSubnets)], c.awsTopoConfigs.General.Region, c.clusterName)
 		fmt.Printf("The comamnd is <%s> \n\n\n", command)
 		stdout, stderr, err = local.Execute(ctx, command, false)
 		if err != nil {

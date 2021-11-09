@@ -107,11 +107,12 @@ type (
 	}
 
 	AwsTopoConfigsGeneral struct {
-		ImageId string `yaml:"imageid,omitempty"`
-		Region  string `yaml:"region,omitempty"`
-		Name    string `yaml:"name,omitempty"`
-		KeyName string `yaml:"keyname,omitempty"`
-		CIDR    string `yaml:"cidr,omitempty"`
+		ImageId      string `yaml:"imageid,omitempty"`
+		Region       string `yaml:"region,omitempty"`
+		Name         string `yaml:"name,omitempty"`
+		KeyName      string `yaml:"keyname,omitempty"`
+		CIDR         string `yaml:"cidr,omitempty"`
+		InstanceType string `yaml:"instance_type,omitempty"`
 	}
 
 	AwsNodeModal struct {

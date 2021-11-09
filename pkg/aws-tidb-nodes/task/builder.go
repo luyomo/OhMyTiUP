@@ -575,3 +575,23 @@ func (b *Builder) CreateTiCDCNodes(user, host, clusterName string, awsTopoConfig
 	})
 	return b
 }
+
+func (b *Builder) CreateWorkstation(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateWorkstation{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+	})
+	return b
+}
+
+func (b *Builder) CreateInternetGateway(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateInternetGateway{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+	})
+	return b
+}
