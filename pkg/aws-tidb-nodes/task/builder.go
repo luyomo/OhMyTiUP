@@ -22,6 +22,7 @@ import (
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
 	operator "github.com/luyomo/tisample/pkg/aws-tidb-nodes/operation"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+
 	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/proxy"
@@ -588,6 +589,16 @@ func (b *Builder) CreateWorkstation(user, host, clusterName string, awsTopoConfi
 
 func (b *Builder) CreateInternetGateway(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateInternetGateway{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+	})
+	return b
+}
+
+func (b *Builder) DeployTiDB(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &DeployTiDB{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,

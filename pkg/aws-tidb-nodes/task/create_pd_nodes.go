@@ -22,7 +22,7 @@ import (
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
 	//	"strconv"
 	//	"strings"
-	"time"
+	//"time"
 )
 
 type ECState struct {
@@ -39,6 +39,7 @@ type EC2 struct {
 	ImageId          string  `json:"ImageId"`
 	PrivateIpAddress string  `json:"PrivateIpAddress"`
 	PrivateDnsName   string  `json:"PrivateDnsName"`
+	PublicIpAddress  string  `json:"PublicIpAddress"`
 }
 type NewEC2 struct {
 	Instances EC2 `json:"Instances"`
@@ -100,7 +101,6 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 		//	existsNodes++
 		//}
 	}
-	return nil
 
 	for _idx := 0; _idx < c.awsTopoConfigs.PD.Count-existsNodes; _idx++ {
 		fmt.Printf("Generating the instances <%d> \n\n\n", _idx)
@@ -137,33 +137,35 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 	//	return nil
 	//}
 	//fmt.Printf("The created instance is <%s>\n\n\n", stdout)
-	for i := 1; i <= 20; i++ {
-		stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=pd\"", c.clusterName), false)
-		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
-			return nil
-		}
-
-		if err = json.Unmarshal(stdout, &reservations); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
-		}
-
-		if len(reservations.Reservations) > 0 && len(reservations.Reservations[0].Instances) > 0 {
-			fmt.Printf("The statis <%#v> \n\n\n", reservations.Reservations[0].Instances)
-			if reservations.Reservations[0].Instances[0].State.Code == 16 {
-				fmt.Printf("The instance has been generted.")
-				break
-			} else {
-				fmt.Printf("The instances are <%#v> \n\n\n", reservations.Reservations[0].Instances[0])
+	/*
+		for i := 1; i <= 20; i++ {
+			stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=pd\"", c.clusterName), false)
+			if err != nil {
+				fmt.Printf("The error here is <%#v> \n\n", err)
+				fmt.Printf("----------\n\n")
+				fmt.Printf("The error here is <%s> \n\n", string(stderr))
+				return nil
 			}
-		} else {
-			fmt.Printf("Failed to generate the instance")
+
+			if err = json.Unmarshal(stdout, &reservations); err != nil {
+				fmt.Printf("*** *** The error here is %#v \n\n", err)
+				return nil
+			}
+
+			if len(reservations.Reservations) > 0 && len(reservations.Reservations[0].Instances) > 0 {
+				fmt.Printf("The statis <%#v> \n\n\n", reservations.Reservations[0].Instances)
+				if reservations.Reservations[0].Instances[0].State.Code == 16 {
+					fmt.Printf("The instance has been generted.")
+					break
+				} else {
+					fmt.Printf("The instances are <%#v> \n\n\n", reservations.Reservations[0].Instances[0])
+				}
+			} else {
+				fmt.Printf("Failed to generate the instance")
+			}
+			time.Sleep(10 * time.Second)
 		}
-		time.Sleep(10 * time.Second)
-	}
+	*/
 
 	return nil
 }
