@@ -1,8 +1,8 @@
 global:
-  user: "tidb"
+  user: "admin"
   ssh_port: 22
-  deploy_dir: "/tidb-deploy"
-  data_dir: "/tidb-data"
+  deploy_dir: "/home/admin/tidb/tidb-deploy"
+  data_dir: "/home/admin/tidb/tidb-data"
 server_configs: {}
 pd_servers:
   {{- range .PD }}
@@ -16,7 +16,7 @@ tikv_servers:
   {{- range .TiKV }}
   - host: {{. }}
   {{- end }}
-ticdc_servers:
+cdc_servers:
   {{- range .TiCDC }}
   - host: {{. }}
   {{- end }}

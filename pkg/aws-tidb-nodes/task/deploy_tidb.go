@@ -168,8 +168,36 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	stdout, stderr, err = wsexecutor.Execute(ctx, `echo 'test
-data ' > /tmp/test.txt`, false)
+
+	err = wsexecutor.Transfer(ctx, "/tmp/tiup-test.yml", "/tmp", false, 0)
+
+	err = wsexecutor.Transfer(ctx, "/home/pi/.ssh/jaypingcap.pem", "~/.ssh/id_rsa", false, 0)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+
+	stdout, stderr, err = wsexecutor.Execute(ctx, `apt-get update`, true)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+
+	stdout, stderr, err = wsexecutor.Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+
+	stdout, stderr, err = wsexecutor.Execute(ctx, `which tiup`, false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -185,7 +213,6 @@ data ' > /tmp/test.txt`, false)
 	//	fmt.Printf("The error here is <%s> \n\n", string(stderr))
 	//	return nil
 	//}
-	err = wsexecutor.Transfer(ctx, "/tmp/tiup-test.yml", "/tmp", false, 0)
 
 	return nil
 
