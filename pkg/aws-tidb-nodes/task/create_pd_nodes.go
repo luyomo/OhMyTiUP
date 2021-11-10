@@ -31,15 +31,16 @@ type ECState struct {
 }
 
 type EC2 struct {
-	InstanceId       string  `json:"InstanceId"`
-	State            ECState `json:"State"`
-	SubnetId         string  `json:"SubnetId"`
-	VpcId            string  `json:"VpcId"`
-	InstanceType     string  `json:"InstanceType"`
-	ImageId          string  `json:"ImageId"`
-	PrivateIpAddress string  `json:"PrivateIpAddress"`
-	PrivateDnsName   string  `json:"PrivateDnsName"`
-	PublicIpAddress  string  `json:"PublicIpAddress"`
+	InstanceId       string              `json:"InstanceId"`
+	State            ECState             `json:"State"`
+	SubnetId         string              `json:"SubnetId"`
+	VpcId            string              `json:"VpcId"`
+	InstanceType     string              `json:"InstanceType"`
+	ImageId          string              `json:"ImageId"`
+	PrivateIpAddress string              `json:"PrivateIpAddress"`
+	PrivateDnsName   string              `json:"PrivateDnsName"`
+	PublicIpAddress  string              `json:"PublicIpAddress"`
+	Tags             []map[string]string `json:"Tags"`
 }
 type NewEC2 struct {
 	Instances EC2 `json:"Instances"`

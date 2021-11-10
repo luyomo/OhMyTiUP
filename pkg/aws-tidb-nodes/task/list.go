@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
+	"sort"
 	//"time"
 )
 
@@ -33,6 +34,12 @@ type ARNComponent struct {
 	Region        string
 	Zone          string
 }
+
+type ByComponentType []ARNComponent
+
+func (a ByComponentType) Len() int           { return len(a) }
+func (a ByComponentType) Less(i, j int) bool { return a[i].ComponentType < a[j].ComponentType }
+func (a ByComponentType) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 type List struct {
 	User          string
@@ -175,8 +182,29 @@ func (c *List) Execute(ctx context.Context, clusterName string) error {
 	}
 	for _, reservation := range reservations.Reservations {
 		for _, instance := range reservation.Instances {
+			componentName := "EC instance"
+			for _, tag := range instance.Tags {
+				if tag["Key"] == "Component" && tag["Value"] == "pd" {
+					componentName = "PD node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "tidb" {
+					componentName = "TiDB node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "tikv" {
+					componentName = "TiKV node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "dm" {
+					componentName = "DM node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "ticdc" {
+					componentName = "TiCDC node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "workstation" {
+					componentName = "Workstation Node"
+				}
+			}
 			c.ArnComponents = append(c.ArnComponents, ARNComponent{
-				"EC2 instance",
+				componentName,
 				clusterName,
 				instance.InstanceId,
 				instance.ImageId,
@@ -189,24 +217,7 @@ func (c *List) Execute(ctx context.Context, clusterName string) error {
 			})
 		}
 	}
-	/*	if len(reservations.Reservations) > 0 && len(reservations.Reservations[0].Instances) > 0 {
-		fmt.Printf("*** *** *** Got the ec2 instance <%#v> \n\n\n", reservations.Reservations[0].Instances)
-		for _, instance := range reservations.Reservations[0].Instances {
-			c.ArnComponents = append(c.ArnComponents, ARNComponent{
-				"EC2 instance",
-				clusterName,
-				instance.InstanceId,
-				instance.ImageId,
-				instance.InstanceType,
-				"-",
-				instance.State.Name,
-				instance.PrivateIpAddress,
-				"-",
-				instance.SubnetId,
-			})
-		}
-		return nil
-	}*/
+	sort.Sort(ByComponentType(c.ArnComponents))
 
 	return nil
 }

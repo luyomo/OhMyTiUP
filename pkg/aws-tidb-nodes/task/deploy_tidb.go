@@ -17,8 +17,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+	"os"
+	"path"
+	"text/template"
 )
 
 type DeployTiDB struct {
@@ -26,6 +30,15 @@ type DeployTiDB struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+}
+
+type TplTiupData struct {
+	PD      []string
+	TiDB    []string
+	TiKV    []string
+	TiCDC   []string
+	DM      []string
+	Monitor []string
 }
 
 // Execute implements the Task interface
@@ -59,13 +72,94 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 	if cntInstance > 0 {
 		fmt.Printf("The instance is <%s> \n\n\n", theInstance.PublicIpAddress)
+	} else {
+		fmt.Printf("There is no contenst here <%s> \n\n\n", string(stdout))
 	}
+
+	fmt.Printf("Reached here for the ip address \n\n\n")
+
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName), false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		return nil
+	}
+
+	var tplData TplTiupData
+	for _, reservation := range reservations.Reservations {
+		for _, instance := range reservation.Instances {
+			for _, tag := range instance.Tags {
+				if tag["Key"] == "Component" && tag["Value"] == "pd" {
+					tplData.PD = append(tplData.PD, instance.PrivateIpAddress)
+
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "tidb" {
+					tplData.TiDB = append(tplData.TiDB, instance.PrivateIpAddress)
+
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "tikv" {
+					tplData.TiKV = append(tplData.TiKV, instance.PrivateIpAddress)
+
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "ticdc" {
+					tplData.TiCDC = append(tplData.TiCDC, instance.PrivateIpAddress)
+
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "dm" {
+					tplData.DM = append(tplData.DM, instance.PrivateIpAddress)
+
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "workstation" {
+					tplData.Monitor = append(tplData.Monitor, instance.PrivateIpAddress)
+
+				}
+			}
+			//			component, found := instance.Tags["Key"]
+			//			fmt.Printf("The content is <%#v> \n\n\n", instance.Tags.Component)
+
+		}
+	}
+	fmt.Printf("All the ip are <%#v> \n\n\n", tplData)
+
 	//	if len(reservations.Reservations) == 0 || len(reservations.Reservations[0].Instances) == 0 {
 	//	fmt.Printf("No workstation exists")
 	//	return nil
 	//}
 
 	//fmt.Printf("The workstation server ip is <%#v> \n\n\n", reservations.Reservations[0].Instances[0])
+
+	// embed/templates/config/tidb_cluster.yml.tpl
+
+	tiupFile, err := os.Create("/tmp/tiup-test.yml")
+	if err != nil {
+		return err
+	}
+	defer tiupFile.Close()
+
+	fp := path.Join("templates", "config", "tidb_cluster.yml.tpl")
+	tpl, err := embed.ReadTemplate(fp)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err := template.New("test").Parse(string(tpl))
+	if err != nil {
+		return err
+	}
+
+	//content := bytes.NewBufferString("")
+	if err := tmpl.Execute(tiupFile, tplData); err != nil {
+		return err
+	}
+
+	//fmt.Printf("The contents is <%s> \n\n\n", string(content.Bytes()))
+	// Transfer(ctx context.Context, src, dst string, download bool, limit int)
 
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
 	if err != nil {
@@ -83,6 +177,15 @@ data ' > /tmp/test.txt`, false)
 		return nil
 	}
 	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+
+	//stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf("echo '%s' >> /tmp/tiup-%s.yml", string(content.Bytes()), c.clusterName), false)
+	//if err != nil {
+	//	fmt.Printf("The error here is <%#v> \n\n", err)
+	//	fmt.Printf("----------\n\n")
+	//	fmt.Printf("The error here is <%s> \n\n", string(stderr))
+	//	return nil
+	//}
+	err = wsexecutor.Transfer(ctx, "/tmp/tiup-test.yml", "/tmp", false, 0)
 
 	return nil
 
