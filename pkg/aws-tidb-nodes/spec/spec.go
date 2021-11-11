@@ -120,6 +120,10 @@ type (
 		Count        int    `yaml:"count"`
 	}
 
+	AuroraConfig struct {
+		Name string `yaml:"name"`
+	}
+
 	AwsTopoConfigs struct {
 		General AwsTopoConfigsGeneral `yaml:"general"`
 		PD      AwsNodeModal          `yaml:"pd"`
@@ -127,6 +131,7 @@ type (
 		TiKV    AwsNodeModal          `yaml:"tikv"`
 		DM      AwsNodeModal          `yaml:"dm"`
 		TiCDC   AwsNodeModal          `yaml:"ticdc"`
+		Aurora  AuroraConfig          `yaml:"aurora"`
 	}
 
 	// Specification represents the specification of topology.yaml

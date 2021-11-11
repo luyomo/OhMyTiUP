@@ -220,6 +220,7 @@ func (m *Manager) Deploy(
 				dirs = append(dirs, globalOptions.DataDir)
 			}
 			t := task.NewBuilder().
+				//DeployTiDB(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateVpc(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateRouteTable(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateNetwork(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
@@ -231,6 +232,8 @@ func (m *Manager) Deploy(
 				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateDMNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateVpcPeering(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				DeployTiDB(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

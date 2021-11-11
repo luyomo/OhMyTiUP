@@ -106,6 +106,7 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 	}
 	//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
 	fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", retRouteTable.TheRouteTable.RouteTableId)
+	clusterInfo.privateRouteTableId = retRouteTable.TheRouteTable.RouteTableId
 
 	return nil
 }

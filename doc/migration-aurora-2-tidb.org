@@ -1,3 +1,77 @@
+* tisample deployment
+  - TiDB deployment
+    #+BEGIN_SRC
+$./bin/tisample-aws-tidb-nodes deploy testtisample /tmp/candle.yaml
+ws$tiup cluster deploy tidbtest v5.2.0 /tmp/tiup-test.yml
+ws$tiup cluster start tidbtest
+ws$tiup dm deploy dmtest v2.0.7 /tmp/dm-test.yml
+ws$mysql -h 172.80.3.147 -P 3306 -u master -p1234Abcd
+ws$mysql -h 172.83.1.241 -P 4000 -u root
+MySQL [(none)]> create database dm_test;
+MySQL [(none)]> create database cdc_test;
+MySQL [(none)]> use dm_test;
+MySQL [dm_test]> create table test02(
+    col01 bigint primary key not null, 
+    col02 CHAR(1),
+    col03 VARCHAR(32),
+    col04 TINYTEXT,
+    col05 TEXT,
+    col06 BLOB,
+    col07 MEDIUMTEXT,
+    col08 MEDIUMBLOB,
+    col09 LONGTEXT,
+    col10 LONGBLOB,
+    col11 TINYINT,
+    col12 SMALLINT,
+    col13 MEDIUMINT,
+    col14 INT,
+    col15 BIGINT,
+    col16 FLOAT(20,8),
+    col17 DOUBLE(20,8),
+    col18 DECIMAL(20,8),
+    col19 DATE,
+    col20 DATETIME,
+    col21 TIMESTAMP,
+    col22 TIME,
+    col23 ENUM ('x-small', 'small', 'medium', 'large', 'x-large'),
+    col24 SET('a', 'b', 'c', 'd'),
+    col25 boolean);
+
+MySQL [cdc_test]> create table test02(
+    col01 bigint primary key not null, 
+    col02 CHAR(1),
+    col03 VARCHAR(32),
+    col04 TINYTEXT,
+    col05 TEXT,
+    col06 BLOB,
+    col07 MEDIUMTEXT,
+    col08 MEDIUMBLOB,
+    col09 LONGTEXT,
+    col10 LONGBLOB,
+    col11 TINYINT,
+    col12 SMALLINT,
+    col13 MEDIUMINT,
+    col14 INT,
+    col15 BIGINT,
+    col16 FLOAT(20,8),
+    col17 DOUBLE(20,8),
+    col18 DECIMAL(20,8),
+    col19 DATE,
+    col20 DATETIME,
+    col21 TIMESTAMP,
+    col22 TIME,
+    col23 ENUM ('x-small', 'small', 'medium', 'large', 'x-large'),
+    col24 SET('a', 'b', 'c', 'd'),
+    col25 boolean);
+$ tiup dmctl --master-addr 172.83.1.249:8261 operate-source create /tmp/dm-source.yml
+$ tiup dmctl --master-addr 172.83.1.249:8261 start-task /tmp/dm-task.yml
+$ tiup cdc cli changefeed create --pd="http://172.83.1.104:2379" --sink-uri="mysql://master:1234Abcd@172.80.3.147:3306" --config=/tmp/cdc-task.toml
+
+    #+END_SRC
+** Todo
+   - Create vpc peering from aurora
+   - Ack vpc peering from tidb
+   - add private cidr:3306 to aurora's sg
 * Aurora preparation
 ** Network preparation
 *** VPC preparation
@@ -854,4 +928,38 @@ alertmanager_servers:
   - host: 172.20.30.173
     ssh_port: 22
     web_port: 9093
+
+$ tiup dm deploy dmtest v2.0.7 /tmp/dm-test.yml
+$ tiup dm start dmtest
+$ tiup dmctl --master-addr 172.83.1.190:8261 operate-source create /tmp/source1.yml
+Starting component `dmctl`: /home/admin/.tiup/components/dmctl/v2.0.7/dmctl/dmctl --master-addr 172.83.1.190:8261 operate-source create /tmp/source1.yml
+{
+    "result": true,
+    "msg": "",
+    "sources": [
+        {
+            "result": true,
+            "msg": "",
+            "source": "mysql-replica-01",
+            "worker": "dm-172.83.1.190-8262"
+        }
+    ]
+}
+$ tiup dmctl --master-addr 172.83.1.190:8261 start-task /tmp/task.yml    
+Starting component `dmctl`: /home/admin/.tiup/components/dmctl/v2.0.7/dmctl/dmctl --master-addr 172.83.1.190:8261 start-task /tmp/task.yml
+{
+    "result": true,
+    "msg": "",
+    "sources": [
+        {
+            "result": true,
+            "msg": "",
+            "source": "mysql-replica-01",
+            "worker": "dm-172.83.1.190-8262"
+        }
+    ]
+}
+
+$ tiup cdc cli changefeed create --pd="http://172.83.1.209:2379" --sink-uri="mysql://master:1234Abcd@172.80.3.147:3306" --config=/tmp/cdc.toml
 #+END_SRC
+

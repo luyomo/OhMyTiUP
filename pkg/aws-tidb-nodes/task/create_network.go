@@ -82,6 +82,8 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		return nil
 	}
 
+	fmt.Printf("The public and private route table are <%s> and <%s> \n\n\n", clusterInfo.publicRouteTableId, clusterInfo.privateRouteTableId)
+
 	c.createPrivateSubnets(local, ctx, zones)
 
 	c.createPublicSubnets(local, ctx, zones)

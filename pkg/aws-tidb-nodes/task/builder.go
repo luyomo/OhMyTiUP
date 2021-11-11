@@ -606,3 +606,13 @@ func (b *Builder) DeployTiDB(user, host, clusterName string, awsTopoConfigs *spe
 	})
 	return b
 }
+
+func (b *Builder) CreateVpcPeering(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateVpcPeering{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+	})
+	return b
+}

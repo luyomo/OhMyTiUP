@@ -157,6 +157,94 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	if err := tmpl.Execute(tiupFile, tplData); err != nil {
 		return err
 	}
+	// ----- DM config file
+	tiupFile, err = os.Create("/tmp/dm-test.yml")
+	if err != nil {
+		return err
+	}
+	defer tiupFile.Close()
+
+	fp = path.Join("templates", "config", "dm_cluster.yml.tpl")
+	tpl, err = embed.ReadTemplate(fp)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err = template.New("test01").Parse(string(tpl))
+	if err != nil {
+		return err
+	}
+
+	//content := bytes.NewBufferString("")
+	if err := tmpl.Execute(tiupFile, tplData); err != nil {
+		return err
+	}
+
+	// ----- DM source file
+	tiupFile, err = os.Create("/tmp/dm-source.yml")
+	if err != nil {
+		return err
+	}
+	defer tiupFile.Close()
+
+	fp = path.Join("templates", "config", "dm-source.yml.tpl")
+	tpl, err = embed.ReadTemplate(fp)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err = template.New("test03").Parse(string(tpl))
+	if err != nil {
+		return err
+	}
+
+	if err := tmpl.Execute(tiupFile, tplData); err != nil {
+		return err
+	}
+
+	// ----- DM task file
+	tiupFile, err = os.Create("/tmp/dm-task.yml")
+	if err != nil {
+		return err
+	}
+	defer tiupFile.Close()
+
+	fp = path.Join("templates", "config", "dm-task.yml.tpl")
+	tpl, err = embed.ReadTemplate(fp)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err = template.New("test04").Parse(string(tpl))
+	if err != nil {
+		return err
+	}
+
+	if err := tmpl.Execute(tiupFile, tplData); err != nil {
+		return err
+	}
+
+	// cdc-task.toml.tpl
+	tiupFile, err = os.Create("/tmp/cdc-task.toml")
+	if err != nil {
+		return err
+	}
+	defer tiupFile.Close()
+
+	fp = path.Join("templates", "config", "cdc-task.toml.tpl")
+	tpl, err = embed.ReadTemplate(fp)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err = template.New("test05").Parse(string(tpl))
+	if err != nil {
+		return err
+	}
+
+	if err := tmpl.Execute(tiupFile, tplData); err != nil {
+		return err
+	}
 
 	//fmt.Printf("The contents is <%s> \n\n\n", string(content.Bytes()))
 	// Transfer(ctx context.Context, src, dst string, download bool, limit int)
@@ -171,6 +259,15 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	err = wsexecutor.Transfer(ctx, "/tmp/tiup-test.yml", "/tmp", false, 0)
 
+	err = wsexecutor.Transfer(ctx, "/tmp/dm-test.yml", "/tmp", false, 0)
+
+	err = wsexecutor.Transfer(ctx, "/tmp/dm-source.yml", "/tmp", false, 0)
+
+	err = wsexecutor.Transfer(ctx, "/tmp/dm-task.yml", "/tmp", false, 0)
+
+	err = wsexecutor.Transfer(ctx, "/tmp/cdc-task.toml", "/tmp", false, 0)
+
+	//dm_cluster.yml.tpl
 	err = wsexecutor.Transfer(ctx, "/home/pi/.ssh/jaypingcap.pem", "~/.ssh/id_rsa", false, 0)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
@@ -197,7 +294,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 
-	stdout, stderr, err = wsexecutor.Execute(ctx, `which tiup`, false)
+	stdout, stderr, err = wsexecutor.Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")

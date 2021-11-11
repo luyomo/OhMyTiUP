@@ -50,6 +50,7 @@ type ClusterInfo struct {
 	publicSecurityGroupId  string
 	privateSubnets         []string
 	publicSubnet           string
+	pcxTidb2Aurora         string
 }
 
 var clusterInfo ClusterInfo

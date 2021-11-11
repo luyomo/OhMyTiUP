@@ -84,7 +84,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description tisamplenodes --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=private}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName)
+	command := fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=private}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -112,7 +112,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --cidr %s", clusterInfo.privateSecurityGroupId, c.awsTopoConfigs.General.CIDR)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", clusterInfo.privateSecurityGroupId, c.awsTopoConfigs.General.CIDR)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -122,7 +122,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol icmp --cidr %s", clusterInfo.privateSecurityGroupId, c.awsTopoConfigs.General.CIDR)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%s}]", clusterInfo.privateSecurityGroupId, c.awsTopoConfigs.General.CIDR)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -157,7 +157,7 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description tisamplenodes --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=public}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName)
+	command := fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=public}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -185,7 +185,7 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --cidr %s", clusterInfo.publicSecurityGroupId, c.awsTopoConfigs.General.CIDR)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", clusterInfo.publicSecurityGroupId, c.awsTopoConfigs.General.CIDR)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -195,7 +195,7 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol icmp --cidr %s", clusterInfo.publicSecurityGroupId, c.awsTopoConfigs.General.CIDR)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%s}]", clusterInfo.publicSecurityGroupId, c.awsTopoConfigs.General.CIDR)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = executor.Execute(ctx, command, false)
 	if err != nil {
