@@ -963,3 +963,12 @@ Starting component `dmctl`: /home/admin/.tiup/components/dmctl/v2.0.7/dmctl/dmct
 $ tiup cdc cli changefeed create --pd="http://172.83.1.209:2379" --sink-uri="mysql://master:1234Abcd@172.80.3.147:3306" --config=/tmp/cdc.toml
 #+END_SRC
 
+* Todo
+** Add log feature
+** Add parallel running
+** Aurora automatic deployment
+** Make the common function
+** Add the templates
+** Show the progress bar
+** Add CI/CD
+** Replace the confirmation when starting the message

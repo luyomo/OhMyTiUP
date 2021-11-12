@@ -17,10 +17,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
-
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+	"go.uber.org/zap"
+	"strings"
+	"time"
 )
 
 type Vpc struct {
@@ -34,7 +35,6 @@ type Vpcs struct {
 	Vpcs []Vpc `json:"Vpcs"`
 }
 
-// Mkdir is used to create directory on the target host
 type CreateVpc struct {
 	user           string
 	host           string
@@ -53,54 +53,51 @@ type ClusterInfo struct {
 	pcxTidb2Aurora         string
 }
 
+func (v Vpc) String() string {
+	return fmt.Sprintf("Cidr: %s, State: %s, VpcId: %s, OwnerId: %s", v.CidrBlock, v.State, v.VpcId, v.OwnerId)
+}
+
+func (c ClusterInfo) String() string {
+	return fmt.Sprintf("vpcInfo:[%s], privateRouteTableId:%s, publicRouteTableId:%s, privateSecurityGroupId:%s, publicSecurityGroupId:%s, privateSubnets:%s, publicSubnet:%s, pcxTidb2Aurora:%s", c.vpcInfo.String(), c.privateRouteTableId, c.publicRouteTableId, c.privateSecurityGroupId, c.publicSecurityGroupId, strings.Join(c.privateSubnets, ","), c.publicSubnet, c.pcxTidb2Aurora)
+}
+
 var clusterInfo ClusterInfo
 
 // Execute implements the Task interface
 func (c *CreateVpc) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.clusterName), false)
+	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 	var vpcs Vpcs
-	if err = json.Unmarshal(stdout, &vpcs); err != nil {
-		fmt.Printf("The error here is %#v \n\n", err)
+	if err := json.Unmarshal(stdout, &vpcs); err != nil {
+		zap.L().Debug("The error to parse the string ", zap.Error(err))
 		return nil
 	}
 	if len(vpcs.Vpcs) > 0 {
 		clusterInfo.vpcInfo = vpcs.Vpcs[0]
+		zap.L().Info("The clusterInfo.vpcInfo.vpcId is ", zap.String("VpcInfo", clusterInfo.String()))
 		return nil
 	}
 
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", c.awsTopoConfigs.General.CIDR, c.clusterName), false)
+	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", c.awsTopoConfigs.General.CIDR, c.clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
 	time.Sleep(5 * time.Second)
 
-	fmt.Printf("The output from ls is <%s> \n\n\r\r", stdout)
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName), false)
+	zap.L().Info("Check the data before run describe-vpcs", zap.String("create-vpc", string(stdout)))
+	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	fmt.Printf("The output data is <%s> \n\n\r\r", stdout)
 	if err = json.Unmarshal(stdout, &vpcs); err != nil {
-		fmt.Printf("The error here is %#v \n\n", err)
+		zap.L().Debug("Failed to parse the stdout", zap.String("describe-vpcs", string(stdout)))
 		return nil
 	}
-	fmt.Printf("The parsed data is %#v \n\n", vpcs.Vpcs[0])
-	fmt.Printf("The context data is %#v \n\n", ctx)
 	clusterInfo.vpcInfo = vpcs.Vpcs[0]
 	return nil
 }
