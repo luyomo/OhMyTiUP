@@ -20,8 +20,10 @@ import (
 	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+	"go.uber.org/zap"
 	"os"
 	"path"
+	"strings"
 	"text/template"
 )
 
@@ -41,23 +43,27 @@ type TplTiupData struct {
 	Monitor []string
 }
 
+func (t TplTiupData) String() string {
+	return fmt.Sprintf("PD: %s  |  TiDB: %s  |  TiKV: %s  |  TiCDC: %s  |  DM: %s  |  Monitor:%s", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiKV, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Monitor, ","))
+}
+
 // Execute implements the Task interface
 func (c *DeployTiDB) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	fmt.Printf("Working at hte Deploy TiDB \n\n\n")
-	// Filter out the instance except the terminated one.
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", c.clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
-	fmt.Printf("The instance output is <%s>\n\n\n", string(stdout))
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", c.clusterName)
+	zap.L().Debug("Command", zap.String("describe-instance", command))
+	stdout, _, err := local.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
 	var reservations Reservations
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
 		return nil
 	}
 
@@ -65,29 +71,20 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	cntInstance := 0
 	for _, reservation := range reservations.Reservations {
 		for _, instance := range reservation.Instances {
-			fmt.Printf("The workstation instance ... ... ... \n\n\n")
 			cntInstance++
 			theInstance = instance
 		}
 	}
-	if cntInstance > 0 {
-		fmt.Printf("The instance is <%s> \n\n\n", theInstance.PublicIpAddress)
-	} else {
-		fmt.Printf("There is no contenst here <%s> \n\n\n", string(stdout))
-	}
 
-	fmt.Printf("Reached here for the ip address \n\n\n")
-
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName), false)
+	command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName)
+	zap.L().Debug("Command", zap.String("describe-instance", command))
+	stdout, _, err = local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
 		return nil
 	}
 
@@ -120,21 +117,9 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 				}
 			}
-			//			component, found := instance.Tags["Key"]
-			//			fmt.Printf("The content is <%#v> \n\n\n", instance.Tags.Component)
-
 		}
 	}
-	fmt.Printf("All the ip are <%#v> \n\n\n", tplData)
-
-	//	if len(reservations.Reservations) == 0 || len(reservations.Reservations[0].Instances) == 0 {
-	//	fmt.Printf("No workstation exists")
-	//	return nil
-	//}
-
-	//fmt.Printf("The workstation server ip is <%#v> \n\n\n", reservations.Reservations[0].Instances[0])
-
-	// embed/templates/config/tidb_cluster.yml.tpl
+	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
 
 	tiupFile, err := os.Create("/tmp/tiup-test.yml")
 	if err != nil {
@@ -251,9 +236,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
@@ -270,62 +252,27 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	//dm_cluster.yml.tpl
 	err = wsexecutor.Transfer(ctx, "/home/pi/.ssh/jaypingcap.pem", "~/.ssh/id_rsa", false, 0)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
-	stdout, stderr, err = wsexecutor.Execute(ctx, `apt-get update`, true)
+	stdout, _, err = wsexecutor.Execute(ctx, `apt-get update`, true)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 
-	stdout, stderr, err = wsexecutor.Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
+	stdout, _, err = wsexecutor.Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 
-	stdout, stderr, err = wsexecutor.Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
+	stdout, _, err = wsexecutor.Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 
-	//stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf("echo '%s' >> /tmp/tiup-%s.yml", string(content.Bytes()), c.clusterName), false)
-	//if err != nil {
-	//	fmt.Printf("The error here is <%#v> \n\n", err)
-	//	fmt.Printf("----------\n\n")
-	//	fmt.Printf("The error here is <%s> \n\n", string(stderr))
-	//	return nil
-	//}
-
-	return nil
-
-	//workstation, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-
-	/*
-
-		   command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Component,Value=workstation}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.General.InstanceType, c.awsTopoConfigs.General.KeyName, clusterInfo.publicSecurityGroupId, clusterInfo.publicSubnet, c.awsTopoConfigs.General.Region, c.clusterName)
-			fmt.Printf("The comamnd is <%s> \n\n\n", command)
-			stdout, stderr, err = local.Execute(ctx, command, false)
-			if err != nil {
-				fmt.Printf("The error here is <%#v> \n\n", err)
-				fmt.Printf("----------\n\n")
-				fmt.Printf("The error here is <%s> \n\n", string(stderr))
-				return nil
-			}*/
 	return nil
 }
 

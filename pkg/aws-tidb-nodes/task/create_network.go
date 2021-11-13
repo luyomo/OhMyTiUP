@@ -20,6 +20,7 @@ import (
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/ctxt"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+	"go.uber.org/zap"
 	"strconv"
 	"strings"
 	//"time"
@@ -50,6 +51,22 @@ type SubnetResult struct {
 	Subnet Subnet `json:"Subnet"`
 }
 
+func (s Subnet) String() string {
+	return fmt.Sprintf("AvailabilityZone:%s, CidrBlock:%s, State:%s, SubnetId: %s, VpcId: %s", s.AvailabilityZone, s.CidrBlock, s.State, s.SubnetId, s.VpcId)
+}
+
+func (s Subnets) String() string {
+	var res []string
+	for _, subnet := range s.Subnets {
+		res = append(res, subnet.String())
+	}
+	return fmt.Sprintf("Subnets: [%s]", strings.Join(res, ","))
+}
+
+func (r SubnetResult) String() string {
+	return fmt.Sprintf("SubnetResult: [%s]", r.String())
+}
+
 // Mkdir is used to create directory on the target host
 type CreateNetwork struct {
 	user           string
@@ -61,36 +78,24 @@ type CreateNetwork struct {
 // Execute implements the Task interface
 func (c *CreateNetwork) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	fmt.Printf("The type of local is <%T> \n\n\n", local)
-	// Get the available zones
-	//stdout, stderr, err := local.Execute(ctx, "aws ec2 describe-availability-zones", false)
-	//if err != nil {
-	//	fmt.Printf("The error here is <%#v> \n\n", err)
-	//	fmt.Printf("----------\n\n")
-	//	fmt.Printf("The error here is <%s> \n\n", string(stderr))
-	//	return nil
-	//}
-	////fmt.Printf("The stdout from the local is <%s> \n\n", string(stdout))
-	//var zones AvailabilityZones
-	//if err = json.Unmarshal(stdout, &zones); err != nil {
-	//	fmt.Printf("*** *** The error here is %#v \n\n", err)
-	//	return nil
-	//}
+	if err != nil {
+		return err
+	}
+
 	zones, err := getAvailableZones(local, ctx)
 	if err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
 
-	fmt.Printf("The public and private route table are <%s> and <%s> \n\n\n", clusterInfo.publicRouteTableId, clusterInfo.privateRouteTableId)
+	zap.L().Debug("Public Route Table ID", zap.String("publicRouteTableId", clusterInfo.publicRouteTableId))
+	zap.L().Debug("Private Route Table ID", zap.String("privateRouteTableId", clusterInfo.privateRouteTableId))
 
 	c.createPrivateSubnets(local, ctx, zones)
 
 	c.createPublicSubnets(local, ctx, zones)
 
-	fmt.Printf("The private subnets are <%#v> \n\n\n", clusterInfo.privateSubnets)
-
-	fmt.Printf("The public subnet is <%#v> \n\n\n", clusterInfo.publicSubnet)
+	zap.L().Debug("Public Route Table ID", zap.String("privateSubnets", strings.Join(clusterInfo.privateSubnets, ",")))
+	zap.L().Debug("Private Route Table ID", zap.String("privateSubnets", strings.Join(clusterInfo.privateSubnets, ",")))
 
 	return nil
 }
@@ -108,36 +113,29 @@ func (c *CreateNetwork) String() string {
 func getNextCidr(cidr string, idx int) string {
 	ip := strings.Split(cidr, "/")[0]
 	ipSegs := strings.Split(ip, ".")
-	//	maskLen := strings.Split(cidr, "/")[1]
+
 	return ipSegs[0] + "." + ipSegs[1] + "." + strconv.Itoa(idx) + ".0/24"
 }
 
 func associateSubnet2RouteTable(subnet string, routeTableId string, executor ctxt.Executor, ctx context.Context) {
 	command := fmt.Sprintf("aws ec2 associate-route-table --route-table-id %s --subnet-id %s ", routeTableId, subnet)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err := executor.Execute(ctx, command, false)
-	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
+	zap.L().Debug("Associating route table", zap.String("command", command))
+	if _, _, err := executor.Execute(ctx, command, false); err != nil {
+		return
 	}
-	fmt.Printf("The stdout is <%s>\n\n\n", stdout)
-	fmt.Printf("The stderr is <%s>\n\n\n", stderr)
 }
 
 func getAvailableZones(executor ctxt.Executor, ctx context.Context) (AvailabilityZones, error) {
 
 	// Get the available zones
-	stdout, stderr, err := executor.Execute(ctx, "aws ec2 describe-availability-zones", false)
+	stdout, _, err := executor.Execute(ctx, "aws ec2 describe-availability-zones", false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return AvailabilityZones{}, err
 	}
 	//fmt.Printf("The stdout from the local is <%s> \n\n", string(stdout))
 	var zones AvailabilityZones
 	if err = json.Unmarshal(stdout, &zones); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		zap.L().Error("Failed to parse json", zap.Error(err))
 		return AvailabilityZones{}, err
 	}
 	return zones, nil
@@ -145,24 +143,23 @@ func getAvailableZones(executor ctxt.Executor, ctx context.Context) (Availabilit
 
 func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context.Context, zones AvailabilityZones) error {
 	// Get the subnets
-	stdout, stderr, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName), false)
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName)
+	zap.L().Debug("Command", zap.String("describe-subnets", command))
+	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	//fmt.Printf("The stdout from the local is <%s> \n\n\n", string(stdout))
+
 	var subnets Subnets
 	if err = json.Unmarshal(stdout, &subnets); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
 		return nil
 	}
 	for idx, zone := range zones.Zones {
 		subnetExists := false
 		for idxNet, subnet := range subnets.Subnets {
 			if zone.ZoneName == subnet.AvailabilityZone {
-				fmt.Printf("The subnet is <%s> and index <%d> \n\n\n", subnet.AvailabilityZone, idxNet)
+				zap.L().Info("avaiabilityZone", zap.Int("idxNet", idxNet), zap.String("availability zone", subnet.AvailabilityZone))
 				clusterInfo.privateSubnets = append(clusterInfo.privateSubnets, subnet.SubnetId)
 				associateSubnet2RouteTable(subnet.SubnetId, clusterInfo.privateRouteTableId, executor, ctx)
 				subnetExists = true
@@ -173,21 +170,19 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 		}
 
 		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=private}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1), clusterInfo.vpcInfo.VpcId, zone.ZoneName, c.clusterName)
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		sub_stdout, sub_stderr, sub_err := executor.Execute(ctx, command, false)
-		if sub_err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", sub_err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(sub_stderr))
+		zap.L().Debug("Command", zap.String("create-subnets", command))
+
+		stdout, _, err := executor.Execute(ctx, command, false)
+		if err != nil {
 			return nil
 		}
 		var newSubnet SubnetResult
-		if err = json.Unmarshal(sub_stdout, &newSubnet); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n\n", err)
+		if err = json.Unmarshal(stdout, &newSubnet); err != nil {
+			//			fmt.Printf("*** *** The error here is %#v \n\n\n", err)
+			zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
 			return nil
 		}
-		//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
-		fmt.Printf("The stdout from the subnett preparation: %s and %s \n\n\n", newSubnet.Subnet.State, newSubnet.Subnet.CidrBlock)
+		zap.L().Debug("Generated the subnet info", zap.String("State", newSubnet.Subnet.State), zap.String("Cidr Block", newSubnet.Subnet.CidrBlock))
 		associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, clusterInfo.privateRouteTableId, executor, ctx)
 		clusterInfo.privateSubnets = append(clusterInfo.privateSubnets, newSubnet.Subnet.SubnetId)
 	}
@@ -197,42 +192,36 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 
 func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.Context, zones AvailabilityZones) error {
 	// Get the subnets
-	stdout, stderr, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName), false)
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName)
+	zap.L().Debug("Command", zap.String("describe-subnets", command))
+	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	//fmt.Printf("The stdout from the local is <%s> \n\n\n", string(stdout))
 	var subnets Subnets
 	if err = json.Unmarshal(stdout, &subnets); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
 		return nil
 	}
 
 	if len(subnets.Subnets) > 0 {
 		clusterInfo.publicSubnet = subnets.Subnets[0].SubnetId
-		fmt.Printf("The public subnet has been created. ")
+		zap.L().Debug("Public subnets ", zap.String("subnet", clusterInfo.publicSubnet))
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=public}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, 10+1), clusterInfo.vpcInfo.VpcId, zones.Zones[0].ZoneName, c.clusterName)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	sub_stdout, sub_stderr, sub_err := executor.Execute(ctx, command, false)
-	if sub_err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", sub_err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(sub_stderr))
+	command = fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=public}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, 10+1), clusterInfo.vpcInfo.VpcId, zones.Zones[0].ZoneName, c.clusterName)
+	zap.L().Debug("Command", zap.String("create-subnet", command))
+	stdout, _, err = executor.Execute(ctx, command, false)
+	if err != nil {
 		return nil
 	}
 	var newSubnet SubnetResult
-	if err = json.Unmarshal(sub_stdout, &newSubnet); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n\n", err)
+	if err = json.Unmarshal(stdout, &newSubnet); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("subnet", string(stdout)))
 		return nil
 	}
-	//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
-	fmt.Printf("The stdout from the subnett preparation: %s and %s \n\n\n", newSubnet.Subnet.State, newSubnet.Subnet.CidrBlock)
+	zap.L().Debug("Generated the subnet info", zap.String("State", newSubnet.Subnet.State), zap.String("Cidr Block", newSubnet.Subnet.CidrBlock))
 	associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, clusterInfo.publicRouteTableId, executor, ctx)
 	clusterInfo.publicSubnet = newSubnet.Subnet.SubnetId
 

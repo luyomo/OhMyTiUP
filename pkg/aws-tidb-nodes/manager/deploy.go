@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"os"
 	//	"path/filepath"
-	"strings"
-
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/clusterutil"
@@ -30,6 +28,9 @@ import (
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/task"
 	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/logger"
+	"go.uber.org/zap"
+	"strings"
 	//	"github.com/luyomo/tisample/pkg/environment"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	//	"github.com/luyomo/tisample/pkg/meta"
@@ -219,8 +220,10 @@ func (m *Manager) Deploy(
 			if strings.HasPrefix(globalOptions.DataDir, "/") {
 				dirs = append(dirs, globalOptions.DataDir)
 			}
+			fmt.Printf("---------------------------\n")
+			zap.L().Debug("This is the test message")
+			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
 			t := task.NewBuilder().
-				//DeployTiDB(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateVpc(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateRouteTable(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
 				CreateNetwork(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
@@ -391,6 +394,7 @@ func (m *Manager) Deploy(
 		}
 		return err
 	}
+	logger.OutputDebugLog("aws-nodes")
 	return nil
 
 	//metadata.SetUser(globalOptions.User)

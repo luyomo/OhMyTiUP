@@ -17,12 +17,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	//	"github.com/luyomo/tisample/pkg/workstation/ctxt"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
-	//"strconv"
-	//"strings"
-	//"time"
+	"go.uber.org/zap"
+	"strings"
 )
 
 type InternetGateway struct {
@@ -37,6 +35,22 @@ type NewInternetGateway struct {
 	InternetGateway InternetGateway `json:"InternetGateway"`
 }
 
+func (i InternetGateway) String() string {
+	return fmt.Sprintf("InternetGatewayId: %s", i.InternetGatewayId)
+}
+
+func (i InternetGateways) String() string {
+	var res []string
+	for _, gw := range i.InternetGateways {
+		res = append(res, gw.String())
+	}
+	return strings.Join(res, ",")
+}
+
+func (i NewInternetGateway) String() string {
+	return i.InternetGateway.String()
+}
+
 // Mkdir is used to create directory on the target host
 type CreateInternetGateway struct {
 	user           string
@@ -48,69 +62,55 @@ type CreateInternetGateway struct {
 // Execute implements the Task interface
 func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	fmt.Printf("The type of local is <%T> \n\n\n", local)
-	// Get the available zones
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	//fmt.Printf("The stdout from the local is <%s> \n\n", string(stdout))
+
+	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName)
+	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
+	stdout, _, err := local.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
 	var internetGateways InternetGateways
 	if err = json.Unmarshal(stdout, &internetGateways); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
 		return nil
 	}
 
 	if len(internetGateways.InternetGateways) > 0 {
-		fmt.Printf("*** *** *** Got the internet gateways <%#v> \n\n\n", internetGateways)
+		zap.L().Info("Internetgateways existed", zap.String("Internetgateway", internetGateways.String()))
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-internet-gateway --tag-specifications \"ResourceType=internet-gateway,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", c.clusterName)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
+	command = fmt.Sprintf("aws ec2 create-internet-gateway --tag-specifications \"ResourceType=internet-gateway,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", c.clusterName)
+	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
+	stdout, _, err = local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 	var newInternetGateway NewInternetGateway
 	if err = json.Unmarshal(stdout, &newInternetGateway); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n\n", err)
+		zap.L().Debug("Json unmarshal", zap.String("new internet gateway", string(stdout)))
 		return nil
 	}
-	//	fmt.Printf("The stdout from the internet gateway preparation: %s \n\n\n", stdout)
-	fmt.Printf("The stdout from the internet gateway preparation: %#v \n\n\n", newInternetGateway)
-	//fmt.Printf("The stdout from the subnett preparation: %s and %s \n\n\n", newSubnet.Subnet.State, newSubnet.Subnet.CidrBlock)
-	//	associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, clusterInfo.routeTableId, local, ctx)
-	//	clusterInfo.subnets = append(clusterInfo.subnets, newSubnet.Subnet.SubnetId)
+
+	zap.L().Debug("New Internet gateway", zap.String("newInternetGateway", newInternetGateway.String()))
+	//	fmt.Printf("The stdout from the internet gateway preparation: %#v \n\n\n", newInternetGateway)
 	command = fmt.Sprintf("aws ec2 attach-internet-gateway --internet-gateway-id %s --vpc-id %s", newInternetGateway.InternetGateway.InternetGatewayId, clusterInfo.vpcInfo.VpcId)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
+	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
+	stdout, _, err = local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	fmt.Printf("The out is <%s> \n\n\n", stdout)
 
 	command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block 0.0.0.0/0 --gateway-id %s", clusterInfo.publicRouteTableId, newInternetGateway.InternetGateway.InternetGatewayId)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
+	zap.L().Debug("Command", zap.String("create-route", command))
+	stdout, _, err = local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	fmt.Printf("The out is <%s> \n\n\n", stdout)
-
-	//
 
 	return nil
 }

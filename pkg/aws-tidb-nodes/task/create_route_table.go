@@ -20,6 +20,8 @@ import (
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/ctxt"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+	"go.uber.org/zap"
+	"strings"
 )
 
 type RouteTable struct {
@@ -32,6 +34,22 @@ type ResultRouteTable struct {
 
 type RouteTables struct {
 	RouteTables []RouteTable `json:"RouteTables"`
+}
+
+func (r RouteTable) String() string {
+	return fmt.Sprintf("RouteTableId:%s", r.RouteTableId)
+}
+
+func (r ResultRouteTable) String() string {
+	return fmt.Sprintf("RetRouteTable:%s", r.String())
+}
+
+func (r RouteTables) String() string {
+	var res []string
+	for _, route := range r.RouteTables {
+		res = append(res, route.String())
+	}
+	return fmt.Sprintf("RouteTables:%s", strings.Join(res, ","))
 }
 
 // Mkdir is used to create directory on the target host
@@ -68,44 +86,37 @@ func (c *CreateRouteTable) String() string {
 
 func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx context.Context) error {
 	// Get the available zones
-	stdout, stderr, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName), false)
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
 	var routeTables RouteTables
 	if err = json.Unmarshal(stdout, &routeTables); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
 		return nil
 	}
 
-	fmt.Printf("*** *** *** The parsed data is \n %#v \n\n\n", routeTables)
+	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
 	if len(routeTables.RouteTables) > 0 {
 		clusterInfo.privateRouteTableId = routeTables.RouteTables[0].RouteTableId
 		return nil
 	}
 
 	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=private}]\"", clusterInfo.vpcInfo.VpcId, c.clusterName)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
+	zap.L().Debug("create-route-table", zap.String("command", command))
 	var retRouteTable ResultRouteTable
-	stdout, stderr, err = executor.Execute(ctx, command, false)
+	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	//	fmt.Printf("The output from the route table preparation <%s> \n\n\n", stdout)
 
 	if err = json.Unmarshal(stdout, &retRouteTable); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n\n", err)
+		zap.L().Error("Failed to parse the json", zap.String("return route table", string(stdout)))
 		return nil
 	}
-	//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
-	fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", retRouteTable.TheRouteTable.RouteTableId)
+
+	zap.L().Debug("Print the variable", zap.String("route table id", retRouteTable.TheRouteTable.RouteTableId))
 	clusterInfo.privateRouteTableId = retRouteTable.TheRouteTable.RouteTableId
 
 	return nil
