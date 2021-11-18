@@ -49,6 +49,10 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 		return nil
 	}
 
+	if len(reservations.Reservations) == 0 {
+		return nil
+	}
+
 	for _, reservation := range reservations.Reservations {
 
 		for _, instance := range reservation.Instances {

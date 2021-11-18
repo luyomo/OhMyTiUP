@@ -625,3 +625,12 @@ func (b *Builder) DestroyEC(user, host, clusterName string) *Builder {
 	})
 	return b
 }
+
+func (b *Builder) DestroySecurityGroup(user, host, clusterName string) *Builder {
+	b.tasks = append(b.tasks, &DestroySecurityGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+	})
+	return b
+}
