@@ -90,7 +90,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 	time.Sleep(5 * time.Second)
 
 	zap.L().Info("Check the data before run describe-vpcs", zap.String("create-vpc", string(stdout)))
-	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName), false)
+	stdout, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName), false)
 	if err != nil {
 		return nil
 	}

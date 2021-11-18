@@ -616,3 +616,12 @@ func (b *Builder) CreateVpcPeering(user, host, clusterName string, awsTopoConfig
 	})
 	return b
 }
+
+func (b *Builder) DestroyEC(user, host, clusterName string) *Builder {
+	b.tasks = append(b.tasks, &DestroyEC{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+	})
+	return b
+}

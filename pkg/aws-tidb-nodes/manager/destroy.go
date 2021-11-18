@@ -20,23 +20,24 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/clusterutil"
+	//	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/clusterutil"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/ctxt"
 	operator "github.com/luyomo/tisample/pkg/aws-tidb-nodes/operation"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/task"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
 )
 
 // DestroyCluster destroy the cluster.
 func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
-	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
-		return err
-	}
-
-	metadata, err := m.meta(name)
+	fmt.Printf("The context is <%#v> \n\n\n", utils.CurrentUser())
+	fmt.Printf("The cluster name is %s \n\n\n", name)
+	_, err := m.meta(name)
+	fmt.Printf("01 Coming here %#v\n\n\n", err)
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
 		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
 		!errors.Is(perrs.Cause(err), spec.ErrMultipleTiSparkMaster) &&
@@ -44,51 +45,18 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 		return err
 	}
 
-	topo := metadata.GetTopology()
-	base := metadata.GetBaseMeta()
+	t := task.NewBuilder().
+		DestroyEC(utils.CurrentUser(), "127.0.0.1", name).
+		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
-	tlsCfg, err := topo.TLSConfig(m.specManager.Path(name, spec.TLSCertKeyDir))
-	if err != nil {
-		return err
-	}
-
-	if !skipConfirm {
-		if err := tui.PromptForConfirmOrAbortError(
-			"This operation will destroy %s %s cluster %s and its data.\nDo you want to continue? [y/N]:",
-			m.sysName,
-			color.HiYellowString(base.Version),
-			color.HiYellowString(name)); err != nil {
-			return err
-		}
-		log.Infof("Destroying cluster...")
-	}
-
-	b, err := m.sshTaskBuilder(name, topo, base.User, gOpt)
-	if err != nil {
-		return err
-	}
-	t := b.
-		Func("StopCluster", func(ctx context.Context) error {
-			return operator.Stop(ctx, topo, operator.Options{Force: destroyOpt.Force}, tlsCfg)
-		}).
-		Func("DestroyCluster", func(ctx context.Context) error {
-			return operator.Destroy(ctx, topo, destroyOpt)
-		}).
-		Build()
-
-	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
+	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
 		}
-		return perrs.Trace(err)
+		return err
 	}
 
-	if err := m.specManager.Remove(name); err != nil {
-		return perrs.Trace(err)
-	}
-
-	log.Infof("Destroyed cluster `%s` successfully", name)
 	return nil
 }
 

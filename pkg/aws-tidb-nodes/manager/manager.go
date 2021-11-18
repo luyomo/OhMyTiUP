@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"encoding/json"
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/ctxt"
@@ -30,6 +31,7 @@ import (
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
+	"go.uber.org/zap"
 )
 
 var (
@@ -58,22 +60,40 @@ func NewManager(sysName string, specManager *spec.SpecManager, bindVersion spec.
 }
 
 func (m *Manager) meta(name string) (metadata spec.Metadata, err error) {
-	exist, err := m.specManager.Exist(name)
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+
+	stdout, _, err := local.Execute(ctxt.New(context.Background(), 1), fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", name), false)
 	if err != nil {
 		return nil, err
 	}
-
-	if !exist {
-		return nil, perrs.Errorf("%s cluster `%s` not exists", m.sysName, name)
+	var vpcs task.Vpcs
+	if err := json.Unmarshal(stdout, &vpcs); err != nil {
+		zap.L().Debug("The error to parse the string ", zap.Error(err))
+		return nil, err
+	}
+	if len(vpcs.Vpcs) == 0 {
+		return nil, perrs.Errorf("Cluster `%s` not exists", name)
+	}
+	if len(vpcs.Vpcs) > 1 {
+		return nil, perrs.Errorf("Duplicate cluster `%s` exists", name)
 	}
 
-	metadata = m.specManager.NewMetadata()
-	err = m.specManager.Metadata(name, metadata)
-	if err != nil {
-		return metadata, err
-	}
+	//exist, err := m.specManager.Exist(name)
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	return metadata, nil
+	//if !exist {
+	//	return nil, perrs.Errorf("%s cluster `%s` not exists", m.sysName, name)
+	//}
+
+	//metadata = m.specManager.NewMetadata()
+	//err = m.specManager.Metadata(name, metadata)
+	//if err != nil {
+	//	return metadata, err
+	//}
+
+	return nil, nil
 }
 
 func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patchedRoles set.StringSet) error {
