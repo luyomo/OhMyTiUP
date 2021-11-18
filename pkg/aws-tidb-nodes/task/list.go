@@ -167,6 +167,45 @@ func (c *List) Execute(ctx context.Context, clusterName string) error {
 		})
 	}
 
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpc-peering-connections --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+
+	var vpcConnections VpcConnections
+	if err = json.Unmarshal(stdout, &vpcConnections); err != nil {
+		fmt.Printf("The error here is %#v \n\n", err)
+		return nil
+	}
+
+	for _, vpcPeering := range vpcConnections.VpcPeeringConnections {
+		fmt.Printf("The data is <%#v> \n\n\n", vpcPeering)
+		c.ArnComponents = append(c.ArnComponents, ARNComponent{
+			"VPC Peering",
+			clusterName,
+			vpcPeering.VpcPeeringConnectionId,
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+		})
+	}
+
+	//state := ""
+	for _, pcx := range vpcConnections.VpcPeeringConnections {
+		fmt.Printf("The pcx is <%#v> \n\n\n", pcx)
+		if pcx.VpcStatus.Code == "active" {
+			//state = "active"
+			clusterInfo.pcxTidb2Aurora = pcx.VpcPeeringConnectionId
+		}
+	}
+
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
