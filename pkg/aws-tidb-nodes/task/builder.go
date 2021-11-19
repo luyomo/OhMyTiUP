@@ -634,3 +634,12 @@ func (b *Builder) DestroySecurityGroup(user, host, clusterName string) *Builder 
 	})
 	return b
 }
+
+func (b *Builder) DestroyVpcPeering(user, host, clusterName string) *Builder {
+	b.tasks = append(b.tasks, &DestroyVpcPeering{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+	})
+	return b
+}

@@ -182,7 +182,6 @@ func (c *List) Execute(ctx context.Context, clusterName string) error {
 	}
 
 	for _, vpcPeering := range vpcConnections.VpcPeeringConnections {
-		fmt.Printf("The data is <%#v> \n\n\n", vpcPeering)
 		c.ArnComponents = append(c.ArnComponents, ARNComponent{
 			"VPC Peering",
 			clusterName,
@@ -199,7 +198,6 @@ func (c *List) Execute(ctx context.Context, clusterName string) error {
 
 	//state := ""
 	for _, pcx := range vpcConnections.VpcPeeringConnections {
-		fmt.Printf("The pcx is <%#v> \n\n\n", pcx)
 		if pcx.VpcStatus.Code == "active" {
 			//state = "active"
 			clusterInfo.pcxTidb2Aurora = pcx.VpcPeeringConnectionId
