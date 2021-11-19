@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
+	"go.uber.org/zap"
 	"sort"
 	//"time"
 )
@@ -204,6 +205,36 @@ func (c *List) Execute(ctx context.Context, clusterName string) error {
 		}
 	}
 
+	// Internet gateway info
+	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", clusterName)
+	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
+	stdout, _, err = local.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
+	var internetGateways InternetGateways
+	if err = json.Unmarshal(stdout, &internetGateways); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
+		return nil
+	}
+
+	for _, internetGateway := range internetGateways.InternetGateways {
+		c.ArnComponents = append(c.ArnComponents, ARNComponent{
+			"Internet Gateway",
+			clusterName,
+			internetGateway.InternetGatewayId,
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+			"-",
+		})
+	}
+
+	// instances info fetch
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)

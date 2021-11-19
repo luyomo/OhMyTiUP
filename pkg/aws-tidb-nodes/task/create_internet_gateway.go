@@ -23,8 +23,14 @@ import (
 	"strings"
 )
 
+type Attachment struct {
+	State string `json:"State"`
+	VpcId string `json:"VpcId"`
+}
+
 type InternetGateway struct {
-	InternetGatewayId string `json:"InternetGatewayId"`
+	InternetGatewayId string       `json:"InternetGatewayId"`
+	Attachments       []Attachment `json:"Attachments"`
 }
 
 type InternetGateways struct {

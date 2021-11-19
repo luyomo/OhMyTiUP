@@ -661,3 +661,21 @@ func (b *Builder) DestroyRouteTable(user, host, clusterName string) *Builder {
 	})
 	return b
 }
+
+func (b *Builder) DestroyInternetGateway(user, host, clusterName string) *Builder {
+	b.tasks = append(b.tasks, &DestroyInternetGateway{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+	})
+	return b
+}
+
+func (b *Builder) DestroyVpc(user, host, clusterName string) *Builder {
+	b.tasks = append(b.tasks, &DestroyVpc{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+	})
+	return b
+}
