@@ -17,44 +17,41 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	//	"time"
-
 	"github.com/luyomo/tisample/pkg/aws-tidb-nodes/executor"
-	//"github.com/luyomo/tisample/pkg/aws-tidb-nodes/spec"
+	"go.uber.org/zap"
 )
 
-type DestroyVpcPeering struct {
+type DestroyNetwork struct {
 	user        string
 	host        string
 	clusterName string
 }
 
 // Execute implements the Task interface
-func (c *DestroyVpcPeering) Execute(ctx context.Context) error {
+func (c *DestroyNetwork) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpc-peering-connections --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=status-code,Values=failed,expired,provisioning,active,rejected\"", c.clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return err
+	}
+
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName)
+	zap.L().Debug("Command", zap.String("describe-subnets", command))
+	stdout, _, err := local.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+	var subnets Subnets
+	if err = json.Unmarshal(stdout, &subnets); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
 		return nil
 	}
 
-	var vpcConnections VpcConnections
-	if err = json.Unmarshal(stdout, &vpcConnections); err != nil {
-		fmt.Printf("The error here is %#v \n\n", err)
-		return nil
-	}
-
-	for _, pcx := range vpcConnections.VpcPeeringConnections {
-		fmt.Printf("The pcx is <%#v> \n\n\n", pcx)
-		command := fmt.Sprintf("aws ec2 delete-vpc-peering-connection --vpc-peering-connection-id %s", pcx.VpcPeeringConnectionId)
-		stdout, stderr, err = local.Execute(ctx, command, false)
+	for _, subnet := range subnets.Subnets {
+		command := fmt.Sprintf("aws ec2 delete-subnet --subnet-id %s", subnet.SubnetId)
+		stdout, _, err = local.Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n", err)
 			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
 			return nil
 		}
 	}
@@ -63,11 +60,11 @@ func (c *DestroyVpcPeering) Execute(ctx context.Context) error {
 }
 
 // Rollback implements the Task interface
-func (c *DestroyVpcPeering) Rollback(ctx context.Context) error {
+func (c *DestroyNetwork) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *DestroyVpcPeering) String() string {
+func (c *DestroyNetwork) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }

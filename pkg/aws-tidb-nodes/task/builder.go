@@ -643,3 +643,12 @@ func (b *Builder) DestroyVpcPeering(user, host, clusterName string) *Builder {
 	})
 	return b
 }
+
+func (b *Builder) DestroyNetwork(user, host, clusterName string) *Builder {
+	b.tasks = append(b.tasks, &DestroyNetwork{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+	})
+	return b
+}
