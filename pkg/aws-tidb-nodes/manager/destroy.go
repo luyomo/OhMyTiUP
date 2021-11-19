@@ -50,6 +50,7 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name).
 		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name).
 		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name).
+		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name).
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {

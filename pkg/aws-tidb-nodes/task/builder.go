@@ -652,3 +652,12 @@ func (b *Builder) DestroyNetwork(user, host, clusterName string) *Builder {
 	})
 	return b
 }
+
+func (b *Builder) DestroyRouteTable(user, host, clusterName string) *Builder {
+	b.tasks = append(b.tasks, &DestroyRouteTable{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+	})
+	return b
+}
