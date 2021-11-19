@@ -138,3 +138,25 @@ alter table partsupp set tiflash replica 0;
 alter table region   set tiflash replica 0;
 alter table supplier set tiflash replica 0;
 
+
+
+* How to use tisample-aws-tidb-nodes
+** Nodes Deployment
+#+BEGIN_SRC
+./bin/aws deploy testtisample /tmp/aws-nodes.yaml
+#+END_SRC
+
+** Nodes Destroy
+#+BEGIN_SRC
+./bin/aws destroy testtisample
+#+END_SRC
+
+** Show aws resources
+#+BEGIN_SRC
+./bin/aws list testtisample
+#+END_SRC
+
+** Show aws nodes template
+ #+BEGIN_SRC
+./bin/aws template
+#+END_SRC

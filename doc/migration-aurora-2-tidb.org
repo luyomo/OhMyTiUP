@@ -964,11 +964,11 @@ $ tiup cdc cli changefeed create --pd="http://172.83.1.209:2379" --sink-uri="mys
 #+END_SRC
 
 * Todo
-** Add log feature
 ** Add parallel running
 ** Aurora automatic deployment
 ** Make the common function
-** Add the templates
 ** Show the progress bar
 ** Add CI/CD
 ** Replace the confirmation when starting the message
+** Change the config directory
+** Improve the yaml config(No global and nginx)
