@@ -27,6 +27,7 @@ type CreateTiDBNodes struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+	clusterType    string
 }
 
 // Execute implements the Task interface
@@ -42,7 +43,7 @@ func (c *CreateTiDBNodes) Execute(ctx context.Context) error {
 	}
 
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=tidb\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=tidb\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
@@ -61,7 +62,7 @@ func (c *CreateTiDBNodes) Execute(ctx context.Context) error {
 	}
 
 	for _idx := 0; _idx < c.awsTopoConfigs.TiDB.Count-existsNodes; _idx++ {
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Component,Value=tidb}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiDB.InstanceType, c.awsTopoConfigs.General.KeyName, clusterInfo.privateSecurityGroupId, clusterInfo.privateSubnets[_idx%len(clusterInfo.privateSubnets)], c.awsTopoConfigs.General.Region, c.clusterName)
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tidb}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiDB.InstanceType, c.awsTopoConfigs.General.KeyName, clusterInfo.privateSecurityGroupId, clusterInfo.privateSubnets[_idx%len(clusterInfo.privateSubnets)], c.awsTopoConfigs.General.Region, c.clusterName, c.clusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = local.Execute(ctx, command, false)
 		if err != nil {

@@ -487,195 +487,215 @@ func (b *Builder) Deploy(user, host string) *Builder {
 	return b
 }
 
-func (b *Builder) CreateVpc(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateVpc(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateVpc{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateNetwork(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateNetwork(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateNetwork{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateRouteTable(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateRouteTable(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateRouteTable{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateSecurityGroup(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateSecurityGroup(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateSecurityGroup{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreatePDNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreatePDNodes(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreatePDNodes{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateTiDBNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateTiDBNodes(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateTiDBNodes{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateTiKVNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateTiKVNodes(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateTiKVNodes{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateDMNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateDMNodes(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateDMNodes{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateTiCDCNodes(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateTiCDCNodes(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateTiCDCNodes{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateWorkstation(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateWorkstation(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateWorkstation{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateInternetGateway(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateInternetGateway(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateInternetGateway{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) DeployTiDB(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) DeployTiDB(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDB{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateVpcPeering(user, host, clusterName string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+func (b *Builder) CreateVpcPeering(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateVpcPeering{
 		user:           user,
 		host:           host,
 		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
+		clusterType:    clusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyEC(user, host, clusterName string) *Builder {
+func (b *Builder) DestroyEC(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyEC{
 		user:        user,
 		host:        host,
 		clusterName: clusterName,
+		clusterType: clusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroySecurityGroup(user, host, clusterName string) *Builder {
+func (b *Builder) DestroySecurityGroup(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroySecurityGroup{
 		user:        user,
 		host:        host,
 		clusterName: clusterName,
+		clusterType: clusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyVpcPeering(user, host, clusterName string) *Builder {
+func (b *Builder) DestroyVpcPeering(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyVpcPeering{
 		user:        user,
 		host:        host,
 		clusterName: clusterName,
+		clusterType: clusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyNetwork(user, host, clusterName string) *Builder {
+func (b *Builder) DestroyNetwork(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyNetwork{
 		user:        user,
 		host:        host,
 		clusterName: clusterName,
+		clusterType: clusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyRouteTable(user, host, clusterName string) *Builder {
+func (b *Builder) DestroyRouteTable(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyRouteTable{
 		user:        user,
 		host:        host,
 		clusterName: clusterName,
+		clusterType: clusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyInternetGateway(user, host, clusterName string) *Builder {
+func (b *Builder) DestroyInternetGateway(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyInternetGateway{
 		user:        user,
 		host:        host,
 		clusterName: clusterName,
+		clusterType: clusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyVpc(user, host, clusterName string) *Builder {
+func (b *Builder) DestroyVpc(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyVpc{
 		user:        user,
 		host:        host,
 		clusterName: clusterName,
+		clusterType: clusterType,
 	})
 	return b
 }

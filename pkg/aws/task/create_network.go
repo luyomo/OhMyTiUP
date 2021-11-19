@@ -73,6 +73,7 @@ type CreateNetwork struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+	clusterType    string
 }
 
 // Execute implements the Task interface
@@ -143,7 +144,7 @@ func getAvailableZones(executor ctxt.Executor, ctx context.Context) (Availabilit
 
 func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context.Context, zones AvailabilityZones) error {
 	// Get the subnets
-	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -169,7 +170,7 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 			continue
 		}
 
-		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=private}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1), clusterInfo.vpcInfo.VpcId, zone.ZoneName, c.clusterName)
+		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1), clusterInfo.vpcInfo.VpcId, zone.ZoneName, c.clusterName, c.clusterType)
 		zap.L().Debug("Command", zap.String("create-subnets", command))
 
 		stdout, _, err := executor.Execute(ctx, command, false)
@@ -192,7 +193,7 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 
 func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.Context, zones AvailabilityZones) error {
 	// Get the subnets
-	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -210,7 +211,7 @@ func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=public}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, 10+1), clusterInfo.vpcInfo.VpcId, zones.Zones[0].ZoneName, c.clusterName)
+	command = fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, 10+1), clusterInfo.vpcInfo.VpcId, zones.Zones[0].ZoneName, c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("create-subnet", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {

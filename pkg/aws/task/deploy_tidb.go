@@ -32,6 +32,7 @@ type DeployTiDB struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+	clusterType    string
 }
 
 type TplTiupData struct {
@@ -54,7 +55,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {

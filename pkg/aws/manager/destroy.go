@@ -45,14 +45,15 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 		return err
 	}
 
+	clusterType := "tisample-tidb"
 	t := task.NewBuilder().
-		DestroyEC(utils.CurrentUser(), "127.0.0.1", name).
-		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name).
-		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name).
-		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name).
-		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name).
-		DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name).
-		DestroyVpc(utils.CurrentUser(), "127.0.0.1", name).
+		DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType).
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {

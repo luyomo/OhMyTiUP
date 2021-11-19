@@ -26,6 +26,7 @@ type DestroyEC struct {
 	user        string
 	host        string
 	clusterName string
+	clusterType string
 }
 
 // Execute implements the Task interface
@@ -36,7 +37,7 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 	}
 
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=instance-state-code,Values=0,16,64,80\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
@@ -68,7 +69,7 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 	for idx := 0; idx < 50; idx++ {
 
 		time.Sleep(5 * time.Second)
-		command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"  \"Name=instance-state-code,Values=16,32\"", c.clusterName)
+		command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"  \"Name=instance-state-code,Values=16,32\"", c.clusterName, c.clusterType)
 		zap.L().Debug("Command", zap.String("describe-instances", command))
 		stdout, _, err = local.Execute(ctx, command, false)
 		if err != nil {

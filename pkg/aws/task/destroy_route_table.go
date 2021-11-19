@@ -28,6 +28,7 @@ type DestroyRouteTable struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+	clusterType    string
 }
 
 // Execute implements the Task interface
@@ -37,7 +38,7 @@ func (c *DestroyRouteTable) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" ", c.clusterName), false)
+	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", c.clusterName, c.clusterType), false)
 	if err != nil {
 		return nil
 	}

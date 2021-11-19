@@ -46,6 +46,7 @@ type CreateVpcPeering struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+	clusterType    string
 }
 
 // Execute implements the Task interface

@@ -63,6 +63,7 @@ type CreateInternetGateway struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+	clusterType    string
 }
 
 // Execute implements the Task interface
@@ -72,7 +73,7 @@ func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
@@ -90,7 +91,7 @@ func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 create-internet-gateway --tag-specifications \"ResourceType=internet-gateway,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", c.clusterName)
+	command = fmt.Sprintf("aws ec2 create-internet-gateway --tag-specifications \"ResourceType=internet-gateway,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s}]\"", c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
 	stdout, _, err = local.Execute(ctx, command, false)
 	if err != nil {

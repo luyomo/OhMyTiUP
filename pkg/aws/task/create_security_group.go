@@ -17,12 +17,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
-	//	"github.com/luyomo/tisample/pkg/aws/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/executor"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"go.uber.org/zap"
+	"strings"
 )
 
 type SecurityGroups struct {
@@ -49,6 +48,7 @@ type CreateSecurityGroup struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+	clusterType    string
 }
 
 // Execute implements the Task interface
@@ -77,7 +77,7 @@ func (c *CreateSecurityGroup) String() string {
 
 func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx context.Context) error {
 	// Get the available zones
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType)
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
 		return nil
@@ -94,7 +94,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=private}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName)
+	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("create-security-group", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -137,7 +137,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context.Context) error {
 
 	// Get the available zones
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("describe-security-groups", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -155,7 +155,7 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 		return err
 	}
 
-	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb},{Key=Scope,Value=public}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName)
+	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName, c.clusterType)
 	zap.L().Debug("Command", zap.String("create-security-group", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {

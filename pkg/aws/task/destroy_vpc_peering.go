@@ -27,6 +27,7 @@ type DestroyVpcPeering struct {
 	user        string
 	host        string
 	clusterName string
+	clusterType string
 }
 
 // Execute implements the Task interface

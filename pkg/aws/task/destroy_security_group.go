@@ -25,6 +25,7 @@ type DestroySecurityGroup struct {
 	user        string
 	host        string
 	clusterName string
+	clusterType string
 }
 
 // Execute implements the Task interface
@@ -34,7 +35,7 @@ func (c *DestroySecurityGroup) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\" \"Name=tag-key,Values=Scope\"", c.clusterName)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\"", c.clusterName, c.clusterType)
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
 		return nil

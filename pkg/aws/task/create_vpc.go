@@ -40,6 +40,7 @@ type CreateVpc struct {
 	host           string
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
+	clusterType    string
 }
 
 type ClusterInfo struct {
@@ -82,7 +83,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Type,Value=tisample-tidb}]\"", c.awsTopoConfigs.General.CIDR, c.clusterName), false)
+	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s}]\"", c.awsTopoConfigs.General.CIDR, c.clusterName, c.clusterType), false)
 	if err != nil {
 		return nil
 	}
@@ -90,7 +91,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 	time.Sleep(5 * time.Second)
 
 	zap.L().Info("Check the data before run describe-vpcs", zap.String("create-vpc", string(stdout)))
-	stdout, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=tisample-tidb\"", c.clusterName), false)
+	stdout, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", c.clusterName, c.clusterType), false)
 	if err != nil {
 		return nil
 	}

@@ -223,20 +223,21 @@ func (m *Manager) Deploy(
 			fmt.Printf("---------------------------\n")
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
+			clusterType := "tisample-tidb"
 			t := task.NewBuilder().
-				CreateVpc(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateWorkstation(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreatePDNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateDMNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				CreateVpcPeering(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
-				DeployTiDB(globalOptions.User, inst.GetHost(), name, base.AwsTopoConfigs).
+				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
