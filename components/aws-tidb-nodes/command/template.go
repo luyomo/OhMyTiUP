@@ -46,9 +46,9 @@ func newTemplateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "template",
-		Short: "Print topology template",
+		Short: "Print node config template",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fp := path.Join("examples", "candle", "candle.yaml")
+			fp := path.Join("examples", "aws", "aws-nodes-tidb.yaml")
 			tpl, err := embed.ReadExample(fp)
 			if err != nil {
 				return err
