@@ -70,8 +70,6 @@ func (c *CreateDBClusterParameterGroup) Execute(ctx context.Context) error {
 				return nil
 			}
 		}
-
-		return nil
 	}
 
 	fmt.Printf("The DB cluster oarameter <%s> \n\n\n", stdout)
