@@ -729,3 +729,13 @@ func (b *Builder) CreateDBCluster(user, host, clusterName, clusterType string) *
 	})
 	return b
 }
+
+func (b *Builder) CreateDBParameterGroup(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateDBParameterGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
