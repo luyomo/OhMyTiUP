@@ -709,3 +709,13 @@ func (b *Builder) CreateDBSubnetGroup(user, host, clusterName, clusterType strin
 	})
 	return b
 }
+
+func (b *Builder) CreateDBClusterParameterGroup(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateDBClusterParameterGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}

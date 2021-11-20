@@ -17,11 +17,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	//	"github.com/luyomo/tisample/pkg/aurora/ctxt"
-	"github.com/luyomo/tisample/pkg/aurora/executor"
-	//	"strconv"
+	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/aws/executor"
 	"strings"
-	//"time"
 )
 
 type DBSubnetGroup struct {
@@ -72,42 +70,11 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 	}
 
 	for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
-		command = fmt.Sprintf("aws rds list-tags-for-resource --resource-name %s ", subnetGroups.DBSubnetGroupArn)
-		stdout, stderr, err = local.Execute(ctx, command, false)
-		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		existsResource := ExistsResource(c.clusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, local, ctx)
+		if existsResource == true {
 			return nil
 		}
-
-		var tagList TagList
-		if err = json.Unmarshal(stdout, &tagList); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
-		}
-		matchedCnt := 0
-		for _, tag := range tagList.TagList {
-			if tag.Key == "Type" && tag.Value == c.clusterType {
-				matchedCnt++
-			}
-			if tag.Key == "Name" && tag.Value == c.clusterName {
-				matchedCnt++
-			}
-			if matchedCnt == 2 {
-				return nil
-			}
-
-		}
-
 	}
-	//if len(dbSubnetGroups.DBSubnetGroups) > 0 {
-	//	fmt.Printf("The db subnet group has exists \n\n\n")
-	//	return nil
-	//}
-
-	//	fmt.Printf("The output is <%s> \n\n\n", string(stdout))
-	return nil
 
 	var subnets []string
 	for _, subnet := range clusterInfo.privateSubnets {
@@ -140,6 +107,36 @@ func (c *CreateDBSubnetGroup) String() string {
 func groupExists(groupName string, subnetGroups []DBSubnetGroup) bool {
 	for _, theSubnetGroup := range subnetGroups {
 		if groupName == theSubnetGroup.DBSubnetGroupName {
+			return true
+		}
+	}
+	return false
+}
+
+func ExistsResource(clusterType, clusterName, resourceName string, executor ctxt.Executor, ctx context.Context) bool {
+	command := fmt.Sprintf("aws rds list-tags-for-resource --resource-name %s ", resourceName)
+	stdout, stderr, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return false
+	}
+
+	var tagList TagList
+	if err = json.Unmarshal(stdout, &tagList); err != nil {
+		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		return false
+	}
+	matchedCnt := 0
+	for _, tag := range tagList.TagList {
+		if tag.Key == "Type" && tag.Value == clusterType {
+			matchedCnt++
+		}
+		if tag.Key == "Name" && tag.Value == clusterName {
+			matchedCnt++
+		}
+		if matchedCnt == 2 {
 			return true
 		}
 	}

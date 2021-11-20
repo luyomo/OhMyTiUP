@@ -227,6 +227,7 @@ func (m *Manager) AuroraDeploy(
 				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType).
+				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
 				//CreateRouteTable(globalOptions.User, inst.GetHost()).
 				//CreateNetwork(globalOptions.User, inst.GetHost()).
 				//CreateSecurityGroup(globalOptions.User, inst.GetHost()).
