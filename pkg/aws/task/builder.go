@@ -699,3 +699,13 @@ func (b *Builder) DestroyVpc(user, host, clusterName, clusterType string) *Build
 	})
 	return b
 }
+
+func (b *Builder) CreateDBSubnetGroup(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateDBSubnetGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}

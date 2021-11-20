@@ -120,8 +120,6 @@ func init() {
 			}
 			tiupmeta.SetGlobalEnv(env)
 
-			fmt.Println("This is the test for debugging ")
-			fmt.Printf("This is the calue %v \n", teleCommand)
 			teleCommand = getParentNames(cmd)
 
 			if gOpt.NativeSSH {
@@ -171,6 +169,7 @@ func init() {
 	rootCmd.AddCommand(
 		newCheckCmd(),
 		newDeploy(),
+		newAuroraDeploy(),
 		newStartCmd(),
 		newStopCmd(),
 		newRestartCmd(),

@@ -1,0 +1,147 @@
+// Copyright 2020 PingCAP, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package task
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	//	"github.com/luyomo/tisample/pkg/aurora/ctxt"
+	"github.com/luyomo/tisample/pkg/aurora/executor"
+	//	"strconv"
+	"strings"
+	//"time"
+)
+
+type DBSubnetGroup struct {
+	DBSubnetGroupName string `json:"DBSubnetGroupName"`
+	VpcId             string `json:"VpcId"`
+	SubnetGroupStatus string `json:"SubnetGroupStatus"`
+	DBSubnetGroupArn  string `json:"DBSubnetGroupArn"`
+}
+
+type DBSubnetGroups struct {
+	DBSubnetGroups []DBSubnetGroup `json:"DBSubnetGroups"`
+}
+
+type Tag struct {
+	Key   string `json:"Key"`
+	Value string `json:"Value"`
+}
+
+type TagList struct {
+	TagList []Tag `json:"TagList"`
+}
+
+type CreateDBSubnetGroup struct {
+	user        string
+	host        string
+	clusterName string
+	clusterType string
+}
+
+// Execute implements the Task interface
+func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	// Get the available zones
+	command := fmt.Sprintf("aws rds describe-db-subnet-groups --db-subnet-group-name %s ", c.clusterName)
+	stdout, stderr, err := local.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+	fmt.Printf("The data is <%s> \n\n\n", string(command))
+
+	var dbSubnetGroups DBSubnetGroups
+	if err = json.Unmarshal(stdout, &dbSubnetGroups); err != nil {
+		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		return nil
+	}
+
+	for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
+		command = fmt.Sprintf("aws rds list-tags-for-resource --resource-name %s ", subnetGroups.DBSubnetGroupArn)
+		stdout, stderr, err = local.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("The error here is <%#v> \n\n", err)
+			fmt.Printf("----------\n\n")
+			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			return nil
+		}
+
+		var tagList TagList
+		if err = json.Unmarshal(stdout, &tagList); err != nil {
+			fmt.Printf("*** *** The error here is %#v \n\n", err)
+			return nil
+		}
+		matchedCnt := 0
+		for _, tag := range tagList.TagList {
+			if tag.Key == "Type" && tag.Value == c.clusterType {
+				matchedCnt++
+			}
+			if tag.Key == "Name" && tag.Value == c.clusterName {
+				matchedCnt++
+			}
+			if matchedCnt == 2 {
+				return nil
+			}
+
+		}
+
+	}
+	//if len(dbSubnetGroups.DBSubnetGroups) > 0 {
+	//	fmt.Printf("The db subnet group has exists \n\n\n")
+	//	return nil
+	//}
+
+	//	fmt.Printf("The output is <%s> \n\n\n", string(stdout))
+	return nil
+
+	var subnets []string
+	for _, subnet := range clusterInfo.privateSubnets {
+		subnets = append(subnets, "\""+subnet+"\"")
+	}
+	command = fmt.Sprintf("aws rds create-db-subnet-group --db-subnet-group-name %s --db-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType)
+	fmt.Printf("The comamnd is <%s> \n\n\n", command)
+	stdout, stderr, err = local.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return nil
+	}
+	fmt.Printf("The db subnets group is <%s>\n\n\n", stdout)
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *CreateDBSubnetGroup) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *CreateDBSubnetGroup) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.host)
+}
+
+func groupExists(groupName string, subnetGroups []DBSubnetGroup) bool {
+	for _, theSubnetGroup := range subnetGroups {
+		if groupName == theSubnetGroup.DBSubnetGroupName {
+			return true
+		}
+	}
+	return false
+}
