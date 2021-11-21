@@ -749,3 +749,53 @@ func (b *Builder) CreateDBInstance(user, host, clusterName, clusterType string) 
 	})
 	return b
 }
+
+func (b *Builder) DestroyDBInstance(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDBInstance{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyDBCluster(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDBCluster{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyDBParameterGroup(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDBParameterGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyDBClusterParameterGroup(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDBClusterParameterGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyDBSubnetGroup(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDBSubnetGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}

@@ -176,6 +176,7 @@ func init() {
 		newScaleInCmd(),
 		newScaleOutCmd(),
 		newDestroyCmd(),
+		newDestroyAuroraCmd(),
 		newCleanCmd(),
 		newUpgradeCmd(),
 		newDisplayCmd(),
