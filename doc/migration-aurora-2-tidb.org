@@ -965,7 +965,6 @@ $ tiup cdc cli changefeed create --pd="http://172.83.1.209:2379" --sink-uri="mys
 
 * Todo
 ** Add parallel running
-** Aurora automatic deployment
 ** Make the common function
 ** Show the progress bar
 ** Add CI/CD

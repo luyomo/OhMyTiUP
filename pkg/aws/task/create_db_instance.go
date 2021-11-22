@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	//	"github.com/luyomo/tisample/pkg/aurora/ctxt"
-	"github.com/luyomo/tisample/pkg/aurora/executor"
+	"github.com/luyomo/tisample/pkg/aws/executor"
 	//	"strconv"
 	"strings"
 	"time"

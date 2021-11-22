@@ -35,9 +35,7 @@ import (
 // DestroyCluster destroy the cluster.
 func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
 	fmt.Printf("The context is <%#v> \n\n\n", utils.CurrentUser())
-	fmt.Printf("The cluster name is %s \n\n\n", name)
 	_, err := m.meta(name)
-	fmt.Printf("01 Coming here %#v\n\n\n", err)
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
 		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
 		!errors.Is(perrs.Cause(err), spec.ErrMultipleTiSparkMaster) &&
@@ -46,7 +44,6 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 	}
 
 	clusterType := "tisample-aurora"
-	fmt.Printf("Calling in the RDS destry function \n\n\n")
 
 	t := task.NewBuilder().
 		DestroyDBInstance(utils.CurrentUser(), "127.0.0.1", name, clusterType).

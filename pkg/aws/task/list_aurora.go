@@ -37,15 +37,11 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 	// 01. VPC
 	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", clusterName, clusterType), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
+		return err
 	}
 
 	var vpcs Vpcs
 	if err = json.Unmarshal(stdout, &vpcs); err != nil {
-		fmt.Printf("The error here is %#v \n\n", err)
 		return nil
 	}
 
@@ -67,15 +63,11 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 	// 02. route table
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
 	var routeTables RouteTables
 	if err = json.Unmarshal(stdout, &routeTables); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
 	for _, routeTable := range routeTables.RouteTables {
@@ -96,15 +88,10 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 	// 03. Subnets
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	//fmt.Printf("The stdout from the local is <%s> \n\n\n", string(stdout))
 	var subnets Subnets
 	if err = json.Unmarshal(stdout, &subnets); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
 
@@ -126,15 +113,11 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 	// 04. Security Group
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
 	var securityGroups SecurityGroups
 	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
 
@@ -156,15 +139,11 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 	// 05. VPC Peering
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpc-peering-connections --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=status-code,Values=failed,expired,provisioning,active,rejected\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
 	var vpcConnections VpcConnections
 	if err = json.Unmarshal(stdout, &vpcConnections); err != nil {
-		fmt.Printf("The error here is %#v \n\n", err)
 		return nil
 	}
 
@@ -312,7 +291,6 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", dbParameterGroups)
 		for _, dbParameterGroup := range dbParameterGroups.DBParameterGroups {
-			fmt.Printf("The cluster info is <%#v> \n\n\n", dbParameterGroup)
 			existsResource := ExistsResource(clusterType, clusterName, dbParameterGroup.DBParameterGroupArn, local, ctx)
 			if existsResource == true {
 				c.ArnComponents = append(c.ArnComponents, ARNComponent{
@@ -351,7 +329,6 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 		}
 		//		fmt.Printf("The db cluster is <%#v> \n\n\n", dbClusters)
 		for _, dbCluster := range dbClusters.DBClusters {
-			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
 			existsResource := ExistsResource(clusterType, clusterName, dbCluster.DBClusterArn, local, ctx)
 			if existsResource == true {
 				c.ArnComponents = append(c.ArnComponents, ARNComponent{
@@ -377,17 +354,14 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 		if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", clusterName)) {
 			fmt.Printf("The DB Instance has not created.\n\n\n")
 		} else {
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
 			return err
 		}
 	} else {
 		var dbInstances DBInstances
 		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return err
 		}
 		for _, instance := range dbInstances.DBInstances {
-			fmt.Printf("The db instance is <%#v> \n\n\n", instance)
 			existsResource := ExistsResource(clusterType, clusterName, instance.DBInstanceArn, local, ctx)
 			if existsResource == true {
 				c.ArnComponents = append(c.ArnComponents, ARNComponent{
@@ -408,15 +382,11 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 	// instances info fetch
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
 	var reservations Reservations
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
 	for _, reservation := range reservations.Reservations {
