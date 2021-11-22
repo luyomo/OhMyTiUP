@@ -21,18 +21,18 @@ import (
 	"go.uber.org/zap"
 	"sort"
 	"strings"
-	//"time"
 )
 
-type ListAurora struct {
+type ListTiDB2Aurora struct {
 	User          string
 	Host          string
 	ArnComponents []ARNComponent
 }
 
 // Execute implements the Task interface
-func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType string) error {
+func (c *ListTiDB2Aurora) Execute(ctx context.Context, clusterName, clusterType string) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User})
+	fmt.Printf("The calling functions are in the executing \n\n\n")
 
 	// 01. VPC
 	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", clusterName, clusterType), false)
@@ -380,65 +380,65 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 		}
 	}
 
-	/*
-		stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName), false)
-		if err != nil {
-			return nil
-		}
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName), false)
+	if err != nil {
+		return nil
+	}
+	fmt.Printf("The stdout from the describe-instances is <%s> \n\n\n", string(stdout))
 
-		var reservations Reservations
-		if err = json.Unmarshal(stdout, &reservations); err != nil {
-			return nil
-		}
-		for _, reservation := range reservations.Reservations {
-			for _, instance := range reservation.Instances {
-				componentName := "EC instance"
-				for _, tag := range instance.Tags {
-					if tag["Key"] == "Component" && tag["Value"] == "pd" {
-						componentName = "PD node"
-					}
-					if tag["Key"] == "Component" && tag["Value"] == "tidb" {
-						componentName = "TiDB node"
-					}
-					if tag["Key"] == "Component" && tag["Value"] == "tikv" {
-						componentName = "TiKV node"
-					}
-					if tag["Key"] == "Component" && tag["Value"] == "dm" {
-						componentName = "DM node"
-					}
-					if tag["Key"] == "Component" && tag["Value"] == "ticdc" {
-						componentName = "TiCDC node"
-					}
-					if tag["Key"] == "Component" && tag["Value"] == "workstation" {
-						componentName = "Workstation Node"
-					}
+	var reservations Reservations
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		return nil
+	}
+	for _, reservation := range reservations.Reservations {
+		for _, instance := range reservation.Instances {
+			componentName := "EC instance"
+			for _, tag := range instance.Tags {
+				if tag["Key"] == "Component" && tag["Value"] == "pd" {
+					componentName = "PD node"
 				}
-				c.ArnComponents = append(c.ArnComponents, ARNComponent{
-					componentName,
-					clusterName,
-					instance.InstanceId,
-					instance.ImageId,
-					instance.InstanceType,
-					"-",
-					instance.State.Name,
-					instance.PrivateIpAddress,
-					"-",
-					instance.SubnetId,
-				})
+				if tag["Key"] == "Component" && tag["Value"] == "tidb" {
+					componentName = "TiDB node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "tikv" {
+					componentName = "TiKV node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "dm" {
+					componentName = "DM node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "ticdc" {
+					componentName = "TiCDC node"
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "workstation" {
+					componentName = "Workstation Node"
+				}
 			}
+			c.ArnComponents = append(c.ArnComponents, ARNComponent{
+				componentName,
+				clusterName,
+				instance.InstanceId,
+				instance.ImageId,
+				instance.InstanceType,
+				"-",
+				instance.State.Name,
+				instance.PrivateIpAddress,
+				"-",
+				instance.SubnetId,
+			})
 		}
-	*/
+	}
+
 	sort.Sort(ByComponentType(c.ArnComponents))
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *ListAurora) Rollback(ctx context.Context) error {
+func (c *ListTiDB2Aurora) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *ListAurora) String() string {
+func (c *ListTiDB2Aurora) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.Host)
 }

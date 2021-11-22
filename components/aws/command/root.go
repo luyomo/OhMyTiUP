@@ -177,6 +177,7 @@ func init() {
 		newScaleOutCmd(),
 		newDestroyCmd(),
 		newDestroyAuroraCmd(),
+		newDestroyTiDB2AuroraCmd(),
 		newCleanCmd(),
 		newUpgradeCmd(),
 		newDisplayCmd(),
@@ -198,6 +199,8 @@ func init() {
 		newTelemetryCmd(),
 		newReplayCmd(),
 		newTemplateCmd(),
+		newTiDB2AuroraDeploy(),
+		newListTiDB2AuroraCmd(),
 	)
 }
 

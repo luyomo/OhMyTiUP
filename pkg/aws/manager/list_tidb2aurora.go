@@ -14,23 +14,23 @@
 package manager
 
 import (
-	"errors"
+	//	"errors"
 	//"fmt"
 	"context"
 
 	"github.com/luyomo/tisample/pkg/aws/ctxt"
-	"github.com/luyomo/tisample/pkg/aws/spec"
+	//	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
-	"github.com/luyomo/tisample/pkg/meta"
+	//	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
-	perrs "github.com/pingcap/errors"
+	//	perrs "github.com/pingcap/errors"
 )
 
 // Cluster represents a clsuter
 // ListCluster list the clusters.
-func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error {
+func (m *Manager) ListTiDB2AuroraCluster(clusterName string, opt DeployOptions) error {
 	insList := task.ListTiDB2Aurora{User: opt.User}
-	insList.Execute(ctxt.New(context.Background(), 1), clusterName, "tisample-aurora")
+	insList.Execute(ctxt.New(context.Background(), 1), clusterName, "tisample-tidb2aurora")
 	//fmt.Printf("The list is <%#v>", insList)
 
 	clusterTable := [][]string{
@@ -53,34 +53,4 @@ func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error
 	}
 	tui.PrintTable(clusterTable, true)
 	return nil
-}
-
-// GetClusterList get the clusters list.
-func (m *Manager) GetAuroraClusterList() ([]Cluster, error) {
-	names, err := m.specManager.List()
-	if err != nil {
-		return nil, err
-	}
-
-	var clusters = []Cluster{}
-
-	for _, name := range names {
-		metadata, err := m.meta(name)
-		if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
-			!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) {
-			return nil, perrs.Trace(err)
-		}
-
-		base := metadata.GetBaseMeta()
-
-		clusters = append(clusters, Cluster{
-			Name:       name,
-			User:       base.User,
-			Version:    base.Version,
-			Path:       m.specManager.Path(name),
-			PrivateKey: m.specManager.Path(name, "ssh", "id_rsa"),
-		})
-	}
-
-	return clusters, nil
 }
