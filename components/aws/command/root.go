@@ -182,6 +182,7 @@ func init() {
 		newDisplayCmd(),
 		newPruneCmd(),
 		newListCmd(),
+		newListAuroraCmd(),
 		newAuditCmd(),
 		newImportCmd(),
 		newEditConfigCmd(),

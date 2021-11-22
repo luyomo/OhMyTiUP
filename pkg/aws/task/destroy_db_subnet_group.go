@@ -19,7 +19,7 @@ import (
 	"fmt"
 	//	"github.com/luyomo/tisample/pkg/aws/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/executor"
-	"strings"
+	//	"strings"
 )
 
 type DestroyDBSubnetGroup struct {
@@ -65,23 +65,6 @@ func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
 			return nil
 		}
 	}
-
-	return nil
-
-	var subnets []string
-	for _, subnet := range clusterInfo.privateSubnets {
-		subnets = append(subnets, "\""+subnet+"\"")
-	}
-	command = fmt.Sprintf("aws rds create-db-subnet-group --db-subnet-group-name %s --db-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
-	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
-	}
-	fmt.Printf("The db subnets group is <%s>\n\n\n", stdout)
 
 	return nil
 }
