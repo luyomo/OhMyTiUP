@@ -21,7 +21,7 @@ import (
 	"github.com/luyomo/tisample/pkg/aurora/executor"
 	//	"strconv"
 	"strings"
-	//	"time"
+	"time"
 )
 
 type DestroyDBInstance struct {
@@ -40,30 +40,16 @@ func (c *DestroyDBInstance) Execute(ctx context.Context) error {
 	if err != nil {
 		if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", c.clusterName)) {
 			fmt.Printf("The DB Instance has not created.\n\n\n")
-		} else {
-			var dbInstances DBInstances
-			if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-				fmt.Printf("*** *** The error here is %#v \n\n", err)
-				return nil
-			}
-
 			return nil
+		} else {
+			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			return err
 		}
 	} else {
-		fmt.Printf("The DB Instance has been created\n\n\n")
-		command = fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
-		stdout, stderr, err := local.Execute(ctx, command, false)
-		if err != nil {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
-		}
-		//fmt.Printf("The db cluster is <%#v>\n\n\n", string(stdout))
 		var dbInstances DBInstances
 		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			return err
 		}
 		for _, instance := range dbInstances.DBInstances {
 			fmt.Printf("The db instance is <%#v> \n\n\n", instance)
@@ -73,43 +59,30 @@ func (c *DestroyDBInstance) Execute(ctx context.Context) error {
 				fmt.Printf("The cluster name is <%#v> \n\n\n", instance)
 				command = fmt.Sprintf("aws rds delete-db-instance --db-instance-identifier %s", c.clusterName)
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
-				stdout, stderr, err = local.Execute(ctx, command, false)
+				_, stderr, err = local.Execute(ctx, command, false)
 				if err != nil {
 					fmt.Printf("The error here is <%#v> \n\n", err)
 					fmt.Printf("----------\n\n")
 					fmt.Printf("The error here is <%s> \n\n", string(stderr))
 					return nil
 				}
-				return nil
 			}
-			//		fmt.Printf("The db cluster is <%#s>\n\n\n", string(stdout))
 		}
-
-		return nil
 	}
-	/*
-		for i := 1; i <= 50; i++ {
-			command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
-			stdout, stderr, err := local.Execute(ctx, command, false)
-			if err != nil {
-				fmt.Printf("The error err here is <%#v> \n\n", err)
-				fmt.Printf("----------\n\n")
-				fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-				return nil
-			}
-			//fmt.Printf("The db cluster is <%#v>\n\n\n", string(stdout))
-			var dbInstances DBInstances
-			if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-				fmt.Printf("*** *** The error here is %#v \n\n", err)
-				return nil
-			}
-			fmt.Printf("The db cluster is <%#v>\n\n\n", dbInstances)
-			if dbInstances.DBInstances[0].DBInstanceStatus == "available" {
+
+	time.Sleep(120 * time.Second)
+	for i := 1; i <= 200; i++ {
+		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
+		_, stderr, err := local.Execute(ctx, command, false)
+		if err != nil {
+			if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", c.clusterName)) {
 				break
 			}
-			time.Sleep(20 * time.Second)
+			return err
 		}
-	*/
+
+		time.Sleep(30 * time.Second)
+	}
 
 	return nil
 }
