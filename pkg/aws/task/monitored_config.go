@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/template"
 	"github.com/luyomo/tisample/pkg/aws/template/config"

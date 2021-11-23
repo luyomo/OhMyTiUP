@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
 )
 
 // SSHKeySet is used to set the Context private/public key path

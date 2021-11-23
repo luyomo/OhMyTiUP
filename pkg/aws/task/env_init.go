@@ -20,8 +20,8 @@ import (
 	"strings"
 
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
-	"github.com/luyomo/tisample/pkg/aws/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/module"
 )
 

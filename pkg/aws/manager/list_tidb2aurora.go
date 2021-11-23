@@ -18,7 +18,7 @@ import (
 	//"fmt"
 	"context"
 
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	//	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	//	"github.com/luyomo/tisample/pkg/meta"

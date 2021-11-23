@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
 )
 
 // scope can be either "system", "user" or "global"

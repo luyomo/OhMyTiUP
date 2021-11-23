@@ -17,7 +17,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/tui/progress"
 )
 

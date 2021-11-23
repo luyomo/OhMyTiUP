@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/checkpoint"
 	"go.uber.org/zap"
 )

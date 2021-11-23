@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/creasty/defaults"
-	"github.com/luyomo/tisample/pkg/aws/executor"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/relex/aini"

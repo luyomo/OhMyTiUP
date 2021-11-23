@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"

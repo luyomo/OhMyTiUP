@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/luyomo/tisample/pkg/aws/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/module"
 	system "github.com/luyomo/tisample/pkg/aws/template/systemd"
 	"github.com/luyomo/tisample/pkg/checkpoint"

@@ -19,8 +19,8 @@ import (
     //"regexp"
 
     //"strings"
-	//"github.com/luyomo/tisample/pkg/aws/ctxt"
-	//"github.com/luyomo/tisample/pkg/aws/executor"
+	//"github.com/luyomo/tisample/pkg/ctxt"
+	//"github.com/luyomo/tisample/pkg/executor"
 	//"github.com/pingcap/errors"
     //"github.com/luyomo/tisample/pkg/logger/log"
 
