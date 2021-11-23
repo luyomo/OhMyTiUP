@@ -25,12 +25,12 @@ import (
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/manager"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/environment"
 	tiupmeta "github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/localdata"
 	"github.com/luyomo/tisample/pkg/logger"
 	"github.com/luyomo/tisample/pkg/logger/log"
@@ -169,21 +169,17 @@ func init() {
 	rootCmd.AddCommand(
 		newCheckCmd(),
 		newDeploy(),
-		newAuroraDeploy(),
 		newStartCmd(),
 		newStopCmd(),
 		newRestartCmd(),
 		newScaleInCmd(),
 		newScaleOutCmd(),
 		newDestroyCmd(),
-		newDestroyAuroraCmd(),
-		newDestroyTiDB2AuroraCmd(),
 		newCleanCmd(),
 		newUpgradeCmd(),
 		newDisplayCmd(),
 		newPruneCmd(),
 		newListCmd(),
-		newListAuroraCmd(),
 		newAuditCmd(),
 		newImportCmd(),
 		newEditConfigCmd(),
@@ -199,8 +195,8 @@ func init() {
 		newTelemetryCmd(),
 		newReplayCmd(),
 		newTemplateCmd(),
-		newTiDB2AuroraDeploy(),
-		newListTiDB2AuroraCmd(),
+		newTiDB2AuroraCmd(),
+		newAuroraCmd(),
 	)
 }
 

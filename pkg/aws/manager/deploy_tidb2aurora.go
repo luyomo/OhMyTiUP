@@ -20,12 +20,12 @@ import (
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws/clusterutil"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/set"
@@ -219,18 +219,17 @@ func (m *Manager) TiDB2AuroraDeploy(
 				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).
 				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
+				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
+				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
+				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
