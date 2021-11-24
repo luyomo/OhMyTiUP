@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/embed"
-	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 	"os"
 	"path"
@@ -122,116 +122,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
 
-	tiupFile, err := os.Create("/tmp/tiup-test.yml")
-	if err != nil {
-		return err
-	}
-	defer tiupFile.Close()
-
-	fp := path.Join("templates", "config", "tidb_cluster.yml.tpl")
-	tpl, err := embed.ReadTemplate(fp)
-	if err != nil {
-		return err
-	}
-
-	tmpl, err := template.New("test").Parse(string(tpl))
-	if err != nil {
-		return err
-	}
-
-	//content := bytes.NewBufferString("")
-	if err := tmpl.Execute(tiupFile, tplData); err != nil {
-		return err
-	}
-	// ----- DM config file
-	tiupFile, err = os.Create("/tmp/dm-test.yml")
-	if err != nil {
-		return err
-	}
-	defer tiupFile.Close()
-
-	fp = path.Join("templates", "config", "dm-cluster.yml.tpl")
-	tpl, err = embed.ReadTemplate(fp)
-	if err != nil {
-		return err
-	}
-
-	tmpl, err = template.New("test01").Parse(string(tpl))
-	if err != nil {
-		return err
-	}
-
-	//content := bytes.NewBufferString("")
-	if err := tmpl.Execute(tiupFile, tplData); err != nil {
-		return err
-	}
-
-	// ----- DM source file
-	tiupFile, err = os.Create("/tmp/dm-source.yml")
-	if err != nil {
-		return err
-	}
-	defer tiupFile.Close()
-
-	fp = path.Join("templates", "config", "dm-source.yml.tpl")
-	tpl, err = embed.ReadTemplate(fp)
-	if err != nil {
-		return err
-	}
-
-	tmpl, err = template.New("test03").Parse(string(tpl))
-	if err != nil {
-		return err
-	}
-
-	if err := tmpl.Execute(tiupFile, tplData); err != nil {
-		return err
-	}
-
-	// ----- DM task file
-	tiupFile, err = os.Create("/tmp/dm-task.yml")
-	if err != nil {
-		return err
-	}
-	defer tiupFile.Close()
-
-	fp = path.Join("templates", "config", "dm-task.yml.tpl")
-	tpl, err = embed.ReadTemplate(fp)
-	if err != nil {
-		return err
-	}
-
-	tmpl, err = template.New("test04").Parse(string(tpl))
-	if err != nil {
-		return err
-	}
-
-	if err := tmpl.Execute(tiupFile, tplData); err != nil {
-		return err
-	}
-
-	// cdc-task.toml.tpl
-	tiupFile, err = os.Create("/tmp/cdc-task.toml")
-	if err != nil {
-		return err
-	}
-	defer tiupFile.Close()
-
-	fp = path.Join("templates", "config", "cdc-task.toml.tpl")
-	tpl, err = embed.ReadTemplate(fp)
-	if err != nil {
-		return err
-	}
-
-	tmpl, err = template.New("test05").Parse(string(tpl))
-	if err != nil {
-		return err
-	}
-
-	if err := tmpl.Execute(tiupFile, tplData); err != nil {
-		return err
-	}
-
 	//fmt.Printf("The contents is <%s> \n\n\n", string(content.Bytes()))
 	// Transfer(ctx context.Context, src, dst string, download bool, limit int)
 
@@ -240,15 +130,50 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	err = wsexecutor.Transfer(ctx, "/tmp/tiup-test.yml", "/tmp", false, 0)
+	if stdout, stderr, err := wsexecutor.Execute(ctx, `mkdir -p /opt/tidb`, true); err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", err)
+		fmt.Printf("The stdout is <%s> \n\n\n", string(stdout))
+		fmt.Printf("The stderr is <%s> \n\n\n", string(stderr))
+		return err
+	}
 
-	err = wsexecutor.Transfer(ctx, "/tmp/dm-test.yml", "/tmp", false, 0)
+	if stdout, stderr, err := wsexecutor.Execute(ctx, `chown -R admin:admin /opt/tidb`, true); err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", err)
+		fmt.Printf("The stdout is <%s> \n\n\n", string(stdout))
+		fmt.Printf("The stderr is <%s> \n\n\n", string(stderr))
+		return err
+	}
 
-	err = wsexecutor.Transfer(ctx, "/tmp/dm-source.yml", "/tmp", false, 0)
+	configFiles := []string{"cdc-task.toml", "dm-cluster.yml", "dm-source.yml", "dm-task.yml", "dm-task.yml", "tidb-cluster.yml"}
+	for _, configFile := range configFiles {
+		fmt.Printf("The config file to copy is <%s> \n\n\n", configFile)
 
-	err = wsexecutor.Transfer(ctx, "/tmp/dm-task.yml", "/tmp", false, 0)
+		fdFile, err := os.Create(fmt.Sprintf("/tmp/%s", configFile))
+		if err != nil {
+			return err
+		}
+		defer fdFile.Close()
 
-	err = wsexecutor.Transfer(ctx, "/tmp/cdc-task.toml", "/tmp", false, 0)
+		fp := path.Join("templates", "config", fmt.Sprintf("%s.tpl", configFile))
+		tpl, err := embed.ReadTemplate(fp)
+		if err != nil {
+			return err
+		}
+
+		tmpl, err := template.New("test").Parse(string(tpl))
+		if err != nil {
+			return err
+		}
+
+		if err := tmpl.Execute(fdFile, tplData); err != nil {
+			return err
+		}
+
+		err = wsexecutor.Transfer(ctx, fmt.Sprintf("/tmp/%s", configFile), "/opt/tidb/", false, 0)
+		if err != nil {
+			fmt.Printf("The error is <%#v> \n\n\n", err)
+		}
+	}
 
 	//dm_cluster.yml.tpl
 	err = wsexecutor.Transfer(ctx, "/home/pi/.ssh/jaypingcap.pem", "~/.ssh/id_rsa", false, 0)
