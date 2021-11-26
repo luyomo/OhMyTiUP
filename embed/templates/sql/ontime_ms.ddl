@@ -1,4 +1,14 @@
-CREATE TABLE tidbtest.test.ontime (
+IF (db_id('cdc_test') is null)
+  CREATE DATABASE cdc_test;
+go
+use cdc_test
+go
+if schema_id('test') IS NULL
+BEGIN
+EXEC('CREATE SCHEMA test')
+END
+if (object_id('test.ontime') is null)
+CREATE TABLE cdc_test.test.ontime (
   id bigint primary key,
   Year int DEFAULT NULL,
   Quarter tinyint DEFAULT NULL,
@@ -114,3 +124,4 @@ CREATE TABLE tidbtest.test.ontime (
   timestamp_sqlserver datetime default GETDATE()
 )
 ;
+go

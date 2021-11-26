@@ -17,11 +17,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path"
+
+	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 	"math/big"
+	"text/template"
 	//	"time"
 )
+
+type TplSQLServer struct {
+	Name string
+	Host string
+	Port int
+}
 
 type CDCTaskSummary struct {
 	State      string  `json:"state"`
@@ -86,8 +97,25 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
 		return nil
 	}
+	sqlServerHost := ""
+	for _, reservation := range reservations.Reservations {
+		for _, instance := range reservation.Instances {
+			for _, tag := range instance.Tags {
+				if tag["Key"] == "Component" && tag["Value"] == "sqlserver" {
+					sqlServerHost = instance.PrivateIpAddress
+				}
+			}
+
+		}
+	}
+	fmt.Printf("The sqlserver host is <%s> \n\n\n", sqlServerHost)
 
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
+	if err != nil {
+		return nil
+	}
+
+	stdout, _, err = wsexecutor.Execute(ctx, `apt-get install -y freetds-bin`, true)
 	if err != nil {
 		return nil
 	}
@@ -103,8 +131,10 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 		zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
 		return nil
 	}
+
+	hasRunTiDB := false
 	for _, component := range tidbClusterDetail.Instances {
-		if component.Role == "tidb" && component.Status == "Up" {
+		if component.Role == "tidb" && component.Status == "Up" && hasRunTiDB == false {
 
 			command := fmt.Sprintf(`mysql -h %s -P %d -u root -e "create database if not exists %s"`, component.Host, component.Port, DBNAME)
 			stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
@@ -142,9 +172,71 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 			fmt.Printf("The command is <%s> \n\n\n", command)
 			fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 
-			return nil
+			hasRunTiDB = true
+		}
+
+		if component.Role == "sqlserver" && component.Status == "Up" {
+			fmt.Printf("Starting to run queries against sql server \n\n\n")
+			//command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd %s -e "source /opt/tidb/sql/ontime_mysql.ddl"`, auroraConnInfo.Address, auroraConnInfo.Port, DBNAME)
+			//stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
+			//if err != nil {
+			//	fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
+			//	return err
+			//}
+			//fmt.Printf("The command is <%s> \n\n\n", command)
+			//fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
+
+			//tsql -H 172.83.11.115 -p 1433 -U sa -P 1234@Abcd -D cdc_test
 		}
 	}
+
+	fdFile, err := os.Create(fmt.Sprintf("/tmp/%s", "freetds.conf"))
+	if err != nil {
+		return err
+	}
+	defer fdFile.Close()
+
+	fp := path.Join("templates", "config", fmt.Sprintf("%s.tpl", "freetds.conf"))
+	tpl, err := embed.ReadTemplate(fp)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err := template.New("test").Parse(string(tpl))
+	if err != nil {
+		return err
+	}
+
+	var tplData TplSQLServer
+	tplData.Name = "REPLICA"
+	tplData.Host = sqlServerHost
+	tplData.Port = 1433
+	if err := tmpl.Execute(fdFile, tplData); err != nil {
+		return err
+	}
+
+	err = wsexecutor.Transfer(ctx, fmt.Sprintf("/tmp/%s", "freetds.conf"), "/opt/tidb/", false, 0)
+	if err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", err)
+	}
+
+	command = fmt.Sprintf(`mv /opt/tidb/freetds.conf /etc/freetds/`)
+	stdout, stderr, err = wsexecutor.Execute(ctx, command, true)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
+		return err
+	}
+
+	command = fmt.Sprintf(`bsqldb -i /opt/tidb/freetds.conf -S %s -U sa -P 1234@Abcd -i /opt/tidb/sql/ontime_ms.ddl`, tplData.Name)
+	stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
+		return err
+	}
+	fmt.Printf("The command is <%s> \n\n\n", command)
+	fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
+
+	//tsql -H 172.83.11.115 -p 1433 -U sa -P 1234@Abcd -D cdc_test
 
 	return nil
 }
