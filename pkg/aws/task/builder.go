@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/luyomo/tisample/pkg/executor"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/executor"
 
 	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/luyomo/tisample/pkg/meta"
@@ -792,6 +792,47 @@ func (b *Builder) DestroyDBClusterParameterGroup(user, host, clusterName, cluste
 
 func (b *Builder) DestroyDBSubnetGroup(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDBSubnetGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) CreateMS(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateMS{
+		user:           user,
+		host:           host,
+		awsTopoConfigs: awsTopoConfigs,
+		clusterName:    clusterName,
+		clusterType:    clusterType,
+	})
+	return b
+}
+
+func (b *Builder) DeployTiDBInstance(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DeployTiDBInstance{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) DeployTiCDC(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DeployTiCDC{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) MakeDBObjects(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &MakeDBObjects{
 		user:        user,
 		host:        host,
 		clusterName: clusterName,

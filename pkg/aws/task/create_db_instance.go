@@ -24,10 +24,16 @@ import (
 	"time"
 )
 
+type DBInstanceEndpoint struct {
+	Address string `json:"Address"`
+	Port    int    `json:"Port"`
+}
+
 type DBInstance struct {
-	DBInstanceIdentifier string `json:"DBInstanceIdentifier"`
-	DBInstanceStatus     string `json:"DBInstanceStatus"`
-	DBInstanceArn        string `json:"DBInstanceArn"`
+	DBInstanceIdentifier string             `json:"DBInstanceIdentifier"`
+	DBInstanceStatus     string             `json:"DBInstanceStatus"`
+	DBInstanceArn        string             `json:"DBInstanceArn"`
+	Endpoint             DBInstanceEndpoint `json:"Endpoint"`
 }
 
 type NewDBInstance struct {
@@ -44,6 +50,8 @@ type CreateDBInstance struct {
 	clusterName string
 	clusterType string
 }
+
+var auroraConnInfo DBInstanceEndpoint
 
 // Execute implements the Task interface
 func (c *CreateDBInstance) Execute(ctx context.Context) error {
@@ -64,35 +72,23 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 			return nil
 		}
 	} else {
-		fmt.Printf("The DB Instance has been created\n\n\n")
-		command = fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
-		stdout, stderr, err := local.Execute(ctx, command, false)
-		if err != nil {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
-		}
-		//fmt.Printf("The db cluster is <%#v>\n\n\n", string(stdout))
 		var dbInstances DBInstances
 		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
 		for _, instance := range dbInstances.DBInstances {
-			fmt.Printf("The db instance is <%#v> \n\n\n", instance)
 			existsResource := ExistsResource(c.clusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
 			if existsResource == true {
-				fmt.Printf("The db cluster  has exists \n\n\n")
+				auroraConnInfo = instance.Endpoint
+				fmt.Printf("The db instance is+  <%#v> \n\n\n", auroraConnInfo)
 				return nil
 			}
-			//		fmt.Printf("The db cluster is <%#s>\n\n\n", string(stdout))
+
 		}
 
 		return nil
 	}
-
-	fmt.Printf("The DB instance  <%s> \n\n\n", string(stdout))
 
 	command = fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-cluster-identifier %s --db-parameter-group-name %s --engine aurora-mysql --engine-version 5.7.12 --db-instance-class db.r5.large --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterName, c.clusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)

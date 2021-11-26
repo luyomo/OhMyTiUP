@@ -197,6 +197,7 @@ func init() {
 		newTemplateCmd(),
 		newTiDB2AuroraCmd(),
 		newAuroraCmd(),
+		newTiDB2MSCmd(),
 	)
 }
 

@@ -130,17 +130,11 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	if stdout, stderr, err := wsexecutor.Execute(ctx, `mkdir -p /opt/tidb`, true); err != nil {
-		fmt.Printf("The error is <%#v> \n\n\n", err)
-		fmt.Printf("The stdout is <%s> \n\n\n", string(stdout))
-		fmt.Printf("The stderr is <%s> \n\n\n", string(stderr))
+	if _, _, err := wsexecutor.Execute(ctx, `mkdir -p /opt/tidb/sql`, true); err != nil {
 		return err
 	}
 
-	if stdout, stderr, err := wsexecutor.Execute(ctx, `chown -R admin:admin /opt/tidb`, true); err != nil {
-		fmt.Printf("The error is <%#v> \n\n\n", err)
-		fmt.Printf("The stdout is <%s> \n\n\n", string(stdout))
-		fmt.Printf("The stderr is <%s> \n\n\n", string(stderr))
+	if _, _, err := wsexecutor.Execute(ctx, `chown -R admin:admin /opt/tidb`, true); err != nil {
 		return err
 	}
 
@@ -170,6 +164,14 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		}
 
 		err = wsexecutor.Transfer(ctx, fmt.Sprintf("/tmp/%s", configFile), "/opt/tidb/", false, 0)
+		if err != nil {
+			fmt.Printf("The error is <%#v> \n\n\n", err)
+		}
+	}
+
+	sqlFiles := []string{"ontime_ms.ddl", "ontime_mysql.ddl", "ontime_tidb.ddl"}
+	for _, sqlFile := range sqlFiles {
+		err = wsexecutor.Transfer(ctx, fmt.Sprintf("embed/templates/sql/%s", sqlFile), "/opt/tidb/sql/", false, 0)
 		if err != nil {
 			fmt.Printf("The error is <%#v> \n\n\n", err)
 		}
