@@ -840,3 +840,13 @@ func (b *Builder) MakeDBObjects(user, host, clusterName, clusterType string) *Bu
 	})
 	return b
 }
+
+func (b *Builder) CreateDMSSourceEndpoint(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateDMSSourceEndpoint{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
