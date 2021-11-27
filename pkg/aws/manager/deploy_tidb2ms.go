@@ -231,11 +231,14 @@ func (m *Manager) TiDB2MSDeploy(
 				//CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
 				//CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
 				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).
-				DeployTiDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).      // Deploy the tidb cluster
-				MakeDBObjects(globalOptions.User, inst.GetHost(), name, clusterType).           // - Prepare DB objects
-				DeployTiCDC(globalOptions.User, inst.GetHost(), name, clusterType).             // - Set the TiCDC for data sync between TiDB and Aurora
+				DeployTiDBInstance(globalOptions.User, inst.GetHost(), name, clusterType). // Deploy the tidb cluster
+				MakeDBObjects(globalOptions.User, inst.GetHost(), name, clusterType).      // - Prepare DB objects
+				DeployTiCDC(globalOptions.User, inst.GetHost(), name, clusterType).        // - Set the TiCDC for data sync between TiDB and Aurora
+				CreateDMSSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType).
 				CreateDMSSourceEndpoint(globalOptions.User, inst.GetHost(), name, clusterType). // - Deploy the subnets for DMS
-				// - Deploy the TiDB endpoint
+				CreateDMSTargetEndpoint(globalOptions.User, inst.GetHost(), name, clusterType). // - Deploy the TiDB endpoint
+				CreateDMSInstance(globalOptions.User, inst.GetHost(), name, clusterType).       // - Deploy the TiDB endpoint
+				CreateDMSTask(globalOptions.User, inst.GetHost(), name, clusterType).           // - Deploy the TiDB endpoint
 				// - Deploy the Aurora endpoint
 				// - Deploy DMS instance
 				// - Deploy DMS task for data sync

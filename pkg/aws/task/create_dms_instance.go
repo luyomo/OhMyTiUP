@@ -21,10 +21,11 @@ import (
 	//	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	//	"go.uber.org/zap"
-	"strings"
+	//"strings"
+	//"time"
 )
 
-type CreateDMSSourceEndpoint struct {
+type CreateDMSInstance struct {
 	user        string
 	host        string
 	clusterName string
@@ -32,38 +33,34 @@ type CreateDMSSourceEndpoint struct {
 }
 
 // Execute implements the Task interface
-func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
+func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	command := fmt.Sprintf("aws dms describe-endpoints --filters Name=endpoint-type,Values=source Name=engine-name,Values=aurora")
+	command := fmt.Sprintf("aws dms describe-replication-instances")
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
-			fmt.Printf("The source end point has not created.\n\n\n")
-		} else {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
-		}
+		fmt.Printf("The error err here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
+		return nil
 	} else {
-		var endpoints Endpoints
-		if err = json.Unmarshal(stdout, &endpoints); err != nil {
+		var replicationInstances ReplicationInstances
+		if err = json.Unmarshal(stdout, &replicationInstances); err != nil {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", endpoints)
-		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
+		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
+		for _, replicationInstance := range replicationInstances.ReplicationInstances {
+			existsResource := ExistsDMSResource(c.clusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
 			if existsResource == true {
-				DMSInfo.SourceEndpointArn = endpoint.EndpointArn
-				fmt.Printf("The dms source has exists \n\n\n")
+				DMSInfo.ReplicationInstanceArn = replicationInstance.ReplicationInstanceArn
+				fmt.Printf("The replication instance  has exists \n\n\n")
 				return nil
 			}
 		}
 	}
 
-	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-source --endpoint-type source --engine-name aurora --server-name testtisample.ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com --port 3306 --username master --password 1234Abcd --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws dms create-replication-instance --replication-instance-identifier %s --replication-instance-class %s --engine-version %s --replication-subnet-group-identifier %s --no-multi-az --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, "dms.t3.medium", "3.4.6", c.clusterName, c.clusterName, c.clusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
@@ -73,22 +70,22 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 		return err
 	}
 
-	var endpoint EndpointRecord
-	if err = json.Unmarshal(stdout, &endpoint); err != nil {
+	var replicationInstanceRecord ReplicationInstanceRecord
+	if err = json.Unmarshal(stdout, &replicationInstanceRecord); err != nil {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
-	DMSInfo.SourceEndpointArn = endpoint.Endpoint.EndpointArn
+	DMSInfo.ReplicationInstanceArn = replicationInstanceRecord.ReplicationInstance.ReplicationInstanceArn
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *CreateDMSSourceEndpoint) Rollback(ctx context.Context) error {
+func (c *CreateDMSInstance) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *CreateDMSSourceEndpoint) String() string {
+func (c *CreateDMSInstance) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }

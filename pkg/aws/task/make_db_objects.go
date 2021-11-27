@@ -55,6 +55,8 @@ type MakeDBObjects struct {
 
 var DBNAME string
 
+var SqlServerHost string
+
 // Execute implements the Task interface
 func (c *MakeDBObjects) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
@@ -97,18 +99,18 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
 		return nil
 	}
-	sqlServerHost := ""
+
 	for _, reservation := range reservations.Reservations {
 		for _, instance := range reservation.Instances {
 			for _, tag := range instance.Tags {
 				if tag["Key"] == "Component" && tag["Value"] == "sqlserver" {
-					sqlServerHost = instance.PrivateIpAddress
+					SqlServerHost = instance.PrivateIpAddress
 				}
 			}
 
 		}
 	}
-	fmt.Printf("The sqlserver host is <%s> \n\n\n", sqlServerHost)
+	fmt.Printf("The sqlserver host is <%s> \n\n\n", SqlServerHost)
 
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
 	if err != nil {
@@ -209,7 +211,7 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 
 	var tplData TplSQLServer
 	tplData.Name = "REPLICA"
-	tplData.Host = sqlServerHost
+	tplData.Host = SqlServerHost
 	tplData.Port = 1433
 	if err := tmpl.Execute(fdFile, tplData); err != nil {
 		return err

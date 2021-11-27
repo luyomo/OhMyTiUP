@@ -850,3 +850,43 @@ func (b *Builder) CreateDMSSourceEndpoint(user, host, clusterName, clusterType s
 	})
 	return b
 }
+
+func (b *Builder) CreateDMSTargetEndpoint(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateDMSTargetEndpoint{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) CreateDMSInstance(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateDMSInstance{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) CreateDMSSubnetGroup(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateDMSSubnetGroup{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) CreateDMSTask(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateDMSTask{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
