@@ -3,12 +3,12 @@ IF (db_id('cdc_test') is null)
 go
 use cdc_test
 go
-if schema_id('test') IS NULL
+if schema_id('cdc_test') IS NULL
 BEGIN
-EXEC('CREATE SCHEMA test')
+EXEC('CREATE SCHEMA cdc_test')
 END
-if (object_id('test.ontime') is null)
-CREATE TABLE cdc_test.test.ontime (
+if (object_id('cdc_test.ontime') is null)
+CREATE TABLE cdc_test.cdc_test.ontime (
   id bigint primary key,
   Year int DEFAULT NULL,
   Quarter tinyint DEFAULT NULL,

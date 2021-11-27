@@ -64,6 +64,24 @@ type DMSSubnetGroups struct {
 	DMSSubnetGroups []DMSSubnetGroup `json:"DMSSubnetGroups"`
 }
 
+type ReplicationTask struct {
+	ReplicationTaskIdentifier string `json:"ReplicationTaskIdentifier"`
+	SourceEndpointArn         string `json:"SourceEndpointArn"`
+	TargetEndpointArn         string `json:"TargetEndpointArn"`
+	ReplicationInstanceArn    string `json:"ReplicationInstanceArn"`
+	MigrationType             string `json:"MigrationType"`
+	Status                    string `json:"Status"`
+	ReplicationTaskArn        string `json:"ReplicationTaskArn"`
+}
+
+type ReplicationTaskRecord struct {
+	ReplicationTask ReplicationTask `json:"ReplicationTask"`
+}
+
+type ReplicationTasks struct {
+	ReplicationTasks []ReplicationTask `json:"ReplicationTasks"`
+}
+
 var DMSInfo struct {
 	SourceEndpointArn      string
 	TargetEndpointArn      string
