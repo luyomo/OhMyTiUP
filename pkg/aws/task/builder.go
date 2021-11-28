@@ -890,3 +890,25 @@ func (b *Builder) CreateDMSTask(user, host, clusterName, clusterType string) *Bu
 	})
 	return b
 }
+
+func (b *Builder) CreateBasicResource(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.CreateVpc(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateRouteTable(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateNetwork(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateSecurityGroup(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateInternetGateway(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateDBSubnetGroup(user, host, clusterName, clusterType)
+	return b
+}
+
+func (b *Builder) CreateTiDBCluster(user, host, clusterName, clusterType string, awsTopoConfigs *spec.AwsTopoConfigs) *Builder {
+	b.CreateWorkstation(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreatePDNodes(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateTiDBNodes(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateTiKVNodes(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateDMNodes(user, host, clusterName, clusterType, awsTopoConfigs).
+		CreateTiCDCNodes(user, host, clusterName, clusterType, awsTopoConfigs).
+		DeployTiDB(user, host, clusterName, clusterType, awsTopoConfigs)
+
+	return b
+}

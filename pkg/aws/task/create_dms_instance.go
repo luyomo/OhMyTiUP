@@ -22,7 +22,7 @@ import (
 	"github.com/luyomo/tisample/pkg/executor"
 	//	"go.uber.org/zap"
 	//"strings"
-	//"time"
+	"time"
 )
 
 type CreateDMSInstance struct {
@@ -76,6 +76,33 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 		return nil
 	}
 	DMSInfo.ReplicationInstanceArn = replicationInstanceRecord.ReplicationInstance.ReplicationInstanceArn
+	for i := 1; i <= 50; i++ {
+		command = fmt.Sprintf("aws dms describe-replication-instances")
+		stdout, stderr, err := local.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("The error err here is <%#v> \n\n", err)
+			fmt.Printf("----------\n\n")
+			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
+			return nil
+		} else {
+			var replicationInstances ReplicationInstances
+			if err = json.Unmarshal(stdout, &replicationInstances); err != nil {
+				fmt.Printf("*** *** The error here is %#v \n\n", err)
+				return nil
+			}
+			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
+			for _, replicationInstance := range replicationInstances.ReplicationInstances {
+				existsResource := ExistsDMSResource(c.clusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
+				if existsResource == true {
+					if replicationInstance.ReplicationInstanceStatus == "available" {
+						return nil
+					}
+				}
+			}
+		}
+
+		time.Sleep(30 * time.Second)
+	}
 
 	return nil
 }
