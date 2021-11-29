@@ -25,17 +25,18 @@ import (
 )
 
 type DestroyVpc struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyVpc) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.clusterName), false)
+	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
 		return nil
 	}

@@ -23,10 +23,11 @@ import (
 )
 
 type DestroyDBSubnetGroup struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
 }
 
 // Execute implements the Task interface
@@ -51,7 +52,7 @@ func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
 
 	fmt.Printf("The db subnet groups is <%#v> \n\n\n", dbSubnetGroups)
 	for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
-		existsResource := ExistsResource(c.clusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, local, ctx)
+		existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, local, ctx)
 		if existsResource == true {
 			command = fmt.Sprintf("aws rds delete-db-subnet-group --db-subnet-group-name %s", c.clusterName)
 			fmt.Printf("The comamnd is <%s> \n\n\n", command)

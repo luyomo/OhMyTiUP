@@ -23,10 +23,11 @@ import (
 )
 
 type DestroyEC struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
 }
 
 // Execute implements the Task interface
@@ -37,17 +38,17 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 	}
 
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	var reservations Reservations
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return nil
+		return err
 	}
 
 	if len(reservations.Reservations) == 0 {
@@ -61,7 +62,7 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 			command := fmt.Sprintf("aws ec2 terminate-instances --instance-ids %s", instance.InstanceId)
 			stdout, _, err = local.Execute(ctx, command, false)
 			if err != nil {
-				return nil
+				return err
 			}
 		}
 	}
@@ -69,17 +70,17 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 	for idx := 0; idx < 50; idx++ {
 
 		time.Sleep(5 * time.Second)
-		command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"  \"Name=instance-state-code,Values=16,32\"", c.clusterName, c.clusterType)
+		command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("describe-instances", command))
 		stdout, _, err = local.Execute(ctx, command, false)
 		if err != nil {
-			return nil
+			return err
 		}
 
 		var reservations Reservations
 		if err = json.Unmarshal(stdout, &reservations); err != nil {
 			zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-			return nil
+			return err
 		}
 		if len(reservations.Reservations) == 0 {
 			break

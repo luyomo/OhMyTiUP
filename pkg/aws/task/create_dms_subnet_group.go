@@ -23,10 +23,12 @@ import (
 )
 
 type CreateDMSSubnetGroup struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -58,7 +60,7 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 	}
 
 	var subnets []string
-	for _, subnet := range clusterInfo.privateSubnets {
+	for _, subnet := range c.clusterInfo.privateSubnets {
 		subnets = append(subnets, "\""+subnet+"\"")
 	}
 	command = fmt.Sprintf("aws dms create-replication-subnet-group --replication-subnet-group-identifier %s --replication-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType)

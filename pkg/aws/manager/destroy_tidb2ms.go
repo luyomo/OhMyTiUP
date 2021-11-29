@@ -44,19 +44,22 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 
 	clusterType := "tisample-tidb2ms"
 
+	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().
-		DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyDBInstance(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyDBCluster(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyDBParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyDBClusterParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyDBSubnetGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyTiDBCluster(utils.CurrentUser(), "127.0.0.1", name, clusterType, "tidb", &clusterInfo).
+		DestroyAurora(utils.CurrentUser(), "127.0.0.1", name, clusterType, "aurora", &clusterInfo).
+		//DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyDBInstance(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyDBCluster(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyDBParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyDBClusterParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyDBSubnetGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		//DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {

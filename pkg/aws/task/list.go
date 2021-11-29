@@ -201,7 +201,7 @@ func (c *List) Execute(ctx context.Context, clusterName, clusterType string) err
 	for _, pcx := range vpcConnections.VpcPeeringConnections {
 		if pcx.VpcStatus.Code == "active" {
 			//state = "active"
-			clusterInfo.pcxTidb2Aurora = pcx.VpcPeeringConnectionId
+			//			clusterInfo.pcxTidb2Aurora = pcx.VpcPeeringConnectionId
 		}
 	}
 

@@ -23,8 +23,8 @@ import (
 
 	"github.com/creasty/defaults"
 	"github.com/luyomo/tisample/pkg/aws/api"
-	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/template/scripts"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/proxy"
@@ -131,7 +131,12 @@ type (
 		TiKV    AwsNodeModal          `yaml:"tikv"`
 		DM      AwsNodeModal          `yaml:"dm"`
 		TiCDC   AwsNodeModal          `yaml:"ticdc"`
-		Aurora  AuroraConfig          `yaml:"aurora"`
+	}
+
+	AwsAuroraConfigs struct {
+		InstanceType string `yaml:"instance_type"`
+		CIDR         string `yaml:"cidr"`
+		Region       string `yaml:"region,omitempty"`
 	}
 
 	// Specification represents the specification of topology.yaml
@@ -140,6 +145,7 @@ type (
 		MonitoredOptions MonitoredOptions     `yaml:"monitored,omitempty" validate:"monitored:editable"`
 		ServerConfigs    ServerConfigs        `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
 		AwsTopoConfigs   AwsTopoConfigs       `yaml:"aws_topo_configs,omitempty"`
+		AwsAuroraConfigs AwsAuroraConfigs     `yaml:"aurora,omitempty"`
 		TiDBServers      []*TiDBSpec          `yaml:"tidb_servers"`
 		TiKVServers      []*TiKVSpec          `yaml:"tikv_servers"`
 		TiFlashServers   []*TiFlashSpec       `yaml:"tiflash_servers"`
@@ -161,6 +167,7 @@ type BaseTopo struct {
 	GlobalOptions    *GlobalOptions
 	MonitoredOptions *MonitoredOptions
 	AwsTopoConfigs   *AwsTopoConfigs
+	AwsAuroraConfigs *AwsAuroraConfigs
 	MasterList       []string
 
 	Monitors      []*PrometheusSpec
@@ -230,6 +237,7 @@ func (s *Specification) NewPart() Topology {
 		MonitoredOptions: s.MonitoredOptions,
 		ServerConfigs:    s.ServerConfigs,
 		AwsTopoConfigs:   s.AwsTopoConfigs,
+		AwsAuroraConfigs: s.AwsAuroraConfigs,
 	}
 }
 
@@ -267,6 +275,7 @@ func (s *Specification) BaseTopo() *BaseTopo {
 		GlobalOptions:    &s.GlobalOptions,
 		MonitoredOptions: s.GetMonitoredOptions(),
 		AwsTopoConfigs:   &s.AwsTopoConfigs,
+		AwsAuroraConfigs: &s.AwsAuroraConfigs,
 		MasterList:       s.GetPDList(),
 		Monitors:         s.Monitors,
 		Grafanas:         s.Grafanas,
@@ -469,6 +478,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		MonitoredOptions: s.MonitoredOptions,
 		ServerConfigs:    s.ServerConfigs,
 		AwsTopoConfigs:   s.AwsTopoConfigs,
+		AwsAuroraConfigs: s.AwsAuroraConfigs,
 		TiDBServers:      append(s.TiDBServers, spec.TiDBServers...),
 		TiKVServers:      append(s.TiKVServers, spec.TiKVServers...),
 		PDServers:        append(s.PDServers, spec.PDServers...),
@@ -501,16 +511,17 @@ func fillCustomDefaults(globalOptions *GlobalOptions, data interface{}) error {
 }
 
 var (
-	globalOptionTypeName   = reflect.TypeOf(GlobalOptions{}).Name()
-	monitorOptionTypeName  = reflect.TypeOf(MonitoredOptions{}).Name()
-	serverConfigsTypeName  = reflect.TypeOf(ServerConfigs{}).Name()
-	awsTopoConfigsTypeName = reflect.TypeOf(AwsTopoConfigs{}).Name()
+	globalOptionTypeName     = reflect.TypeOf(GlobalOptions{}).Name()
+	monitorOptionTypeName    = reflect.TypeOf(MonitoredOptions{}).Name()
+	serverConfigsTypeName    = reflect.TypeOf(ServerConfigs{}).Name()
+	awsTopoConfigsTypeName   = reflect.TypeOf(AwsTopoConfigs{}).Name()
+	awsAuroraConfigsTypeName = reflect.TypeOf(AwsAuroraConfigs{}).Name()
 )
 
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {

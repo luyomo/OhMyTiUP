@@ -17,40 +17,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/aws/spec"
 	"go.uber.org/zap"
-	"strings"
 )
-
-type RouteTable struct {
-	RouteTableId string `json:"RouteTableId"`
-}
-
-type ResultRouteTable struct {
-	TheRouteTable RouteTable `json:"RouteTable"`
-}
-
-type RouteTables struct {
-	RouteTables []RouteTable `json:"RouteTables"`
-}
-
-func (r RouteTable) String() string {
-	return fmt.Sprintf("RouteTableId:%s", r.RouteTableId)
-}
-
-func (r ResultRouteTable) String() string {
-	return fmt.Sprintf("RetRouteTable:%s", r.String())
-}
-
-func (r RouteTables) String() string {
-	var res []string
-	for _, route := range r.RouteTables {
-		res = append(res, route.String())
-	}
-	return fmt.Sprintf("RouteTables:%s", strings.Join(res, ","))
-}
 
 // Mkdir is used to create directory on the target host
 type CreateRouteTable struct {
@@ -59,6 +30,8 @@ type CreateRouteTable struct {
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -87,7 +60,7 @@ func (c *CreateRouteTable) String() string {
 
 func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx context.Context) error {
 	// Get the available zones
-	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType), false)
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
 		return nil
 	}
@@ -100,11 +73,11 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 
 	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
 	if len(routeTables.RouteTables) > 0 {
-		clusterInfo.privateRouteTableId = routeTables.RouteTables[0].RouteTableId
+		c.clusterInfo.privateRouteTableId = routeTables.RouteTables[0].RouteTableId
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", c.clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("create-route-table", zap.String("command", command))
 	var retRouteTable ResultRouteTable
 	stdout, _, err = executor.Execute(ctx, command, false)
@@ -118,14 +91,14 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 	}
 
 	zap.L().Debug("Print the variable", zap.String("route table id", retRouteTable.TheRouteTable.RouteTableId))
-	clusterInfo.privateRouteTableId = retRouteTable.TheRouteTable.RouteTableId
+	c.clusterInfo.privateRouteTableId = retRouteTable.TheRouteTable.RouteTableId
 
 	return nil
 }
 
 func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx context.Context) error {
 	// Get the available zones
-	stdout, stderr, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType), false)
+	stdout, stderr, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -141,11 +114,11 @@ func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx conte
 
 	fmt.Printf("*** *** *** The parsed data is \n %#v \n\n\n", routeTables)
 	if len(routeTables.RouteTables) > 0 {
-		clusterInfo.publicRouteTableId = routeTables.RouteTables[0].RouteTableId
+		c.clusterInfo.publicRouteTableId = routeTables.RouteTables[0].RouteTableId
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	var retRouteTable ResultRouteTable
 	stdout, stderr, err = executor.Execute(ctx, command, false)
@@ -163,7 +136,7 @@ func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx conte
 	}
 	//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
 	fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", retRouteTable.TheRouteTable.RouteTableId)
-	clusterInfo.publicRouteTableId = retRouteTable.TheRouteTable.RouteTableId
+	c.clusterInfo.publicRouteTableId = retRouteTable.TheRouteTable.RouteTableId
 
 	return nil
 }

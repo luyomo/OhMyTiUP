@@ -22,10 +22,11 @@ import (
 )
 
 type DestroyDBClusterParameterGroup struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
 }
 
 // Execute implements the Task interface
@@ -49,7 +50,7 @@ func (c *DestroyDBClusterParameterGroup) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The db cluster parameter groups is <%#v> \n\n\n", dbClusterParameterGroups)
 		for _, dbClusterParameterGroup := range dbClusterParameterGroups.DBClusterParameterGroups {
-			existsResource := ExistsResource(c.clusterType, c.clusterName, dbClusterParameterGroup.DBClusterParameterGroupArn, local, ctx)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbClusterParameterGroup.DBClusterParameterGroupArn, local, ctx)
 			if existsResource == true {
 				fmt.Printf("The db cluster parameter group has exists \n\n\n")
 				command = fmt.Sprintf("aws rds delete-db-cluster-parameter-group --db-cluster-parameter-group-name %s", c.clusterName)

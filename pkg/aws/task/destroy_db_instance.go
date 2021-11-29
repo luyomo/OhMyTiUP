@@ -25,10 +25,11 @@ import (
 )
 
 type DestroyDBInstance struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
 }
 
 // Execute implements the Task interface
@@ -53,7 +54,7 @@ func (c *DestroyDBInstance) Execute(ctx context.Context) error {
 		}
 		for _, instance := range dbInstances.DBInstances {
 			fmt.Printf("The db instance is <%#v> \n\n\n", instance)
-			existsResource := ExistsResource(c.clusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
 			if existsResource == true {
 				fmt.Printf("The db cluster  has exists \n\n\n")
 				fmt.Printf("The cluster name is <%#v> \n\n\n", instance)

@@ -211,12 +211,15 @@ func (m *Manager) TiDB2MSDeploy(
 			fmt.Printf("---------------------------\n")
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
+			fmt.Printf("The data is <%#v>\n\n\n", base.AwsAuroraConfigs)
 			clusterType := "tisample-tidb2ms"
+			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateBasicResource(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateTiDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateMS(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-
+				//CreateBasicResource(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs).
+				//				CreateTiDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateAurora(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", base.AwsAuroraConfigs, &clusterInfo).
+				//	CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType).
+				//CreateMS(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
 				//CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
 				//CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
 				//CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).

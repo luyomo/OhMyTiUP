@@ -28,6 +28,8 @@ type CreateMS struct {
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -55,7 +57,7 @@ func (c *CreateMS) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=sqlserver}]\"", "ami-01d445a80199e19cc", c.awsTopoConfigs.General.InstanceType, c.awsTopoConfigs.General.KeyName, clusterInfo.privateSecurityGroupId, clusterInfo.privateSubnets[0], c.awsTopoConfigs.General.Region, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=sqlserver}]\"", "ami-01d445a80199e19cc", c.awsTopoConfigs.General.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[0], c.awsTopoConfigs.General.Region, c.clusterName, c.clusterType)
 
 	zap.L().Debug("Command", zap.String("run-instances", command))
 	stdout, _, err = local.Execute(ctx, command, false)

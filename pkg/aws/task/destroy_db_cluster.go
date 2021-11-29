@@ -23,10 +23,11 @@ import (
 )
 
 type DestroyDBCluster struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
 }
 
 // Execute implements the Task interface
@@ -54,7 +55,7 @@ func (c *DestroyDBCluster) Execute(ctx context.Context) error {
 		//		fmt.Printf("The db cluster is <%#v> \n\n\n", dbClusters)
 		for _, dbCluster := range dbClusters.DBClusters {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
-			existsResource := ExistsResource(c.clusterType, c.clusterName, dbCluster.DBClusterArn, local, ctx)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbCluster.DBClusterArn, local, ctx)
 			if existsResource == true {
 				command = fmt.Sprintf("aws rds delete-db-cluster --db-cluster-identifier %s --skip-final-snapshot", c.clusterName)
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)

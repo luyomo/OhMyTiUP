@@ -17,8 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 )
 
@@ -29,6 +29,7 @@ type DestroyRouteTable struct {
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
+	subClusterType string
 }
 
 // Execute implements the Task interface
@@ -38,7 +39,7 @@ func (c *DestroyRouteTable) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", c.clusterName, c.clusterType), false)
+	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
 		return nil
 	}

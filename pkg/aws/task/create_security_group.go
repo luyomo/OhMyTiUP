@@ -19,36 +19,16 @@ import (
 	"fmt"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/aws/spec"
 	"go.uber.org/zap"
-	"strings"
 )
-
-type SecurityGroups struct {
-	SecurityGroups []SecurityGroup `json:"SecurityGroups"`
-}
-type SecurityGroup struct {
-	GroupId string `json:"GroupId"`
-}
-
-func (s SecurityGroup) String() string {
-	return fmt.Sprintf(s.GroupId)
-}
-
-func (i SecurityGroups) String() string {
-	var res []string
-	for _, sg := range i.SecurityGroups {
-		res = append(res, sg.String())
-	}
-	return strings.Join(res, ",")
-}
 
 type CreateSecurityGroup struct {
 	user           string
 	host           string
-	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -77,7 +57,7 @@ func (c *CreateSecurityGroup) String() string {
 
 func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx context.Context) error {
 	// Get the available zones
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType, c.subClusterType)
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
 		return nil
@@ -89,12 +69,12 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 		return nil
 	}
 	if len(securityGroups.SecurityGroups) > 0 {
-		clusterInfo.privateSecurityGroupId = securityGroups.SecurityGroups[0].GroupId
-		zap.L().Info("Security group existed", zap.String("Security group", clusterInfo.privateSecurityGroupId))
+		c.clusterInfo.privateSecurityGroupId = securityGroups.SecurityGroups[0].GroupId
+		zap.L().Info("Security group existed", zap.String("Security group", c.clusterInfo.privateSecurityGroupId))
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", c.clusterName, c.clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("create-security-group", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -107,24 +87,24 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 		return nil
 	}
 	fmt.Printf("The security group is <%s>\n\n\n", securityGroup.GroupId)
-	clusterInfo.privateSecurityGroupId = securityGroup.GroupId
-	zap.L().Info("Variable confirmation", zap.String("clusterInfo.privateSecurityGroupId", clusterInfo.privateSecurityGroupId))
+	c.clusterInfo.privateSecurityGroupId = securityGroup.GroupId
+	zap.L().Info("Variable confirmation", zap.String("clusterInfo.privateSecurityGroupId", c.clusterInfo.privateSecurityGroupId))
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 22 --cidr 0.0.0.0/0", clusterInfo.privateSecurityGroupId)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 22 --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId)
 	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", clusterInfo.privateSecurityGroupId, c.awsTopoConfigs.General.CIDR)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", c.clusterInfo.privateSecurityGroupId, c.clusterInfo.cidr)
 	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%s}]", clusterInfo.privateSecurityGroupId, c.awsTopoConfigs.General.CIDR)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%s}]", c.clusterInfo.privateSecurityGroupId, c.clusterInfo.cidr)
 	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -137,7 +117,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context.Context) error {
 
 	// Get the available zones
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-security-groups", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -150,12 +130,12 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 		return err
 	}
 	if len(securityGroups.SecurityGroups) > 0 {
-		clusterInfo.publicSecurityGroupId = securityGroups.SecurityGroups[0].GroupId
-		zap.L().Info("Security group existed", zap.String("Security group", clusterInfo.publicSecurityGroupId))
+		c.clusterInfo.publicSecurityGroupId = securityGroups.SecurityGroups[0].GroupId
+		zap.L().Info("Security group existed", zap.String("Security group", c.clusterInfo.publicSecurityGroupId))
 		return err
 	}
 
-	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterName, clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterName, c.clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("create-security-group", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -167,23 +147,23 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 		return err
 	}
 
-	clusterInfo.publicSecurityGroupId = securityGroup.GroupId
+	c.clusterInfo.publicSecurityGroupId = securityGroup.GroupId
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 22 --cidr 0.0.0.0/0", clusterInfo.publicSecurityGroupId)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 22 --cidr 0.0.0.0/0", c.clusterInfo.publicSecurityGroupId)
 	zap.L().Debug("Command", zap.String("create-security-group", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", clusterInfo.publicSecurityGroupId, c.awsTopoConfigs.General.CIDR)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", c.clusterInfo.publicSecurityGroupId, c.clusterInfo.cidr)
 	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%s}]", clusterInfo.publicSecurityGroupId, c.awsTopoConfigs.General.CIDR)
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%s}]", c.clusterInfo.publicSecurityGroupId, c.clusterInfo.cidr)
 	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {

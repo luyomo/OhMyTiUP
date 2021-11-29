@@ -18,9 +18,9 @@ import (
 	//"fmt"
 	"context"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
 	perrs "github.com/pingcap/errors"
@@ -30,7 +30,7 @@ import (
 // ListCluster list the clusters.
 func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error {
 	insList := task.ListTiDB2Aurora{User: opt.User}
-	insList.Execute(ctxt.New(context.Background(), 1), clusterName, "tisample-aurora")
+	insList.Execute(ctxt.New(context.Background(), 1), clusterName, "tisample-aurora", "aurora")
 	//fmt.Printf("The list is <%#v>", insList)
 
 	clusterTable := [][]string{

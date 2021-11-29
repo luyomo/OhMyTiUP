@@ -21,10 +21,10 @@ import (
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	//	"github.com/luyomo/tisample/pkg/aws/clusterutil"
-	"github.com/luyomo/tisample/pkg/ctxt"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
@@ -46,14 +46,15 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 	}
 
 	clusterType := "tisample-tidb"
+	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().
-		DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {

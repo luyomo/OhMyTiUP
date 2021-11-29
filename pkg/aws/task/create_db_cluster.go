@@ -38,10 +38,12 @@ type DBClusters struct {
 }
 
 type CreateDBCluster struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -68,7 +70,7 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 		fmt.Printf("The db cluster is <%#v> \n\n\n", dbClusters)
 		for _, dbCluster := range dbClusters.DBClusters {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
-			existsResource := ExistsResource(c.clusterType, c.clusterName, dbCluster.DBClusterArn, local, ctx)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbCluster.DBClusterArn, local, ctx)
 			if existsResource == true {
 				fmt.Printf("The db cluster  has exists \n\n\n")
 				return nil
@@ -76,7 +78,7 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws rds create-db-cluster --db-cluster-identifier %s --engine aurora-mysql --engine-version 5.7.12 --master-username master --master-user-password 1234Abcd --db-subnet-group-name %s --db-cluster-parameter-group-name %s --vpc-security-group-ids %s --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, clusterInfo.privateSecurityGroupId, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws rds create-db-cluster --db-cluster-identifier %s --engine aurora-mysql --engine-version 5.7.12 --master-username master --master-user-password 1234Abcd --db-subnet-group-name %s --db-cluster-parameter-group-name %s --vpc-security-group-ids %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterInfo.privateSecurityGroupId, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {

@@ -37,10 +37,12 @@ type NewDBClusterParameterGroup struct {
 }
 
 type CreateDBClusterParameterGroup struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -64,7 +66,7 @@ func (c *CreateDBClusterParameterGroup) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The db cluster parameter groups is <%#v> \n\n\n", dbClusterParameterGroups)
 		for _, dbClusterParameterGroup := range dbClusterParameterGroups.DBClusterParameterGroups {
-			existsResource := ExistsResource(c.clusterType, c.clusterName, dbClusterParameterGroup.DBClusterParameterGroupArn, local, ctx)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbClusterParameterGroup.DBClusterParameterGroupArn, local, ctx)
 			if existsResource == true {
 				fmt.Printf("The db cluster parameter group has exists \n\n\n")
 				return nil
@@ -74,7 +76,7 @@ func (c *CreateDBClusterParameterGroup) Execute(ctx context.Context) error {
 
 	fmt.Printf("The DB cluster oarameter <%s> \n\n\n", stdout)
 
-	command = fmt.Sprintf("aws rds create-db-cluster-parameter-group --db-cluster-parameter-group-name %s --db-parameter-group-family aurora-mysql5.7 --description \"%s\" --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws rds create-db-cluster-parameter-group --db-cluster-parameter-group-name %s --db-parameter-group-family aurora-mysql5.7 --description \"%s\" --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {

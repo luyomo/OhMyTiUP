@@ -31,7 +31,7 @@ type ListAurora struct {
 }
 
 // Execute implements the Task interface
-func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType string) error {
+func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType, subClusterType string) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User})
 
 	// 01. VPC
@@ -166,7 +166,7 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 	for _, pcx := range vpcConnections.VpcPeeringConnections {
 		if pcx.VpcStatus.Code == "active" {
 			//state = "active"
-			clusterInfo.pcxTidb2Aurora = pcx.VpcPeeringConnectionId
+			//			clusterInfo.pcxTidb2Aurora = pcx.VpcPeeringConnectionId
 		}
 	}
 
@@ -218,7 +218,7 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 		for _, dbSubnetGroup := range dbSubnetGroups.DBSubnetGroups {
 			fmt.Printf("The object is <%#v> \n\n\n", dbSubnetGroup)
 
-			existsResource := ExistsResource(clusterType, clusterName, dbSubnetGroup.DBSubnetGroupArn, local, ctx)
+			existsResource := ExistsResource(clusterType, subClusterType, clusterName, dbSubnetGroup.DBSubnetGroupArn, local, ctx)
 			if existsResource == true {
 				c.ArnComponents = append(c.ArnComponents, ARNComponent{
 					"DB Subnet",
@@ -254,7 +254,7 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 			return nil
 		}
 		for _, dbClusterParameterGroup := range dbClusterParameterGroups.DBClusterParameterGroups {
-			existsResource := ExistsResource(clusterType, clusterName, dbClusterParameterGroup.DBClusterParameterGroupArn, local, ctx)
+			existsResource := ExistsResource(clusterType, subClusterType, clusterName, dbClusterParameterGroup.DBClusterParameterGroupArn, local, ctx)
 			if existsResource == true {
 				c.ArnComponents = append(c.ArnComponents, ARNComponent{
 					"DB Cluster Parameter Group",
@@ -291,7 +291,7 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", dbParameterGroups)
 		for _, dbParameterGroup := range dbParameterGroups.DBParameterGroups {
-			existsResource := ExistsResource(clusterType, clusterName, dbParameterGroup.DBParameterGroupArn, local, ctx)
+			existsResource := ExistsResource(clusterType, subClusterType, clusterName, dbParameterGroup.DBParameterGroupArn, local, ctx)
 			if existsResource == true {
 				c.ArnComponents = append(c.ArnComponents, ARNComponent{
 					"DB Parameter Group",
@@ -329,7 +329,7 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 		}
 		//		fmt.Printf("The db cluster is <%#v> \n\n\n", dbClusters)
 		for _, dbCluster := range dbClusters.DBClusters {
-			existsResource := ExistsResource(clusterType, clusterName, dbCluster.DBClusterArn, local, ctx)
+			existsResource := ExistsResource(clusterType, subClusterType, clusterName, dbCluster.DBClusterArn, local, ctx)
 			if existsResource == true {
 				c.ArnComponents = append(c.ArnComponents, ARNComponent{
 					"DB Cluster",
@@ -362,7 +362,7 @@ func (c *ListAurora) Execute(ctx context.Context, clusterName, clusterType strin
 			return err
 		}
 		for _, instance := range dbInstances.DBInstances {
-			existsResource := ExistsResource(clusterType, clusterName, instance.DBInstanceArn, local, ctx)
+			existsResource := ExistsResource(clusterType, subClusterType, clusterName, instance.DBInstanceArn, local, ctx)
 			if existsResource == true {
 				c.ArnComponents = append(c.ArnComponents, ARNComponent{
 					"DB Instance",

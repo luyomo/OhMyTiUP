@@ -22,12 +22,12 @@ import (
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws/clusterutil"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
 	"go.uber.org/zap"
 	"strings"
@@ -224,20 +224,21 @@ func (m *Manager) Deploy(
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
 			clusterType := "tisample-tidb"
+			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
+				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
+				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
+				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
+				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
+				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

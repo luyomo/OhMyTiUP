@@ -47,10 +47,12 @@ type CDCTask struct {
 }
 
 type MakeDBObjects struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 var DBNAME string

@@ -212,24 +212,25 @@ func (m *Manager) TiDB2AuroraDeploy(
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
 			clusterType := "tisample-tidb2aurora"
+			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).
+				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

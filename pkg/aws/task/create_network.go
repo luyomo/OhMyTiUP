@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/aws/spec"
 	"go.uber.org/zap"
 	"strconv"
 	"strings"
@@ -71,9 +70,10 @@ func (r SubnetResult) String() string {
 type CreateNetwork struct {
 	user           string
 	host           string
-	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -88,15 +88,15 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	zap.L().Debug("Public Route Table ID", zap.String("publicRouteTableId", clusterInfo.publicRouteTableId))
-	zap.L().Debug("Private Route Table ID", zap.String("privateRouteTableId", clusterInfo.privateRouteTableId))
+	zap.L().Debug("Public Route Table ID", zap.String("publicRouteTableId", c.clusterInfo.publicRouteTableId))
+	zap.L().Debug("Private Route Table ID", zap.String("privateRouteTableId", c.clusterInfo.privateRouteTableId))
 
 	c.createPrivateSubnets(local, ctx, zones)
 
 	c.createPublicSubnets(local, ctx, zones)
 
-	zap.L().Debug("Public Route Table ID", zap.String("privateSubnets", strings.Join(clusterInfo.privateSubnets, ",")))
-	zap.L().Debug("Private Route Table ID", zap.String("privateSubnets", strings.Join(clusterInfo.privateSubnets, ",")))
+	zap.L().Debug("Public Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
+	zap.L().Debug("Private Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
 
 	return nil
 }
@@ -144,7 +144,7 @@ func getAvailableZones(executor ctxt.Executor, ctx context.Context) (Availabilit
 
 func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context.Context, zones AvailabilityZones) error {
 	// Get the subnets
-	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -161,8 +161,8 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 		for idxNet, subnet := range subnets.Subnets {
 			if zone.ZoneName == subnet.AvailabilityZone {
 				zap.L().Info("avaiabilityZone", zap.Int("idxNet", idxNet), zap.String("availability zone", subnet.AvailabilityZone))
-				clusterInfo.privateSubnets = append(clusterInfo.privateSubnets, subnet.SubnetId)
-				associateSubnet2RouteTable(subnet.SubnetId, clusterInfo.privateRouteTableId, executor, ctx)
+				c.clusterInfo.privateSubnets = append(c.clusterInfo.privateSubnets, subnet.SubnetId)
+				associateSubnet2RouteTable(subnet.SubnetId, c.clusterInfo.privateRouteTableId, executor, ctx)
 				subnetExists = true
 			}
 		}
@@ -170,7 +170,7 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 			continue
 		}
 
-		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, idx+1), clusterInfo.vpcInfo.VpcId, zone.ZoneName, c.clusterName, c.clusterType)
+		command := fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", getNextCidr(c.clusterInfo.vpcInfo.CidrBlock, idx+1), c.clusterInfo.vpcInfo.VpcId, zone.ZoneName, c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("create-subnets", command))
 
 		stdout, _, err := executor.Execute(ctx, command, false)
@@ -184,8 +184,8 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 			return nil
 		}
 		zap.L().Debug("Generated the subnet info", zap.String("State", newSubnet.Subnet.State), zap.String("Cidr Block", newSubnet.Subnet.CidrBlock))
-		associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, clusterInfo.privateRouteTableId, executor, ctx)
-		clusterInfo.privateSubnets = append(clusterInfo.privateSubnets, newSubnet.Subnet.SubnetId)
+		associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, c.clusterInfo.privateRouteTableId, executor, ctx)
+		c.clusterInfo.privateSubnets = append(c.clusterInfo.privateSubnets, newSubnet.Subnet.SubnetId)
 	}
 
 	return nil
@@ -193,7 +193,7 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 
 func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.Context, zones AvailabilityZones) error {
 	// Get the subnets
-	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -206,12 +206,12 @@ func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.
 	}
 
 	if len(subnets.Subnets) > 0 {
-		clusterInfo.publicSubnet = subnets.Subnets[0].SubnetId
-		zap.L().Debug("Public subnets ", zap.String("subnet", clusterInfo.publicSubnet))
+		c.clusterInfo.publicSubnet = subnets.Subnets[0].SubnetId
+		zap.L().Debug("Public subnets ", zap.String("subnet", c.clusterInfo.publicSubnet))
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", getNextCidr(clusterInfo.vpcInfo.CidrBlock, 10+1), clusterInfo.vpcInfo.VpcId, zones.Zones[0].ZoneName, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", getNextCidr(c.clusterInfo.vpcInfo.CidrBlock, 10+1), c.clusterInfo.vpcInfo.VpcId, zones.Zones[0].ZoneName, c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("create-subnet", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -223,8 +223,8 @@ func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.
 		return nil
 	}
 	zap.L().Debug("Generated the subnet info", zap.String("State", newSubnet.Subnet.State), zap.String("Cidr Block", newSubnet.Subnet.CidrBlock))
-	associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, clusterInfo.publicRouteTableId, executor, ctx)
-	clusterInfo.publicSubnet = newSubnet.Subnet.SubnetId
+	associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, c.clusterInfo.publicRouteTableId, executor, ctx)
+	c.clusterInfo.publicSubnet = newSubnet.Subnet.SubnetId
 
 	return nil
 }

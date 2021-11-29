@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 )
 
@@ -29,6 +29,8 @@ type CreateTiKVNodes struct {
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -44,7 +46,7 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 	}
 
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=tikv\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=tikv\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
 		return nil
@@ -62,7 +64,7 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 	}
 
 	for _idx := 0; _idx < c.awsTopoConfigs.TiKV.Count-existsNodes; _idx++ {
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tikv}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiKV.InstanceType, c.awsTopoConfigs.General.KeyName, clusterInfo.privateSecurityGroupId, clusterInfo.privateSubnets[_idx%len(clusterInfo.privateSubnets)], c.awsTopoConfigs.General.Region, c.clusterName, c.clusterType)
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tikv}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiKV.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.awsTopoConfigs.General.Region, c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = local.Execute(ctx, command, false)
 		if err != nil {

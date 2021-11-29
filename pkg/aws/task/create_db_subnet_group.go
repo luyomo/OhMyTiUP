@@ -43,10 +43,12 @@ type TagList struct {
 }
 
 type CreateDBSubnetGroup struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -74,7 +76,7 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 		}
 
 		for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
-			existsResource := ExistsResource(c.clusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, local, ctx)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, local, ctx)
 			if existsResource == true {
 				return nil
 			}
@@ -82,10 +84,10 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 	}
 
 	var subnets []string
-	for _, subnet := range clusterInfo.privateSubnets {
+	for _, subnet := range c.clusterInfo.privateSubnets {
 		subnets = append(subnets, "\""+subnet+"\"")
 	}
-	command = fmt.Sprintf("aws rds create-db-subnet-group --db-subnet-group-name %s --db-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws rds create-db-subnet-group --db-subnet-group-name %s --db-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
@@ -118,7 +120,7 @@ func groupExists(groupName string, subnetGroups []DBSubnetGroup) bool {
 	return false
 }
 
-func ExistsResource(clusterType, clusterName, resourceName string, executor ctxt.Executor, ctx context.Context) bool {
+func ExistsResource(clusterType, subClusterType, clusterName, resourceName string, executor ctxt.Executor, ctx context.Context) bool {
 	command := fmt.Sprintf("aws rds list-tags-for-resource --resource-name %s ", resourceName)
 	stdout, stderr, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -135,13 +137,16 @@ func ExistsResource(clusterType, clusterName, resourceName string, executor ctxt
 	}
 	matchedCnt := 0
 	for _, tag := range tagList.TagList {
-		if tag.Key == "Type" && tag.Value == clusterType {
+		if tag.Key == "Cluster" && tag.Value == clusterType {
+			matchedCnt++
+		}
+		if tag.Key == "Type" && tag.Value == subClusterType {
 			matchedCnt++
 		}
 		if tag.Key == "Name" && tag.Value == clusterName {
 			matchedCnt++
 		}
-		if matchedCnt == 2 {
+		if matchedCnt == 3 {
 			return true
 		}
 	}

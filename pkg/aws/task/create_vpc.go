@@ -18,59 +18,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/aws/spec"
 	"go.uber.org/zap"
-	"strings"
+	//	"strings"
 	"time"
 )
-
-type Vpc struct {
-	CidrBlock string `json:"CidrBlock"`
-	State     string `json:"State"`
-	VpcId     string `json:"VpcId"`
-	OwnerId   string `json:"OwnerId"`
-}
-
-type Vpcs struct {
-	Vpcs []Vpc `json:"Vpcs"`
-}
 
 type CreateVpc struct {
 	user           string
 	host           string
-	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
-
-type ClusterInfo struct {
-	vpcInfo                Vpc
-	privateRouteTableId    string
-	publicRouteTableId     string
-	privateSecurityGroupId string
-	publicSecurityGroupId  string
-	privateSubnets         []string
-	publicSubnet           string
-	pcxTidb2Aurora         string
-}
-
-func (v Vpc) String() string {
-	return fmt.Sprintf("Cidr: %s, State: %s, VpcId: %s, OwnerId: %s", v.CidrBlock, v.State, v.VpcId, v.OwnerId)
-}
-
-func (c ClusterInfo) String() string {
-	return fmt.Sprintf("vpcInfo:[%s], privateRouteTableId:%s, publicRouteTableId:%s, privateSecurityGroupId:%s, publicSecurityGroupId:%s, privateSubnets:%s, publicSubnet:%s, pcxTidb2Aurora:%s", c.vpcInfo.String(), c.privateRouteTableId, c.publicRouteTableId, c.privateSecurityGroupId, c.publicSecurityGroupId, strings.Join(c.privateSubnets, ","), c.publicSubnet, c.pcxTidb2Aurora)
-}
-
-var clusterInfo ClusterInfo
 
 // Execute implements the Task interface
 func (c *CreateVpc) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.clusterName), false)
+	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" ", c.clusterName, c.subClusterType, c.clusterType), false)
 	if err != nil {
-		return nil
+		return err
 	}
 	var vpcs Vpcs
 	if err := json.Unmarshal(stdout, &vpcs); err != nil {
@@ -78,12 +46,12 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 		return nil
 	}
 	if len(vpcs.Vpcs) > 0 {
-		clusterInfo.vpcInfo = vpcs.Vpcs[0]
-		zap.L().Info("The clusterInfo.vpcInfo.vpcId is ", zap.String("VpcInfo", clusterInfo.String()))
+		c.clusterInfo.vpcInfo = vpcs.Vpcs[0]
+		zap.L().Info("The clusterInfo.vpcInfo.vpcId is ", zap.String("VpcInfo", c.clusterInfo.String()))
 		return nil
 	}
 
-	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s}]\"", c.awsTopoConfigs.General.CIDR, c.clusterName, c.clusterType), false)
+	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterInfo.cidr, c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
 		return nil
 	}
@@ -91,7 +59,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 	time.Sleep(5 * time.Second)
 
 	zap.L().Info("Check the data before run describe-vpcs", zap.String("create-vpc", string(stdout)))
-	stdout, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", c.clusterName, c.clusterType), false)
+	stdout, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"  \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
 		return nil
 	}
@@ -99,7 +67,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 		zap.L().Debug("Failed to parse the stdout", zap.String("describe-vpcs", string(stdout)))
 		return nil
 	}
-	clusterInfo.vpcInfo = vpcs.Vpcs[0]
+	c.clusterInfo.vpcInfo = vpcs.Vpcs[0]
 	return nil
 }
 

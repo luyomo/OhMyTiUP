@@ -23,10 +23,11 @@ import (
 
 // Mkdir is used to create directory on the target host
 type DestroyInternetGateway struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
 }
 
 // Execute implements the Task interface
@@ -36,7 +37,7 @@ func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {

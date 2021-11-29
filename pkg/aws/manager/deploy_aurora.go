@@ -20,12 +20,12 @@ import (
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws/clusterutil"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/set"
@@ -212,17 +212,18 @@ func (m *Manager) AuroraDeploy(
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
 			clusterType := "tisample-aurora"
+			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).
+				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

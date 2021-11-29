@@ -21,11 +21,11 @@ import (
 	"encoding/json"
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
@@ -74,9 +74,10 @@ func (m *Manager) meta(name string) (metadata spec.Metadata, err error) {
 	if len(vpcs.Vpcs) == 0 {
 		return nil, perrs.Errorf("Cluster `%s` not exists", name)
 	}
-	if len(vpcs.Vpcs) > 1 {
-		return nil, perrs.Errorf("Duplicate cluster `%s` exists", name)
-	}
+
+	//if len(vpcs.Vpcs) > 1 {
+	//	return nil, perrs.Errorf("Duplicate cluster `%s` exists", name)
+	//}
 
 	//exist, err := m.specManager.Exist(name)
 	//if err != nil {

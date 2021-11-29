@@ -45,10 +45,12 @@ type DBInstances struct {
 }
 
 type CreateDBInstance struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 var auroraConnInfo DBInstanceEndpoint
@@ -78,7 +80,7 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 			return nil
 		}
 		for _, instance := range dbInstances.DBInstances {
-			existsResource := ExistsResource(c.clusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
 			if existsResource == true {
 				auroraConnInfo = instance.Endpoint
 				fmt.Printf("The db instance is+  <%#v> \n\n\n", auroraConnInfo)
@@ -90,7 +92,7 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command = fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-cluster-identifier %s --db-parameter-group-name %s --engine aurora-mysql --engine-version 5.7.12 --db-instance-class db.r5.large --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-cluster-identifier %s --db-parameter-group-name %s --engine aurora-mysql --engine-version 5.7.12 --db-instance-class db.r5.large --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
@@ -128,7 +130,7 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 		if dbInstances.DBInstances[0].DBInstanceStatus == "available" {
 			break
 		}
-		time.Sleep(20 * time.Second)
+		time.Sleep(30 * time.Second)
 	}
 
 	return nil

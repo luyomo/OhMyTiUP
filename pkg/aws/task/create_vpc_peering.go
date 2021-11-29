@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/executor"
 )
 
 type VPCStatus struct {
@@ -47,15 +47,18 @@ type CreateVpcPeering struct {
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	fmt.Printf("The aurora vpc name is <%#v>\n\n\n", c.awsTopoConfigs.Aurora)
+	//fmt.Printf("The aurora vpc name is <%#v>\n\n\n", c.awsTopoConfigs.Aurora)
 
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.awsTopoConfigs.Aurora.Name), false)
+	//	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", c.awsTopoConfigs.Aurora.Name), false)
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", "test"), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -92,15 +95,15 @@ func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 		fmt.Printf("The pcx is <%#v> \n\n\n", pcx)
 		if pcx.VpcStatus.Code == "active" {
 			state = "active"
-			clusterInfo.pcxTidb2Aurora = pcx.VpcPeeringConnectionId
+			c.clusterInfo.pcxTidb2Aurora = pcx.VpcPeeringConnectionId
 		}
 	}
-	fmt.Printf("The vpc state is <%s> and <%s> \n\n\n", state, clusterInfo.pcxTidb2Aurora)
+	fmt.Printf("The vpc state is <%s> and <%s> \n\n\n", state, c.clusterInfo.pcxTidb2Aurora)
 	//	fmt.Printf("The pcx connection from aurora is <%#v>\n\n\n", vpcConnections)
 
 	if state == "" {
 
-		stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc-peering-connection --vpc-id %s --peer-vpc-id  %s --tag-specification \"ResourceType=vpc-peering-connection,Tags=[{Key=Name,Value=%s}]\"", vpcs.Vpcs[0].VpcId, clusterInfo.vpcInfo.VpcId, c.clusterName), false)
+		stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc-peering-connection --vpc-id %s --peer-vpc-id  %s --tag-specification \"ResourceType=vpc-peering-connection,Tags=[{Key=Name,Value=%s}]\"", vpcs.Vpcs[0].VpcId, c.clusterInfo.vpcInfo.VpcId, c.clusterName), false)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n", err)
 			fmt.Printf("----------\n\n")
@@ -114,12 +117,12 @@ func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 			return nil
 		}
 		fmt.Printf("The parsed data is %#v \n\n\n", vpcConnection)
-		clusterInfo.pcxTidb2Aurora = vpcConnection.VpcPeeringConnection.VpcPeeringConnectionId
+		c.clusterInfo.pcxTidb2Aurora = vpcConnection.VpcPeeringConnection.VpcPeeringConnectionId
 
 		time.Sleep(5 * time.Second)
 
 		fmt.Printf("The output from ls is <%s> \n\n\r\r", stdout)
-		stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id %s ", clusterInfo.pcxTidb2Aurora), false)
+		stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id %s ", c.clusterInfo.pcxTidb2Aurora), false)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n", err)
 			fmt.Printf("----------\n\n")
@@ -131,7 +134,7 @@ func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 
 	if state == "pending-acceptance" {
 		fmt.Printf("The output from ls is <%s> \n\n\r\r", stdout)
-		stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id %s ", clusterInfo.pcxTidb2Aurora), false)
+		stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id %s ", c.clusterInfo.pcxTidb2Aurora), false)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n", err)
 			fmt.Printf("----------\n\n")
@@ -142,7 +145,7 @@ func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 	}
 
 	// Add route table for the pcs
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --vpc-peering-connection-id %s", clusterInfo.publicRouteTableId, vpcs.Vpcs[0].CidrBlock, clusterInfo.pcxTidb2Aurora), false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --vpc-peering-connection-id %s", c.clusterInfo.publicRouteTableId, vpcs.Vpcs[0].CidrBlock, c.clusterInfo.pcxTidb2Aurora), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -150,7 +153,7 @@ func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --vpc-peering-connection-id %s", clusterInfo.privateRouteTableId, vpcs.Vpcs[0].CidrBlock, clusterInfo.pcxTidb2Aurora), false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --vpc-peering-connection-id %s", c.clusterInfo.privateRouteTableId, vpcs.Vpcs[0].CidrBlock, c.clusterInfo.pcxTidb2Aurora), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -158,7 +161,8 @@ func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=aurora\"", c.awsTopoConfigs.Aurora.Name), false)
+	//	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=aurora\"", c.awsTopoConfigs.Aurora.Name), false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=aurora\"", "test"), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -173,7 +177,7 @@ func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 	}
 
 	fmt.Printf("*** *** *** The parsed data is \n %#v \n\n\n", routeTables)
-	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --vpc-peering-connection-id %s", routeTables.RouteTables[0].RouteTableId, clusterInfo.vpcInfo.CidrBlock, clusterInfo.pcxTidb2Aurora), false)
+	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --vpc-peering-connection-id %s", routeTables.RouteTables[0].RouteTableId, c.clusterInfo.vpcInfo.CidrBlock, c.clusterInfo.pcxTidb2Aurora), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
