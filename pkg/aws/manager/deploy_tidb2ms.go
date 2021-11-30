@@ -15,7 +15,7 @@ package manager
 
 import (
 	"context"
-	"errors"
+	//	"errors"
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -23,17 +23,17 @@ import (
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
-	"github.com/luyomo/tisample/pkg/crypto"
+	//	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
-	"github.com/luyomo/tisample/pkg/utils"
-	"go.uber.org/zap"
+	//	"github.com/luyomo/tisample/pkg/utils"
+	//	"go.uber.org/zap"
 	"os"
-	"strings"
+	//"strings"
 )
 
 // DeployOptions contains the options for scale out.
@@ -150,99 +150,113 @@ func (m *Manager) TiDB2MSDeploy(
 	)
 
 	// Initialize environment
-	uniqueHosts := make(map[string]hostInfo) // host -> ssh-port, os, arch
-	noAgentHosts := set.NewStringSet()
+	//	uniqueHosts := make(map[string]hostInfo) // host -> ssh-port, os, arch
+	//	noAgentHosts := set.NewStringSet()
 	globalOptions := base.GlobalOptions
 
-	// generate CA and client cert for TLS enabled cluster
-	var ca *crypto.CertificateAuthority
-	if globalOptions.TLSEnabled {
-		// generate CA
-		tlsPath := m.specManager.Path(name, spec.TLSCertKeyDir)
-		if err := utils.CreateDir(tlsPath); err != nil {
-			return err
-		}
-		ca, err = genAndSaveClusterCA(name, tlsPath)
-		if err != nil {
-			return err
-		}
+	clusterType := "tisample-tidb2ms"
+	var clusterInfo, auroraInfo task.ClusterInfo
+	t1 := task.NewBuilder().
+		CreateTiDBCluster(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
+	envInitTasks = append(envInitTasks, t1)
 
-		// generate client cert
-		if err = genAndSaveClientCert(ca, name, tlsPath); err != nil {
-			return err
-		}
-	}
+	t2 := task.NewBuilder().
+		CreateAurora(globalOptions.User, "127.0.0.1", name, clusterType, "aurora", base.AwsAuroraConfigs, &auroraInfo).
+		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
+	envInitTasks = append(envInitTasks, t2)
 
-	var iterErr error // error when itering over instances
-	iterErr = nil
-	topo.IterInstance(func(inst spec.Instance) {
-		if _, found := uniqueHosts[inst.GetHost()]; !found {
-			// check for "imported" parameter, it can not be true when deploying and scaling out
-			// only for tidb now, need to support dm
-			if inst.IsImported() && m.sysName == "tidb" {
-				iterErr = errors.New(
-					"'imported' is set to 'true' for new instance, this is only used " +
-						"for instances imported from tidb-ansible and make no sense when " +
-						"deploying new instances, please delete the line or set it to 'false' for new instances")
-				return // skip the host to avoid issues
+	/*
+		// generate CA and client cert for TLS enabled cluster
+		var ca *crypto.CertificateAuthority
+		if globalOptions.TLSEnabled {
+			// generate CA
+			tlsPath := m.specManager.Path(name, spec.TLSCertKeyDir)
+			if err := utils.CreateDir(tlsPath); err != nil {
+				return err
+			}
+			ca, err = genAndSaveClusterCA(name, tlsPath)
+			if err != nil {
+				return err
 			}
 
-			// add the instance to ignore list if it marks itself as ignore_exporter
-			if inst.IgnoreMonitorAgent() {
-				noAgentHosts.Insert(inst.GetHost())
+			// generate client cert
+			if err = genAndSaveClientCert(ca, name, tlsPath); err != nil {
+				return err
 			}
+		}
 
-			uniqueHosts[inst.GetHost()] = hostInfo{
-				ssh:  inst.GetSSHPort(),
-				os:   inst.OS(),
-				arch: inst.Arch(),
-			}
-			var dirs []string
-			for _, dir := range []string{globalOptions.DeployDir, globalOptions.LogDir} {
-				if dir == "" {
-					continue
+		var iterErr error // error when itering over instances
+		iterErr = nil
+		topo.IterInstance(func(inst spec.Instance) {
+			if _, found := uniqueHosts[inst.GetHost()]; !found {
+				// check for "imported" parameter, it can not be true when deploying and scaling out
+				// only for tidb now, need to support dm
+				if inst.IsImported() && m.sysName == "tidb" {
+					iterErr = errors.New(
+						"'imported' is set to 'true' for new instance, this is only used " +
+							"for instances imported from tidb-ansible and make no sense when " +
+							"deploying new instances, please delete the line or set it to 'false' for new instances")
+					return // skip the host to avoid issues
 				}
-				dirs = append(dirs, spec.Abs(globalOptions.User, dir))
-			}
-			// the default, relative path of data dir is under deploy dir
-			if strings.HasPrefix(globalOptions.DataDir, "/") {
-				dirs = append(dirs, globalOptions.DataDir)
-			}
-			fmt.Printf("---------------------------\n")
-			zap.L().Debug("This is the test message")
-			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
-			fmt.Printf("The data is <%#v>\n\n\n", base.AwsAuroraConfigs)
-			clusterType := "tisample-tidb2ms"
-			var clusterInfo task.ClusterInfo
-			t := task.NewBuilder().
-				//CreateBasicResource(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs).
-				//				CreateTiDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateAurora(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", base.AwsAuroraConfigs, &clusterInfo).
-				//	CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType).
-				//CreateMS(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-				//CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				//CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
-				//CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				//CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).
-				//DeployTiDBInstance(globalOptions.User, inst.GetHost(), name, clusterType). // Deploy the tidb cluster
-				//MakeDBObjects(globalOptions.User, inst.GetHost(), name, clusterType).      // - Prepare DB objects
-				//DeployTiCDC(globalOptions.User, inst.GetHost(), name, clusterType).        // - Set the TiCDC for data sync between TiDB and Aurora
-				//CreateDMSSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-				//CreateDMSSourceEndpoint(globalOptions.User, inst.GetHost(), name, clusterType). // - Deploy the subnets for DMS
-				//CreateDMSTargetEndpoint(globalOptions.User, inst.GetHost(), name, clusterType). // - Deploy the TiDB endpoint
-				//CreateDMSInstance(globalOptions.User, inst.GetHost(), name, clusterType).       // - Deploy the TiDB endpoint
-				//CreateDMSTask(globalOptions.User, inst.GetHost(), name, clusterType).           // - Deploy the TiDB endpoint
-				// - Deploy the Aurora endpoint
-				// - Deploy DMS instance
-				// - Deploy DMS task for data sync
-				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
-			envInitTasks = append(envInitTasks, t)
-		}
-	})
 
-	if iterErr != nil {
-		return iterErr
-	}
+				// add the instance to ignore list if it marks itself as ignore_exporter
+				if inst.IgnoreMonitorAgent() {
+					noAgentHosts.Insert(inst.GetHost())
+				}
+
+				uniqueHosts[inst.GetHost()] = hostInfo{
+					ssh:  inst.GetSSHPort(),
+					os:   inst.OS(),
+					arch: inst.Arch(),
+				}
+				var dirs []string
+				for _, dir := range []string{globalOptions.DeployDir, globalOptions.LogDir} {
+					if dir == "" {
+						continue
+					}
+					dirs = append(dirs, spec.Abs(globalOptions.User, dir))
+				}
+				// the default, relative path of data dir is under deploy dir
+				if strings.HasPrefix(globalOptions.DataDir, "/") {
+					dirs = append(dirs, globalOptions.DataDir)
+				}
+				fmt.Printf("---------------------------\n")
+				zap.L().Debug("This is the test message")
+				fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
+				fmt.Printf("The data is <%#v>\n\n\n", base.AwsAuroraConfigs)
+				clusterType := "tisample-tidb2ms"
+				var clusterInfo, auroraInfo task.ClusterInfo
+				t := task.NewBuilder().
+					//CreateBasicResource(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs).
+					CreateTiDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+					CreateAurora(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", base.AwsAuroraConfigs, &auroraInfo).
+					//	CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType).
+					//CreateMS(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
+					//CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
+					//CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
+					//CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
+					//CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).
+					//DeployTiDBInstance(globalOptions.User, inst.GetHost(), name, clusterType). // Deploy the tidb cluster
+					//MakeDBObjects(globalOptions.User, inst.GetHost(), name, clusterType).      // - Prepare DB objects
+					//DeployTiCDC(globalOptions.User, inst.GetHost(), name, clusterType).        // - Set the TiCDC for data sync between TiDB and Aurora
+					//CreateDMSSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType).
+					//CreateDMSSourceEndpoint(globalOptions.User, inst.GetHost(), name, clusterType). // - Deploy the subnets for DMS
+					//CreateDMSTargetEndpoint(globalOptions.User, inst.GetHost(), name, clusterType). // - Deploy the TiDB endpoint
+					//CreateDMSInstance(globalOptions.User, inst.GetHost(), name, clusterType).       // - Deploy the TiDB endpoint
+					//CreateDMSTask(globalOptions.User, inst.GetHost(), name, clusterType).           // - Deploy the TiDB endpoint
+					// - Deploy the Aurora endpoint
+					// - Deploy DMS instance
+					// - Deploy DMS task for data sync
+					BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
+				envInitTasks = append(envInitTasks, t)
+			}
+		})
+
+		if iterErr != nil {
+			return iterErr
+		}
+	*/
 
 	builder := task.NewBuilder().
 		//Step("+ Generate SSH keys",

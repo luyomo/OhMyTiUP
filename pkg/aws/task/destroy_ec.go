@@ -70,7 +70,7 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 	for idx := 0; idx < 50; idx++ {
 
 		time.Sleep(5 * time.Second)
-		command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+		command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("describe-instances", command))
 		stdout, _, err = local.Execute(ctx, command, false)
 		if err != nil {
