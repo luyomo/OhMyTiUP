@@ -56,7 +56,7 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
 			if existsResource == true {
 				DMSInfo.SourceEndpointArn = endpoint.EndpointArn
 				fmt.Printf("The dms source has exists \n\n\n")
@@ -65,7 +65,15 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-source --endpoint-type source --engine-name aurora --server-name testtisample.ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com --port 3306 --username master --password 1234Abcd --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterType)
+	var dbInstance DBInstance
+	err = getRDBInstance(local, ctx, c.clusterName, c.clusterType, "aurora", &dbInstance)
+	if err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
+		return err
+	}
+	fmt.Printf("The dn instance is <%#v> \n\n\n", dbInstance)
+
+	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-source --endpoint-type source --engine-name aurora --server-name %s --port %d --username %s --password %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {

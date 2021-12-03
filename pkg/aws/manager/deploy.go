@@ -237,7 +237,7 @@ func (m *Manager) Deploy(
 				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				//CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)

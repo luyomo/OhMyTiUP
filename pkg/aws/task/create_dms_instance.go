@@ -53,7 +53,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
 		for _, replicationInstance := range replicationInstances.ReplicationInstances {
-			existsResource := ExistsDMSResource(c.clusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
 			if existsResource == true {
 				DMSInfo.ReplicationInstanceArn = replicationInstance.ReplicationInstanceArn
 				fmt.Printf("The replication instance  has exists \n\n\n")
@@ -62,7 +62,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws dms create-replication-instance --replication-instance-identifier %s --replication-instance-class %s --engine-version %s --replication-subnet-group-identifier %s --no-multi-az --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, "dms.t3.medium", "3.4.6", c.clusterName, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws dms create-replication-instance --replication-instance-identifier %s --replication-instance-class %s --engine-version %s --replication-subnet-group-identifier %s --no-multi-az --no-publicly-accessible --replication-subnet-group-identifier %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, "dms.t3.medium", "3.4.6", c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
@@ -94,7 +94,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 			}
 			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
 			for _, replicationInstance := range replicationInstances.ReplicationInstances {
-				existsResource := ExistsDMSResource(c.clusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
+				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
 				if existsResource == true {
 					if replicationInstance.ReplicationInstanceStatus == "available" {
 						return nil

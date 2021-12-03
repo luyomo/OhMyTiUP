@@ -15,7 +15,7 @@ package task
 
 import (
 	"context"
-	"encoding/json"
+	//	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/executor"
@@ -38,29 +38,21 @@ func (c *CreateMS) Execute(ctx context.Context) error {
 	if err != nil {
 		return nil
 	}
-	fmt.Printf(" *** *** *** Running inside the create sql server \n\n\n")
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=sqlserver\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType)
-	zap.L().Debug("Command", zap.String("describe-instances", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+
+	cnt, err := instancesExist(local, ctx, c.clusterName, c.clusterType, c.subClusterType)
+	fmt.Printf("The count of ec2 instances are <%d> \n\n\n", cnt)
+	fmt.Printf("The error of ec2 instances are <%#v> \n\n\n", err)
 	if err != nil {
+		return err
+	}
+	if cnt > 0 {
 		return nil
 	}
 
-	var reservations Reservations
-	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return nil
-	}
-	for _, reservation := range reservations.Reservations {
-		for _, _ = range reservation.Instances {
-			return nil
-		}
-	}
-
-	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=sqlserver}]\"", "ami-01d445a80199e19cc", c.awsTopoConfigs.General.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[0], c.awsTopoConfigs.General.Region, c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=sqlserver}]\"", "ami-01d445a80199e19cc", c.clusterInfo.instanceType, c.clusterInfo.keyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[0], c.clusterInfo.region, c.clusterName, c.clusterType, c.subClusterType)
 
 	zap.L().Debug("Command", zap.String("run-instances", command))
-	stdout, _, err = local.Execute(ctx, command, false)
+	_, _, err = local.Execute(ctx, command, false)
 	if err != nil {
 		return nil
 	}

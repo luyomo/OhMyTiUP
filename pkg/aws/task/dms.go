@@ -54,14 +54,13 @@ type ReplicationInstanceRecord struct {
 }
 
 type DMSSubnetGroup struct {
-	DMSSubnetGroupName string `json:"DMSSubnetGroupName"`
-	VpcId              string `json:"VpcId"`
-	SubnetGroupStatus  string `json:"SubnetGroupStatus"`
-	DMSSubnetGroupArn  string `json:"DMSSubnetGroupArn"`
+	ReplicationSubnetGroupIdentifier string `json:"ReplicationSubnetGroupIdentifier"`
+	VpcId                            string `json:"VpcId"`
+	SubnetGroupStatus                string `json:"SubnetGroupStatus"`
 }
 
 type DMSSubnetGroups struct {
-	DMSSubnetGroups []DMSSubnetGroup `json:"DMSSubnetGroups"`
+	DMSSubnetGroups []DMSSubnetGroup `json:"ReplicationSubnetGroups"`
 }
 
 type ReplicationTask struct {
@@ -88,7 +87,7 @@ var DMSInfo struct {
 	ReplicationInstanceArn string
 }
 
-func ExistsDMSResource(clusterType, clusterName, resourceName string, executor ctxt.Executor, ctx context.Context) bool {
+func ExistsDMSResource(clusterType, subClusterType, clusterName, resourceName string, executor ctxt.Executor, ctx context.Context) bool {
 	command := fmt.Sprintf("aws dms list-tags-for-resource --resource-arn %s ", resourceName)
 	stdout, stderr, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -105,13 +104,16 @@ func ExistsDMSResource(clusterType, clusterName, resourceName string, executor c
 	}
 	matchedCnt := 0
 	for _, tag := range tagList.TagList {
-		if tag.Key == "Type" && tag.Value == clusterType {
+		if tag.Key == "Cluster" && tag.Value == clusterType {
+			matchedCnt++
+		}
+		if tag.Key == "Type" && tag.Value == subClusterType {
 			matchedCnt++
 		}
 		if tag.Key == "Name" && tag.Value == clusterName {
 			matchedCnt++
 		}
-		if matchedCnt == 2 {
+		if matchedCnt == 3 {
 			return true
 		}
 	}

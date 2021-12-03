@@ -14,10 +14,13 @@
 package task
 
 import (
-	//	"context"
+	"context"
 	//	"encoding/json"
+	"encoding/json"
+	"errors"
 	"fmt"
-	//	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"go.uber.org/zap"
 	"strings"
 	//	"github.com/luyomo/tisample/pkg/executor"
 	//	"strings"
@@ -37,6 +40,8 @@ type Vpcs struct {
 type ClusterInfo struct {
 	cidr                   string
 	region                 string
+	keyName                string
+	instanceType           string
 	vpcInfo                Vpc
 	privateRouteTableId    string
 	publicRouteTableId     string
@@ -134,4 +139,60 @@ func (i InternetGateways) String() string {
 
 func (i NewInternetGateway) String() string {
 	return i.InternetGateway.String()
+}
+
+type VPCStatus struct {
+	Code    string `json:"Code"`
+	Message string `json:"Message"`
+}
+
+type VpcPeer struct {
+	VpcPeeringConnectionId string    `json:"VpcPeeringConnectionId"`
+	VpcStatus              VPCStatus `json:"Status"`
+}
+
+type VpcConnection struct {
+	VpcPeeringConnection VpcPeer `json:"VpcPeeringConnection"`
+}
+
+type VpcConnections struct {
+	VpcPeeringConnections []VpcPeer `json:"VpcPeeringConnections"`
+}
+
+type ResourceTag struct {
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	port           []int
+}
+
+type CreateVpcPeering struct {
+	user      string
+	host      string
+	sourceVPC ResourceTag
+	targetVPC ResourceTag
+}
+
+func getVPCInfo(executor ctxt.Executor, ctx context.Context, vpc ResourceTag, vpcInfo *Vpc) error {
+	fmt.Printf("Coming here to search for the vpc \n\n\n")
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\"", vpc.clusterName, vpc.clusterType, vpc.subClusterType), false)
+	if err != nil {
+		return err
+	}
+
+	var vpcs Vpcs
+	if err := json.Unmarshal(stdout, &vpcs); err != nil {
+		zap.L().Debug("The error to parse the string ", zap.Error(err))
+		return err
+	}
+	if len(vpcs.Vpcs) > 1 {
+		return errors.New("Multiple VPC found")
+	}
+
+	if len(vpcs.Vpcs) == 0 {
+		return errors.New("No VPC found")
+	}
+	*vpcInfo = vpcs.Vpcs[0]
+
+	return nil
 }

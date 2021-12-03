@@ -24,26 +24,6 @@ import (
 	"time"
 )
 
-type DBInstanceEndpoint struct {
-	Address string `json:"Address"`
-	Port    int    `json:"Port"`
-}
-
-type DBInstance struct {
-	DBInstanceIdentifier string             `json:"DBInstanceIdentifier"`
-	DBInstanceStatus     string             `json:"DBInstanceStatus"`
-	DBInstanceArn        string             `json:"DBInstanceArn"`
-	Endpoint             DBInstanceEndpoint `json:"Endpoint"`
-}
-
-type NewDBInstance struct {
-	DBInstance DBInstance `json:"DBInstance"`
-}
-
-type DBInstances struct {
-	DBInstances []DBInstance `json:"DBInstances"`
-}
-
 type CreateDBInstance struct {
 	user           string
 	host           string
@@ -52,8 +32,6 @@ type CreateDBInstance struct {
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
-
-var auroraConnInfo DBInstanceEndpoint
 
 // Execute implements the Task interface
 func (c *CreateDBInstance) Execute(ctx context.Context) error {

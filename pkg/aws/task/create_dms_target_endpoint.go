@@ -16,6 +16,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	//"github.com/luyomo/tisample/pkg/aws/spec"
 	//	"github.com/luyomo/tisample/pkg/ctxt"
@@ -57,7 +58,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
 			if existsResource == true {
 				DMSInfo.TargetEndpointArn = endpoint.EndpointArn
 				fmt.Printf("The dms target has exists \n\n\n")
@@ -66,7 +67,17 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port 1433 --username sa --password 1234@Abcd --database-name cdc_test --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, SqlServerHost, c.clusterName, c.clusterType)
+	var ec2Instances []EC2
+	err = getEC2Instances(local, ctx, c.clusterName, c.clusterType, "sqlserver", &ec2Instances)
+	if err != nil {
+		return err
+	}
+	if len(ec2Instances) == 0 {
+		return errors.New("No sql server instance")
+	}
+	fmt.Printf("The sqlser host for the tartget endpoint <%#v> \n\n\n", ec2Instances)
+
+	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port 1433 --username sa --password 1234@Abcd --database-name cdc_test --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, ec2Instances[0].PrivateIpAddress, c.clusterName, c.clusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {

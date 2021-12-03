@@ -638,15 +638,12 @@ func (b *Builder) DeployTiDB(user, host, clusterName, clusterType, subClusterTyp
 	return b
 }
 
-func (b *Builder) CreateVpcPeering(user, host, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateVpcPeering(user, host string, sourceVPC, targetVPC ResourceTag) *Builder {
 	b.tasks = append(b.tasks, &CreateVpcPeering{
-		user:           user,
-		host:           host,
-		awsTopoConfigs: awsTopoConfigs,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
+		user:      user,
+		host:      host,
+		sourceVPC: sourceVPC,
+		targetVPC: targetVPC,
 	})
 	return b
 }
@@ -843,11 +840,10 @@ func (b *Builder) DestroyDBSubnetGroup(user, host, clusterName, clusterType, sub
 	return b
 }
 
-func (b *Builder) CreateMS(user, host, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateMS(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateMS{
 		user:           user,
 		host:           host,
-		awsTopoConfigs: awsTopoConfigs,
 		clusterName:    clusterName,
 		clusterType:    clusterType,
 		subClusterType: subClusterType,
@@ -1001,7 +997,7 @@ func (b *Builder) DestroyBasicResource(user, host, clusterName, clusterType, sub
 }
 
 func (b *Builder) DestroyTiDBCluster(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	fmt.Printf("************ Coming here for the \n\n\n")
+
 	b.DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).
 		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType, clusterInfo)
 
@@ -1015,6 +1011,54 @@ func (b *Builder) DestroyAurora(user, host, clusterName, clusterType, subCluster
 		DestroyDBClusterParameterGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
 		DestroyDBSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
 		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType, clusterInfo)
+
+	return b
+}
+
+func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClusterType string, awsMSConfigs *spec.AwsMSConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsMSConfigs.CIDR
+	clusterInfo.region = awsMSConfigs.Region
+	clusterInfo.keyName = awsMSConfigs.KeyName
+	clusterInfo.instanceType = awsMSConfigs.InstanceType
+
+	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+		CreateMS(user, host, clusterName, clusterType, subClusterType, clusterInfo)
+
+	return b
+}
+
+func (b *Builder) DestroySqlServer(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).
+		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType, clusterInfo)
+
+	return b
+}
+
+func (b *Builder) CreateDMSService(user, host, clusterName, clusterType, subClusterType string, awsDMSConfigs *spec.AwsDMSConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsDMSConfigs.CIDR
+	clusterInfo.region = awsDMSConfigs.Region
+	clusterInfo.instanceType = awsDMSConfigs.InstanceType
+	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+		CreateDMSSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+		CreateDMSInstance(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+		CreateDMSSourceEndpoint(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+		CreateDMSTargetEndpoint(user, host, clusterName, clusterType, subClusterType, clusterInfo)
+
+	return b
+}
+
+func (b *Builder) EstablishVPCPeering(user, host string) *Builder {
+	var sourceVPC, targetVPC ResourceTag
+	sourceVPC.clusterName = "testtisample"
+	sourceVPC.clusterType = "tisample-tidb2ms"
+	sourceVPC.subClusterType = "dmsservice"
+
+	targetVPC.clusterName = "testtisample"
+	targetVPC.clusterType = "tisample-tidb2ms"
+	targetVPC.subClusterType = "aurora"
+	targetVPC.port = append(targetVPC.port, 3306)
+
+	b.CreateVpcPeering(user, host, sourceVPC, targetVPC)
 
 	return b
 }

@@ -45,7 +45,7 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 	var destroyTasks []*task.StepDisplay
 	clusterType := "tisample-tidb2ms"
 
-	var clusterInfo, auroraInfo task.ClusterInfo
+	var clusterInfo, auroraInfo, msInfo task.ClusterInfo
 	t1 := task.NewBuilder().
 		DestroyTiDBCluster(utils.CurrentUser(), "127.0.0.1", name, clusterType, "tidb", &clusterInfo).
 		//DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
@@ -81,6 +81,12 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t2)
+
+	t3 := task.NewBuilder().
+		DestroySqlServer(utils.CurrentUser(), "127.0.0.1", name, clusterType, "sqlserver", &msInfo).
+		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
+
+	destroyTasks = append(destroyTasks, t3)
 
 	builder := task.NewBuilder().
 		ParallelStep("+ Initialize target host environments", false, destroyTasks...)

@@ -55,7 +55,7 @@ func (c *CreateDMSTask) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationTasks)
 		for _, replicationTask := range replicationTasks.ReplicationTasks {
-			existsResource := ExistsDMSResource(c.clusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
 			if existsResource == true {
 				fmt.Printf("The replication instance  has exists \n\n\n")
 				return nil
@@ -100,7 +100,7 @@ func (c *CreateDMSTask) Execute(ctx context.Context) error {
 			}
 			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationTasks)
 			for _, replicationTask := range replicationTasks.ReplicationTasks {
-				existsResource := ExistsDMSResource(c.clusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
+				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
 				if existsResource == true {
 					if replicationTask.Status == "ready" {
 						fmt.Printf("The task becomes ready \n\n\n")

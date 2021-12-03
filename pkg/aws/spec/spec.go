@@ -139,6 +139,19 @@ type (
 		Region       string `yaml:"region,omitempty"`
 	}
 
+	AwsMSConfigs struct {
+		CIDR         string `yaml:"cidr"`
+		InstanceType string `yaml:"instance_type"`
+		KeyName      string `yaml:"keyname"`
+		Region       string `yaml:"region"`
+	}
+
+	AwsDMSConfigs struct {
+		CIDR         string `yaml:"cidr"`
+		InstanceType string `yaml:"instance_type"`
+		Region       string `yaml:"region"`
+	}
+
 	// Specification represents the specification of topology.yaml
 	Specification struct {
 		GlobalOptions    GlobalOptions        `yaml:"global,omitempty" validate:"global:editable"`
@@ -146,6 +159,8 @@ type (
 		ServerConfigs    ServerConfigs        `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
 		AwsTopoConfigs   AwsTopoConfigs       `yaml:"aws_topo_configs,omitempty"`
 		AwsAuroraConfigs AwsAuroraConfigs     `yaml:"aurora,omitempty"`
+		AwsMSConfigs     AwsMSConfigs         `yaml:"sqlserver,omitempty"`
+		AwsDMSConfigs    AwsDMSConfigs        `yaml:"dms,omitempty"`
 		TiDBServers      []*TiDBSpec          `yaml:"tidb_servers"`
 		TiKVServers      []*TiKVSpec          `yaml:"tikv_servers"`
 		TiFlashServers   []*TiFlashSpec       `yaml:"tiflash_servers"`
@@ -168,6 +183,8 @@ type BaseTopo struct {
 	MonitoredOptions *MonitoredOptions
 	AwsTopoConfigs   *AwsTopoConfigs
 	AwsAuroraConfigs *AwsAuroraConfigs
+	AwsMSConfigs     *AwsMSConfigs
+	AwsDMSConfigs    *AwsDMSConfigs
 	MasterList       []string
 
 	Monitors      []*PrometheusSpec
@@ -238,6 +255,8 @@ func (s *Specification) NewPart() Topology {
 		ServerConfigs:    s.ServerConfigs,
 		AwsTopoConfigs:   s.AwsTopoConfigs,
 		AwsAuroraConfigs: s.AwsAuroraConfigs,
+		AwsMSConfigs:     s.AwsMSConfigs,
+		AwsDMSConfigs:    s.AwsDMSConfigs,
 	}
 }
 
@@ -276,6 +295,8 @@ func (s *Specification) BaseTopo() *BaseTopo {
 		MonitoredOptions: s.GetMonitoredOptions(),
 		AwsTopoConfigs:   &s.AwsTopoConfigs,
 		AwsAuroraConfigs: &s.AwsAuroraConfigs,
+		AwsMSConfigs:     &s.AwsMSConfigs,
+		AwsDMSConfigs:    &s.AwsDMSConfigs,
 		MasterList:       s.GetPDList(),
 		Monitors:         s.Monitors,
 		Grafanas:         s.Grafanas,
@@ -479,6 +500,8 @@ func (s *Specification) Merge(that Topology) Topology {
 		ServerConfigs:    s.ServerConfigs,
 		AwsTopoConfigs:   s.AwsTopoConfigs,
 		AwsAuroraConfigs: s.AwsAuroraConfigs,
+		AwsMSConfigs:     s.AwsMSConfigs,
+		AwsDMSConfigs:    s.AwsDMSConfigs,
 		TiDBServers:      append(s.TiDBServers, spec.TiDBServers...),
 		TiKVServers:      append(s.TiKVServers, spec.TiKVServers...),
 		PDServers:        append(s.PDServers, spec.PDServers...),
@@ -516,12 +539,14 @@ var (
 	serverConfigsTypeName    = reflect.TypeOf(ServerConfigs{}).Name()
 	awsTopoConfigsTypeName   = reflect.TypeOf(AwsTopoConfigs{}).Name()
 	awsAuroraConfigsTypeName = reflect.TypeOf(AwsAuroraConfigs{}).Name()
+	awsMSConfigsTypeName     = reflect.TypeOf(AwsMSConfigs{}).Name()
+	awsDMSConfigsTypeName    = reflect.TypeOf(AwsDMSConfigs{}).Name()
 )
 
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {

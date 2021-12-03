@@ -35,7 +35,7 @@ type CreateDMSSubnetGroup struct {
 func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 	// Get the available zones
-	command := fmt.Sprintf("aws dms describe-replication-subnet-groups")
+	command := fmt.Sprintf("aws dms describe-replication-subnet-groups --filters \"Name=replication-subnet-group-id,Values=%s\"", c.clusterName)
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error err here is <%#v> \n\n", err)
@@ -48,14 +48,12 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 		var dmsSubnetGroups DMSSubnetGroups
 		if err = json.Unmarshal(stdout, &dmsSubnetGroups); err != nil {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			return err
 		}
-
-		for _, subnetGroups := range dmsSubnetGroups.DMSSubnetGroups {
-			existsResource := ExistsDMSResource(c.clusterType, c.clusterName, subnetGroups.DMSSubnetGroupArn, local, ctx)
-			if existsResource == true {
-				return nil
-			}
+		fmt.Printf("The stdout is <%s> \n\n\n", string(stdout))
+		fmt.Printf("The db subnets are <%#v> \n\n\n", dmsSubnetGroups.DMSSubnetGroups)
+		for len(dmsSubnetGroups.DMSSubnetGroups) > 0 {
+			return nil
 		}
 	}
 
@@ -63,7 +61,7 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 	for _, subnet := range c.clusterInfo.privateSubnets {
 		subnets = append(subnets, "\""+subnet+"\"")
 	}
-	command = fmt.Sprintf("aws dms create-replication-subnet-group --replication-subnet-group-identifier %s --replication-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws dms create-replication-subnet-group --replication-subnet-group-identifier %s --replication-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
@@ -87,11 +85,11 @@ func (c *CreateDMSSubnetGroup) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }
 
-func dmsGroupExists(groupName string, subnetGroups []DMSSubnetGroup) bool {
-	for _, theSubnetGroup := range subnetGroups {
-		if groupName == theSubnetGroup.DMSSubnetGroupName {
-			return true
-		}
-	}
-	return false
-}
+//func dmsGroupExists(groupName string, subnetGroups []DMSSubnetGroup) bool {
+//	for _, theSubnetGroup := range subnetGroups {
+//		if groupName == theSubnetGroup.DMSSubnetGroupName {
+//			return true
+//		}
+//	}
+//	return false
+//}

@@ -14,13 +14,14 @@
 package task
 
 import (
-	//	"context"
-	//	"encoding/json"
+	"context"
+	"encoding/json"
 	"fmt"
-	//	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	//"github.com/luyomo/tisample/pkg/executor"
 	"strings"
-	//	"github.com/luyomo/tisample/pkg/executor"
 	//	"strings"
+	"go.uber.org/zap"
 )
 
 type ECState struct {
@@ -81,4 +82,36 @@ func (e Reservations) String() string {
 		res = append(res, reservation.String())
 	}
 	return fmt.Sprintf(strings.Join(res, ","))
+}
+
+func getEC2Instances(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string, ptrInstance *[]EC2) error {
+	fmt.Printf(" *** *** *** Running inside the create sql server \n\n\n")
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=sqlserver\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, subClusterType)
+	zap.L().Debug("Command", zap.String("describe-instances", command))
+	stdout, _, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		return err
+	}
+
+	var reservations Reservations
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+		return err
+	}
+	for _, reservation := range reservations.Reservations {
+		for _, instance := range reservation.Instances {
+			*ptrInstance = append(*ptrInstance, instance)
+		}
+	}
+	return nil
+}
+
+func instancesExist(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (int, error) {
+	var ec2Instances []EC2
+	err := getEC2Instances(executor, ctx, clusterName, clusterType, subClusterType, &ec2Instances)
+	fmt.Printf("The fetched instances are <%#v> \n\n\n", ec2Instances)
+	if err != nil {
+		return 0, err
+	}
+	return len(ec2Instances), nil
 }

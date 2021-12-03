@@ -155,95 +155,39 @@ func (m *Manager) TiDB2MSDeploy(
 	globalOptions := base.GlobalOptions
 
 	clusterType := "tisample-tidb2ms"
-	var clusterInfo, auroraInfo task.ClusterInfo
+	var clusterInfo, auroraInfo, msInfo, dmsInfo task.ClusterInfo
 	t1 := task.NewBuilder().
 		CreateTiDBCluster(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
-	envInitTasks = append(envInitTasks, t1)
+	fmt.Printf("%#v\n\n\n", t1)
+	//envInitTasks = append(envInitTasks, t1)
 
 	t2 := task.NewBuilder().
 		CreateAurora(globalOptions.User, "127.0.0.1", name, clusterType, "aurora", base.AwsAuroraConfigs, &auroraInfo).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
-	envInitTasks = append(envInitTasks, t2)
+	fmt.Printf("%#v\n\n\n", t2)
+	//envInitTasks = append(envInitTasks, t2)
+
+	t3 := task.NewBuilder().
+		CreateSqlServer(globalOptions.User, "127.0.0.1", name, clusterType, "sqlserver", base.AwsMSConfigs, &msInfo).
+		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
+	fmt.Printf("%#v\n\n\n", t3)
+	envInitTasks = append(envInitTasks, t3)
+
+	//t4 := task.NewBuilder().
+	//	CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
+	//	BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
+	//envInitTasks = append(envInitTasks, t4)
 
 	/*
-		// generate CA and client cert for TLS enabled cluster
-		var ca *crypto.CertificateAuthority
-		if globalOptions.TLSEnabled {
-			// generate CA
-			tlsPath := m.specManager.Path(name, spec.TLSCertKeyDir)
-			if err := utils.CreateDir(tlsPath); err != nil {
-				return err
-			}
-			ca, err = genAndSaveClusterCA(name, tlsPath)
-			if err != nil {
-				return err
-			}
 
-			// generate client cert
-			if err = genAndSaveClientCert(ca, name, tlsPath); err != nil {
-				return err
-			}
-		}
-
-		var iterErr error // error when itering over instances
-		iterErr = nil
-		topo.IterInstance(func(inst spec.Instance) {
-			if _, found := uniqueHosts[inst.GetHost()]; !found {
-				// check for "imported" parameter, it can not be true when deploying and scaling out
-				// only for tidb now, need to support dm
-				if inst.IsImported() && m.sysName == "tidb" {
-					iterErr = errors.New(
-						"'imported' is set to 'true' for new instance, this is only used " +
-							"for instances imported from tidb-ansible and make no sense when " +
-							"deploying new instances, please delete the line or set it to 'false' for new instances")
-					return // skip the host to avoid issues
-				}
-
-				// add the instance to ignore list if it marks itself as ignore_exporter
-				if inst.IgnoreMonitorAgent() {
-					noAgentHosts.Insert(inst.GetHost())
-				}
-
-				uniqueHosts[inst.GetHost()] = hostInfo{
-					ssh:  inst.GetSSHPort(),
-					os:   inst.OS(),
-					arch: inst.Arch(),
-				}
-				var dirs []string
-				for _, dir := range []string{globalOptions.DeployDir, globalOptions.LogDir} {
-					if dir == "" {
-						continue
-					}
-					dirs = append(dirs, spec.Abs(globalOptions.User, dir))
-				}
-				// the default, relative path of data dir is under deploy dir
-				if strings.HasPrefix(globalOptions.DataDir, "/") {
-					dirs = append(dirs, globalOptions.DataDir)
-				}
-				fmt.Printf("---------------------------\n")
-				zap.L().Debug("This is the test message")
-				fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
-				fmt.Printf("The data is <%#v>\n\n\n", base.AwsAuroraConfigs)
-				clusterType := "tisample-tidb2ms"
-				var clusterInfo, auroraInfo task.ClusterInfo
-				t := task.NewBuilder().
-					//CreateBasicResource(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs).
-					CreateTiDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-					CreateAurora(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", base.AwsAuroraConfigs, &auroraInfo).
-					//	CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType).
-					//CreateMS(globalOptions.User, inst.GetHost(), name, clusterType, base.AwsTopoConfigs).
-					//CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-					//CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType).
-					//CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType).
-					//CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType).
 					//DeployTiDBInstance(globalOptions.User, inst.GetHost(), name, clusterType). // Deploy the tidb cluster
 					//MakeDBObjects(globalOptions.User, inst.GetHost(), name, clusterType).      // - Prepare DB objects
 					//DeployTiCDC(globalOptions.User, inst.GetHost(), name, clusterType).        // - Set the TiCDC for data sync between TiDB and Aurora
 					//CreateDMSSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType).
 					//CreateDMSSourceEndpoint(globalOptions.User, inst.GetHost(), name, clusterType). // - Deploy the subnets for DMS
 					//CreateDMSTargetEndpoint(globalOptions.User, inst.GetHost(), name, clusterType). // - Deploy the TiDB endpoint
-					//CreateDMSInstance(globalOptions.User, inst.GetHost(), name, clusterType).       // - Deploy the TiDB endpoint
+
 					//CreateDMSTask(globalOptions.User, inst.GetHost(), name, clusterType).           // - Deploy the TiDB endpoint
 					// - Deploy the Aurora endpoint
 					// - Deploy DMS instance
@@ -264,7 +208,7 @@ func (m *Manager) TiDB2MSDeploy(
 		//	task.NewBuilder().SSHKeyGen(m.specManager.Path(name, "ssh", "id_rsa")).Build()).
 		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
 		//ParallelStep("+ Download TiDB components", false, downloadCompTasks...).
-		//ParallelStep("+ Copy files", false, deployCompTasks...)
+	//ParallelStep("+ Copy files", false, deployCompTasks...)
 
 	if afterDeploy != nil {
 		afterDeploy(builder, topo)
@@ -279,6 +223,23 @@ func (m *Manager) TiDB2MSDeploy(
 		}
 		return err
 	}
+
+	t5 := task.NewBuilder().
+		CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
+		//		EstablishVPCPeering(globalOptions.User, "127.0.0.1").
+		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
+
+	builder = task.NewBuilder().
+		ParallelStep("+ Initialize target host environments", false, t5)
+	t = builder.Build()
+	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
 	logger.OutputDebugLog("aws-nodes")
 	return nil
 
