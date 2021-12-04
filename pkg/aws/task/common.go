@@ -196,3 +196,76 @@ func getVPCInfo(executor ctxt.Executor, ctx context.Context, vpc ResourceTag, vp
 
 	return nil
 }
+
+func getVPC(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*Vpc, error) {
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" ", clusterName, subClusterType, clusterType), false)
+	if err != nil {
+		return nil, err
+	}
+	var vpcs Vpcs
+	if err := json.Unmarshal(stdout, &vpcs); err != nil {
+		zap.L().Debug("The error to parse the string ", zap.Error(err))
+		return nil, err
+	}
+	if len(vpcs.Vpcs) > 0 {
+
+		return &vpcs.Vpcs[0], nil
+		//c.clusterInfo.vpcInfo = vpcs.Vpcs[0]
+		//zap.L().Info("The clusterInfo.vpcInfo.vpcId is ", zap.String("VpcInfo", c.clusterInfo.String()))
+		//return nil
+	}
+	return nil, nil
+}
+
+func getNetworks(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType, scope string) (*[]Subnet, error) {
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, subClusterType, scope)
+	zap.L().Debug("Command", zap.String("describe-subnets", command))
+	stdout, _, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil, err
+	}
+
+	var subnets Subnets
+	if err = json.Unmarshal(stdout, &subnets); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
+		return nil, err
+	}
+	return &subnets.Subnets, nil
+}
+
+func getNetworksString(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType, scope string) (string, error) {
+	subnets, err := getNetworks(executor, ctx, clusterName, clusterType, subClusterType, scope)
+	if err != nil {
+		return "", err
+	}
+	if subnets == nil {
+		return "", errors.New("No subnets found")
+	}
+	var arrSubnets []string
+	for _, subnet := range *subnets {
+		arrSubnets = append(arrSubnets, "\""+subnet.SubnetId+"\"")
+	}
+	return "[" + strings.Join(arrSubnets, ",") + "]", nil
+
+}
+
+func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName string) (*TransitGateway, error) {
+	command := fmt.Sprintf("aws ec2 describe-transit-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName)
+	stdout, stderr, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("The error err here is <%#v> \n\n", err)
+		fmt.Printf("----------\n\n")
+		fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
+		return nil, err
+	} else {
+		var transitGateways TransitGateways
+		if err = json.Unmarshal(stdout, &transitGateways); err != nil {
+			fmt.Printf("*** *** The error here is %#v \n\n", err)
+			return nil, err
+		}
+		for _, transitGateway := range transitGateways.TransitGateways {
+			return &transitGateway, nil
+		}
+	}
+	return nil, nil
+}

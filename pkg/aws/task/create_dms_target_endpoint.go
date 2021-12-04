@@ -54,10 +54,11 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		var endpoints Endpoints
 		if err = json.Unmarshal(stdout, &endpoints); err != nil {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			return err
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", endpoints)
+		fmt.Printf("The describe target endpoints is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
+			fmt.Printf("The describe target endpoint is <%#v> \n\n\n", endpoint)
 			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
 			if existsResource == true {
 				DMSInfo.TargetEndpointArn = endpoint.EndpointArn
@@ -68,7 +69,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 	}
 
 	var ec2Instances []EC2
-	err = getEC2Instances(local, ctx, c.clusterName, c.clusterType, "sqlserver", &ec2Instances)
+	err = getEC2Instances(local, ctx, c.clusterName, c.clusterType, c.subClusterType, &ec2Instances)
 	if err != nil {
 		return err
 	}
@@ -77,7 +78,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The sqlser host for the tartget endpoint <%#v> \n\n\n", ec2Instances)
 
-	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port 1433 --username sa --password 1234@Abcd --database-name cdc_test --tags Key=Name,Value=%s Key=Type,Value=%s", c.clusterName, ec2Instances[0].PrivateIpAddress, c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port 1433 --username sa --password 1234@Abcd --database-name cdc_test --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, ec2Instances[0].PrivateIpAddress, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {

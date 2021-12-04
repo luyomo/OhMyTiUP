@@ -948,6 +948,27 @@ func (b *Builder) CreateDMSTask(user, host, clusterName, clusterType, subCluster
 	return b
 }
 
+func (b *Builder) CreateTransitGateway(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateTransitGateway{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) CreateTransitGatewayVpcAttachment(user, host, clusterName, clusterType, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateTransitGatewayVpcAttachment{
+		user:           user,
+		host:           host,
+		clusterName:    clusterName,
+		clusterType:    clusterType,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
 func (b *Builder) CreateBasicResource(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).
 		CreateRouteTable(user, host, clusterName, clusterType, subClusterType, clusterInfo).
