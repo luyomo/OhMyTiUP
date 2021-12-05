@@ -218,7 +218,8 @@ func getVPC(executor ctxt.Executor, ctx context.Context, clusterName, clusterTyp
 }
 
 func getNetworks(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType, scope string) (*[]Subnet, error) {
-	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, subClusterType, scope)
+	//command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, subClusterType, scope)
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, subClusterType)
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -268,4 +269,27 @@ func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName 
 		}
 	}
 	return nil, nil
+}
+
+func getRouteTable(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*RouteTable, error) {
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, subClusterType), false)
+	if err != nil {
+		return nil, err
+	}
+
+	var routeTables RouteTables
+	if err = json.Unmarshal(stdout, &routeTables); err != nil {
+		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
+		return nil, err
+	}
+
+	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
+	if len(routeTables.RouteTables) == 0 {
+		return nil, errors.New("No route table found")
+	}
+	if len(routeTables.RouteTables) > 1 {
+		return nil, errors.New("Multiple route tables found")
+	}
+	return &routeTables.RouteTables[0], nil
+
 }

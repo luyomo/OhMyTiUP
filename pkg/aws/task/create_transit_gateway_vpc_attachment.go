@@ -86,10 +86,7 @@ type CreateTransitGatewayVpcAttachment struct {
 func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	// 1. transit gateway
-	// 2. vpc id
-	// 3. subnets
-	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=state,Values=available,modifying,pending\"", c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 
 	stdout, stderr, err := local.Execute(ctx, command, false)

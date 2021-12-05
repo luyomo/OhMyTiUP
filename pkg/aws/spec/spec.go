@@ -133,6 +133,14 @@ type (
 		TiCDC   AwsNodeModal          `yaml:"ticdc"`
 	}
 
+	AwsWSConfigs struct {
+		ImageId      string `yaml:"imageid,omitempty"`
+		CIDR         string `yaml:"cidr"`
+		InstanceType string `yaml:"instance_type"`
+		KeyName      string `yaml:"keyname"`
+		Region       string `yaml:"region"`
+	}
+
 	AwsAuroraConfigs struct {
 		InstanceType string `yaml:"instance_type"`
 		CIDR         string `yaml:"cidr"`
@@ -157,6 +165,7 @@ type (
 		GlobalOptions    GlobalOptions        `yaml:"global,omitempty" validate:"global:editable"`
 		MonitoredOptions MonitoredOptions     `yaml:"monitored,omitempty" validate:"monitored:editable"`
 		ServerConfigs    ServerConfigs        `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
+		AwsWSConfigs     AwsWSConfigs         `yaml:"workstation,omitempty"`
 		AwsTopoConfigs   AwsTopoConfigs       `yaml:"aws_topo_configs,omitempty"`
 		AwsAuroraConfigs AwsAuroraConfigs     `yaml:"aurora,omitempty"`
 		AwsMSConfigs     AwsMSConfigs         `yaml:"sqlserver,omitempty"`
@@ -181,6 +190,7 @@ type (
 type BaseTopo struct {
 	GlobalOptions    *GlobalOptions
 	MonitoredOptions *MonitoredOptions
+	AwsWSConfigs     *AwsWSConfigs
 	AwsTopoConfigs   *AwsTopoConfigs
 	AwsAuroraConfigs *AwsAuroraConfigs
 	AwsMSConfigs     *AwsMSConfigs
@@ -253,6 +263,7 @@ func (s *Specification) NewPart() Topology {
 		GlobalOptions:    s.GlobalOptions,
 		MonitoredOptions: s.MonitoredOptions,
 		ServerConfigs:    s.ServerConfigs,
+		AwsWSConfigs:     s.AwsWSConfigs,
 		AwsTopoConfigs:   s.AwsTopoConfigs,
 		AwsAuroraConfigs: s.AwsAuroraConfigs,
 		AwsMSConfigs:     s.AwsMSConfigs,
@@ -293,6 +304,7 @@ func (s *Specification) BaseTopo() *BaseTopo {
 	return &BaseTopo{
 		GlobalOptions:    &s.GlobalOptions,
 		MonitoredOptions: s.GetMonitoredOptions(),
+		AwsWSConfigs:     &s.AwsWSConfigs,
 		AwsTopoConfigs:   &s.AwsTopoConfigs,
 		AwsAuroraConfigs: &s.AwsAuroraConfigs,
 		AwsMSConfigs:     &s.AwsMSConfigs,
@@ -498,6 +510,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		GlobalOptions:    s.GlobalOptions,
 		MonitoredOptions: s.MonitoredOptions,
 		ServerConfigs:    s.ServerConfigs,
+		AwsWSConfigs:     s.AwsWSConfigs,
 		AwsTopoConfigs:   s.AwsTopoConfigs,
 		AwsAuroraConfigs: s.AwsAuroraConfigs,
 		AwsMSConfigs:     s.AwsMSConfigs,
@@ -537,6 +550,7 @@ var (
 	globalOptionTypeName     = reflect.TypeOf(GlobalOptions{}).Name()
 	monitorOptionTypeName    = reflect.TypeOf(MonitoredOptions{}).Name()
 	serverConfigsTypeName    = reflect.TypeOf(ServerConfigs{}).Name()
+	awsWSConfigsTypeName     = reflect.TypeOf(AwsWSConfigs{}).Name()
 	awsTopoConfigsTypeName   = reflect.TypeOf(AwsTopoConfigs{}).Name()
 	awsAuroraConfigsTypeName = reflect.TypeOf(AwsAuroraConfigs{}).Name()
 	awsMSConfigsTypeName     = reflect.TypeOf(AwsMSConfigs{}).Name()
@@ -546,7 +560,7 @@ var (
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {

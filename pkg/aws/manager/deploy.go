@@ -227,11 +227,11 @@ func (m *Manager) Deploy(
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
 				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
+				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", false, &clusterInfo).
+				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", false, &clusterInfo).
+				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", false, &clusterInfo).
 				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
-				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				//CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).

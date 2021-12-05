@@ -29,6 +29,7 @@ type CreateSecurityGroup struct {
 	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
+	isPrivate      bool `default:false`
 }
 
 // Execute implements the Task interface
@@ -38,9 +39,11 @@ func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	c.createPrivateSG(local, ctx)
-
-	c.createPublicSG(local, ctx)
+	if c.isPrivate == true {
+		c.createPrivateSG(local, ctx)
+	} else {
+		c.createPublicSG(local, ctx)
+	}
 
 	return nil
 }
@@ -91,6 +94,41 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 	zap.L().Info("Variable confirmation", zap.String("clusterInfo.privateSecurityGroupId", c.clusterInfo.privateSecurityGroupId))
 
 	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 22 --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId)
+	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
+	stdout, _, err = executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 1433 --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId)
+	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
+	stdout, _, err = executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 3306 --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId)
+	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
+	stdout, _, err = executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 2379 --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId)
+	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
+	stdout, _, err = executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 10080 --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId)
+	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
+	stdout, _, err = executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 8300 --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId)
 	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {

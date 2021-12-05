@@ -25,7 +25,7 @@ import (
 type CreateWorkstation struct {
 	user           string
 	host           string
-	awsTopoConfigs *spec.AwsTopoConfigs
+	awsWSConfigs   *spec.AwsWSConfigs
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -56,7 +56,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=workstation}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.General.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, c.awsTopoConfigs.General.Region, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=workstation}]\"", c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType, c.awsWSConfigs.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, c.awsWSConfigs.Region, c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("run-instances", command))
 	stdout, _, err = local.Execute(ctx, command, false)
 	if err != nil {

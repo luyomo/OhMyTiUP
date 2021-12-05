@@ -499,7 +499,7 @@ func (b *Builder) CreateVpc(user, host, clusterName, clusterType, subClusterType
 	return b
 }
 
-func (b *Builder) CreateNetwork(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateNetwork(user, host, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateNetwork{
 		user:           user,
 		host:           host,
@@ -507,11 +507,12 @@ func (b *Builder) CreateNetwork(user, host, clusterName, clusterType, subCluster
 		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
+		isPrivate:      isPrivate,
 	})
 	return b
 }
 
-func (b *Builder) CreateRouteTable(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateRouteTable(user, host, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateRouteTable{
 		user:           user,
 		host:           host,
@@ -519,11 +520,12 @@ func (b *Builder) CreateRouteTable(user, host, clusterName, clusterType, subClus
 		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
+		isPrivate:      isPrivate,
 	})
 	return b
 }
 
-func (b *Builder) CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateSecurityGroup{
 		user:           user,
 		host:           host,
@@ -531,6 +533,7 @@ func (b *Builder) CreateSecurityGroup(user, host, clusterName, clusterType, subC
 		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
+		isPrivate:      isPrivate,
 	})
 	return b
 }
@@ -600,11 +603,11 @@ func (b *Builder) CreateTiCDCNodes(user, host, clusterName, clusterType, subClus
 	return b
 }
 
-func (b *Builder) CreateWorkstation(user, host, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateWorkstation(user, host, clusterName, clusterType, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateWorkstation{
 		user:           user,
 		host:           host,
-		awsTopoConfigs: awsTopoConfigs,
+		awsWSConfigs:   awsWSConfigs,
 		clusterName:    clusterName,
 		clusterType:    clusterType,
 		subClusterType: subClusterType,
@@ -638,12 +641,14 @@ func (b *Builder) DeployTiDB(user, host, clusterName, clusterType, subClusterTyp
 	return b
 }
 
-func (b *Builder) CreateVpcPeering(user, host string, sourceVPC, targetVPC ResourceTag) *Builder {
-	b.tasks = append(b.tasks, &CreateVpcPeering{
-		user:      user,
-		host:      host,
-		sourceVPC: sourceVPC,
-		targetVPC: targetVPC,
+func (b *Builder) CreateRouteTgw(user, host string, clusterName, clusterType, subClusterType string, subClusterTypes []string) *Builder {
+	b.tasks = append(b.tasks, &CreateRouteTgw{
+		user:            user,
+		host:            host,
+		clusterName:     clusterName,
+		clusterType:     clusterType,
+		subClusterType:  subClusterType,
+		subClusterTypes: subClusterTypes,
 	})
 	return b
 }
@@ -969,12 +974,29 @@ func (b *Builder) CreateTransitGatewayVpcAttachment(user, host, clusterName, clu
 	return b
 }
 
-func (b *Builder) CreateBasicResource(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateRouteTable(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateNetwork(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateInternetGateway(user, host, clusterName, clusterType, subClusterType, clusterInfo)
+func (b *Builder) CreateBasicResource(user, host, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
+	if isPrivate == true {
+		b.CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+			CreateRouteTable(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
+			CreateNetwork(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
+			CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo)
+	} else {
+		b.CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+			CreateRouteTable(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
+			CreateNetwork(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
+			CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
+			CreateInternetGateway(user, host, clusterName, clusterType, subClusterType, clusterInfo)
+	}
+	return b
+}
+
+func (b *Builder) CreateWorkstationCluster(user, host, clusterName, clusterType, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsWSConfigs.CIDR
+	clusterInfo.region = awsWSConfigs.Region
+
+	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, false, clusterInfo).
+		CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsWSConfigs, clusterInfo)
+
 	return b
 }
 
@@ -982,14 +1004,14 @@ func (b *Builder) CreateTiDBCluster(user, host, clusterName, clusterType, subClu
 	clusterInfo.cidr = awsTopoConfigs.General.CIDR
 	clusterInfo.region = awsTopoConfigs.General.Region
 
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
+	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
+		//		CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
 		CreatePDNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
 		CreateTiDBNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
 		CreateTiKVNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
 		CreateDMNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
-		CreateTiCDCNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
-		DeployTiDB(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo)
+		CreateTiCDCNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo)
+		//		DeployTiDB(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo)
 
 	return b
 }
@@ -998,7 +1020,7 @@ func (b *Builder) CreateAurora(user, host, clusterName, clusterType, subClusterT
 	clusterInfo.cidr = awsAuroraConfigs.CIDR
 	clusterInfo.region = awsAuroraConfigs.Region
 
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
 		CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
 		CreateDBClusterParameterGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
 		CreateDBCluster(user, host, clusterName, clusterType, subClusterType, clusterInfo).
@@ -1042,7 +1064,7 @@ func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClust
 	clusterInfo.keyName = awsMSConfigs.KeyName
 	clusterInfo.instanceType = awsMSConfigs.InstanceType
 
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
 		CreateMS(user, host, clusterName, clusterType, subClusterType, clusterInfo)
 
 	return b
@@ -1059,7 +1081,7 @@ func (b *Builder) CreateDMSService(user, host, clusterName, clusterType, subClus
 	clusterInfo.cidr = awsDMSConfigs.CIDR
 	clusterInfo.region = awsDMSConfigs.Region
 	clusterInfo.instanceType = awsDMSConfigs.InstanceType
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, clusterInfo).
+	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
 		CreateDMSSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
 		CreateDMSInstance(user, host, clusterName, clusterType, subClusterType, clusterInfo).
 		CreateDMSSourceEndpoint(user, host, clusterName, clusterType, subClusterType, clusterInfo).
@@ -1079,7 +1101,7 @@ func (b *Builder) EstablishVPCPeering(user, host string) *Builder {
 	targetVPC.subClusterType = "aurora"
 	targetVPC.port = append(targetVPC.port, 3306)
 
-	b.CreateVpcPeering(user, host, sourceVPC, targetVPC)
+	//	b.CreateVpcPeering(user, host, sourceVPC, targetVPC)
 
 	return b
 }

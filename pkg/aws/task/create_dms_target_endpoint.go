@@ -69,7 +69,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 	}
 
 	var ec2Instances []EC2
-	err = getEC2Instances(local, ctx, c.clusterName, c.clusterType, c.subClusterType, &ec2Instances)
+	err = getEC2Instances(local, ctx, c.clusterName, c.clusterType, "sqlserver", &ec2Instances)
 	if err != nil {
 		return err
 	}

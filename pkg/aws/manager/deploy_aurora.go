@@ -215,9 +215,9 @@ func (m *Manager) AuroraDeploy(
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
 				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", true, &clusterInfo).
+				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", true, &clusterInfo).
+				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", true, &clusterInfo).
 				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
 				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
 				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).

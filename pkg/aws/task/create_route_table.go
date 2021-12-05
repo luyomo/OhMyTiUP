@@ -32,6 +32,7 @@ type CreateRouteTable struct {
 	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
+	isPrivate      bool `default:false`
 }
 
 // Execute implements the Task interface
@@ -41,9 +42,11 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	c.createPrivateSubnets(local, ctx)
-
-	c.createPublicSubnets(local, ctx)
+	if c.isPrivate == true {
+		c.createPrivateSubnets(local, ctx)
+	} else {
+		c.createPublicSubnets(local, ctx)
+	}
 
 	return nil
 }

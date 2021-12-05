@@ -74,6 +74,7 @@ type CreateNetwork struct {
 	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
+	isPrivate      bool `default:false`
 }
 
 // Execute implements the Task interface
@@ -88,15 +89,16 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	zap.L().Debug("Public Route Table ID", zap.String("publicRouteTableId", c.clusterInfo.publicRouteTableId))
-	zap.L().Debug("Private Route Table ID", zap.String("privateRouteTableId", c.clusterInfo.privateRouteTableId))
+	if c.isPrivate == true {
+		zap.L().Debug("Private Route Table ID", zap.String("privateRouteTableId", c.clusterInfo.privateRouteTableId))
+		c.createPrivateSubnets(local, ctx, zones)
+		zap.L().Debug("Private Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
 
-	c.createPrivateSubnets(local, ctx, zones)
-
-	c.createPublicSubnets(local, ctx, zones)
-
-	zap.L().Debug("Public Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
-	zap.L().Debug("Private Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
+	} else {
+		zap.L().Debug("Public Route Table ID", zap.String("publicRouteTableId", c.clusterInfo.publicRouteTableId))
+		c.createPublicSubnets(local, ctx, zones)
+		zap.L().Debug("Public Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
+	}
 
 	return nil
 }

@@ -15,6 +15,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	//	"encoding/json"
 	"fmt"
 	//	"time"
@@ -23,38 +24,84 @@ import (
 	"github.com/luyomo/tisample/pkg/executor"
 )
 
-// 01.     done Get the source vpc id / cidr
-// 02.     done Get the target vpc id / cidr
-// 03. Create VPC peering from source vpc id
-// 04. Accept the VPC peering from the destination side
-// 05. get the source route table id
-// 06. get the target route table id
-// 07. Add one rule to source route table
-// 08. Add one rule to target route table
-// 09. Get sg from target vpc
-// 10. Add sg rule to target vpc sg
+type CreateRouteTgw struct {
+	user            string
+	host            string
+	clusterName     string
+	clusterType     string
+	subClusterType  string
+	subClusterTypes []string
+}
 
 // Execute implements the Task interface
-func (c *CreateVpcPeering) Execute(ctx context.Context) error {
+func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	fmt.Printf("----- ----- ----- ----- ----- ----- \n\n\n")
-	fmt.Printf("The source vpc is <%#v> \n\n\n", c.sourceVPC)
-	fmt.Printf("The target vpc is <%#v> \n\n\n", c.targetVPC)
-	fmt.Printf("The local variable is <%#v> \n\n\n", local)
-	fmt.Printf("The local variable is <%#v> \n\n\n", err)
 
-	var sourceVPCInfo, targetVPCInfo Vpc
-	err = getVPCInfo(local, ctx, c.sourceVPC, &sourceVPCInfo)
+	sourceVpcInfo, err := getVPC(local, ctx, c.clusterName, c.clusterType, c.subClusterType)
 	if err != nil {
-		fmt.Printf("Failed to fetch the vpc info \n\n\n")
+		return err
 	}
-	fmt.Printf("The source vpc info is <%#v> \n\n\n", sourceVPCInfo)
+	fmt.Printf("The source vpc info is <%s> \n\n\n", sourceVpcInfo.CidrBlock)
 
-	err = getVPCInfo(local, ctx, c.targetVPC, &targetVPCInfo)
+	routeTable, err := getRouteTable(local, ctx, c.clusterName, c.clusterType, c.subClusterType)
 	if err != nil {
-		fmt.Printf("Failed to fetch the vpc info \n\n\n")
+		return err
 	}
-	fmt.Printf("The target vpc info is <%#v> \n\n\n", targetVPCInfo)
+	fmt.Printf("The route table is <%#v> \n\n\n", routeTable)
+
+	transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
+	if err != nil {
+		return err
+	}
+	if transitGateway == nil {
+		return errors.New("No transit gateway found")
+	}
+
+	fmt.Printf("The transit gateway is <%#v> \n\n\n", transitGateway)
+
+	for _, targetSubClusterType := range c.subClusterTypes {
+		fmt.Printf("The data is <%#v> \n\n\n", targetSubClusterType)
+		vpcInfo, err := getVPC(local, ctx, c.clusterName, c.clusterType, targetSubClusterType)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The vpc info is <%s> \n\n\n", vpcInfo.CidrBlock)
+
+		command := fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", routeTable.RouteTableId, vpcInfo.CidrBlock, transitGateway.TransitGatewayId)
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
+		stdout, stderr, err := local.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("The error here is <%#v> \n\n", err)
+			fmt.Printf("----------\n\n")
+			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			return err
+		}
+		fmt.Printf("The result from create-transit-gateway <%s> \n\n\n", string(stdout))
+
+		targetRouteTable, err := getRouteTable(local, ctx, c.clusterName, c.clusterType, targetSubClusterType)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The target Routable id <%#v> \n\n\n", targetRouteTable)
+
+		command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", targetRouteTable.RouteTableId, sourceVpcInfo.CidrBlock, transitGateway.TransitGatewayId)
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
+		stdout, stderr, err = local.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("The error here is <%#v> \n\n", err)
+			fmt.Printf("----------\n\n")
+			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			return err
+		}
+		fmt.Printf("The result from create-transit-gateway <%s> \n\n\n", string(stdout))
+	}
+
+	////var sourceVPCInfo, targetVPCInfo Vpc
+	//err = getVPC(local, ctx, c.sourceVPC, &sourceVPCInfo)
+	//if err != nil {
+	//	fmt.Printf("Failed to fetch the vpc info \n\n\n")
+	//}
+	//fmt.Printf("The source vpc info is <%#v> \n\n\n", sourceVPCInfo)
 
 	/*
 		//fmt.Printf("The aurora vpc name is <%#v>\n\n\n", c.awsTopoConfigs.Aurora)
@@ -191,11 +238,11 @@ func (c *CreateVpcPeering) Execute(ctx context.Context) error {
 }
 
 // Rollback implements the Task interface
-func (c *CreateVpcPeering) Rollback(ctx context.Context) error {
+func (c *CreateRouteTgw) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *CreateVpcPeering) String() string {
+func (c *CreateRouteTgw) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }
