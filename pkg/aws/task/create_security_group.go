@@ -135,6 +135,13 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 		return nil
 	}
 
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 4000 --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId)
+	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
+	stdout, _, err = executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil
+	}
+
 	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", c.clusterInfo.privateSecurityGroupId, c.clusterInfo.cidr)
 	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 	stdout, _, err = executor.Execute(ctx, command, false)

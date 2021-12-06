@@ -46,7 +46,7 @@ type DBInstances struct {
 
 var auroraConnInfo DBInstanceEndpoint
 
-func getRDBInstance(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string, ptrInstance *DBInstance) error {
+func getRDBInstance(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*DBInstance, error) {
 	command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", clusterName)
 	stdout, stderr, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -54,27 +54,25 @@ func getRDBInstance(executor ctxt.Executor, ctx context.Context, clusterName, cl
 			var dbInstances DBInstances
 			if err = json.Unmarshal(stdout, &dbInstances); err != nil {
 				fmt.Printf("*** *** The error here is %#v \n\n", err)
-				return err
+				return nil, err
 			}
 
-			return errors.New("No RDB Instance found(No matched name)")
+			return nil, errors.New("No RDB Instance found(No matched name)")
 		}
 	}
 
 	var dbInstances DBInstances
 	if err = json.Unmarshal(stdout, &dbInstances); err != nil {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
+		return nil, err
 	}
 	for _, instance := range dbInstances.DBInstances {
 		existsResource := ExistsResource(clusterType, subClusterType, clusterName, instance.DBInstanceArn, executor, ctx)
 		if existsResource == true {
-			*ptrInstance = instance
-			fmt.Printf("The db instance is+  <%#v> \n\n\n", auroraConnInfo)
-			return nil
+			return &instance, nil
 		}
 
 	}
 
-	return errors.New("No RDB Instance found(No mathed tags)")
+	return nil, errors.New("No RDB Instance found(No mathed tags)")
 }

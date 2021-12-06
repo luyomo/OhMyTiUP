@@ -65,8 +65,7 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 		}
 	}
 
-	var dbInstance DBInstance
-	err = getRDBInstance(local, ctx, c.clusterName, c.clusterType, "aurora", &dbInstance)
+	dbInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "aurora")
 	if err != nil {
 		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err

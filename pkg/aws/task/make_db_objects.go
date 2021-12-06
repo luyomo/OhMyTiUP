@@ -137,6 +137,13 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 		return nil
 	}
 
+	auroraInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "aurora")
+	if err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", auroraInstance)
+		return err
+	}
+	fmt.Printf("The aurora is <%#v> \n\n\n", auroraInstance)
+
 	hasRunTiDB := false
 	for _, component := range tidbClusterDetail.Instances {
 		if component.Role == "tidb" && component.Status == "Up" && hasRunTiDB == false {
@@ -159,7 +166,7 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 			fmt.Printf("The command is <%s> \n\n\n", command)
 			fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 
-			command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd -e "create database if not exists %s"`, auroraConnInfo.Address, auroraConnInfo.Port, DBNAME)
+			command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd -e "create database if not exists %s"`, auroraInstance.Endpoint.Address, auroraInstance.Endpoint.Port, DBNAME)
 			stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
 			if err != nil {
 				fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
@@ -168,7 +175,7 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 			fmt.Printf("The command is <%s> \n\n\n", command)
 			fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 
-			command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd %s -e "source /opt/tidb/sql/ontime_mysql.ddl"`, auroraConnInfo.Address, auroraConnInfo.Port, DBNAME)
+			command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd %s -e "source /opt/tidb/sql/ontime_mysql.ddl"`, auroraInstance.Endpoint.Address, auroraInstance.Endpoint.Port, DBNAME)
 			stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
 			if err != nil {
 				fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
