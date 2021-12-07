@@ -57,7 +57,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	//	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=workstation\" \"Name=instance-state-code,Values=16\"", c.clusterName, c.clusterType, c.subClusterType)
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=16\"", c.clusterName, c.clusterType, "workstation")
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := local.Execute(ctx, command, false)
@@ -124,9 +123,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		}
 	}
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
-
-	//fmt.Printf("The contents is <%s> \n\n\n", string(content.Bytes()))
-	// Transfer(ctx context.Context, src, dst string, download bool, limit int)
 
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
 	if err != nil {

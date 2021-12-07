@@ -160,3 +160,18 @@ alter table supplier set tiflash replica 0;
  #+BEGIN_SRC
 ./bin/aws template
 #+END_SRC
+
+
+
+
+** sysbench
+select  count(*)/time_to_sec(timediff(max(tidb_aurora), min(tidb_ts))) from sbtest1;
+sysbench --test=/usr/share/sysbench/oltp_insert.lua --mysql-host=172.83.1.49 --mysql-user=root --mysql-db=cdc_test --mysql-port=4000  prepare
+sysbench --test=/usr/share/sysbench/oltp_insert.lua --mysql-host=172.83.1.49 --mysql-user=root --mysql-db=cdc_test --mysql-port=4000 --threads=100 run
+sysbench --test=/usr/share/sysbench/oltp_insert.lua --tables=50 --table-size=10000 --mysql-host=172.83.1.49 --mysql-user=root --mysql-db=cdc_test --mysql-port=4000 --threads=200 run
+
+https://www.cnblogs.com/xuliuzai/p/11243376.html
+
+
+mysql -h 172.83.1.49 -P 4000 -u root cdc_test -e "alter table sbtest2 add column tidb_ts timestamp default current_timestamp "
+

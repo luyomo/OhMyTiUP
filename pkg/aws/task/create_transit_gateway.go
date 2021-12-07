@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/executor"
+	"time"
 )
 
 type TransitGateway struct {
@@ -61,39 +62,20 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The result from create-transit-gateway <%s> \n\n\n", string(stdout))
 
-	//var replicationInstanceRecord ReplicationInstanceRecord
-	//if err = json.Unmarshal(stdout, &replicationInstanceRecord); err != nil {
-	//	fmt.Printf("*** *** The error here is %#v \n\n", err)
-	//	return nil
-	//}
-	//DMSInfo.ReplicationInstanceArn = replicationInstanceRecord.ReplicationInstance.ReplicationInstanceArn
-	//for i := 1; i <= 50; i++ {
-	//	command = fmt.Sprintf("aws dms describe-replication-instances")
-	//	stdout, stderr, err := local.Execute(ctx, command, false)
-	///	if err != nil {
-	//		fmt.Printf("The error err here is <%#v> \n\n", err)
-	//		fmt.Printf("----------\n\n")
-	//		fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-	//		return nil
-	//	} else {
-	//		var replicationInstances ReplicationInstances
-	//		if err = json.Unmarshal(stdout, &replicationInstances); err != nil {
-	//			fmt.Printf("*** *** The error here is %#v \n\n", err)
-	//			return nil
-	//		}
-	//		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
-	//		for _, replicationInstance := range replicationInstances.ReplicationInstances {
-	//			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
-	//			if existsResource == true {
-	//				if replicationInstance.ReplicationInstanceStatus == "available" {
-	//					return nil
-	//				}
-	//			}
-	//		}
-	//	}
+	for i := 1; i <= 50; i++ {
+		transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
+		if err != nil {
+			return err
+		}
+		if transitGateway != nil {
+			return nil
+		}
+		if transitGateway.State == "Available" {
+			break
+		}
 
-	//	time.Sleep(30 * time.Second)
-	//}
+		time.Sleep(30 * time.Second)
+	}
 
 	return nil
 }

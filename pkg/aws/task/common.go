@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 	"strings"
 	//	"github.com/luyomo/tisample/pkg/executor"
@@ -292,4 +293,66 @@ func getRouteTable(executor ctxt.Executor, ctx context.Context, clusterName, clu
 	}
 	return &routeTables.RouteTables[0], nil
 
+}
+
+func getWorkstation(executor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*EC2, error) {
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=16\"", clusterName, clusterType, "workstation")
+	zap.L().Debug("Command", zap.String("describe-instance", command))
+	stdout, _, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil, err
+	}
+
+	var reservations Reservations
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+		return nil, err
+	}
+
+	var theInstance EC2
+	cntInstance := 0
+	for _, reservation := range reservations.Reservations {
+		for _, instance := range reservation.Instances {
+			cntInstance++
+			theInstance = instance
+		}
+	}
+
+	if cntInstance > 1 {
+		return nil, errors.New("Multiple workstation nodes")
+	}
+	if cntInstance == 0 {
+		return nil, errors.New("No workstation node")
+	}
+
+	return &theInstance, nil
+}
+
+func getWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*ctxt.Executor, error) {
+	workstation, err := getWorkstation(texecutor, ctx, clusterName, clusterType)
+	if err != nil {
+		return nil, err
+	}
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
+	if err != nil {
+		return nil, err
+	}
+	return &wsexecutor, nil
+}
+
+func getTiDBClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*TiDBClusterDetail, error) {
+
+	stdout, stderr, err := (*wsexecutor).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
+		return nil, err
+	}
+
+	var tidbClusterDetail TiDBClusterDetail
+	if err = json.Unmarshal(stdout, &tidbClusterDetail); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
+		return nil, err
+	}
+
+	return &tidbClusterDetail, nil
 }

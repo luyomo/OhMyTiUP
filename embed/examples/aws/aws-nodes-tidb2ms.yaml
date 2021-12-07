@@ -1,0 +1,52 @@
+global:
+  user: pi
+  db_host: localhost
+  db_port: 4000
+  db_name: tickdata
+  db_user: tickuser
+  db_password: tickpass
+nginx_servers:
+  - host: 192.168.1.107
+workstation:
+  cidr: 172.82.0.0/16
+  instance_type: t2.micro
+  keyname: jay.pingcap
+  region: ap-northeast-1
+  imageid: ami-0ac97798ccf296e02
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-0ac97798ccf296e02
+    region: ap-northeast-1
+    name: tisamplenodes
+    keyname: jay.pingcap
+    cidr: 172.83.0.0/16
+    instance_type: t2.micro
+  pd:
+    instance_type: t2.micro
+    count: 3
+  tidb:
+    instance_type: t2.micro
+    count: 2
+  tikv:
+    instance_type: t2.micro
+    count: 3
+  dm:
+    instance_type: t2.micro
+    count: 1
+  ticdc:
+    instance_type: t2.micro
+    count: 1
+aurora:
+  cidr: 172.84.0.0/16
+  instance_type: db.r5.large
+  region: ap-northeast-1
+sqlserver:
+  cidr: 172.85.0.0/16
+  instance_type: t2.micro
+  keyname: jay.pingcap
+  region: ap-northeast-1
+dms:
+  cidr: 172.86.0.0/16
+  instance_type: t2.micro
+  region: ap-northeast-1
