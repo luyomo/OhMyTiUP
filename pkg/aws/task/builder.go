@@ -1090,18 +1090,12 @@ func (b *Builder) CreateDMSService(user, host, clusterName, clusterType, subClus
 	return b
 }
 
-func (b *Builder) EstablishVPCPeering(user, host string) *Builder {
-	var sourceVPC, targetVPC ResourceTag
-	sourceVPC.clusterName = "testtisample"
-	sourceVPC.clusterType = "tisample-tidb2ms"
-	sourceVPC.subClusterType = "dmsservice"
-
-	targetVPC.clusterName = "testtisample"
-	targetVPC.clusterType = "tisample-tidb2ms"
-	targetVPC.subClusterType = "aurora"
-	targetVPC.port = append(targetVPC.port, 3306)
-
-	//	b.CreateVpcPeering(user, host, sourceVPC, targetVPC)
-
+func (b *Builder) SysbenchTiCDC(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &SysbenchTiCDC{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
 	return b
 }

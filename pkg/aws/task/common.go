@@ -356,3 +356,28 @@ func getTiDBClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterN
 
 	return &tidbClusterDetail, nil
 }
+
+func getEC2Nodes(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, componentName string) (*[]EC2, error) {
+	var reservations Reservations
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Component,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, componentName)
+	zap.L().Debug("Command", zap.String("describe-instance", command))
+	stdout, _, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+		return nil, err
+	}
+
+	var theEC2s []EC2
+	for _, reservation := range reservations.Reservations {
+		for _, instance := range reservation.Instances {
+			theEC2s = append(theEC2s, instance)
+		}
+	}
+
+	return &theEC2s, nil
+
+}
