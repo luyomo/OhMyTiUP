@@ -974,6 +974,59 @@ func (b *Builder) CreateTransitGatewayVpcAttachment(user, host, clusterName, clu
 	return b
 }
 
+func (b *Builder) DestroyDMSInstance(user, host, clusterName, clusterType, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDMSInstance{
+		user:           user,
+		host:           host,
+		clusterName:    clusterName,
+		clusterType:    clusterType,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyDMSEndpoints(user, host, clusterName, clusterType, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDMSEndpoints{
+		user:           user,
+		host:           host,
+		clusterName:    clusterName,
+		clusterType:    clusterType,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyDMSSubnetGroup(user, host, clusterName, clusterType, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDMSSubnetGroup{
+		user:           user,
+		host:           host,
+		clusterName:    clusterName,
+		clusterType:    clusterType,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyTransitGatewayVpcAttachment(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyTransitGatewayVpcAttachment{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyTransitGateway(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyTransitGateway{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
 func (b *Builder) CreateBasicResource(user, host, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	if isPrivate == true {
 		b.CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).
@@ -993,6 +1046,7 @@ func (b *Builder) CreateBasicResource(user, host, clusterName, clusterType, subC
 func (b *Builder) CreateWorkstationCluster(user, host, clusterName, clusterType, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.region = awsWSConfigs.Region
+	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
 	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, false, clusterInfo).
 		CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsWSConfigs, clusterInfo)
@@ -1029,7 +1083,7 @@ func (b *Builder) CreateAurora(user, host, clusterName, clusterType, subClusterT
 	return b
 }
 
-func (b *Builder) DestroyBasicResource(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DestroyBasicResource(user, host, clusterName, clusterType, subClusterType string) *Builder {
 	b.DestroyInternetGateway(user, host, clusterName, clusterType, subClusterType).
 		DestroySecurityGroup(user, host, clusterName, clusterType, subClusterType).
 		DestroyNetwork(user, host, clusterName, clusterType, subClusterType).
@@ -1039,10 +1093,28 @@ func (b *Builder) DestroyBasicResource(user, host, clusterName, clusterType, sub
 	return b
 }
 
-func (b *Builder) DestroyTiDBCluster(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DestroyEC2Nodes(user, host, clusterName, clusterType, subClusterType string) *Builder {
 
 	b.DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType, clusterInfo)
+		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)
+
+	return b
+}
+
+func (b *Builder) DestroyDMSService(user, host, clusterName, clusterType, subClusterType string) *Builder {
+
+	b.DestroyDMSInstance(user, "127.0.0.1", clusterName, clusterType, subClusterType).
+		DestroyDMSEndpoints(user, "127.0.0.1", clusterName, clusterType, subClusterType).
+		DestroyDMSSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
+		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)
+
+	return b
+}
+
+func (b *Builder) DestroyTransitGateways(user, host, clusterName, clusterType string) *Builder {
+
+	b.DestroyTransitGatewayVpcAttachment(user, "127.0.0.1", clusterName, clusterType).
+		DestroyTransitGateway(user, "127.0.0.1", clusterName, clusterType)
 
 	return b
 }
@@ -1053,7 +1125,7 @@ func (b *Builder) DestroyAurora(user, host, clusterName, clusterType, subCluster
 		DestroyDBParameterGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
 		DestroyDBClusterParameterGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
 		DestroyDBSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType, clusterInfo)
+		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)
 
 	return b
 }
@@ -1063,6 +1135,7 @@ func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClust
 	clusterInfo.region = awsMSConfigs.Region
 	clusterInfo.keyName = awsMSConfigs.KeyName
 	clusterInfo.instanceType = awsMSConfigs.InstanceType
+	clusterInfo.imageId = awsMSConfigs.ImageId
 
 	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
 		CreateMS(user, host, clusterName, clusterType, subClusterType, clusterInfo)
@@ -1072,7 +1145,7 @@ func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClust
 
 func (b *Builder) DestroySqlServer(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType, clusterInfo)
+		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)
 
 	return b
 }

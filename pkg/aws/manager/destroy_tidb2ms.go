@@ -42,42 +42,35 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 		return err
 	}
 
-	var destroyTasks []*task.StepDisplay
 	clusterType := "tisample-tidb2ms"
 
-	var clusterInfo, auroraInfo, msInfo task.ClusterInfo
+	t0 := task.NewBuilder().
+		DestroyTransitGateways(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyDMSService(utils.CurrentUser(), "127.0.0.1", name, clusterType, "dmsservice").
+		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
+
+	builder := task.NewBuilder().
+		ParallelStep("+ Initialize target host environments", false, t0)
+	t := builder.Build()
+	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
+	var destroyTasks []*task.StepDisplay
+
+	var auroraInfo, msInfo task.ClusterInfo
 	t1 := task.NewBuilder().
-		DestroyTiDBCluster(utils.CurrentUser(), "127.0.0.1", name, clusterType, "tidb", &clusterInfo).
-		//DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBInstance(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBCluster(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBClusterParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBSubnetGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyEC2Nodes(utils.CurrentUser(), "127.0.0.1", name, clusterType, "tidb").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
 
 	t2 := task.NewBuilder().
 		DestroyAurora(utils.CurrentUser(), "127.0.0.1", name, clusterType, "aurora", &auroraInfo).
-		//DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBInstance(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBCluster(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBClusterParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyDBSubnetGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		//DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t2)
@@ -88,10 +81,16 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 
 	destroyTasks = append(destroyTasks, t3)
 
-	builder := task.NewBuilder().
+	t4 := task.NewBuilder().
+		DestroyEC2Nodes(utils.CurrentUser(), "127.0.0.1", name, clusterType, "workstation").
+		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
+
+	destroyTasks = append(destroyTasks, t4)
+
+	builder = task.NewBuilder().
 		ParallelStep("+ Initialize target host environments", false, destroyTasks...)
 
-	t := builder.Build()
+	t = builder.Build()
 
 	if err := t.Execute(ctxt.New(context.Background(), 2)); err != nil {
 		if errorx.Cast(err) != nil {

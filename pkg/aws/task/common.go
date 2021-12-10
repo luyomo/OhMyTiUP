@@ -42,7 +42,9 @@ type ClusterInfo struct {
 	cidr                   string
 	region                 string
 	keyName                string
+	keyFile                string
 	instanceType           string
+	imageId                string
 	vpcInfo                Vpc
 	privateRouteTableId    string
 	publicRouteTableId     string
@@ -328,12 +330,12 @@ func getWorkstation(executor ctxt.Executor, ctx context.Context, clusterName, cl
 	return &theInstance, nil
 }
 
-func getWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*ctxt.Executor, error) {
+func getWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType, user, keyFile string) (*ctxt.Executor, error) {
 	workstation, err := getWorkstation(texecutor, ctx, clusterName, clusterType)
 	if err != nil {
 		return nil, err
 	}
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile})
 	if err != nil {
 		return nil, err
 	}

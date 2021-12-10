@@ -79,7 +79,8 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	}
 
 	var tplParams ScriptParam
-	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType)
+	//	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", c.clusterInfo.keyFile)
+	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", "/home/pi/.ssh/jay-west.pem")
 	if err != nil {
 		return err
 	}
@@ -124,7 +125,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	tplParams.MSUser = "sa"
 	tplParams.MSUser = "1234@Abcd"
 
-	tplParams.NumTables = 50
+	tplParams.NumTables = 10
 
 	fmt.Printf("The parametesr are <%#v> \n\n\n", tplParams)
 
@@ -137,6 +138,85 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	err = copyTemplate(workstation, ctx, "analyze_sysbench.sh", &tplParams)
+	if err != nil {
+		return err
+	}
+
+	stdout, _, err := (*workstation).Execute(ctx, `chmod 755 /opt/tidb/scripts/adjust_sysbench_table.sh`, true)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	stdout, _, err = (*workstation).Execute(ctx, `chmod 755 /opt/tidb/scripts/cleanup_sysbench_table.sh`, true)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	stdout, _, err = (*workstation).Execute(ctx, `chmod 755 /opt/tidb/scripts/analyze_sysbench.sh`, true)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	// sysbench install
+	stdout, _, err = (*workstation).Execute(ctx, `curl -s https://packagecloud.io/install/repositories/akopytov/sysbench/script.deb.sh | sudo bash`, false)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	stdout, _, err = (*workstation).Execute(ctx, `apt-get -y install sysbench`, true)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	command := fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
+	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	if err != nil {
+		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=0 prepare", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
+	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	if err != nil {
+		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	command = fmt.Sprintf("/opt/tidb/scripts/adjust_sysbench_table.sh")
+	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	if err != nil {
+		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*100, tplParams.NumTables, 10000)
+	fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	if err != nil {
+
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	command = fmt.Sprintf("/opt/tidb/scripts/analyze_sysbench.sh")
+	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	if err != nil {
+		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 
 	return nil
 }

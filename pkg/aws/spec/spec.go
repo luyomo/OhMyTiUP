@@ -111,6 +111,7 @@ type (
 		Region       string `yaml:"region,omitempty"`
 		Name         string `yaml:"name,omitempty"`
 		KeyName      string `yaml:"keyname,omitempty"`
+		KeyFile      string `yaml:"keyfile,omitempty"`
 		CIDR         string `yaml:"cidr,omitempty"`
 		InstanceType string `yaml:"instance_type,omitempty"`
 	}
@@ -138,6 +139,7 @@ type (
 		CIDR         string `yaml:"cidr"`
 		InstanceType string `yaml:"instance_type"`
 		KeyName      string `yaml:"keyname"`
+		KeyFile      string `yaml:"keyfile,omitempty"`
 		Region       string `yaml:"region"`
 	}
 
@@ -148,6 +150,7 @@ type (
 	}
 
 	AwsMSConfigs struct {
+		ImageId      string `yaml:"imageid,omitempty"`
 		CIDR         string `yaml:"cidr"`
 		InstanceType string `yaml:"instance_type"`
 		KeyName      string `yaml:"keyname"`

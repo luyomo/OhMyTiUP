@@ -61,13 +61,13 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	var reservations Reservations
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return nil
+		return err
 	}
 
 	var theInstance EC2
@@ -83,12 +83,12 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err = local.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return nil
+		return err
 	}
 
 	var tplData TplTiupData
@@ -124,9 +124,9 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
 
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile})
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if _, _, err := wsexecutor.Execute(ctx, `mkdir -p /opt/tidb/sql`, true); err != nil {
@@ -177,28 +177,28 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 
 	//dm_cluster.yml.tpl
-	err = wsexecutor.Transfer(ctx, "/home/pi/.ssh/jaypingcap.pem", "~/.ssh/id_rsa", false, 0)
+	err = wsexecutor.Transfer(ctx, c.clusterInfo.keyFile, "~/.ssh/id_rsa", false, 0)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	stdout, _, err = wsexecutor.Execute(ctx, `apt-get update`, true)
 	if err != nil {
-		return nil
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
 	}
-	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 
 	stdout, _, err = wsexecutor.Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
 	if err != nil {
-		return nil
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
 	}
-	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 
 	stdout, _, err = wsexecutor.Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
 	if err != nil {
-		return nil
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
 	}
-	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 
 	return nil
 }

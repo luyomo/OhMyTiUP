@@ -15,78 +15,52 @@ package task
 
 import (
 	"context"
-	"errors"
+	//	"errors"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/executor"
-	"time"
+	//"time"
 )
 
-type TransitGateway struct {
-	TransitGatewayId  string `json:"TransitGatewayId"`
-	TransitGatewayArn string `json:"TransitGatewayArn`
-	State             string `json:"State"`
-}
-
-type TransitGateways struct {
-	TransitGateways []TransitGateway `json:"TransitGateways"`
-}
-
-type CreateTransitGateway struct {
+type DestroyTransitGateway struct {
 	user        string
 	host        string
 	clusterName string
 	clusterType string
 }
 
-//
-// create-transit-gateway --description testtisample --tag-specifications ...
-// Execute implements the Task interface
-func (c *CreateTransitGateway) Execute(ctx context.Context) error {
+func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
 	transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
+
 	if err != nil {
 		return err
 	}
-	if transitGateway != nil {
+	if transitGateway == nil {
 		return nil
 	}
+	fmt.Printf(" ********** The cluster type is <%#v> \n\n\n", transitGateway)
 
-	command := fmt.Sprintf("aws ec2 create-transit-gateway --description %s --tag-specifications --tag-specifications \"ResourceType=transit-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s}]\"", c.clusterName, c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 delete-transit-gateway --transit-gateway-id %s", transitGateway.TransitGatewayId)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		fmt.Printf("The error here is <%s> \n\n", string(stdout))
 		return err
-	}
-	fmt.Printf("The result from create-transit-gateway <%s> \n\n\n", string(stdout))
-
-	for i := 1; i <= 50; i++ {
-		transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
-		if err != nil {
-			return err
-		}
-		if transitGateway == nil {
-			return errors.New("No transit gateway found")
-		}
-		if transitGateway.State == "available" {
-			break
-		}
-
-		time.Sleep(30 * time.Second)
 	}
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *CreateTransitGateway) Rollback(ctx context.Context) error {
+func (c *DestroyTransitGateway) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *CreateTransitGateway) String() string {
+func (c *DestroyTransitGateway) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }

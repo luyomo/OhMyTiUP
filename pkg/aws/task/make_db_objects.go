@@ -115,7 +115,7 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The sqlserver host is <%s> \n\n\n", SqlServerHost)
 
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile})
 	if err != nil {
 		return nil
 	}

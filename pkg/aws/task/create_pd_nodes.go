@@ -36,12 +36,12 @@ type CreatePDNodes struct {
 func (c *CreatePDNodes) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if c.awsTopoConfigs.PD.Count == 0 {
 		zap.L().Debug("There is no PD nodes to be configured")
-		return nil
+		return err
 	}
 
 	// 3. Fetch the count of instance from the instance
@@ -49,13 +49,13 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 	zap.L().Debug("Command", zap.String("describe-instances", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	var reservations Reservations
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return nil
+		return err
 	}
 	if len(reservations.Reservations) > 0 && len(reservations.Reservations[0].Instances) >= c.awsTopoConfigs.PD.Count {
 		zap.L().Info("No need to make PD nodes", zap.String("PD instances", reservations.String()), zap.Int("# requested nodes", c.awsTopoConfigs.PD.Count))
@@ -68,11 +68,11 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 	}
 
 	for _idx := 0; _idx < c.awsTopoConfigs.PD.Count-existsNodes; _idx++ {
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --region %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=pd}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.PD.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.awsTopoConfigs.General.Region, c.clusterName, c.clusterType, c.subClusterType)
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=pd}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.PD.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = local.Execute(ctx, command, false)
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 

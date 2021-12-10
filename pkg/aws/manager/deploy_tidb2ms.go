@@ -214,29 +214,29 @@ func (m *Manager) TiDB2MSDeploy(
 
 	t := builder.Build()
 
-	//if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
-	//	if errorx.Cast(err) != nil {
-	//		// FIXME: Map possible task errors and give suggestions.
-	//		return err
-	//	}
-	//	return err
-	//}
+	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
 
 	t5 := task.NewBuilder().
-		//CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
-		//CreateTransitGateway(globalOptions.User, "127.0.0.1", name, clusterType).
-		//CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "workstation").
-		//CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "tidb").
-		//CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "aurora").
-		//CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "sqlserver").
-		//CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice").
-		//CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
-		//CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", []string{"aurora"}).
-		//CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
+		CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
+		CreateTransitGateway(globalOptions.User, "127.0.0.1", name, clusterType).
+		CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "workstation").
+		CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "tidb").
+		CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "aurora").
+		CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "sqlserver").
+		CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice").
+		CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
+		CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", []string{"aurora"}).
+		CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
 		DeployTiDB(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsTopoConfigs, &workstationInfo).
 		DeployTiDBInstance(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
 		MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
-		//DeployTiCDC(globalOptions.User, inst.GetHost(), name, clusterType).        // - Set the TiCDC for data sync between TiDB and Aurora
+		DeployTiCDC(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder = task.NewBuilder().

@@ -37,7 +37,7 @@ func (c *DeployTiCDC) Execute(ctx context.Context) error {
 		return err
 	}
 
-	wsexecutor, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType)
+	wsexecutor, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", c.clusterInfo.keyFile)
 	if err != nil {
 		return err
 	}

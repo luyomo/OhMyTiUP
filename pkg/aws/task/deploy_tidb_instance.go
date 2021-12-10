@@ -118,7 +118,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 	}
 
 	fmt.Printf(" *** *** *** *** Coming here for tidb instance deployment \n\n\n")
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: "~/.ssh/jaypingcap.pem"})
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile})
 	if err != nil {
 		return nil
 	}

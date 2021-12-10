@@ -49,7 +49,7 @@ func (c *CreateMS) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --region %s  --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=sqlserver}]\"", "ami-01d445a80199e19cc", c.clusterInfo.instanceType, c.clusterInfo.keyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[0], c.clusterInfo.region, c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=sqlserver}]\"", c.clusterInfo.imageId, c.clusterInfo.instanceType, c.clusterInfo.keyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[0], c.clusterName, c.clusterType, c.subClusterType)
 
 	zap.L().Debug("Command", zap.String("run-instances", command))
 	_, _, err = local.Execute(ctx, command, false)
