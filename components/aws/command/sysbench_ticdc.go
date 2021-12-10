@@ -15,14 +15,11 @@ package command
 
 import (
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/set"
-	perrs "github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )
 
 func newSysbenchTiCDCCmd() *cobra.Command {
-	destroyOpt := operator.Options{}
+	tidbConnInfo := operator.TiDBConnInfo{}
 	cmd := &cobra.Command{
 		Use:   "sysbench_ticdc <cluster-name>",
 		Short: "sysbench test the ticdc performance",
@@ -42,22 +39,16 @@ You can retain some nodes and roles data when destroy cluster, eg:
 			teleCommand = append(teleCommand, scrubClusterName(clusterName))
 
 			// Validate the retained roles to prevent unexpected deleting data
-			if len(destroyOpt.RetainDataRoles) > 0 {
-				validRoles := set.NewStringSet(spec.AllComponentNames()...)
-				for _, role := range destroyOpt.RetainDataRoles {
-					if !validRoles.Exist(role) {
-						return perrs.Errorf("role name `%s` invalid", role)
-					}
-				}
-			}
 
-			return cm.SysbenchTiCDC(clusterName, gOpt, destroyOpt, skipConfirm)
+			return cm.SysbenchTiCDC(clusterName, gOpt, tidbConnInfo, skipConfirm)
 		},
 	}
 
-	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataNodes, "retain-node-data", nil, "Specify the nodes or hosts whose data will be retained")
-	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataRoles, "retain-role-data", nil, "Specify the roles whose data will be retained")
-	cmd.Flags().BoolVar(&destroyOpt.Force, "force", false, "Force will ignore remote error while destroy the cluster")
+	cmd.Flags().StringVarP(&tidbConnInfo.Host, "db-host", "H", "localhost", "The host of TiDB connection")
+	cmd.Flags().IntVarP(&tidbConnInfo.Port, "port", "p", 4000, "The port of TiDB connection")
+	cmd.Flags().StringVarP(&tidbConnInfo.DBName, "dbname", "d", "", "The dbname of TiDB connection")
+	cmd.Flags().StringVarP(&tidbConnInfo.User, "user", "u", "", "The user of TiDB connection")
+	cmd.Flags().StringVarP(&tidbConnInfo.Pass, "password", "P", "", "The password of TiDB connection")
 
 	return cmd
 }

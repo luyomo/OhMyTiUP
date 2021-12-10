@@ -1163,12 +1163,14 @@ func (b *Builder) CreateDMSService(user, host, clusterName, clusterType, subClus
 	return b
 }
 
-func (b *Builder) SysbenchTiCDC(user, host, clusterName, clusterType string) *Builder {
+func (b *Builder) SysbenchTiCDC(user, host, identityFile, clusterName, clusterType string, tidbConnInfo operator.TiDBConnInfo) *Builder {
 	b.tasks = append(b.tasks, &SysbenchTiCDC{
-		user:        user,
-		host:        host,
-		clusterName: clusterName,
-		clusterType: clusterType,
+		user:         user,
+		host:         host,
+		identityFile: identityFile, // The identity file for workstation user. To improve better.
+		clusterName:  clusterName,
+		clusterType:  clusterType,
+		tidbConnInfo: tidbConnInfo,
 	})
 	return b
 }

@@ -21,13 +21,14 @@ import (
 	"path"
 
 	"github.com/luyomo/tisample/embed"
+	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"text/template"
 	//	"go.uber.org/zap"
 	//	"math/big"
 	//	"text/template"
-	//	"time"
+	"time"
 )
 
 /*
@@ -64,10 +65,12 @@ type ScriptParam struct {
 }
 
 type SysbenchTiCDC struct {
-	user        string
-	host        string
-	clusterName string
-	clusterType string
+	user         string
+	host         string
+	identityFile string
+	clusterName  string
+	clusterType  string
+	tidbConnInfo operator.TiDBConnInfo
 }
 
 // Execute implements the Task interface
@@ -80,25 +83,33 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 
 	var tplParams ScriptParam
 	//	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", c.clusterInfo.keyFile)
-	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", "/home/pi/.ssh/jay-west.pem")
+	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", c.identityFile)
 	if err != nil {
 		return err
 	}
 
 	//  *****   1. Fetch the TiDB host
-	tidbClusterDetail, err := getTiDBClusterInfo(workstation, ctx, c.clusterName, c.clusterType)
-	if err != nil {
-		return err
-	}
+	if c.tidbConnInfo.User != "" {
+		tplParams.TiDBHost = c.tidbConnInfo.Host
+		tplParams.TiDBPort = c.tidbConnInfo.Port
+		tplParams.TiDBDB = c.tidbConnInfo.DBName
+		tplParams.TiDBUser = c.tidbConnInfo.User
+		tplParams.TiDBPass = c.tidbConnInfo.Pass
+	} else {
+		tidbClusterDetail, err := getTiDBClusterInfo(workstation, ctx, c.clusterName, c.clusterType)
+		if err != nil {
+			return err
+		}
 
-	for _, instance := range tidbClusterDetail.Instances {
-		if instance.Role == "tidb" && instance.Status == "Up" {
-			fmt.Printf("The cluster detail is <%#v> \n\n\n", instance)
-			tplParams.TiDBHost = instance.Host
-			tplParams.TiDBPort = instance.Port
-			tplParams.TiDBDB = "cdc_test"
-			tplParams.TiDBUser = "root"
-			break
+		for _, instance := range tidbClusterDetail.Instances {
+			if instance.Role == "tidb" && instance.Status == "Up" {
+				fmt.Printf("The cluster detail is <%#v> \n\n\n", instance)
+				tplParams.TiDBHost = instance.Host
+				tplParams.TiDBPort = instance.Port
+				tplParams.TiDBDB = "cdc_test"
+				tplParams.TiDBUser = "root"
+				break
+			}
 		}
 	}
 
@@ -125,7 +136,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	tplParams.MSUser = "sa"
 	tplParams.MSUser = "1234@Abcd"
 
-	tplParams.NumTables = 10
+	tplParams.NumTables = 30
 
 	fmt.Printf("The parametesr are <%#v> \n\n\n", tplParams)
 
@@ -175,33 +186,48 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 		return err
 	}
 
-	command := fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
+	var command string
+	if tplParams.TiDBPass == "" {
+		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
+	} else {
+		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
+	}
 	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	fmt.Printf("The sysbench command is <%s>\n\n\n", command)
 	if err != nil {
 		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		fmt.Printf("Errors for cleanup <%s> \n\n\n", string(stdout))
 		return err
 	}
 
-	command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=0 prepare", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	if tplParams.TiDBPass == "" {
+		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=0 prepare", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables, tplParams.NumTables)
+	} else {
+		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=0 prepare", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables, tplParams.NumTables)
+	}
+	stdout, stderr, err := (*workstation).Execute(ctx, command, true, time.Second*120)
 	if err != nil {
 		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		fmt.Printf("Error on the prepare <%s> \n\n\n", string(stdout))
+		fmt.Printf("Error on the prepare <%s> \n\n\n", string(stderr))
 		return err
 	}
 
 	command = fmt.Sprintf("/opt/tidb/scripts/adjust_sysbench_table.sh")
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	stdout, _, err = (*workstation).Execute(ctx, command, true, time.Second*120)
 	if err != nil {
 		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		fmt.Printf("Adjusting sysbench  <%s> \n\n\n", string(stdout))
 		return err
 	}
 
-	command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*100, tplParams.NumTables, 10000)
+	if tplParams.TiDBPass == "" {
+		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*50, tplParams.NumTables, 50000)
+	} else {
+		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d  --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*50, tplParams.NumTables, 50000)
+	}
 	fmt.Printf("The sysbench command is <%s>\n\n\n", command)
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	stdout, _, err = (*workstation).Execute(ctx, command, true, time.Second*3600)
 	if err != nil {
 
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
@@ -209,7 +235,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	}
 
 	command = fmt.Sprintf("/opt/tidb/scripts/analyze_sysbench.sh")
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
+	stdout, _, err = (*workstation).Execute(ctx, command, true, time.Second*600)
 	if err != nil {
 		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
@@ -232,7 +258,9 @@ func (c *SysbenchTiCDC) String() string {
 }
 
 func copyTemplate(executor *ctxt.Executor, ctx context.Context, file string, tplData *ScriptParam) error {
-	if _, _, err := (*executor).Execute(ctx, `mkdir -p /opt/tidb/scripts`, true); err != nil {
+	if stdout, stderr, err := (*executor).Execute(ctx, `mkdir -p /opt/tidb/scripts`, true); err != nil {
+		fmt.Printf("The out uput is <%s> \n\n\n", string(stdout))
+		fmt.Printf("The out uput error  is <%s> \n\n\n", string(stderr))
 		return err
 	}
 
@@ -258,6 +286,7 @@ func copyTemplate(executor *ctxt.Executor, ctx context.Context, file string, tpl
 	}
 
 	if err := tmpl.Execute(fdFile, *tplData); err != nil {
+
 		return err
 	}
 

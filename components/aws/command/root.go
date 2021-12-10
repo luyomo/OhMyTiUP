@@ -151,6 +151,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&skipConfirm, "yes", "y", false, "Skip all confirmations and assumes 'yes'")
 	rootCmd.PersistentFlags().BoolVar(&gOpt.NativeSSH, "native-ssh", gOpt.NativeSSH, "(EXPERIMENTAL) Use the native SSH client installed on local system instead of the build-in one.")
 	rootCmd.PersistentFlags().StringVar((*string)(&gOpt.SSHType), "ssh", "", "(EXPERIMENTAL) The executor type: 'builtin', 'system', 'none'.")
+	rootCmd.PersistentFlags().StringVar((*string)(&gOpt.IdentityFile), "identity-file", "", "The identity file for native ssh")
 	rootCmd.PersistentFlags().IntVarP(&gOpt.Concurrency, "concurrency", "c", 5, "max number of parallel tasks allowed")
 	rootCmd.PersistentFlags().StringVar(&gOpt.SSHProxyHost, "ssh-proxy-host", "", "The SSH proxy host used to connect to remote host.")
 	rootCmd.PersistentFlags().StringVar(&gOpt.SSHProxyUser, "ssh-proxy-user", utils.CurrentUser(), "The user name used to login the proxy host.")

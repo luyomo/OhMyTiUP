@@ -10,7 +10,11 @@ tidbCnt=0
 for i in {1..{{ .NumTables }}}
 do
     query="select count(*) from sbtest${i}"
+    {{ if eq .TiDBPass "" }}
     result=`mysql -h {{ .TiDBHost }} -P {{ .TiDBPort  }} -u {{ .TiDBUser  }} {{ .TiDBDB }} -s --skip-column-names -e "${query}"`
+    {{ else  }}
+    result=`mysql -h {{ .TiDBHost }} -P {{ .TiDBPort  }} -u {{ .TiDBUser  }} -p{{ .TiDBPass }}  {{ .TiDBDB }} -s --skip-column-names -e "${query}"`
+    {{ end  }}
     tidbCnt=$(( $tidbCnt + $result ))
 done
 

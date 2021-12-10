@@ -32,9 +32,11 @@ import (
 	perrs "github.com/pingcap/errors"
 )
 
-func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
+func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options, tidbConnInfo operator.TiDBConnInfo, skipConfirm bool) error {
 	fmt.Printf("The context is <%#v> \n\n\n", utils.CurrentUser())
 	fmt.Printf("The cluster name is %s \n\n\n", name)
+	fmt.Printf("The tidb conn info <%#v> \n\n\n", tidbConnInfo)
+	fmt.Printf("The tidb conn info <%#v> \n\n\n", gOpt.IdentityFile)
 
 	_, err := m.meta(name)
 	fmt.Printf("01 Coming here %#v\n\n\n", err)
@@ -48,7 +50,7 @@ func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options, destroyOpt o
 	clusterType := "tisample-tidb2ms"
 	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().
-		SysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		SysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", gOpt.IdentityFile, name, clusterType, tidbConnInfo).
 		BuildAsStep(fmt.Sprintf("  - Sysbench ticdc %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
