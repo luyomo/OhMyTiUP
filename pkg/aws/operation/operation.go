@@ -41,6 +41,7 @@ type Options struct {
 	NativeSSH           bool             // should use native ssh client or builtin easy ssh (deprecated, shoule use SSHType)
 	SSHType             executor.SSHType // the ssh type: 'builtin', 'system', 'none'
 	IdentityFile        string           // ssh Identity file
+	SSHUser             string           // SSH remote user name
 	Concurrency         int              // max number of parallel tasks to run
 	SSHProxyHost        string           // the ssh proxy host
 	SSHProxyPort        int              // the ssh proxy port

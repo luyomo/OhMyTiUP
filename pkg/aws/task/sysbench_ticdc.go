@@ -136,7 +136,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	tplParams.MSUser = "sa"
 	tplParams.MSUser = "1234@Abcd"
 
-	tplParams.NumTables = 30
+	tplParams.NumTables = 15
 
 	fmt.Printf("The parametesr are <%#v> \n\n\n", tplParams)
 
@@ -222,9 +222,9 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	}
 
 	if tplParams.TiDBPass == "" {
-		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*50, tplParams.NumTables, 50000)
+		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*150, tplParams.NumTables, 50000)
 	} else {
-		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d  --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*50, tplParams.NumTables, 50000)
+		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d  --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*150, tplParams.NumTables, 50000)
 	}
 	fmt.Printf("The sysbench command is <%s>\n\n\n", command)
 	stdout, _, err = (*workstation).Execute(ctx, command, true, time.Second*3600)

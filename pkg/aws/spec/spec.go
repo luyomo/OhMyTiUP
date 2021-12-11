@@ -140,13 +140,12 @@ type (
 		InstanceType string `yaml:"instance_type"`
 		KeyName      string `yaml:"keyname"`
 		KeyFile      string `yaml:"keyfile,omitempty"`
-		Region       string `yaml:"region"`
+		UserName     string `yaml:"username"`
 	}
 
 	AwsAuroraConfigs struct {
 		InstanceType string `yaml:"instance_type"`
 		CIDR         string `yaml:"cidr"`
-		Region       string `yaml:"region,omitempty"`
 	}
 
 	AwsMSConfigs struct {
@@ -154,13 +153,11 @@ type (
 		CIDR         string `yaml:"cidr"`
 		InstanceType string `yaml:"instance_type"`
 		KeyName      string `yaml:"keyname"`
-		Region       string `yaml:"region"`
 	}
 
 	AwsDMSConfigs struct {
 		CIDR         string `yaml:"cidr"`
 		InstanceType string `yaml:"instance_type"`
-		Region       string `yaml:"region"`
 	}
 
 	// Specification represents the specification of topology.yaml
@@ -169,7 +166,7 @@ type (
 		MonitoredOptions MonitoredOptions     `yaml:"monitored,omitempty" validate:"monitored:editable"`
 		ServerConfigs    ServerConfigs        `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
 		AwsWSConfigs     AwsWSConfigs         `yaml:"workstation,omitempty"`
-		AwsTopoConfigs   AwsTopoConfigs       `yaml:"aws_topo_configs,omitempty"`
+		AwsTopoConfigs   AwsTopoConfigs       `yaml:"aws_topo_configs"`
 		AwsAuroraConfigs AwsAuroraConfigs     `yaml:"aurora,omitempty"`
 		AwsMSConfigs     AwsMSConfigs         `yaml:"sqlserver,omitempty"`
 		AwsDMSConfigs    AwsDMSConfigs        `yaml:"dms,omitempty"`

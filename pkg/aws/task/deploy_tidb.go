@@ -30,7 +30,7 @@ import (
 type DeployTiDB struct {
 	user           string
 	host           string
-	awsTopoConfigs *spec.AwsTopoConfigs
+	awsWSConfigs   *spec.AwsWSConfigs
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -57,7 +57,14 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=16\"", c.clusterName, c.clusterType, "workstation")
+	// 1. Get all the workstation nodes
+	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
+	if err != nil {
+		return err
+	}
+
+	// 2. Get all the nodes from tag definition
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
@@ -65,27 +72,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 
 	var reservations Reservations
-	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return err
-	}
-
-	var theInstance EC2
-	cntInstance := 0
-	for _, reservation := range reservations.Reservations {
-		for _, instance := range reservation.Instances {
-			cntInstance++
-			theInstance = instance
-		}
-	}
-
-	command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err = local.Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
 		return err
@@ -124,19 +110,16 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
 
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile})
-	if err != nil {
+	// 3. Make all the necessary folders
+	if _, _, err := (*workstation).Execute(ctx, `mkdir -p /opt/tidb/sql`, true); err != nil {
 		return err
 	}
 
-	if _, _, err := wsexecutor.Execute(ctx, `mkdir -p /opt/tidb/sql`, true); err != nil {
+	if _, _, err := (*workstation).Execute(ctx, `chown -R admin:admin /opt/tidb`, true); err != nil {
 		return err
 	}
 
-	if _, _, err := wsexecutor.Execute(ctx, `chown -R admin:admin /opt/tidb`, true); err != nil {
-		return err
-	}
-
+	// 4. Deploy all tidb templates
 	configFiles := []string{"cdc-task.toml", "dm-cluster.yml", "dm-source.yml", "dm-task.yml", "dm-task.yml", "tidb-cluster.yml"}
 	for _, configFile := range configFiles {
 		fmt.Printf("The config file to copy is <%s> \n\n\n", configFile)
@@ -162,39 +145,48 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 			return err
 		}
 
-		err = wsexecutor.Transfer(ctx, fmt.Sprintf("/tmp/%s", configFile), "/opt/tidb/", false, 0)
+		err = (*workstation).Transfer(ctx, fmt.Sprintf("/tmp/%s", configFile), "/opt/tidb/", false, 0)
 		if err != nil {
 			fmt.Printf("The error is <%#v> \n\n\n", err)
+			return err
 		}
 	}
 
+	// 5. Render the ddl templates to tidb/aurora/sql server
 	sqlFiles := []string{"ontime_ms.ddl", "ontime_mysql.ddl", "ontime_tidb.ddl"}
 	for _, sqlFile := range sqlFiles {
-		err = wsexecutor.Transfer(ctx, fmt.Sprintf("embed/templates/sql/%s", sqlFile), "/opt/tidb/sql/", false, 0)
+		err = (*workstation).Transfer(ctx, fmt.Sprintf("embed/templates/sql/%s", sqlFile), "/opt/tidb/sql/", false, 0)
 		if err != nil {
 			fmt.Printf("The error is <%#v> \n\n\n", err)
+			return err
 		}
 	}
 
-	//dm_cluster.yml.tpl
-	err = wsexecutor.Transfer(ctx, c.clusterInfo.keyFile, "~/.ssh/id_rsa", false, 0)
+	// 6. Send the access key to workstation
+	err = (*workstation).Transfer(ctx, c.clusterInfo.keyFile, "~/.ssh/id_rsa", false, 0)
 	if err != nil {
 		return err
 	}
 
-	stdout, _, err = wsexecutor.Execute(ctx, `apt-get update`, true)
-	if err != nil {
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
-		return err
-	}
-
-	stdout, _, err = wsexecutor.Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
+	stdout, _, err = (*workstation).Execute(ctx, `chmod 600 ~/.ssh/id_rsa`, false)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
-	stdout, _, err = wsexecutor.Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
+	stdout, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	stdout, _, err = (*workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	stdout, _, err = (*workstation).Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err

@@ -226,7 +226,7 @@ func (m *Manager) TiDB2AuroraDeploy(
 				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
 				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsWSConfigs, &clusterInfo).
 				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
 				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
 				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).

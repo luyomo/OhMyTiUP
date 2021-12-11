@@ -105,58 +105,6 @@ func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error 
 		time.Sleep(30 * time.Second)
 	}
 	return nil
-
-	/*
-		fmt.Printf("The vpc attachment data is <%#v> \n\n\n", transitGatewayVpcAttachments.TransitGatewayVpcAttachments)
-		if len(transitGatewayVpcAttachments.TransitGatewayVpcAttachments) > 0 {
-			return nil
-		}
-
-		transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
-		if err != nil {
-			return err
-		}
-		if transitGateway == nil {
-			return errors.New("No transit gateway found")
-		}
-		fmt.Printf("The transit gateway is <%#v> \n\n\n", transitGateway)
-
-		vpc, err := getVPC(local, ctx, c.clusterName, c.clusterType, c.subClusterType)
-		if err != nil {
-			return err
-		}
-		if vpc == nil {
-			return errors.New("No vpc found")
-		}
-		fmt.Printf("The vpc is <%#v> \n\n\n", vpc)
-
-		subnets, err := getNetworksString(local, ctx, c.clusterName, c.clusterType, c.subClusterType, "private")
-		if err != nil {
-			return err
-		}
-		if subnets == "" {
-			return errors.New("No subnets found")
-		}
-		fmt.Printf("The subnets is <%s> \n\n\n", subnets)
-
-		command = fmt.Sprintf("aws ec2 create-transit-gateway-vpc-attachment --transit-gateway-id %s --vpc-id %s --subnet-ids '\"'\"'%s'\"'\"' --tag-specifications \"ResourceType=transit-gateway-attachment,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", transitGateway.TransitGatewayId, vpc.VpcId, subnets, c.clusterName, c.clusterType, c.subClusterType)
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-
-		stdout, stderr, err = local.Execute(ctx, command, false)
-		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
-			return err
-		}
-		var transitGatewayVpcAttachment TransitGatewayVpcAttachment
-		fmt.Printf("The result from create-transit-gateway-vpc-attachment <%s> \n\n\n", string(stdout))
-		if err = json.Unmarshal(stdout, &transitGatewayVpcAttachment); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
-		}
-		return nil
-	*/
 }
 
 // Rollback implements the Task interface

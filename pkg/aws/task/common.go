@@ -176,30 +176,42 @@ type CreateVpcPeering struct {
 	targetVPC ResourceTag
 }
 
-func getVPCInfo(executor ctxt.Executor, ctx context.Context, vpc ResourceTag, vpcInfo *Vpc) error {
-	fmt.Printf("Coming here to search for the vpc \n\n\n")
-	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\"", vpc.clusterName, vpc.clusterType, vpc.subClusterType), false)
+func getVPCInfos(executor ctxt.Executor, ctx context.Context, vpc ResourceTag) (*Vpcs, error) {
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" ", vpc.clusterName, vpc.clusterType), false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var vpcs Vpcs
 	if err := json.Unmarshal(stdout, &vpcs); err != nil {
 		zap.L().Debug("The error to parse the string ", zap.Error(err))
-		return err
+		return nil, err
+	}
+	return &vpcs, nil
+}
+
+func getVPCInfo(executor ctxt.Executor, ctx context.Context, vpc ResourceTag) (*Vpc, error) {
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\"", vpc.clusterName, vpc.clusterType, vpc.subClusterType), false)
+	if err != nil {
+		return nil, err
+	}
+
+	var vpcs Vpcs
+	if err := json.Unmarshal(stdout, &vpcs); err != nil {
+		zap.L().Debug("The error to parse the string ", zap.Error(err))
+		return nil, err
 	}
 	if len(vpcs.Vpcs) > 1 {
-		return errors.New("Multiple VPC found")
+		return nil, errors.New("Multiple VPC found")
 	}
 
 	if len(vpcs.Vpcs) == 0 {
-		return errors.New("No VPC found")
+		return nil, errors.New("No VPC found")
 	}
-	*vpcInfo = vpcs.Vpcs[0]
-
-	return nil
+	return &(vpcs.Vpcs[0]), nil
 }
 
+/*
 func getVPC(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*Vpc, error) {
 	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" ", clusterName, subClusterType, clusterType), false)
 	if err != nil {
@@ -219,7 +231,7 @@ func getVPC(executor ctxt.Executor, ctx context.Context, clusterName, clusterTyp
 	}
 	return nil, nil
 }
-
+*/
 func getNetworks(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType, scope string) (*[]Subnet, error) {
 	//command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, subClusterType, scope)
 	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, subClusterType)
@@ -294,7 +306,28 @@ func getRouteTable(executor ctxt.Executor, ctx context.Context, clusterName, clu
 		return nil, errors.New("Multiple route tables found")
 	}
 	return &routeTables.RouteTables[0], nil
+}
 
+func getRouteTableByVPC(executor ctxt.Executor, ctx context.Context, clusterName, vpcID string) (*RouteTable, error) {
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=vpc-id,Values=%s\" ", clusterName, vpcID), false)
+	if err != nil {
+		return nil, err
+	}
+
+	var routeTables RouteTables
+	if err = json.Unmarshal(stdout, &routeTables); err != nil {
+		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
+		return nil, err
+	}
+
+	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
+	if len(routeTables.RouteTables) == 0 {
+		return nil, errors.New("No route table found")
+	}
+	if len(routeTables.RouteTables) > 1 {
+		return nil, errors.New("Multiple route tables found")
+	}
+	return &routeTables.RouteTables[0], nil
 }
 
 func getWorkstation(executor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*EC2, error) {
@@ -326,6 +359,7 @@ func getWorkstation(executor ctxt.Executor, ctx context.Context, clusterName, cl
 	if cntInstance == 0 {
 		return nil, errors.New("No workstation node")
 	}
+	fmt.Printf(" ***** ***** The user is <%#v> \n\n\n", theInstance)
 
 	return &theInstance, nil
 }

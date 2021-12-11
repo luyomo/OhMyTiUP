@@ -107,8 +107,6 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	//
-
 	transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
 	if err != nil {
 		return err
@@ -118,12 +116,14 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The transit gateway is <%#v> \n\n\n", transitGateway)
 
-	vpc, err := getVPC(local, ctx, c.clusterName, c.clusterType, c.subClusterType)
+	//	vpc, err := getVPC(local, ctx, c.clusterName, c.clusterType, c.subClusterType)
+	vpc, err := getVPCInfo(local, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
 	if err != nil {
 		return err
 	}
 	if vpc == nil {
-		return errors.New("No vpc found")
+		return nil
+		//		return errors.New("No vpc found")
 	}
 	fmt.Printf("The vpc is <%#v> \n\n\n", vpc)
 

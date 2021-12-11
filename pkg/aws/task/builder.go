@@ -628,11 +628,21 @@ func (b *Builder) CreateInternetGateway(user, host, clusterName, clusterType, su
 	return b
 }
 
-func (b *Builder) DeployTiDB(user, host, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) AcceptVPCPeering(user, host, clusterName, clusterType string) *Builder {
+	b.tasks = append(b.tasks, &AcceptVPCPeering{
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
+	})
+	return b
+}
+
+func (b *Builder) DeployTiDB(user, host, clusterName, clusterType, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDB{
 		user:           user,
 		host:           host,
-		awsTopoConfigs: awsTopoConfigs,
+		awsWSConfigs:   awsWSConfigs,
 		clusterName:    clusterName,
 		clusterType:    clusterType,
 		subClusterType: subClusterType,
@@ -1045,7 +1055,6 @@ func (b *Builder) CreateBasicResource(user, host, clusterName, clusterType, subC
 
 func (b *Builder) CreateWorkstationCluster(user, host, clusterName, clusterType, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsWSConfigs.CIDR
-	clusterInfo.region = awsWSConfigs.Region
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
 	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, false, clusterInfo).
@@ -1056,7 +1065,6 @@ func (b *Builder) CreateWorkstationCluster(user, host, clusterName, clusterType,
 
 func (b *Builder) CreateTiDBCluster(user, host, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsTopoConfigs.General.CIDR
-	clusterInfo.region = awsTopoConfigs.General.Region
 
 	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
 		//		CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
@@ -1072,7 +1080,6 @@ func (b *Builder) CreateTiDBCluster(user, host, clusterName, clusterType, subClu
 
 func (b *Builder) CreateAurora(user, host, clusterName, clusterType, subClusterType string, awsAuroraConfigs *spec.AwsAuroraConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsAuroraConfigs.CIDR
-	clusterInfo.region = awsAuroraConfigs.Region
 
 	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
 		CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
@@ -1132,7 +1139,6 @@ func (b *Builder) DestroyAurora(user, host, clusterName, clusterType, subCluster
 
 func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClusterType string, awsMSConfigs *spec.AwsMSConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsMSConfigs.CIDR
-	clusterInfo.region = awsMSConfigs.Region
 	clusterInfo.keyName = awsMSConfigs.KeyName
 	clusterInfo.instanceType = awsMSConfigs.InstanceType
 	clusterInfo.imageId = awsMSConfigs.ImageId
@@ -1152,7 +1158,6 @@ func (b *Builder) DestroySqlServer(user, host, clusterName, clusterType, subClus
 
 func (b *Builder) CreateDMSService(user, host, clusterName, clusterType, subClusterType string, awsDMSConfigs *spec.AwsDMSConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsDMSConfigs.CIDR
-	clusterInfo.region = awsDMSConfigs.Region
 	clusterInfo.instanceType = awsDMSConfigs.InstanceType
 	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
 		CreateDMSSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
