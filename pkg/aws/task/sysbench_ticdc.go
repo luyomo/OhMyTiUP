@@ -136,7 +136,25 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	tplParams.MSUser = "sa"
 	tplParams.MSUser = "1234@Abcd"
 
-	tplParams.NumTables = 15
+	tplParams.NumTables = 10
+
+	// 3. Get the sqlserver host
+
+	node, err := getEC2Nodes(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	if err != nil {
+		return err
+	}
+	if len(*node) == 0 {
+		return nil
+	}
+
+	deployMS2008(*workstation, ctx, (*node)[0].PrivateIpAddress)
+
+	stdout, _, err := (*workstation).Execute(ctx, `printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p 1433 -U sa -P 1234@Abcd`, true)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
 
 	fmt.Printf("The parametesr are <%#v> \n\n\n", tplParams)
 
@@ -155,7 +173,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 		return err
 	}
 
-	stdout, _, err := (*workstation).Execute(ctx, `chmod 755 /opt/tidb/scripts/adjust_sysbench_table.sh`, true)
+	stdout, _, err = (*workstation).Execute(ctx, `chmod 755 /opt/tidb/scripts/adjust_sysbench_table.sh`, true)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
@@ -233,6 +251,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
+	fmt.Printf("The qps from sysbench is <%s> \n\n\n", string(stdout))
 
 	command = fmt.Sprintf("/opt/tidb/scripts/analyze_sysbench.sh")
 	stdout, _, err = (*workstation).Execute(ctx, command, true, time.Second*600)

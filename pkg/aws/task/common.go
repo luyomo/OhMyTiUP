@@ -19,10 +19,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
+	"os"
+	"path"
 	"strings"
+	"text/template"
 	//	"github.com/luyomo/tisample/pkg/executor"
 	//	"strings"
 )
@@ -416,4 +420,67 @@ func getEC2Nodes(executor ctxt.Executor, ctx context.Context, clusterName, clust
 
 	return &theEC2s, nil
 
+}
+
+func deployMS2008(executor ctxt.Executor, ctx context.Context, host string) error {
+	deployFreetds(executor, ctx, "REPLICA", host, 1433)
+	return nil
+}
+
+func deployFreetds(executor ctxt.Executor, ctx context.Context, name, host string, port int) error {
+
+	_, _, err := executor.Execute(ctx, `apt-get install -y freetds-bin`, true)
+	if err != nil {
+		return nil
+	}
+
+	fdFile, err := os.Create(fmt.Sprintf("/tmp/%s", "freetds.conf"))
+	if err != nil {
+		return err
+	}
+	defer fdFile.Close()
+
+	fp := path.Join("templates", "config", fmt.Sprintf("%s.tpl", "freetds.conf"))
+	tpl, err := embed.ReadTemplate(fp)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err := template.New("test").Parse(string(tpl))
+	if err != nil {
+		return err
+	}
+
+	var tplData TplSQLServer
+	tplData.Name = name
+	tplData.Host = host
+	tplData.Port = port
+	if err := tmpl.Execute(fdFile, tplData); err != nil {
+		return err
+	}
+
+	err = executor.Transfer(ctx, fmt.Sprintf("/tmp/%s", "freetds.conf"), "/tmp/freetds.conf", false, 0)
+	if err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", err)
+		return err
+	}
+
+	command := fmt.Sprintf(`mv /tmp/freetds.conf /etc/freetds/`)
+	_, stderr, err := executor.Execute(ctx, command, true)
+	if err != nil {
+		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
+		return err
+	}
+
+	/*
+		command = fmt.Sprintf(`bsqldb -i /opt/tidb/freetds.conf -S %s -U sa -P 1234@Abcd -i /opt/tidb/sql/ontime_ms.ddl`, tplData.Name)
+		stdout, stderr, err = executor.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
+			return err
+		}
+		fmt.Printf("The command is <%s> \n\n\n", command)
+		fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
+	*/
+	return nil
 }

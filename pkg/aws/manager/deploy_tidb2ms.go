@@ -256,7 +256,7 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
 			CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
 			DeployTiDB(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsWSConfigs, &workstationInfo).
-			AcceptVPCPeering(globalOptions.User, "127.0.0.1", name, clusterType).
+			CreateDMSTask(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", &dmsInfo).
 			//			MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 	}
