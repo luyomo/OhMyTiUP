@@ -44,29 +44,26 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
 			fmt.Printf("The source end point has not created.\n\n\n")
 		} else {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+			fmt.Printf("ERRORS: describe-endpoints  <%s> \n\n", string(stderr))
+			return err
 		}
 	} else {
 		var endpoints Endpoints
 		if err = json.Unmarshal(stdout, &endpoints); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			fmt.Printf("ERRORS: describe-endpoints json parsing <%s> \n\n\n", string(stderr))
+			return err
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
 			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
 			if existsResource == true {
 				command = fmt.Sprintf("aws dms delete-endpoint --endpoint-arn %s", endpoint.EndpointArn)
-				fmt.Printf("The comamnd is <%s> \n\n\n", command)
+
 				stdout, stderr, err = local.Execute(ctx, command, false)
 
 				if err != nil {
-					fmt.Printf("The error here is <%#v> \n\n", err)
-					fmt.Printf("----------\n\n")
-					fmt.Printf("The error here is <%s> \n\n", string(stderr))
+					fmt.Printf("The comamnd is <%s> \n\n\n", command)
+					fmt.Printf("ERRORS: delete-endpoint  <%s> \n\n", string(stderr))
 					return err
 				}
 				deletingEndpoints = append(deletingEndpoints, endpoint.EndpointArn)
@@ -80,15 +77,13 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 
 		stdout, stderr, err := local.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+			fmt.Printf("ERRORS: describe-endpoints  <%s> \n\n", string(stderr))
+			return err
 		} else {
 			var endpoints Endpoints
 			if err = json.Unmarshal(stdout, &endpoints); err != nil {
-				fmt.Printf("*** *** The error here is %#v \n\n", err)
-				return nil
+				fmt.Printf("ERRORS: describe-endpoints json parsing %#v \n\n", err)
+				return err
 			}
 			for _, endpoint := range endpoints.Endpoints {
 				for _, arn := range deletingEndpoints {

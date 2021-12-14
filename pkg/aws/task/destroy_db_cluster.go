@@ -41,18 +41,16 @@ func (c *DestroyDBCluster) Execute(ctx context.Context) error {
 			fmt.Printf("The DB Cluster has not created.\n\n\n")
 			return nil
 		} else {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
+			fmt.Printf("ERRORS: describe-db-clusters <%s> \n\n", string(stderr))
 			return err
 		}
 	} else {
 		var dbClusters DBClusters
 		if err = json.Unmarshal(stdout, &dbClusters); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
+			fmt.Printf("ERRORS: describe-db-clusters json parsing <%s> \n\n", string(stderr))
 			return err
 		}
-		//		fmt.Printf("The db cluster is <%#v> \n\n\n", dbClusters)
+
 		for _, dbCluster := range dbClusters.DBClusters {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
 			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbCluster.DBClusterArn, local, ctx)
@@ -61,9 +59,7 @@ func (c *DestroyDBCluster) Execute(ctx context.Context) error {
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				stdout, stderr, err = local.Execute(ctx, command, false)
 				if err != nil {
-					fmt.Printf("The error here is <%#v> \n\n", err)
-					fmt.Printf("----------\n\n")
-					fmt.Printf("The error here is <%s> \n\n", string(stderr))
+					fmt.Printf("ERRORS delete-db-cluster <%s> \n\n", string(stderr))
 					return err
 				}
 

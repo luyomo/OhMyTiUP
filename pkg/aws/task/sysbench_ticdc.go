@@ -136,7 +136,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	tplParams.MSUser = "sa"
 	tplParams.MSUser = "1234@Abcd"
 
-	tplParams.NumTables = 10
+	tplParams.NumTables = 30
 
 	// 3. Get the sqlserver host
 
@@ -205,39 +205,42 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	}
 
 	var command string
-	if tplParams.TiDBPass == "" {
-		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
-	} else {
-		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
-	}
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
-	fmt.Printf("The sysbench command is <%s>\n\n\n", command)
-	if err != nil {
-		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
-		fmt.Printf("Errors for cleanup <%s> \n\n\n", string(stdout))
-		return err
-	}
+	/*
+			if tplParams.TiDBPass == "" {
+				command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
+			} else {
+				command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*2, tplParams.NumTables)
+			}
+			stdout, _, err = (*workstation).Execute(ctx, command, true)
+			fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+			if err != nil {
+				fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+				fmt.Printf("Errors for cleanup <%s> \n\n\n", string(stdout))
+				return err
+			}
 
-	if tplParams.TiDBPass == "" {
-		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=0 prepare", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables, tplParams.NumTables)
-	} else {
-		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=0 prepare", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables, tplParams.NumTables)
-	}
-	stdout, stderr, err := (*workstation).Execute(ctx, command, true, time.Second*120)
-	if err != nil {
-		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
-		fmt.Printf("Error on the prepare <%s> \n\n\n", string(stdout))
-		fmt.Printf("Error on the prepare <%s> \n\n\n", string(stderr))
-		return err
-	}
+			if tplParams.TiDBPass == "" {
+				command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=0 prepare", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, 1, tplParams.NumTables)
+			} else {
+				command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=0 prepare", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBPass, tplParams.TiDBDB, tplParams.TiDBPort, 1, tplParams.NumTables)
+			}
+			stdout, stderr, err := (*workstation).Execute(ctx, command, true, time.Second*120)
+			if err != nil {
+				fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+				fmt.Printf("Error on the prepare <%s> \n\n\n", string(stdout))
+				fmt.Printf("Error on the prepare <%s> \n\n\n", string(stderr))
+				return err
+			}
 
-	command = fmt.Sprintf("/opt/tidb/scripts/adjust_sysbench_table.sh")
-	stdout, _, err = (*workstation).Execute(ctx, command, true, time.Second*120)
-	if err != nil {
-		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
-		fmt.Printf("Adjusting sysbench  <%s> \n\n\n", string(stdout))
-		return err
-	}
+		command = fmt.Sprintf("/opt/tidb/scripts/adjust_sysbench_table.sh")
+		stdout, stderr, err := (*workstation).Execute(ctx, command, true, time.Second*120)
+		if err != nil {
+			fmt.Printf("The sysbench command is <%s>\n\n\n", command)
+			fmt.Printf("Adjusting sysbench <%s> \n\n\n", string(stdout))
+			fmt.Printf("Adjusting sysbench errors  <%s> \n\n\n", string(stderr))
+			return err
+		}
+	*/
 
 	if tplParams.TiDBPass == "" {
 		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d --table-size=%d run", tplParams.TiDBHost, tplParams.TiDBUser, tplParams.TiDBDB, tplParams.TiDBPort, tplParams.NumTables*150, tplParams.NumTables, 50000)

@@ -39,15 +39,13 @@ func (c *DestroyDBParameterGroup) Execute(ctx context.Context) error {
 		if strings.Contains(string(stderr), "DBParameterGroup not found") {
 			fmt.Printf("The DB Parameter group has not created.\n\n\n")
 		} else {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+			fmt.Printf("ERRORS describe-db-parameter-groups <%s> \n\n", string(stderr))
+			return err
 		}
 	} else {
 		var dbParameterGroups DBParameterGroups
 		if err = json.Unmarshal(stdout, &dbParameterGroups); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
+			fmt.Printf("ERRORS describe-db-parameter-groups json parsing <%s> \n\n", string(stderr))
 			return nil
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", dbParameterGroups)
@@ -59,10 +57,8 @@ func (c *DestroyDBParameterGroup) Execute(ctx context.Context) error {
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				stdout, stderr, err = local.Execute(ctx, command, false)
 				if err != nil {
-					fmt.Printf("The error here is <%#v> \n\n", err)
-					fmt.Printf("----------\n\n")
-					fmt.Printf("The error here is <%s> \n\n", string(stderr))
-					return nil
+					fmt.Printf("ERRORS delete-db-parameter-group <%s> \n\n\n", string(stderr))
+					return err
 				}
 				fmt.Printf("The db cluster  has exists \n\n\n")
 				return nil

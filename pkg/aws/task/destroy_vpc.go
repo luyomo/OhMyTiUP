@@ -36,9 +36,10 @@ type DestroyVpc struct {
 func (c *DestroyVpc) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
-		return nil
+		fmt.Printf("ERROR describe-vpcs <%s>", string(stderr))
+		return err
 	}
 	var vpcs Vpcs
 	if err := json.Unmarshal(stdout, &vpcs); err != nil {
@@ -50,9 +51,8 @@ func (c *DestroyVpc) Execute(ctx context.Context) error {
 		command := fmt.Sprintf("aws ec2 delete-vpc --vpc-id %s", vpc.VpcId)
 		stdout, _, err = local.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			return nil
+			fmt.Printf("ERROR describe-vpc <%s>", string(stderr))
+			return err
 		}
 	}
 

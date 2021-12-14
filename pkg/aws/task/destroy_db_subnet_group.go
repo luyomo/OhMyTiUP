@@ -19,7 +19,7 @@ import (
 	"fmt"
 	//	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
-	//	"strings"
+	"strings"
 )
 
 type DestroyDBSubnetGroup struct {
@@ -37,17 +37,19 @@ func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
 	command := fmt.Sprintf("aws rds describe-db-subnet-groups --db-subnet-group-name %s ", c.clusterName)
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
+		if strings.Contains(string(stderr), fmt.Sprintf("DB Subnet group '%s' not found", c.clusterName)) {
+			fmt.Printf("The DB Cluster has not created.\n\n\n")
+			return nil
+		} else {
+			fmt.Printf("ERRORS: describe-db-subnet-groups <%s> \n\n\n", string(stderr))
+			return err
+		}
 	}
-	fmt.Printf("The data is <%s> \n\n\n", string(command))
 
 	var dbSubnetGroups DBSubnetGroups
 	if err = json.Unmarshal(stdout, &dbSubnetGroups); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
+		fmt.Printf("ERRORS: describe-db-subnet-groups json parsing  <%s> \n\n", string(stderr))
+		return err
 	}
 
 	fmt.Printf("The db subnet groups is <%#v> \n\n\n", dbSubnetGroups)
@@ -55,13 +57,12 @@ func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
 		existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, local, ctx)
 		if existsResource == true {
 			command = fmt.Sprintf("aws rds delete-db-subnet-group --db-subnet-group-name %s", c.clusterName)
-			fmt.Printf("The comamnd is <%s> \n\n\n", command)
+
 			stdout, stderr, err = local.Execute(ctx, command, false)
 			if err != nil {
-				fmt.Printf("The error here is <%#v> \n\n", err)
-				fmt.Printf("----------\n\n")
-				fmt.Printf("The error here is <%s> \n\n", string(stderr))
-				return nil
+				fmt.Printf("The comamnd is <%s> \n\n\n", command)
+				fmt.Printf("ERRORS: delete-db-subnet-group <%s> \n\n", string(stderr))
+				return err
 			}
 			return nil
 		}

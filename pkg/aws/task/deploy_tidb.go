@@ -192,6 +192,23 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
+	// MS Sqlserver setup
+	node, err := getEC2Nodes(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	if err != nil {
+		return err
+	}
+	if len(*node) == 0 {
+		return nil
+	}
+
+	deployMS2008(*workstation, ctx, (*node)[0].PrivateIpAddress)
+
+	stdout, _, err = (*workstation).Execute(ctx, `printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p 1433 -U sa -P 1234@Abcd`, true)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
 	return nil
 }
 

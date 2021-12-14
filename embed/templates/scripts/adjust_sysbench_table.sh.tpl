@@ -1,7 +1,7 @@
 #!/bin/bash
 
 x=1
-while [ $x -le 200 ]
+while [ $x -le 40000 ]
 do
     query="select count(*) from information_schema.tables where table_schema = '{{ .MySQLDB  }}' and table_name like 'sbtest%'"
     result=`mysql -h {{ .MySQLHost }} -P {{ .MySQLPort  }} -u {{ .MySQLUser  }} -p{{ .MySQLPass }} {{ .MySQLDB }} -s --skip-column-names -e "${query}"`
@@ -9,7 +9,7 @@ do
     then
         break
     fi
-    sleep 5
+    sleep 50
     x=$(( $x + 1 ))
 done
 

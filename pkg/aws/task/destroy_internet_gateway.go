@@ -39,9 +39,10 @@ func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
 
 	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		fmt.Printf("The error in the DestroyInternetGateway describe-internet-gateways <%s> \n\n\n", string(stderr))
+		return err
 	}
 
 	fmt.Printf("The result from internete <%s> \n\n\n", string(stdout))

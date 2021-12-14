@@ -685,13 +685,12 @@ func (b *Builder) DestroySecurityGroup(user, host, clusterName, clusterType, sub
 	return b
 }
 
-func (b *Builder) DestroyVpcPeering(user, host, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyVpcPeering(user, host, clusterName, clusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyVpcPeering{
-		user:           user,
-		host:           host,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
-		subClusterType: subClusterType,
+		user:        user,
+		host:        host,
+		clusterName: clusterName,
+		clusterType: clusterType,
 	})
 	return b
 }
@@ -995,6 +994,17 @@ func (b *Builder) DestroyDMSInstance(user, host, clusterName, clusterType, subCl
 	return b
 }
 
+func (b *Builder) DestroyDMSTask(user, host, clusterName, clusterType, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyDMSTask{
+		user:           user,
+		host:           host,
+		clusterName:    clusterName,
+		clusterType:    clusterType,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
 func (b *Builder) DestroyDMSEndpoints(user, host, clusterName, clusterType, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDMSEndpoints{
 		user:           user,
@@ -1109,8 +1119,8 @@ func (b *Builder) DestroyEC2Nodes(user, host, clusterName, clusterType, subClust
 }
 
 func (b *Builder) DestroyDMSService(user, host, clusterName, clusterType, subClusterType string) *Builder {
-
-	b.DestroyDMSInstance(user, "127.0.0.1", clusterName, clusterType, subClusterType).
+	b.DestroyDMSTask(user, "127.0.0.1", clusterName, clusterType, subClusterType).
+		DestroyDMSInstance(user, "127.0.0.1", clusterName, clusterType, subClusterType).
 		DestroyDMSEndpoints(user, "127.0.0.1", clusterName, clusterType, subClusterType).
 		DestroyDMSSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
 		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)

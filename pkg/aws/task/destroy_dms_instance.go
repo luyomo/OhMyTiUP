@@ -42,15 +42,13 @@ func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
 	command := fmt.Sprintf("aws dms describe-replication-instances")
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error err here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
+		fmt.Printf("ERRORS: describe-replication-instances is <%s> \n\n\n", string(stderr))
 		return err
 	} else {
 		var replicationInstances ReplicationInstances
 		if err = json.Unmarshal(stdout, &replicationInstances); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			fmt.Printf("ERRORS: describe-replication-instances json parsing is <%s> \n\n\n", string(stderr))
+			return err
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
 		for _, replicationInstance := range replicationInstances.ReplicationInstances {
@@ -61,9 +59,7 @@ func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				stdout, stderr, err = local.Execute(ctx, command, false)
 				if err != nil {
-					fmt.Printf("The error here is <%#v> \n\n", err)
-					fmt.Printf("----------\n\n")
-					fmt.Printf("The error here is <%s> \n\n", string(stderr))
+					fmt.Printf("ERRORS delete-replication-instance <%s> \n\n", string(stderr))
 					return err
 				}
 				break
@@ -73,22 +69,20 @@ func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
 
 	var replicationInstanceRecord ReplicationInstanceRecord
 	if err = json.Unmarshal(stdout, &replicationInstanceRecord); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
+		fmt.Printf("ERRORS delete-replication-instance json parsing <%s> \n\n", string(stderr))
 		return err
 	}
 	for i := 1; i <= 50; i++ {
 		command = fmt.Sprintf("aws dms describe-replication-instances")
 		stdout, stderr, err := local.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+			fmt.Printf("ERRORS describe-replication-instances <%s> \n\n", string(stderr))
+			return err
 		} else {
 			var replicationInstances ReplicationInstances
 			if err = json.Unmarshal(stdout, &replicationInstances); err != nil {
-				fmt.Printf("*** *** The error here is %#v \n\n", err)
-				return nil
+				fmt.Printf("ERRORS describe-replication-instances json parsing <%s> \n\n", string(stderr))
+				return err
 			}
 			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
 			instanceExists := false

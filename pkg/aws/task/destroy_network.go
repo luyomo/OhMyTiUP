@@ -50,11 +50,10 @@ func (c *DestroyNetwork) Execute(ctx context.Context) error {
 
 	for _, subnet := range subnets.Subnets {
 		command := fmt.Sprintf("aws ec2 delete-subnet --subnet-id %s", subnet.SubnetId)
-		stdout, _, err = local.Execute(ctx, command, false)
+		_, stderr, err := local.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			return nil
+			fmt.Printf("ERRORS delete-subnet <%s> \n\n\n", string(stderr))
+			return err
 		}
 	}
 

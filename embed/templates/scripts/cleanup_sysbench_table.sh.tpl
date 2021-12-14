@@ -1,10 +1,31 @@
 #!/bin/bash
 
-for i in {1..50}
+for i in {1..{{ .NumTables }}}
 do
-    query="truncate table sbtest${i} "
-    mysql -h 172.83.1.49 -P 4000 -u root cdc_test -e "${query}"
+  query="truncate table sbtest${i}"
+  {{if eq .TiDBPass "" }}
+  mysql -h {{ .TiDBHost }} -P {{ .TiDBPort }} -u {{ .TiDBUser }} {{ .TiDBDB }} -e "${query}"
+  {{else}}
+  mysql -h {{ .TiDBHost }} -P {{ .TiDBPort }} -u {{ .TiDBUser }} -p{{.TiDBPass}} {{ .TiDBDB }} -e "${query}"
+  {{end}}
+done
 
-    #query="alter table sbtest${i} add column mysql_ts timestamp default current_timestamp "
-    #mysql -h testtisample.ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com -P 3306 -u master -p1234Abcd cdc_test -e "${query}"
+x=1
+while [ $x -le 40000  ]
+do
+  cnt=0
+  for i in {1..{{ .NumTables }}}
+  do
+    query="select count(*) from sbtest${i}"
+    result=`mysql -h {{ .MySQLHost }} -P {{ .MySQLPort  }} -u {{ .MySQLUser  }} -p{{ .MySQLPass }} {{ .MySQLDB }} -s --skip-column-names -e "${query}"`
+    cnt=$(( $cnt + $result ))
+  done
+
+  if [ $result -eq 0 ] ;
+  then
+    break
+  fi
+
+  sleep 50
+  x=$(( $x + 1 ))
 done

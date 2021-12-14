@@ -40,27 +40,26 @@ func (c *DestroyDBClusterParameterGroup) Execute(ctx context.Context) error {
 			// If there is no resource, go ahead
 			fmt.Printf("The DB Cluster Parameter group has not created.\n\n\n")
 		} else {
-			return nil
+			fmt.Printf("ERRORS: describe-db-cluster-parameter-groups <%s>", string(stderr))
+			return err
 		}
 	} else {
 		var dbClusterParameterGroups DBClusterParameterGroups
 		if err = json.Unmarshal(stdout, &dbClusterParameterGroups); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			fmt.Printf("ERRORS: describe-db-cluster-parameter-groups json parsing <%s>", string(stderr))
+			return err
 		}
 		fmt.Printf("The db cluster parameter groups is <%#v> \n\n\n", dbClusterParameterGroups)
 		for _, dbClusterParameterGroup := range dbClusterParameterGroups.DBClusterParameterGroups {
 			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbClusterParameterGroup.DBClusterParameterGroupArn, local, ctx)
 			if existsResource == true {
-				fmt.Printf("The db cluster parameter group has exists \n\n\n")
 				command = fmt.Sprintf("aws rds delete-db-cluster-parameter-group --db-cluster-parameter-group-name %s", c.clusterName)
-				fmt.Printf("The comamnd is <%s> \n\n\n", command)
+
 				stdout, stderr, err = local.Execute(ctx, command, false)
 				if err != nil {
-					fmt.Printf("The error here is <%#v> \n\n", err)
-					fmt.Printf("----------\n\n")
-					fmt.Printf("The error here is <%s> \n\n", string(stderr))
-					return nil
+					fmt.Printf("The comamnd is <%s> \n\n\n", command)
+					fmt.Printf("ERRORS: delete-db-cluster-parameter-group  <%s> \n\n\n", string(stderr))
+					return err
 				}
 				return nil
 			}

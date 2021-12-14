@@ -55,7 +55,7 @@ func (m *Manager) DestroyTiDB2AuroraCluster(name string, gOpt operator.Options, 
 		DestroyDBClusterParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
 		DestroyDBSubnetGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
 		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
 		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
 		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
 		DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").

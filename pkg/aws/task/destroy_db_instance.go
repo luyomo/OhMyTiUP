@@ -43,29 +43,25 @@ func (c *DestroyDBInstance) Execute(ctx context.Context) error {
 			fmt.Printf("The DB Instance has not created.\n\n\n")
 			return nil
 		} else {
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			fmt.Printf("ERRORS: describe-db-instance  <%s> \n\n", string(stderr))
 			return err
 		}
 	} else {
 		var dbInstances DBInstances
 		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
+			fmt.Printf("ERRORS: describe-db-instance json parsing <%s> \n\n", string(stderr))
 			return err
 		}
 		for _, instance := range dbInstances.DBInstances {
 			fmt.Printf("The db instance is <%#v> \n\n\n", instance)
 			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
 			if existsResource == true {
-				fmt.Printf("The db cluster  has exists \n\n\n")
-				fmt.Printf("The cluster name is <%#v> \n\n\n", instance)
 				command = fmt.Sprintf("aws rds delete-db-instance --db-instance-identifier %s", c.clusterName)
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				_, stderr, err = local.Execute(ctx, command, false)
 				if err != nil {
-					fmt.Printf("The error here is <%#v> \n\n", err)
-					fmt.Printf("----------\n\n")
-					fmt.Printf("The error here is <%s> \n\n", string(stderr))
-					return nil
+					fmt.Printf("ERRORS: delete-db-instance <%s> \n\n", string(stderr))
+					return err
 				}
 			}
 		}

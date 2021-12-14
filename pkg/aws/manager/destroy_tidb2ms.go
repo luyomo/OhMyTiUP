@@ -45,8 +45,9 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 	clusterType := "tisample-tidb2ms"
 
 	t0 := task.NewBuilder().
-		DestroyTransitGateways(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		//		DestroyTransitGateways(utils.CurrentUser(), "127.0.0.1", name, clusterType).
 		DestroyDMSService(utils.CurrentUser(), "127.0.0.1", name, clusterType, "dmsservice").
+		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().
@@ -65,30 +66,30 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 	var auroraInfo, msInfo task.ClusterInfo
 	t1 := task.NewBuilder().
 		DestroyEC2Nodes(utils.CurrentUser(), "127.0.0.1", name, clusterType, "tidb").
-		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
+		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
 
 	t2 := task.NewBuilder().
 		DestroyAurora(utils.CurrentUser(), "127.0.0.1", name, clusterType, "aurora", &auroraInfo).
-		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
+		BuildAsStep(fmt.Sprintf("  - Destroying aurora db cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t2)
 
 	t3 := task.NewBuilder().
 		DestroySqlServer(utils.CurrentUser(), "127.0.0.1", name, clusterType, "sqlserver", &msInfo).
-		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
+		BuildAsStep(fmt.Sprintf("  - Destroying sqlserver cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t3)
 
 	t4 := task.NewBuilder().
 		DestroyEC2Nodes(utils.CurrentUser(), "127.0.0.1", name, clusterType, "workstation").
-		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
+		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t4)
 
 	builder = task.NewBuilder().
-		ParallelStep("+ Initialize target host environments", false, destroyTasks...)
+		ParallelStep("+ Destroying all the componets", false, destroyTasks...)
 
 	t = builder.Build()
 

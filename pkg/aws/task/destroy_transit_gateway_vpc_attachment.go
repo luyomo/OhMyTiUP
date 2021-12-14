@@ -33,27 +33,22 @@ type DestroyTransitGatewayVpcAttachment struct {
 	clusterType string
 }
 
-//
-// create-transit-gateway --description testtisample --tag-specifications ...
-// Execute implements the Task interface
 func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
 	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", c.clusterName, c.clusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
+		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
 		return err
 	}
 	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
 
 	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
+		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments json parsing <%s> \n\n", string(stderr))
+		return err
 	}
 
 	var deletingAttachments []string
@@ -65,9 +60,7 @@ func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error 
 		stdout, stderr, err = local.Execute(ctx, command, false)
 
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			fmt.Printf("ERRORS: delete-transit-gateway-vpc-attachments json parsing <%s> \n\n", string(stderr))
 			return err
 		}
 		deletingAttachments = append(deletingAttachments, attachment.TransitGatewayAttachmentId)
@@ -80,16 +73,14 @@ func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error 
 		cntAttachments := 0
 		stdout, stderr, err := local.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
 			return err
 		}
 		var transitGatewayVpcAttachments TransitGatewayVpcAttachments
 
 		if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
+			return err
 		}
 		for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
 			for _, hitAttachment := range deletingAttachments {

@@ -39,16 +39,12 @@ func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
 	if transitGateway == nil {
 		return nil
 	}
-	fmt.Printf(" ********** The cluster type is <%#v> \n\n\n", transitGateway)
 
 	command := fmt.Sprintf("aws ec2 delete-transit-gateway --transit-gateway-id %s", transitGateway.TransitGatewayId)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	_, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		fmt.Printf("The error here is <%s> \n\n", string(stdout))
+		fmt.Printf("ERRORS: delete-transit-gateway <%s> \n\n\n", string(stderr))
 		return err
 	}
 
