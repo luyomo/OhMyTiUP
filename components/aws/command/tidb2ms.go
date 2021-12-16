@@ -39,6 +39,7 @@ func newTiDB2MSCmd() *cobra.Command {
 		newListTiDB2MSCmd(),
 		newDestroyTiDB2MSCmd(),
 		newSysbenchTiCDCCmd(),
+		newSysbenchPrepareCmd(),
 	)
 	return cmd
 }

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+mysql -h {{ .MySQLHost }} -P {{ .MySQLPort  }} -u {{ .MySQLUser  }} -p{{ .MySQLPass }} {{ .MySQLDB }} -s --skip-column-names -e "delete from cdc_latency"
+
+mysql -h {{ .MySQLHost }} -P {{ .MySQLPort  }} -u {{ .MySQLUser  }} -p{{ .MySQLPass }} {{ .MySQLDB }} -s --skip-column-names -e "delete from cdc_qps_data"
+
 for i in {1..{{ .NumTables }}}
 do
   query="truncate table sbtest${i}"

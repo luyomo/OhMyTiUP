@@ -19,8 +19,9 @@ import (
 	"fmt"
 	"github.com/luyomo/tisample/pkg/executor"
 	//	"go.uber.org/zap"
+	"errors"
 	"strings"
-	//"time"
+	"time"
 )
 
 type DestroyDMSTask struct {
@@ -34,50 +35,64 @@ type DestroyDMSTask struct {
 // Execute implements the Task interface
 func (c *DestroyDMSTask) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-
-	command := fmt.Sprintf("aws dms describe-replication-tasks --filters Name=replication-task-id,Values=%s", c.clusterName)
-	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), fmt.Sprintf("No Tasks found matching provided filters")) {
-			fmt.Printf("The Replication task has not created.\n\n\n")
-			return nil
+		return err
+	}
+
+	for i := 1; i <= 200; i++ {
+		command := fmt.Sprintf("aws dms describe-replication-tasks --filters Name=replication-task-id,Values=%s", c.clusterName)
+		stdout, stderr, err := local.Execute(ctx, command, false)
+		if err != nil {
+			if strings.Contains(string(stderr), fmt.Sprintf("No Tasks found matching provided filters")) {
+				fmt.Printf("The Replication task has not created.\n\n\n")
+				return nil
+			} else {
+				fmt.Printf("ERRORS: describe-replication-tasks  <%s> \n\n", string(stderr))
+				return err
+			}
 		} else {
-			fmt.Printf("ERRORS: describe-replication-tasks  <%s> \n\n", string(stderr))
-			return err
-		}
-	} else {
-		var replicationTasks ReplicationTasks
-		if err = json.Unmarshal(stdout, &replicationTasks); err != nil {
-			fmt.Printf("ERROR: describe-replication-tasks json parsing %#v \n\n", err)
-			return err
-		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationTasks)
-		for _, replicationTask := range replicationTasks.ReplicationTasks {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
-			if existsResource == true {
-				if replicationTask.Status == "running" {
-					command = fmt.Sprintf("aws dms stop-replication-task --replication-task-arn %s", replicationTask.ReplicationTaskArn)
+			var replicationTasks ReplicationTasks
+			if err = json.Unmarshal(stdout, &replicationTasks); err != nil {
+				fmt.Printf("ERROR: describe-replication-tasks json parsing %#v \n\n", err)
+				return err
+			}
+			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationTasks)
+			activeTask := 0
+			for _, replicationTask := range replicationTasks.ReplicationTasks {
+				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
+				if existsResource == true {
+					if replicationTask.Status == "running" {
+						activeTask += 1
+						command = fmt.Sprintf("aws dms stop-replication-task --replication-task-arn %s", replicationTask.ReplicationTaskArn)
+						fmt.Printf("The comamnd is <%s> \n\n\n", command)
+						stdout, stderr, err = local.Execute(ctx, command, false)
+						if err != nil {
+							fmt.Printf("ERROR: stop-replicaion-task-arn <%s> \n\n\n", string(stderr))
+							return err
+						}
+					}
+					if replicationTask.Status == "deleting" {
+						activeTask += 1
+					}
+
+					command = fmt.Sprintf("aws dms delete-replication-task --replication-task-arn %s", replicationTask.ReplicationTaskArn)
 					fmt.Printf("The comamnd is <%s> \n\n\n", command)
 					stdout, stderr, err = local.Execute(ctx, command, false)
 					if err != nil {
-						fmt.Printf("ERROR: stop-replicaion-task-arn <%s> \n\n\n", string(stderr))
+						fmt.Printf("ERROR: destroy_dms_task delete-replixarion-task <%s> \n\n\n", string(stderr))
 						return err
 					}
+					return nil
 				}
-
-				command = fmt.Sprintf("aws dms delete-replication-task --replication-task-arn %s", replicationTask.ReplicationTaskArn)
-				fmt.Printf("The comamnd is <%s> \n\n\n", command)
-				stdout, stderr, err = local.Execute(ctx, command, false)
-				if err != nil {
-					fmt.Printf("ERROR: destroy_dms_task delete-replixarion-task <%s> \n\n\n", string(stderr))
-					return err
-				}
+			}
+			if activeTask == 0 {
 				return nil
 			}
 		}
+		time.Sleep(30 * time.Second)
 	}
 
-	return nil
+	return errors.New("Failed to stop the delete-replication-task")
 }
 
 // Rollback implements the Task interface

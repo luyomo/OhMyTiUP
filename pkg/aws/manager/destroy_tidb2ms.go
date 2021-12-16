@@ -45,7 +45,7 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 	clusterType := "tisample-tidb2ms"
 
 	t0 := task.NewBuilder().
-		//		DestroyTransitGateways(utils.CurrentUser(), "127.0.0.1", name, clusterType).
+		DestroyTransitGateways(utils.CurrentUser(), "127.0.0.1", name, clusterType).
 		DestroyDMSService(utils.CurrentUser(), "127.0.0.1", name, clusterType, "dmsservice").
 		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))

@@ -14,41 +14,58 @@
 package command
 
 import (
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
+	//	operator "github.com/luyomo/tisample/pkg/aws/operation"
+	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/spf13/cobra"
 )
 
 func newSysbenchTiCDCCmd() *cobra.Command {
-	tidbConnInfo := operator.TiDBConnInfo{}
 	cmd := &cobra.Command{
 		Use:   "sysbench_ticdc <cluster-name>",
 		Short: "sysbench test the ticdc performance",
-		Long: `Destroy a specified cluster, which will clean the deployment binaries and data.
-You can retain some nodes and roles data when destroy cluster, eg:
-
-  $ tiup cluster destroy <cluster-name> --retain-role-data prometheus
-  $ tiup cluster destroy <cluster-name> --retain-node-data 172.16.13.11:9000
-  $ tiup cluster destroy <cluster-name> --retain-node-data 172.16.13.12`,
+		Long: `Run the sysben to test the qps and latencies 
+  $ aws tidb2ms sysbench_ticdc <cluster-name> --identity-file=Key file to access the workstation`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return cmd.Help()
 			}
 
 			clusterName := args[0]
-			clusterReport.ID = scrubClusterName(clusterName)
-			teleCommand = append(teleCommand, scrubClusterName(clusterName))
 
-			// Validate the retained roles to prevent unexpected deleting data
-
-			return cm.SysbenchTiCDC(clusterName, gOpt, tidbConnInfo, skipConfirm)
+			return cm.SysbenchTiCDC(clusterName, gOpt)
 		},
 	}
 
-	cmd.Flags().StringVarP(&tidbConnInfo.Host, "db-host", "H", "localhost", "The host of TiDB connection")
-	cmd.Flags().IntVarP(&tidbConnInfo.Port, "port", "p", 4000, "The port of TiDB connection")
-	cmd.Flags().StringVarP(&tidbConnInfo.DBName, "dbname", "d", "", "The dbname of TiDB connection")
-	cmd.Flags().StringVarP(&tidbConnInfo.User, "user", "u", "", "The user of TiDB connection")
-	cmd.Flags().StringVarP(&tidbConnInfo.Pass, "password", "P", "", "The password of TiDB connection")
+	return cmd
+}
+
+func newSysbenchPrepareCmd() *cobra.Command {
+	scriptParam := task.ScriptParam{}
+
+	cmd := &cobra.Command{
+		Use:   "sysbench_prepare <cluster-name>",
+		Short: "prepare the sysbench test tables",
+		Long: `Prepare sysbench test environment.
+$ aws tidb2ms sysbench_prepare [cluster-name] -H [tidb host] -p [tidb port] -P [tidb password] -u [tidb user] -d [tidb db name] --identity-file=[key to connect to workstation]`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return cmd.Help()
+			}
+
+			clusterName := args[0]
+
+			return cm.PrepareSysbenchTiCDC(clusterName, gOpt, scriptParam)
+		},
+	}
+
+	cmd.Flags().StringVarP(&scriptParam.TiDBHost, "db-host", "H", "localhost", "The host of TiDB connection")
+	cmd.Flags().IntVarP(&scriptParam.TiDBPort, "port", "p", 4000, "The port of TiDB connection")
+	cmd.Flags().StringVarP(&scriptParam.TiDBDB, "dbname", "d", "cdc_test", "The dbname of TiDB connection")
+	cmd.Flags().StringVarP(&scriptParam.TiDBUser, "user", "u", "", "The user of TiDB connection")
+	cmd.Flags().StringVarP(&scriptParam.TiDBPass, "password", "P", "", "The password of TiDB connection")
+	cmd.Flags().IntVarP(&scriptParam.NumTables, "num-tables", "N", 30, "Number of tables to generate")
+	cmd.Flags().IntVarP(&scriptParam.Threads, "threads", "T", 3000, "Number of threads")
+	cmd.Flags().IntVarP(&scriptParam.TableSize, "table-size", "S", 50000, "Table of sizes")
 
 	return cmd
 }

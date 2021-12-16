@@ -32,14 +32,9 @@ import (
 	perrs "github.com/pingcap/errors"
 )
 
-func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options, tidbConnInfo operator.TiDBConnInfo, skipConfirm bool) error {
-	fmt.Printf("The context is <%#v> \n\n\n", utils.CurrentUser())
-	fmt.Printf("The cluster name is %s \n\n\n", name)
-	fmt.Printf("The tidb conn info <%#v> \n\n\n", tidbConnInfo)
-	fmt.Printf("The tidb conn info <%#v> \n\n\n", gOpt.IdentityFile)
-
+func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options) error {
 	_, err := m.meta(name)
-	fmt.Printf("01 Coming here %#v\n\n\n", err)
+
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
 		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
 		!errors.Is(perrs.Cause(err), spec.ErrMultipleTiSparkMaster) &&
@@ -48,9 +43,36 @@ func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options, tidbConnInfo
 	}
 
 	clusterType := "tisample-tidb2ms"
-	//	var clusterInfo task.ClusterInfo
+
 	t := task.NewBuilder().
-		SysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", gOpt.IdentityFile, name, clusterType, tidbConnInfo).
+		SysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", gOpt.IdentityFile, name, clusterType).
+		BuildAsStep(fmt.Sprintf("  - Sysbench ticdc %s ", name))
+
+	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) PrepareSysbenchTiCDC(name string, gOpt operator.Options, scriptParam task.ScriptParam) error {
+	_, err := m.meta(name)
+
+	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
+		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
+		!errors.Is(perrs.Cause(err), spec.ErrMultipleTiSparkMaster) &&
+		!errors.Is(perrs.Cause(err), spec.ErrMultipleTisparkWorker) {
+		return err
+	}
+
+	clusterType := "tisample-tidb2ms"
+
+	t := task.NewBuilder().
+		PrepareSysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", gOpt.IdentityFile, name, clusterType, scriptParam).
 		BuildAsStep(fmt.Sprintf("  - Sysbench ticdc %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
