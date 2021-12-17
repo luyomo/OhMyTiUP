@@ -53,7 +53,6 @@ func (c *CreateDMSTask) Execute(ctx context.Context) error {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return err
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationTasks)
 		for _, replicationTask := range replicationTasks.ReplicationTasks {
 			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
 			if existsResource == true {
@@ -98,7 +97,7 @@ func (c *CreateDMSTask) Execute(ctx context.Context) error {
 				fmt.Printf("*** *** The error here is %#v \n\n", err)
 				return err
 			}
-			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationTasks)
+
 			for _, replicationTask := range replicationTasks.ReplicationTasks {
 				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
 				if existsResource == true {

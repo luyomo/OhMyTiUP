@@ -53,7 +53,6 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 			fmt.Printf("ERRORS: describe-endpoints json parsing <%s> \n\n\n", string(stderr))
 			return err
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
 			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
 			if existsResource == true {

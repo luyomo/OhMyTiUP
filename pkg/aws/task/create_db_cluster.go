@@ -67,7 +67,7 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", dbClusters)
+
 		for _, dbCluster := range dbClusters.DBClusters {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
 			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbCluster.DBClusterArn, local, ctx)
@@ -93,7 +93,6 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
-	fmt.Printf("The db cluster is <%#v>\n\n\n", newDBCluster)
 
 	for i := 1; i <= 30; i++ {
 		command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", c.clusterName)
@@ -104,13 +103,13 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
 			return nil
 		}
-		//fmt.Printf("The db cluster is <%#v>\n\n\n", string(stdout))
+
 		var dbClusters DBClusters
 		if err = json.Unmarshal(stdout, &dbClusters); err != nil {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
-		fmt.Printf("The db cluster is <%#v>\n\n\n", dbClusters)
+
 		if dbClusters.DBClusters[0].Status == "available" {
 			break
 		}

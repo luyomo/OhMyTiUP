@@ -80,8 +80,6 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	fmt.Printf("The db instance is <%#v>\n\n\n", string(stdout))
-
 	var newDBInstance NewDBInstance
 	if err = json.Unmarshal(stdout, &newDBInstance); err != nil {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
@@ -93,9 +91,8 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
 		stdout, stderr, err := local.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
+			fmt.Printf("The error err here is <%#v> \n\n\n", err)
+			fmt.Printf("The error stderr here is <%s> \n\n\n", string(stderr))
 			return nil
 		}
 		//fmt.Printf("The db cluster is <%#v>\n\n\n", string(stdout))
@@ -104,7 +101,7 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
-		fmt.Printf("The db cluster is <%#v>\n\n\n", dbInstances)
+
 		if dbInstances.DBInstances[0].DBInstanceStatus == "available" {
 			break
 		}

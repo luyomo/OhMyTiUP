@@ -1048,18 +1048,20 @@ func (b *Builder) DestroyTransitGateway(user, host, clusterName, clusterType str
 }
 
 func (b *Builder) CreateBasicResource(user, host, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
 	if isPrivate == true {
-		b.CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-			CreateRouteTable(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
-			CreateNetwork(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
-			CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo)
+		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", titleMsg), NewBuilder().CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating Route Table ... ...", titleMsg), NewBuilder().CreateRouteTable(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating Network ... ... ", titleMsg), NewBuilder().CreateNetwork(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating Security Group ... ... ", titleMsg), NewBuilder().CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build())
 	} else {
-		b.CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-			CreateRouteTable(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
-			CreateNetwork(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
-			CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).
-			CreateInternetGateway(user, host, clusterName, clusterType, subClusterType, clusterInfo)
+		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", titleMsg), NewBuilder().CreateVpc(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating route table ... ...", titleMsg), NewBuilder().CreateRouteTable(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating network ... ...", titleMsg), NewBuilder().CreateNetwork(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating security group ... ...", titleMsg), NewBuilder().CreateSecurityGroup(user, host, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating internet gateway ... ...", titleMsg), NewBuilder().CreateInternetGateway(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build())
 	}
+
 	return b
 }
 
@@ -1067,8 +1069,10 @@ func (b *Builder) CreateWorkstationCluster(user, host, clusterName, clusterType,
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, false, clusterInfo).
-		CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsWSConfigs, clusterInfo)
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(user, host, clusterName, clusterType, subClusterType, false, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating workstation ... ...", titleMsg), NewBuilder().CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsWSConfigs, clusterInfo).Build())
 
 	return b
 }
@@ -1076,13 +1080,14 @@ func (b *Builder) CreateWorkstationCluster(user, host, clusterName, clusterType,
 func (b *Builder) CreateTiDBCluster(user, host, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsTopoConfigs.General.CIDR
 
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
 		//		CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
-		CreatePDNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
-		CreateTiDBNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
-		CreateTiKVNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
-		CreateDMNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
-		CreateTiCDCNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo)
+		Step(fmt.Sprintf("%s : Creating PD Nodes ... ...", titleMsg), NewBuilder().CreatePDNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", titleMsg), NewBuilder().CreateTiDBNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", titleMsg), NewBuilder().CreateTiKVNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", titleMsg), NewBuilder().CreateDMNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", titleMsg), NewBuilder().CreateTiCDCNodes(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build())
 		//		DeployTiDB(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo)
 
 	return b
@@ -1091,89 +1096,107 @@ func (b *Builder) CreateTiDBCluster(user, host, clusterName, clusterType, subClu
 func (b *Builder) CreateAurora(user, host, clusterName, clusterType, subClusterType string, awsAuroraConfigs *spec.AwsAuroraConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsAuroraConfigs.CIDR
 
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
-		CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateDBClusterParameterGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateDBCluster(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateDBParameterGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateDBInstance(user, host, clusterName, clusterType, subClusterType, clusterInfo)
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", titleMsg), NewBuilder().CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Cluster parameter Group ... ...", titleMsg), NewBuilder().CreateDBClusterParameterGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Cluster ... ...", titleMsg), NewBuilder().CreateDBCluster(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", titleMsg), NewBuilder().CreateDBParameterGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Instance ... ...", titleMsg), NewBuilder().CreateDBInstance(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build())
+
 	return b
 }
 
 func (b *Builder) DestroyBasicResource(user, host, clusterName, clusterType, subClusterType string) *Builder {
-	b.DestroyInternetGateway(user, host, clusterName, clusterType, subClusterType).
-		DestroySecurityGroup(user, host, clusterName, clusterType, subClusterType).
-		DestroyNetwork(user, host, clusterName, clusterType, subClusterType).
-		DestroyRouteTable(user, host, clusterName, clusterType, subClusterType).
-		DestroyVpc(user, host, clusterName, clusterType, subClusterType)
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", titleMsg), NewBuilder().DestroyInternetGateway(user, host, clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying security group ... ...", titleMsg), NewBuilder().DestroySecurityGroup(user, host, clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying network ... ...", titleMsg), NewBuilder().DestroyNetwork(user, host, clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying route table ... ...", titleMsg), NewBuilder().DestroyRouteTable(user, host, clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying VPC ... ...", titleMsg), NewBuilder().DestroyVpc(user, host, clusterName, clusterType, subClusterType).Build())
 
 	return b
 }
 
 func (b *Builder) DestroyEC2Nodes(user, host, clusterName, clusterType, subClusterType string) *Builder {
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
 
-	b.DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)
+	b.Step(fmt.Sprintf("%s : Destroying VPC ... ...", titleMsg), NewBuilder().DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying VPC ... ...", titleMsg), NewBuilder().DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build())
 
 	return b
 }
 
 func (b *Builder) DestroyDMSService(user, host, clusterName, clusterType, subClusterType string) *Builder {
-	b.DestroyDMSTask(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyDMSInstance(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyDMSEndpoints(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyDMSSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+
+	b.Step(fmt.Sprintf("%s : Destroying DMS Task ... ...", titleMsg), NewBuilder().DestroyDMSTask(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DMS Instance ... ...", titleMsg), NewBuilder().DestroyDMSInstance(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DMS Endpoints ... ...", titleMsg), NewBuilder().DestroyDMSEndpoints(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DMS Subnet Group ... ...", titleMsg), NewBuilder().DestroyDMSSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build())
 
 	return b
 }
 
 func (b *Builder) DestroyTransitGateways(user, host, clusterName, clusterType string) *Builder {
 
-	b.DestroyTransitGatewayVpcAttachment(user, "127.0.0.1", clusterName, clusterType).
-		DestroyTransitGateway(user, "127.0.0.1", clusterName, clusterType)
+	titleMsg := fmt.Sprintf(" %s - %s  ", clusterName, clusterType)
+
+	b.Step(fmt.Sprintf("%s : Destroying Transit Gateway VPC Attachment ... ...", titleMsg), NewBuilder().DestroyTransitGatewayVpcAttachment(user, "127.0.0.1", clusterName, clusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Transit Gateway ... ...", titleMsg), NewBuilder().DestroyTransitGateway(user, "127.0.0.1", clusterName, clusterType).Build())
 
 	return b
 }
 
 func (b *Builder) DestroyAurora(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.DestroyDBInstance(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyDBCluster(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyDBParameterGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyDBClusterParameterGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyDBSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+
+	b.Step(fmt.Sprintf("%s : Destroying DBN Instance ... ...", titleMsg), NewBuilder().DestroyDBInstance(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Cluster ... ...", titleMsg), NewBuilder().DestroyDBCluster(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Paramter Group ... ...", titleMsg), NewBuilder().DestroyDBParameterGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Cluster Parameter Group  ... ...", titleMsg), NewBuilder().DestroyDBClusterParameterGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Subnet Group ... ...", titleMsg), NewBuilder().DestroyDBSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build())
 
 	return b
 }
 
 func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClusterType string, awsMSConfigs *spec.AwsMSConfigs, clusterInfo *ClusterInfo) *Builder {
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+
 	clusterInfo.cidr = awsMSConfigs.CIDR
 	clusterInfo.keyName = awsMSConfigs.KeyName
 	clusterInfo.instanceType = awsMSConfigs.InstanceType
 	clusterInfo.imageId = awsMSConfigs.ImageId
 
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
-		CreateMS(user, host, clusterName, clusterType, subClusterType, clusterInfo)
+	b.Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Destroying MS ... ...", titleMsg), NewBuilder().CreateMS(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build())
 
 	return b
 }
 
 func (b *Builder) DestroySqlServer(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).
-		DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType)
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+
+	b.Step(fmt.Sprintf("%s : Destroying SQL Server ... ...", titleMsg), NewBuilder().DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build())
 
 	return b
 }
 
 func (b *Builder) CreateDMSService(user, host, clusterName, clusterType, subClusterType string, awsDMSConfigs *spec.AwsDMSConfigs, clusterInfo *ClusterInfo) *Builder {
+	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+	// Step(fmt.Sprintf("%s : Destroying VPC ... ...", titleMsg), NewBuilder()..Build()  ).
+
 	clusterInfo.cidr = awsDMSConfigs.CIDR
 	clusterInfo.instanceType = awsDMSConfigs.InstanceType
-	b.CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).
-		CreateDMSSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateDMSInstance(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateDMSSourceEndpoint(user, host, clusterName, clusterType, subClusterType, clusterInfo).
-		CreateDMSTargetEndpoint(user, host, clusterName, clusterType, subClusterType, clusterInfo)
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DMS Subnet Group ... ...", titleMsg), NewBuilder().CreateDMSSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DMS Instance ... ...", titleMsg), NewBuilder().CreateDMSInstance(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DMS Source Endpoint ... ...", titleMsg), NewBuilder().CreateDMSSourceEndpoint(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DMS Target Endpoint ... ...", titleMsg), NewBuilder().CreateDMSTargetEndpoint(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build())
 
 	return b
 }

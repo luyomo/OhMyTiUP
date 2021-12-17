@@ -96,7 +96,6 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	fmt.Printf("The db subnets group is <%s>\n\n\n", stdout)
 
 	return nil
 }

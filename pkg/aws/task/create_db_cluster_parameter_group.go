@@ -64,7 +64,7 @@ func (c *CreateDBClusterParameterGroup) Execute(ctx context.Context) error {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
-		fmt.Printf("The db cluster parameter groups is <%#v> \n\n\n", dbClusterParameterGroups)
+
 		for _, dbClusterParameterGroup := range dbClusterParameterGroups.DBClusterParameterGroups {
 			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbClusterParameterGroup.DBClusterParameterGroupArn, local, ctx)
 			if existsResource == true {
@@ -74,14 +74,12 @@ func (c *CreateDBClusterParameterGroup) Execute(ctx context.Context) error {
 		}
 	}
 
-	fmt.Printf("The DB cluster oarameter <%s> \n\n\n", stdout)
-
 	command = fmt.Sprintf("aws rds create-db-cluster-parameter-group --db-cluster-parameter-group-name %s --db-parameter-group-family aurora-mysql5.7 --description \"%s\" --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
+
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
 		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
@@ -91,18 +89,17 @@ func (c *CreateDBClusterParameterGroup) Execute(ctx context.Context) error {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
-	fmt.Printf("The db cluster params is <%#v>\n\n\n", newDBClusterParameterGroup)
 
 	command = fmt.Sprintf("aws rds modify-db-cluster-parameter-group --db-cluster-parameter-group-name %s --parameters \"ParameterName=binlog_format,ParameterValue=row,ApplyMethod=pending-reboot\"", c.clusterName)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
+
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
+		fmt.Printf("The error here is <%#v> \n\n\n", err)
 		fmt.Printf("----------\n\n")
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
+		return err
 	}
-	fmt.Printf("The db cluster params is <%#v>\n\n\n", string(stdout))
 
 	return nil
 }

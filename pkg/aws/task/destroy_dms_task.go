@@ -56,13 +56,14 @@ func (c *DestroyDMSTask) Execute(ctx context.Context) error {
 				fmt.Printf("ERROR: describe-replication-tasks json parsing %#v \n\n", err)
 				return err
 			}
-			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationTasks)
-			activeTask := 0
+
+			if len(replicationTasks.ReplicationTasks) == 0 {
+				return nil
+			}
 			for _, replicationTask := range replicationTasks.ReplicationTasks {
 				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, local, ctx)
 				if existsResource == true {
 					if replicationTask.Status == "running" {
-						activeTask += 1
 						command = fmt.Sprintf("aws dms stop-replication-task --replication-task-arn %s", replicationTask.ReplicationTaskArn)
 						fmt.Printf("The comamnd is <%s> \n\n\n", command)
 						stdout, stderr, err = local.Execute(ctx, command, false)
@@ -72,7 +73,7 @@ func (c *DestroyDMSTask) Execute(ctx context.Context) error {
 						}
 					}
 					if replicationTask.Status == "deleting" {
-						activeTask += 1
+						continue
 					}
 
 					command = fmt.Sprintf("aws dms delete-replication-task --replication-task-arn %s", replicationTask.ReplicationTaskArn)
@@ -82,12 +83,9 @@ func (c *DestroyDMSTask) Execute(ctx context.Context) error {
 						fmt.Printf("ERROR: destroy_dms_task delete-replixarion-task <%s> \n\n\n", string(stderr))
 						return err
 					}
-					return nil
 				}
 			}
-			if activeTask == 0 {
-				return nil
-			}
+
 		}
 		time.Sleep(30 * time.Second)
 	}

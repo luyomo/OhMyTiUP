@@ -45,7 +45,6 @@ func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("The result from internete <%s> \n\n\n", string(stdout))
 	var internetGateways InternetGateways
 	if err = json.Unmarshal(stdout, &internetGateways); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))

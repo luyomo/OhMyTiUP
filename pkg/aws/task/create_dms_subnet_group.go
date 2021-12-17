@@ -70,7 +70,6 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
-	fmt.Printf("The db subnets group is <%s>\n\n\n", stdout)
 
 	return nil
 }
@@ -84,12 +83,3 @@ func (c *CreateDMSSubnetGroup) Rollback(ctx context.Context) error {
 func (c *CreateDMSSubnetGroup) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }
-
-//func dmsGroupExists(groupName string, subnetGroups []DMSSubnetGroup) bool {
-//	for _, theSubnetGroup := range subnetGroups {
-//		if groupName == theSubnetGroup.DMSSubnetGroupName {
-//			return true
-//		}
-//	}
-//	return false
-//}

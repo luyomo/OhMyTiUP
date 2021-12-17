@@ -50,7 +50,7 @@ func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
 			fmt.Printf("ERRORS: describe-replication-instances json parsing is <%s> \n\n\n", string(stderr))
 			return err
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
+
 		for _, replicationInstance := range replicationInstances.ReplicationInstances {
 			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
 			if existsResource == true {
@@ -84,7 +84,7 @@ func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
 				fmt.Printf("ERRORS describe-replication-instances json parsing <%s> \n\n", string(stderr))
 				return err
 			}
-			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
+
 			instanceExists := false
 			for _, replicationInstance := range replicationInstances.ReplicationInstances {
 				if replicationInstanceArn == replicationInstance.ReplicationInstanceArn {

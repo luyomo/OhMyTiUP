@@ -41,17 +41,15 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 	command := fmt.Sprintf("aws dms describe-replication-instances")
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error err here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-		return nil
+		fmt.Printf("ERROR: describe-replication-instances <%s> \n\n", string(stderr))
+		return err
 	} else {
 		var replicationInstances ReplicationInstances
 		if err = json.Unmarshal(stdout, &replicationInstances); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			fmt.Printf("ERROR: describe-replication-instances parsing %#v \n\n", err)
+			return err
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
+
 		for _, replicationInstance := range replicationInstances.ReplicationInstances {
 			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
 			if existsResource == true {
@@ -92,7 +90,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 				fmt.Printf("*** *** The error here is %#v \n\n", err)
 				return nil
 			}
-			fmt.Printf("The db cluster is <%#v> \n\n\n", replicationInstances)
+
 			for _, replicationInstance := range replicationInstances.ReplicationInstances {
 				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
 				if existsResource == true {

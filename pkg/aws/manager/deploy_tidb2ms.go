@@ -147,13 +147,8 @@ func (m *Manager) TiDB2MSDeploy(
 
 	var (
 		envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
-		//downloadCompTasks []*task.StepDisplay // tasks which are used to download components
-		//deployCompTasks   []*task.StepDisplay // tasks which are used to copy components to remote host
 	)
 
-	// Initialize environment
-	//	uniqueHosts := make(map[string]hostInfo) // host -> ssh-port, os, arch
-	//	noAgentHosts := set.NewStringSet()
 	globalOptions := base.GlobalOptions
 
 	clusterType := "tisample-tidb2ms"
@@ -185,33 +180,8 @@ func (m *Manager) TiDB2MSDeploy(
 	fmt.Printf("%#v\n\n\n", t4)
 	envInitTasks = append(envInitTasks, t4)
 
-	//t4 := task.NewBuilder().
-	//	CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
-	//	BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
-	//envInitTasks = append(envInitTasks, t4)
-
-	/*
-					//CreateDMSTask(globalOptions.User, inst.GetHost(), name, clusterType).           // - Deploy the TiDB endpoint
-					// - Deploy the Aurora endpoint
-					// - Deploy DMS instance
-					// - Deploy DMS task for data sync
-					BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
-				envInitTasks = append(envInitTasks, t)
-			}
-		})
-
-		if iterErr != nil {
-			return iterErr
-		}
-	*/
-
 	builder := task.NewBuilder().
-		//Step("+ Generate SSH keys",
-		//Step("+ Generate SSH keys *****************************",
-		//	task.NewBuilder().SSHKeyGen(m.specManager.Path(name, "ssh", "id_rsa")).Build()).
 		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
-		//ParallelStep("+ Download TiDB components", false, downloadCompTasks...).
-	//ParallelStep("+ Copy files", false, deployCompTasks...)
 
 	if afterDeploy != nil {
 		afterDeploy(builder, topo)
@@ -231,7 +201,7 @@ func (m *Manager) TiDB2MSDeploy(
 	if cntEC2Nodes > 0 {
 		t5 = task.NewBuilder().
 			CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
-			CreateTransitGateway(globalOptions.User, "127.0.0.1", name, clusterType).
+			Step("This is testing to create transit gateway", task.NewBuilder().CreateTransitGateway(globalOptions.User, "127.0.0.1", name, clusterType).Build()).
 			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "workstation").
 			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "tidb").
 			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "aurora").

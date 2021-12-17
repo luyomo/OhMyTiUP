@@ -66,9 +66,9 @@ func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", dbParameterGroups)
+
 		for _, dbParameterGroup := range dbParameterGroups.DBParameterGroups {
-			fmt.Printf("The cluster info is <%#v> \n\n\n", dbParameterGroup)
+
 			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbParameterGroup.DBParameterGroupArn, local, ctx)
 			if existsResource == true {
 				fmt.Printf("The db cluster  has exists \n\n\n")
@@ -77,8 +77,6 @@ func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 		}
 		return nil
 	}
-
-	fmt.Printf("The DB parameter <%s> \n\n\n", stdout)
 
 	command = fmt.Sprintf("aws rds create-db-parameter-group --db-parameter-group-name %s --db-parameter-group-family aurora-mysql5.7 --description \"%s\" --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
@@ -95,7 +93,6 @@ func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
-	fmt.Printf("The db cluster params is <%#v>\n\n\n", newDBParameterGroup)
 
 	return nil
 }

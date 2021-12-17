@@ -36,36 +36,36 @@ type CreateVpc struct {
 func (c *CreateVpc) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" ", c.clusterName, c.subClusterType, c.clusterType), false)
+	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
 		return err
 	}
 	var vpcs Vpcs
 	if err := json.Unmarshal(stdout, &vpcs); err != nil {
 		zap.L().Debug("The error to parse the string ", zap.Error(err))
-		return nil
+		return err
 	}
 	if len(vpcs.Vpcs) > 0 {
 		c.clusterInfo.vpcInfo = vpcs.Vpcs[0]
 		zap.L().Info("The clusterInfo.vpcInfo.vpcId is ", zap.String("VpcInfo", c.clusterInfo.String()))
-		return nil
+		return err
 	}
 
 	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterInfo.cidr, c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	time.Sleep(5 * time.Second)
 
 	zap.L().Info("Check the data before run describe-vpcs", zap.String("create-vpc", string(stdout)))
-	stdout, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"  \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
+	stdout, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\"  ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
-		return nil
+		return err
 	}
 	if err = json.Unmarshal(stdout, &vpcs); err != nil {
 		zap.L().Debug("Failed to parse the stdout", zap.String("describe-vpcs", string(stdout)))
-		return nil
+		return err
 	}
 	c.clusterInfo.vpcInfo = vpcs.Vpcs[0]
 	return nil
