@@ -143,3 +143,56 @@ func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx conte
 
 	return nil
 }
+
+/******************************************************************************/
+
+// Mkdir is used to create directory on the target host
+type DestroyRouteTable struct {
+	user           string
+	host           string
+	awsTopoConfigs *spec.AwsTopoConfigs
+	clusterName    string
+	clusterType    string
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyRouteTable) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	if err != nil {
+		return nil
+	}
+
+	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
+	if err != nil {
+		return nil
+	}
+
+	var routeTables RouteTables
+	if err = json.Unmarshal(stdout, &routeTables); err != nil {
+		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
+		return nil
+	}
+
+	for _, routeTable := range routeTables.RouteTables {
+		command := fmt.Sprintf("aws ec2 delete-route-table --route-table-id %s", routeTable.RouteTableId)
+		stdout, _, err = local.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("The error here is <%#v> \n\n", err)
+			fmt.Printf("----------\n\n")
+			return nil
+		}
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyRouteTable) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyRouteTable) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.host)
+}

@@ -128,3 +128,77 @@ func (c *CreateDBCluster) Rollback(ctx context.Context) error {
 func (c *CreateDBCluster) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }
+
+/*******************************************************************************/
+
+type DestroyDBCluster struct {
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyDBCluster) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	// Get the available zones
+	command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", c.clusterName)
+	stdout, stderr, err := local.Execute(ctx, command, false)
+	if err != nil {
+		if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", c.clusterName)) {
+			fmt.Printf("The DB Cluster has not created.\n\n\n")
+			return nil
+		} else {
+			fmt.Printf("ERRORS: describe-db-clusters <%s> \n\n", string(stderr))
+			return err
+		}
+	} else {
+		var dbClusters DBClusters
+		if err = json.Unmarshal(stdout, &dbClusters); err != nil {
+			fmt.Printf("ERRORS: describe-db-clusters json parsing <%s> \n\n", string(stderr))
+			return err
+		}
+
+		for _, dbCluster := range dbClusters.DBClusters {
+			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbCluster.DBClusterArn, local, ctx)
+			if existsResource == true {
+				command = fmt.Sprintf("aws rds delete-db-cluster --db-cluster-identifier %s --skip-final-snapshot", c.clusterName)
+				fmt.Printf("The comamnd is <%s> \n\n\n", command)
+				stdout, stderr, err = local.Execute(ctx, command, false)
+				if err != nil {
+					fmt.Printf("ERRORS delete-db-cluster <%s> \n\n", string(stderr))
+					return err
+				}
+
+				fmt.Printf("The db cluster  has exists \n\n\n")
+			}
+		}
+	}
+
+	for i := 1; i <= 200; i++ {
+		command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", c.clusterName)
+		_, stderr, err := local.Execute(ctx, command, false)
+		if err != nil {
+			if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", c.clusterName)) {
+				break
+
+			}
+			return err
+		}
+
+		time.Sleep(30 * time.Second)
+	}
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyDBCluster) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyDBCluster) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.host)
+}

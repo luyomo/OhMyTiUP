@@ -83,3 +83,55 @@ func (c *CreateDMSSubnetGroup) Rollback(ctx context.Context) error {
 func (c *CreateDMSSubnetGroup) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }
+
+/******************************************************************************/
+
+type DestroyDMSSubnetGroup struct {
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyDMSSubnetGroup) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	// Get the available zones
+	command := fmt.Sprintf("aws dms describe-replication-subnet-groups --filters \"Name=replication-subnet-group-id,Values=%s\"", c.clusterName)
+	stdout, stderr, err := local.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("ERRORS describe-replication-subnet-groups <%s> \n\n\n", string(stderr))
+		return err
+	} else {
+		fmt.Printf("The data is <%s> \n\n\n", string(command))
+
+		var dmsSubnetGroups DMSSubnetGroups
+		if err = json.Unmarshal(stdout, &dmsSubnetGroups); err != nil {
+			fmt.Printf("ERRORS describe-replication-subnet-groups json parsing <%s> \n\n\n", string(stderr))
+			return err
+		}
+
+		for _, subnet := range dmsSubnetGroups.DMSSubnetGroups {
+			command = fmt.Sprintf("aws dms delete-replication-subnet-group --replication-subnet-group-identifier %s", subnet.ReplicationSubnetGroupIdentifier)
+			fmt.Printf("The comamnd is <%s> \n\n\n", command)
+			stdout, stderr, err = local.Execute(ctx, command, false)
+
+			if err != nil {
+				fmt.Printf("ERRORS delete-replication-subnet-group json parsing <%s> \n\n\n", string(stderr))
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyDMSSubnetGroup) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyDMSSubnetGroup) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.host)
+}

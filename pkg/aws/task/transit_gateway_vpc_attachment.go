@@ -24,6 +24,7 @@ import (
 	//	"go.uber.org/zap"
 	//"strings"
 	//"time"
+	"time"
 )
 
 type TransitGatewayVpcAttachment struct {
@@ -114,5 +115,89 @@ func (c *CreateTransitGatewayVpcAttachment) Rollback(ctx context.Context) error 
 
 // String implements the fmt.Stringer interface
 func (c *CreateTransitGatewayVpcAttachment) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.host)
+}
+
+/******************************************************************************/
+
+type DestroyTransitGatewayVpcAttachment struct {
+	user        string
+	host        string
+	clusterName string
+	clusterType string
+}
+
+func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+
+	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", c.clusterName, c.clusterType)
+
+	stdout, stderr, err := local.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
+		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
+		return err
+	}
+	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
+
+	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
+		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments json parsing <%s> \n\n", string(stderr))
+		return err
+	}
+
+	var deletingAttachments []string
+	for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
+		fmt.Printf("The attachment is <%#v> \n\n\n", attachment)
+		command = fmt.Sprintf("aws ec2 delete-transit-gateway-vpc-attachment --transit-gateway-attachment-id  %s", attachment.TransitGatewayAttachmentId)
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
+
+		stdout, stderr, err = local.Execute(ctx, command, false)
+
+		if err != nil {
+			fmt.Printf("ERRORS: delete-transit-gateway-vpc-attachments json parsing <%s> \n\n", string(stderr))
+			return err
+		}
+		deletingAttachments = append(deletingAttachments, attachment.TransitGatewayAttachmentId)
+	}
+
+	command = fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending,deleting\"", c.clusterName, c.clusterType)
+	fmt.Printf("The comamnd is <%s> \n\n\n", command)
+
+	for i := 1; i <= 50; i++ {
+		cntAttachments := 0
+		stdout, stderr, err := local.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
+			return err
+		}
+		var transitGatewayVpcAttachments TransitGatewayVpcAttachments
+
+		if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
+			fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
+			return err
+		}
+		for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
+			for _, hitAttachment := range deletingAttachments {
+				if hitAttachment == attachment.TransitGatewayAttachmentId {
+					cntAttachments++
+				}
+			}
+		}
+		fmt.Printf("The counting here is <%d> \n\n\n", cntAttachments)
+		if cntAttachments == 0 {
+			break
+		}
+		time.Sleep(30 * time.Second)
+	}
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyTransitGatewayVpcAttachment) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyTransitGatewayVpcAttachment) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }

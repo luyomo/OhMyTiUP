@@ -61,7 +61,6 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
-	fmt.Printf("The result from create-transit-gateway <%s> \n\n\n", string(stdout))
 
 	for i := 1; i <= 50; i++ {
 		transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
@@ -88,5 +87,47 @@ func (c *CreateTransitGateway) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateTransitGateway) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.host)
+}
+
+/******************************************************************************/
+
+type DestroyTransitGateway struct {
+	user        string
+	host        string
+	clusterName string
+	clusterType string
+}
+
+func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+
+	transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
+
+	if err != nil {
+		return err
+	}
+	if transitGateway == nil {
+		return nil
+	}
+
+	command := fmt.Sprintf("aws ec2 delete-transit-gateway --transit-gateway-id %s", transitGateway.TransitGatewayId)
+	fmt.Printf("The comamnd is <%s> \n\n\n", command)
+	_, stderr, err := local.Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("ERRORS: delete-transit-gateway <%s> \n\n\n", string(stderr))
+		return err
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyTransitGateway) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyTransitGateway) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }

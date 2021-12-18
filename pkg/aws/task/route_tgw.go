@@ -85,7 +85,6 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 			fmt.Printf("The error here is <%s> \n\n", string(stderr))
 			return err
 		}
-		fmt.Printf("The result from create-transit-gateway <%s> \n\n\n", string(stdout))
 
 		targetRouteTable, err := getRouteTable(local, ctx, c.clusterName, c.clusterType, targetSubClusterType)
 		if err != nil {
@@ -102,7 +101,7 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 			fmt.Printf("The error here is <%s> \n\n", string(stderr))
 			return err
 		}
-		fmt.Printf("The result from create-transit-gateway <%s> \n\n\n", string(stdout))
+
 	}
 
 	return nil

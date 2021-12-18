@@ -80,3 +80,50 @@ func (c *CreateVpc) Rollback(ctx context.Context) error {
 func (c *CreateVpc) String() string {
 	return fmt.Sprintf("Echo: host=%s ", c.host)
 }
+
+/******************************************************************************/
+
+type DestroyVpc struct {
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyVpc) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
+	if err != nil {
+		fmt.Printf("ERROR describe-vpcs <%s>", string(stderr))
+		return err
+	}
+	var vpcs Vpcs
+	if err := json.Unmarshal(stdout, &vpcs); err != nil {
+		zap.L().Debug("The error to parse the string ", zap.Error(err))
+		return nil
+	}
+	for _, vpc := range vpcs.Vpcs {
+		fmt.Printf("The data here is <%#v> \n\n\n", vpc)
+		command := fmt.Sprintf("aws ec2 delete-vpc --vpc-id %s", vpc.VpcId)
+		stdout, _, err = local.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("ERROR describe-vpc <%s>", string(stderr))
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyVpc) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyVpc) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.host)
+}

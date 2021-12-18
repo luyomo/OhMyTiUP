@@ -120,3 +120,75 @@ func (c *CreateDBInstance) Rollback(ctx context.Context) error {
 func (c *CreateDBInstance) String() string {
 	return fmt.Sprintf("Echo: Generating the DB instance %s ", c.clusterName)
 }
+
+/******************************************************************************/
+
+type DestroyDBInstance struct {
+	user           string
+	host           string
+	clusterName    string
+	clusterType    string
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyDBInstance) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	// Get the available zones
+	command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
+	stdout, stderr, err := local.Execute(ctx, command, false)
+	if err != nil {
+		if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", c.clusterName)) {
+			fmt.Printf("The DB Instance has not created.\n\n\n")
+			return nil
+		} else {
+			fmt.Printf("ERRORS: describe-db-instance  <%s> \n\n", string(stderr))
+			return err
+		}
+	} else {
+		var dbInstances DBInstances
+		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
+			fmt.Printf("ERRORS: describe-db-instance json parsing <%s> \n\n", string(stderr))
+			return err
+		}
+		for _, instance := range dbInstances.DBInstances {
+			fmt.Printf("The db instance is <%#v> \n\n\n", instance)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
+			if existsResource == true {
+				command = fmt.Sprintf("aws rds delete-db-instance --db-instance-identifier %s", c.clusterName)
+				fmt.Printf("The comamnd is <%s> \n\n\n", command)
+				_, stderr, err = local.Execute(ctx, command, false)
+				if err != nil {
+					fmt.Printf("ERRORS: delete-db-instance <%s> \n\n", string(stderr))
+					return err
+				}
+			}
+		}
+	}
+
+	time.Sleep(120 * time.Second)
+	for i := 1; i <= 200; i++ {
+		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
+		_, stderr, err := local.Execute(ctx, command, false)
+		if err != nil {
+			if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", c.clusterName)) {
+				break
+			}
+			return err
+		}
+
+		time.Sleep(30 * time.Second)
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyDBInstance) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyDBInstance) String() string {
+	return fmt.Sprintf("Echo: Generating the DB instance %s ", c.clusterName)
+}
