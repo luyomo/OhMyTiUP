@@ -350,3 +350,19 @@ $curl -X POST -H "Content-Type: application/json" http://localhost:8083/connecto
    | File name | Done  |
    |-----------+-------|
    | vpc.go    | 12/18 |
+
+
+* TOD
+** Added the image name
+aws ec2 describe-images --filters "Name=name,Values=debian-10-amd64*" "Name=architecture,Values=x86_64" "Name=hypervisor,Values=xen" "Name=image-type,Values=machine" "Name=is-public,Values=true" "Name=block-device-mapping.volume-type,Values=gp2" --query 'reverse(sort_by(Images, &CreationDate))[:1]'
+** Replace the sqlserver node to rds sqlserver
+** Format the test result
+** Added the below setting to /etc/security/limits.conf
+** Run from the third node like aws node
+** Added version config for TiDB
+#+BEEGIN_SRC
+echo "
+ * hard nofile 65535
+ * soft nofile 65535
+">>/etc/security/limits.conf
+#+END_SRC

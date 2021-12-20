@@ -215,27 +215,6 @@ func getVPCInfo(executor ctxt.Executor, ctx context.Context, vpc ResourceTag) (*
 	return &(vpcs.Vpcs[0]), nil
 }
 
-/*
-func getVPC(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*Vpc, error) {
-	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" ", clusterName, subClusterType, clusterType), false)
-	if err != nil {
-		return nil, err
-	}
-	var vpcs Vpcs
-	if err := json.Unmarshal(stdout, &vpcs); err != nil {
-		zap.L().Debug("The error to parse the string ", zap.Error(err))
-		return nil, err
-	}
-	if len(vpcs.Vpcs) > 0 {
-
-		return &vpcs.Vpcs[0], nil
-		//c.clusterInfo.vpcInfo = vpcs.Vpcs[0]
-		//zap.L().Info("The clusterInfo.vpcInfo.vpcId is ", zap.String("VpcInfo", c.clusterInfo.String()))
-		//return nil
-	}
-	return nil, nil
-}
-*/
 func getNetworks(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType, scope string) (*[]Subnet, error) {
 	//command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, subClusterType, scope)
 	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, subClusterType)

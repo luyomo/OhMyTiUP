@@ -75,25 +75,6 @@ func (m *Manager) meta(name string) (metadata spec.Metadata, err error) {
 		return nil, perrs.Errorf("Cluster `%s` not exists", name)
 	}
 
-	//if len(vpcs.Vpcs) > 1 {
-	//	return nil, perrs.Errorf("Duplicate cluster `%s` exists", name)
-	//}
-
-	//exist, err := m.specManager.Exist(name)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	//if !exist {
-	//	return nil, perrs.Errorf("%s cluster `%s` not exists", m.sysName, name)
-	//}
-
-	//metadata = m.specManager.NewMetadata()
-	//err = m.specManager.Metadata(name, metadata)
-	//if err != nil {
-	//	return metadata, err
-	//}
-
 	return nil, nil
 }
 
@@ -101,50 +82,30 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 	log.Infof("Please confirm your topology:")
 
 	cyan := color.New(color.FgCyan, color.Bold)
+	fmt.Printf("AWS Region:      %s\n", cyan.Sprint("Tokyo"))
 	fmt.Printf("Cluster type:    %s\n", cyan.Sprint(m.sysName))
 	fmt.Printf("Cluster name:    %s\n", cyan.Sprint(name))
 	fmt.Printf("Cluster version: %s\n", cyan.Sprint(version))
-	if topo.BaseTopo().GlobalOptions.TLSEnabled {
-		fmt.Printf("TLS encryption:  %s\n", cyan.Sprint("enabled"))
-	}
+	fmt.Printf("User Name:       %s\n", cyan.Sprint("admin"))
+	fmt.Printf("Key Name:        %s\n", cyan.Sprint("jay"))
+	fmt.Printf("\n")
 
-	clusterTable := [][]string{
-		// Header
-		{"Role", "Host", "Ports", "OS/Arch", "Directories"},
-	}
-
-	topo.IterInstance(func(instance spec.Instance) {
-		comp := instance.ComponentName()
-		if patchedRoles.Exist(comp) || instance.IsPatched() {
-			comp += " (patched)"
+	if spec, ok := topo.(*spec.Specification); ok {
+		clusterTable := [][]string{
+			// Header
+			{"Component", "# of nodes", "Instance Type", "Image Name", "CIDR", "User"},
 		}
-		clusterTable = append(clusterTable, []string{
-			comp,
-			instance.GetHost(),
-			utils.JoinInt(instance.UsedPorts(), "/"),
-			tui.OsArch(instance.OS(), instance.Arch()),
-			strings.Join(instance.UsedDirs(), ","),
-		})
-	})
-
-	tui.PrintTable(clusterTable, true)
+		clusterTable = append(clusterTable, []string{"Workstation", "1", spec.AwsWSConfigs.InstanceType, spec.AwsWSConfigs.ImageId, spec.AwsWSConfigs.CIDR, "admin"})
+		//fmt.Printf("The TiDB strcture is <%#v> \n\n\n", spec.AwsTopoConfigs)
+		clusterTable = append(clusterTable, []string{"Aurora", "1", spec.AwsAuroraConfigs.InstanceType, "-", spec.AwsAuroraConfigs.CIDR, "master"})
+		clusterTable = append(clusterTable, []string{"MSSQLServer", "1", spec.AwsMSConfigs.InstanceType, "-", spec.AwsMSConfigs.CIDR, "-"})
+		clusterTable = append(clusterTable, []string{"DMS", "1", spec.AwsDMSConfigs.InstanceType, "-", spec.AwsDMSConfigs.CIDR, "-"})
+		tui.PrintTable(clusterTable, true)
+	}
 
 	log.Warnf("Attention:")
 	log.Warnf("    1. If the topology is not what you expected, check your yaml file.")
 	log.Warnf("    2. Please confirm there is no port/directory conflicts in same host.")
-	if len(patchedRoles) != 0 {
-		log.Errorf("    3. The component marked as `patched` has been replaced by previous patch commanm.")
-	}
-
-	if spec, ok := topo.(*spec.Specification); ok {
-		if len(spec.TiSparkMasters) > 0 || len(spec.TiSparkWorkers) > 0 {
-			cyan := color.New(color.FgCyan, color.Bold)
-			msg := cyan.Sprint(`There are TiSpark nodes defined in the topology, please note that you'll need to manually install Java Runtime Environment (JRE) 8 on the host, otherwise the TiSpark nodes will fail to start.
-You may read the OpenJDK doc for a reference: https://openjdk.java.net/install/
-			`)
-			log.Warnf(msg)
-		}
-	}
 
 	return tui.PromptForConfirmOrAbortError("Do you want to continue? [y/N]: ")
 }
