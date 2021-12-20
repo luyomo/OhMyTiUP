@@ -91,12 +91,18 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 
 	if c.isPrivate == true {
 		zap.L().Debug("Private Route Table ID", zap.String("privateRouteTableId", c.clusterInfo.privateRouteTableId))
-		c.createPrivateSubnets(local, ctx, zones)
+		err := c.createPrivateSubnets(local, ctx, zones)
+		if err != nil {
+			return err
+		}
 		zap.L().Debug("Private Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
 
 	} else {
 		zap.L().Debug("Public Route Table ID", zap.String("publicRouteTableId", c.clusterInfo.publicRouteTableId))
-		c.createPublicSubnets(local, ctx, zones)
+		err := c.createPublicSubnets(local, ctx, zones)
+		if err != nil {
+			return err
+		}
 		zap.L().Debug("Public Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
 	}
 
@@ -150,13 +156,13 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	var subnets Subnets
 	if err = json.Unmarshal(stdout, &subnets); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
-		return nil
+		return err
 	}
 	for idx, zone := range zones.Zones {
 		subnetExists := false
@@ -177,13 +183,13 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 
 		stdout, _, err := executor.Execute(ctx, command, false)
 		if err != nil {
-			return nil
+			return err
 		}
 		var newSubnet SubnetResult
 		if err = json.Unmarshal(stdout, &newSubnet); err != nil {
 			//			fmt.Printf("*** *** The error here is %#v \n\n\n", err)
 			zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
-			return nil
+			return err
 		}
 		zap.L().Debug("Generated the subnet info", zap.String("State", newSubnet.Subnet.State), zap.String("Cidr Block", newSubnet.Subnet.CidrBlock))
 		associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, c.clusterInfo.privateRouteTableId, executor, ctx)
@@ -199,30 +205,30 @@ func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 	var subnets Subnets
 	if err = json.Unmarshal(stdout, &subnets); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
-		return nil
+		return err
 	}
 
 	if len(subnets.Subnets) > 0 {
 		c.clusterInfo.publicSubnet = subnets.Subnets[0].SubnetId
 		zap.L().Debug("Public subnets ", zap.String("subnet", c.clusterInfo.publicSubnet))
-		return nil
+		return err
 	}
 
 	command = fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", getNextCidr(c.clusterInfo.vpcInfo.CidrBlock, 10+1), c.clusterInfo.vpcInfo.VpcId, zones.Zones[0].ZoneName, c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("create-subnet", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 	var newSubnet SubnetResult
 	if err = json.Unmarshal(stdout, &newSubnet); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("subnet", string(stdout)))
-		return nil
+		return err
 	}
 	zap.L().Debug("Generated the subnet info", zap.String("State", newSubnet.Subnet.State), zap.String("Cidr Block", newSubnet.Subnet.CidrBlock))
 	associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, c.clusterInfo.publicRouteTableId, executor, ctx)
@@ -252,12 +258,12 @@ func (c *DestroyNetwork) Execute(ctx context.Context) error {
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
 	stdout, _, err := local.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 	var subnets Subnets
 	if err = json.Unmarshal(stdout, &subnets); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
-		return nil
+		return err
 	}
 
 	for _, subnet := range subnets.Subnets {

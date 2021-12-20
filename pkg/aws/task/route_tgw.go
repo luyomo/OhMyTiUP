@@ -78,11 +78,10 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 
 		command := fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", routeTable.RouteTableId, (*vpcInfo).CidrBlock, transitGateway.TransitGatewayId)
 		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		stdout, stderr, err := local.Execute(ctx, command, false)
+		_, stderr, err := local.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			fmt.Printf("The error here is <%#v> \n\n\n", err)
+			fmt.Printf("The error here is <%s> \n\n\n", string(stderr))
 			return err
 		}
 
@@ -90,15 +89,14 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The target Routable id <%#v> \n\n\n", targetRouteTable)
 
 		command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", targetRouteTable.RouteTableId, (*sourceVpcInfo).CidrBlock, transitGateway.TransitGatewayId)
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		stdout, stderr, err = local.Execute(ctx, command, false)
+
+		_, stderr, err = local.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error here is <%s> \n\n", string(stderr))
+			fmt.Printf("The comamnd is <%s> \n\n\n", command)
+			fmt.Printf("The error here is <%#v> \n\n\n", err)
+			fmt.Printf("The error here is <%s> \n\n\n", string(stderr))
 			return err
 		}
 

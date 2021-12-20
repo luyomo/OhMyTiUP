@@ -15,11 +15,11 @@ package task
 
 import (
 	"context"
-	"encoding/json"
+	//	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
-	//	"strings"
 	"time"
 )
 
@@ -35,40 +35,38 @@ type CreateVpc struct {
 // Execute implements the Task interface
 func (c *CreateVpc) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-
-	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
+		zap.L().Debug("Failed to create the executor ", zap.Error(err))
 		return err
 	}
-	var vpcs Vpcs
-	if err := json.Unmarshal(stdout, &vpcs); err != nil {
-		zap.L().Debug("The error to parse the string ", zap.Error(err))
-		return err
+
+	vpcInfo, error := getVPCInfo(local, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	if error == nil {
+		zap.L().Info("Fetched VPC Info", zap.String("VPC Info", vpcInfo.String()))
+		c.clusterInfo.vpcInfo = *vpcInfo
+		return errors.New("Debug")
 	}
-	if len(vpcs.Vpcs) > 0 {
-		c.clusterInfo.vpcInfo = vpcs.Vpcs[0]
-		zap.L().Info("The clusterInfo.vpcInfo.vpcId is ", zap.String("VpcInfo", c.clusterInfo.String()))
+	if error.Error() != "No VPC found" {
+		zap.L().Debug("Failed to fetch vpc info ", zap.Error(err))
 		return err
 	}
 
 	_, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterInfo.cidr, c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
+		zap.L().Error("Failed to create vpc. VPCInfo: ", zap.String("VpcInfo", c.clusterInfo.String()))
 		return err
 	}
 
 	time.Sleep(5 * time.Second)
 
-	zap.L().Info("Check the data before run describe-vpcs", zap.String("create-vpc", string(stdout)))
-	stdout, _, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\"  ", c.clusterName, c.clusterType, c.subClusterType), false)
-	if err != nil {
-		return err
+	vpcInfo, error = getVPCInfo(local, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	if error == nil {
+		zap.L().Info("Fetched VPC Info", zap.String("VPC Info", vpcInfo.String()))
+		c.clusterInfo.vpcInfo = *vpcInfo
+		return nil
 	}
-	if err = json.Unmarshal(stdout, &vpcs); err != nil {
-		zap.L().Debug("Failed to parse the stdout", zap.String("describe-vpcs", string(stdout)))
-		return err
-	}
-	c.clusterInfo.vpcInfo = vpcs.Vpcs[0]
-	return nil
+
+	return errors.New("Failed to create vpc")
 }
 
 // Rollback implements the Task interface
@@ -91,28 +89,34 @@ type DestroyVpc struct {
 	subClusterType string
 }
 
-// Execute implements the Task interface
+/*
+   Description: Destroy the VPC if it does not exists.
+*/
 func (c *DestroyVpc) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
-		fmt.Printf("ERROR describe-vpcs <%s>", string(stderr))
+		zap.L().Debug("Failed to create the executor ", zap.Error(err))
 		return err
 	}
-	var vpcs Vpcs
-	if err := json.Unmarshal(stdout, &vpcs); err != nil {
-		zap.L().Debug("The error to parse the string ", zap.Error(err))
+
+	// Fetch the vpc info.
+	//  1. Return if no vpc is found
+	//  2. Return error if it fails
+	vpcInfo, error := getVPCInfo(local, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	if error.Error() == "No VPC found" {
 		return nil
 	}
-	for _, vpc := range vpcs.Vpcs {
-		fmt.Printf("The data here is <%#v> \n\n\n", vpc)
-		command := fmt.Sprintf("aws ec2 delete-vpc --vpc-id %s", vpc.VpcId)
-		stdout, _, err = local.Execute(ctx, command, false)
-		if err != nil {
-			fmt.Printf("ERROR describe-vpc <%s>", string(stderr))
-			return err
-		}
+	if error != nil {
+		zap.L().Debug("Failed to fetch vpc info ", zap.Error(err))
+		return err
+	}
+
+	// Delete the specified vpc
+	command := fmt.Sprintf("aws ec2 delete-vpc --vpc-id %s", (*vpcInfo).VpcId)
+	_, _, err = local.Execute(ctx, command, false)
+	if err != nil {
+		zap.L().Debug("Failed to delete vpc info ", zap.Error(err))
+		return err
 	}
 
 	return nil

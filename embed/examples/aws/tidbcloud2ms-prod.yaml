@@ -1,0 +1,21 @@
+global:
+  user: tidb
+  db_host: localhost
+workstation:
+  cidr: 172.81.0.0/16
+  instance_type: m5.4xlarge
+  keyname: key-name
+  keyfile: /home/tidb/.ssh/key-name.pem
+  username: admin
+  imageid: ami-0c7ea5497c02abcaf
+aurora:
+  cidr: 172.83.0.0/16
+  instance_type: db.m5.8xlarge
+sqlserver:
+  cidr: 172.85.0.0/16
+  instance_type: m5.2xlarge
+  keyname: jay-west
+  imageid: ami-00dcbd817ce3d7a77
+dms:
+  cidr: 172.86.0.0/16
+  instance_type: m5.2xlarge

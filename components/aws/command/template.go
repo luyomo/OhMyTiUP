@@ -18,6 +18,7 @@ import (
 	"path"
 
 	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/tisample/pkg/tui"
 	//	"github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )
@@ -47,8 +48,23 @@ func newTemplateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "template",
 		Short: "Print node config template",
+		Long: `Print templates for data migration from tidb to sqlserver. eg
+aws tidb2ms template tidbcloud2ms-prod  -- Print production template for migration from tidb cloud to sqlserveer
+aws tidb2ms tempalte tidbcloud2ms-minimum -- Print minimum config tempalte from migration from tidb cloud to sqlserver
+aws tidb2ms tempalte tidb2ms-minimum -- Print minimum config tempalte from migration from tidb to sqlserver
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fp := path.Join("examples", "aws", "aws-nodes-tidb.yaml")
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			fileName := args[0]
+
+			fp := path.Join("examples", "aws", fmt.Sprintf("%s.yaml", fileName))
 			tpl, err := embed.ReadExample(fp)
 			if err != nil {
 				return err

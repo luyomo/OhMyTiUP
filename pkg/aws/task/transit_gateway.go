@@ -54,11 +54,10 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 
 	command := fmt.Sprintf("aws ec2 create-transit-gateway --description %s --tag-specifications --tag-specifications \"ResourceType=transit-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s}]\"", c.clusterName, c.clusterName, c.clusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	_, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		fmt.Printf("The error here is <%#v> \n\n\n", err)
+		fmt.Printf("The error here is <%s> \n\n\n", string(stderr))
 		return err
 	}
 

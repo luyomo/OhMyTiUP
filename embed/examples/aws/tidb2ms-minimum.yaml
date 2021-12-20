@@ -1,0 +1,40 @@
+global:
+  user: pi
+  db_host: localhost
+workstation:
+  cidr: 172.82.0.0/16
+  instance_type: m5.2xlarge
+  keyname: jay.pingcap
+  imageid: ami-0ac97798ccf296e02
+aws_topo_configs:
+  general:
+    imageid: ami-0ac97798ccf296e02
+    name: tisamplenodes
+    keyname: jay.pingcap
+    cidr: 172.83.0.0/16
+    instance_type: m5.2xlarge
+  pd:
+    instance_type: m5.2xlarge
+    count: 3
+  tidb:
+    instance_type: m5.2xlarge
+    count: 2
+  tikv:
+    instance_type: m5.2xlarge
+    count: 3
+  dm:
+    instance_type: t2.micro
+    count: 1
+  ticdc:
+    instance_type: m5.2xlarge
+    count: 2
+aurora:
+  cidr: 172.84.0.0/16
+  instance_type: db.r5.large
+sqlserver:
+  cidr: 172.85.0.0/16
+  instance_type: m5.2xlarge
+  keyname: jay.pingcap
+dms:
+  cidr: 172.86.0.0/16
+  instance_type: m5.2xlarge

@@ -1,4 +1,43 @@
 * Diagram
+** Architect of Data sync from tidb to sqlserver
+   PoC to test the data sync from TiDB to SqlServer thrugh Aurora. So far, there is no approach to sync data from TiDB to SQLServer directly.
+ To achieve the near-realtime data sync from TiDB to SQL Server, add SQLServer and DMS.
+  #+ATTR_HTML: :width 70%
+  file:./png/TiDBCloud2MS.png
+* How to setup the aws environment
+** Setup aws local environment.
+** Prepare config file be below command
+#+BEGIN_SRC
+$ aws tidb2ms template tidbcloud2ms-prod    > /tmp/tidbcloud2ms-prod.yaml
+global:
+  user: tidb                                       <- User to login the server to run aws script
+  db_host: localhost
+workstation:
+  cidr: 172.81.0.0/16
+  instance_type: m5.4xlarge
+  keyname: key-name                                <- Public key name to login the workstation server
+  keyfile: /home/tidb/.ssh/key-name.pem            <- Private key file usded to login the workstation server
+  username: admin                                  <- User name to login
+  imageid: ami-0c7ea5497c02abcaf
+aurora:
+  cidr: 172.83.0.0/16
+  instance_type: db.m5.8xlarge
+sqlserver:
+  cidr: 172.85.0.0/16
+  instance_type: m5.2xlarge
+  keyname: jay-west
+  imageid: ami-00dcbd817ce3d7a77
+dms:
+  cidr: 172.86.0.0/16
+  instance_type: m5.2xlarge
+#+END_SRC
+
+** Deploy all the AWS resources for test.
+#+BEGIN_SRC
+$ aws tidb2ms deploy tidbcloud2ms /tmp/tidbcloud2ms-prod.yaml
+#+END_SRC
+
+
   #+CAPTION: Data Migration from SQL Server to TiDB
   [[./png/ms2ti.png]]
 #+BEGIN_COMMENT
@@ -304,3 +343,9 @@ $more sinke.config
 }
 $curl -X POST -H "Content-Type: application/json" http://localhost:8083/connectors -d @sink.config
     #+END_SRC
+
+
+* Format the source code
+   | File name | Done  |
+   |-----------+-------|
+   | vpc.go    | 12/18 |
