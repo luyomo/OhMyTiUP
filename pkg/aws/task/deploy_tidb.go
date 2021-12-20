@@ -174,6 +174,22 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
+	// 7. Add limit configuration, otherwise the configuration will impact the performance test with heavy load.
+	/*
+	 * hard nofile 65535
+	 * soft nofile 65535
+	 */
+	err = (*workstation).Transfer(ctx, "embed/templates/config/limits.conf", "/tmp", false, 0)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = (*workstation).Execute(ctx, `mv /tmp/limits.conf /etc/security/limits.conf`, true)
+	if err != nil {
+		return err
+
+	}
+
 	stdout, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
