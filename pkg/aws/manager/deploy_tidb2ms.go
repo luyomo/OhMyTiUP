@@ -76,25 +76,6 @@ func (m *Manager) TiDB2MSDeploy(
 		return err
 	}
 
-	/*
-		instCnt := 0
-		topo.IterInstance(func(inst spec.Instance) {
-			switch inst.ComponentName() {
-			// monitoring components are only useful when deployed with
-			// core components, we do not support deploying any bare
-			// monitoring system.
-			case spec.ComponentGrafana,
-				spec.ComponentPrometheus,
-				spec.ComponentAlertmanager:
-				return
-			}
-			instCnt++
-		})
-		if instCnt < 1 {
-			return fmt.Errorf("no valid instance found in the input topology, please check your config")
-		}
-	*/
-
 	spec.ExpandRelativeDir(topo)
 
 	base := topo.BaseTopo()
@@ -150,28 +131,27 @@ func (m *Manager) TiDB2MSDeploy(
 	globalOptions := base.GlobalOptions
 
 	clusterType := "tisample-tidb2ms"
+
 	var workstationInfo, clusterInfo, auroraInfo, msInfo, dmsInfo task.ClusterInfo
+
 	t1 := task.NewBuilder().CreateWorkstationCluster(globalOptions.User, "127.0.0.1", name, clusterType, "workstation", base.AwsWSConfigs, &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
-	fmt.Printf("%#v\n\n\n", t1)
+
 	envInitTasks = append(envInitTasks, t1)
 
 	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DM.Count + base.AwsTopoConfigs.TiCDC.Count
 	if cntEC2Nodes > 0 {
 		t2 := task.NewBuilder().CreateTiDBCluster(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-		fmt.Printf("%#v\n\n\n", t2)
 		envInitTasks = append(envInitTasks, t2)
 	}
 
 	t3 := task.NewBuilder().CreateAurora(globalOptions.User, "127.0.0.1", name, clusterType, "aurora", base.AwsAuroraConfigs, &auroraInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing aurora instance"))
-	fmt.Printf("%#v\n\n\n", t3)
 	envInitTasks = append(envInitTasks, t3)
 
 	t4 := task.NewBuilder().CreateSqlServer(globalOptions.User, "127.0.0.1", name, clusterType, "sqlserver", base.AwsMSConfigs, &msInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing sqlserver instance"))
-	fmt.Printf("%#v\n\n\n", t4)
 	envInitTasks = append(envInitTasks, t4)
 
 	builder := task.NewBuilder().ParallelStep("+ Initialize target host environments", false, envInitTasks...)
@@ -194,7 +174,7 @@ func (m *Manager) TiDB2MSDeploy(
 	if cntEC2Nodes > 0 {
 		t5 = task.NewBuilder().
 			CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
-			Step("This is testing to create transit gateway", task.NewBuilder().CreateTransitGateway(globalOptions.User, "127.0.0.1", name, clusterType).Build()).
+			CreateTransitGateway(globalOptions.User, "127.0.0.1", name, clusterType).
 			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "workstation").
 			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "tidb").
 			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "aurora").
@@ -220,7 +200,7 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
 			DeployTiDB(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsWSConfigs, &workstationInfo).
 			CreateDMSTask(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", &dmsInfo).
-			//			MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
+			MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 	}
 
@@ -237,8 +217,6 @@ func (m *Manager) TiDB2MSDeploy(
 
 	logger.OutputDebugLog("aws-nodes")
 	return nil
-
-	fmt.Printf("dmsinfo is <%#v> \n", dmsInfo)
 
 	hint := color.New(color.Bold).Sprintf("%s start %s", tui.OsArgs0(), name)
 	log.Infof("Cluster `%s` deployed successfully, you can start it with command: `%s`", name, hint)

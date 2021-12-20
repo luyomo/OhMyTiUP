@@ -1,16 +1,18 @@
 global:
-  user: pi
+  user: tidb                             <- to replace 
   db_host: localhost
 workstation:
   cidr: 172.82.0.0/16
   instance_type: m5.2xlarge
-  keyname: jay.pingcap
+  keyname: keyName                       <- to replace
+  keyfile: /home/tidb/.ssh/key.pem       <- to replace
+  username: admin
   imageid: ami-0ac97798ccf296e02
 aws_topo_configs:
   general:
     imageid: ami-0ac97798ccf296e02
     name: tisamplenodes
-    keyname: jay.pingcap
+    keyname: keyname                     <- to replace
     cidr: 172.83.0.0/16
     instance_type: m5.2xlarge
   pd:
@@ -34,7 +36,8 @@ aurora:
 sqlserver:
   cidr: 172.85.0.0/16
   instance_type: m5.2xlarge
-  keyname: jay.pingcap
+  keyname: keyName                       <- to replace
+  imageid: ami-01d445a80199e19cc
 dms:
   cidr: 172.86.0.0/16
   instance_type: m5.2xlarge

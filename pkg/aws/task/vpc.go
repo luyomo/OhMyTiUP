@@ -44,7 +44,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 	if error == nil {
 		zap.L().Info("Fetched VPC Info", zap.String("VPC Info", vpcInfo.String()))
 		c.clusterInfo.vpcInfo = *vpcInfo
-		return errors.New("Debug")
+		return nil
 	}
 	if error.Error() != "No VPC found" {
 		zap.L().Debug("Failed to fetch vpc info ", zap.Error(err))
@@ -103,14 +103,15 @@ func (c *DestroyVpc) Execute(ctx context.Context) error {
 	//  1. Return if no vpc is found
 	//  2. Return error if it fails
 	vpcInfo, error := getVPCInfo(local, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
-	if error.Error() == "No VPC found" {
-		return nil
-	}
-	if error != nil {
-		zap.L().Debug("Failed to fetch vpc info ", zap.Error(err))
-		return err
-	}
 
+	if error != nil {
+		if error.Error() == "No VPC found" {
+			return nil
+		} else {
+			zap.L().Debug("Failed to fetch vpc info ", zap.Error(err))
+			return err
+		}
+	}
 	// Delete the specified vpc
 	command := fmt.Sprintf("aws ec2 delete-vpc --vpc-id %s", (*vpcInfo).VpcId)
 	_, _, err = local.Execute(ctx, command, false)

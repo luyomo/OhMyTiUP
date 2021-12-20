@@ -1171,8 +1171,8 @@ func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClust
 	clusterInfo.instanceType = awsMSConfigs.InstanceType
 	clusterInfo.imageId = awsMSConfigs.ImageId
 
-	b.Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Destroying MS ... ...", titleMsg), NewBuilder().CreateMS(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build())
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating MS ... ...", titleMsg), NewBuilder().CreateMS(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build())
 
 	return b
 }

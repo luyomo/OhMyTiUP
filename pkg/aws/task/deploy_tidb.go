@@ -54,8 +54,9 @@ func (t TplTiupData) String() string {
 func (c *DeployTiDB) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 	if err != nil {
-		return nil
+		return err
 	}
+	fmt.Printf(" *********** ********** *********** \n\n\n")
 
 	// 1. Get all the workstation nodes
 	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)

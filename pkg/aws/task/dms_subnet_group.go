@@ -41,17 +41,16 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 		fmt.Printf("The error err here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
 		fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-		return nil
+		return err
 	} else {
-		fmt.Printf("The data is <%s> \n\n\n", string(command))
 
 		var dmsSubnetGroups DMSSubnetGroups
 		if err = json.Unmarshal(stdout, &dmsSubnetGroups); err != nil {
+			fmt.Printf("The data is <%s> \n\n\n", string(command))
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return err
 		}
-		fmt.Printf("The stdout is <%s> \n\n\n", string(stdout))
-		fmt.Printf("The db subnets are <%#v> \n\n\n", dmsSubnetGroups.DMSSubnetGroups)
+
 		for len(dmsSubnetGroups.DMSSubnetGroups) > 0 {
 			return nil
 		}
@@ -68,7 +67,7 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
+		return err
 	}
 
 	return nil

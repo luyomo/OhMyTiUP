@@ -54,7 +54,7 @@ func (c *CreateMS) Execute(ctx context.Context) error {
 	zap.L().Debug("Command", zap.String("run-instances", command))
 	_, _, err = local.Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 	return nil
 }
