@@ -2,6 +2,7 @@
 ** Architect of Data sync from tidb to sqlserver
    PoC to test the data sync from TiDB to SqlServer thrugh Aurora. So far, there is no approach to sync data from TiDB to SQLServer directly.
  To achieve the near-realtime data sync from TiDB to SQL Server, add SQLServer and DMS.
+ [[./png/TiDBCloud2MS.png]]
   #+ATTR_HTML: :width 70%
   file:./png/TiDBCloud2MS.png
 * How to setup the aws environment
