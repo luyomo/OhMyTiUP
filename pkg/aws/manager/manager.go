@@ -84,6 +84,7 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 	log.Infof("Please confirm your topology:")
 
 	cyan := color.New(color.FgCyan, color.Bold)
+
 	fmt.Printf("AWS Region:      %s\n", cyan.Sprint("Tokyo"))
 	fmt.Printf("Cluster type:    %s\n", cyan.Sprint(m.sysName))
 	fmt.Printf("Cluster name:    %s\n", cyan.Sprint(name))
@@ -99,12 +100,25 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 		}
 		clusterTable = append(clusterTable, []string{"Workstation", "1", spec.AwsWSConfigs.InstanceType, spec.AwsWSConfigs.ImageId, spec.AwsWSConfigs.CIDR, "admin"})
 
-		fmt.Printf("The TiDB strcture is <%#v> \n\n\n", spec.AwsTopoConfigs)
-		clusterTable = append(clusterTable, []string{"TiDB", strconv.Itoa(spec.AwsTopoConfigs.TiDB.Count), spec.AwsTopoConfigs.TiDB.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
-		clusterTable = append(clusterTable, []string{"PD", strconv.Itoa(spec.AwsTopoConfigs.PD.Count), spec.AwsTopoConfigs.PD.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
-		clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(spec.AwsTopoConfigs.TiKV.Count), spec.AwsTopoConfigs.TiKV.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
-		clusterTable = append(clusterTable, []string{"TiCDC", strconv.Itoa(spec.AwsTopoConfigs.TiCDC.Count), spec.AwsTopoConfigs.TiCDC.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
-		clusterTable = append(clusterTable, []string{"DM", strconv.Itoa(spec.AwsTopoConfigs.DM.Count), spec.AwsTopoConfigs.DM.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		if spec.AwsTopoConfigs.TiDB.Count > 0 {
+			clusterTable = append(clusterTable, []string{"TiDB", strconv.Itoa(spec.AwsTopoConfigs.TiDB.Count), spec.AwsTopoConfigs.TiDB.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsTopoConfigs.PD.Count > 0 {
+			clusterTable = append(clusterTable, []string{"PD", strconv.Itoa(spec.AwsTopoConfigs.PD.Count), spec.AwsTopoConfigs.PD.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsTopoConfigs.TiKV.Count > 0 {
+			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(spec.AwsTopoConfigs.TiKV.Count), spec.AwsTopoConfigs.TiKV.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsTopoConfigs.TiCDC.Count > 0 {
+			clusterTable = append(clusterTable, []string{"TiCDC", strconv.Itoa(spec.AwsTopoConfigs.TiCDC.Count), spec.AwsTopoConfigs.TiCDC.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsTopoConfigs.DM.Count > 0 {
+			clusterTable = append(clusterTable, []string{"DM", strconv.Itoa(spec.AwsTopoConfigs.DM.Count), spec.AwsTopoConfigs.DM.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
 		clusterTable = append(clusterTable, []string{"Aurora", "1", spec.AwsAuroraConfigs.InstanceType, "-", spec.AwsAuroraConfigs.CIDR, "master"})
 		clusterTable = append(clusterTable, []string{"MSSQLServer", "1", spec.AwsMSConfigs.InstanceType, "-", spec.AwsMSConfigs.CIDR, "-"})
 		clusterTable = append(clusterTable, []string{"DMS", "1", spec.AwsDMSConfigs.InstanceType, "-", spec.AwsDMSConfigs.CIDR, "-"})

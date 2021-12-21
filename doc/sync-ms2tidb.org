@@ -8,7 +8,8 @@
 * How to setup the aws environment
 ** Setup aws local environment.
 ** Prepare config file be below command
-#+BEGIN_SRC
+*** Prepare the yaml config file by template command
+    #+BEGIN_SRC
 $ aws tidb2ms template tidbcloud2ms-prod    > /tmp/tidbcloud2ms-prod.yaml
 global:
   user: tidb                                       <- User to login the server to run aws script
@@ -32,6 +33,21 @@ dms:
   cidr: 172.86.0.0/16
   instance_type: m5.2xlarge
 #+END_SRC
+
+   [[./png/tidbcloud2ms-01.png]]
+   [[./png/tidbcloud2ms-02.png]]
+*** Create all the AWS resources
+   [[./png/tidbcloud2ms-03.png]]
+*** Create the VPC peering from TiDB Cloud
+   [[./png/tidbcloud2ms-04.png]]
+*** Accept all the VPC Peering
+   [[./png/tidbcloud2ms-05.png]]
+
+   [[./png/tidbcloud2ms-06.png]]
+*** Config the TiCDC to sync data to aurora
+   [[./png/tidbcloud2ms-07.png]]
+   
+
 
 ** Deploy all the AWS resources for test.
 #+BEGIN_SRC
@@ -371,7 +387,6 @@ $curl -X POST -H "Content-Type: application/json" http://localhost:8083/connecto
 ** Added the image name
 aws ec2 describe-images --filters "Name=name,Values=debian-10-amd64*" "Name=architecture,Values=x86_64" "Name=hypervisor,Values=xen" "Name=image-type,Values=machine" "Name=is-public,Values=true" "Name=block-device-mapping.volume-type,Values=gp2" --query 'reverse(sort_by(Images, &CreationDate))[:1]'
 ** Replace the sqlserver node to rds sqlserver
-** Format the test result
 ** Run from the third node like aws node
 ** Added version config for TiDB
 ** Add disk to EC2 nodes
