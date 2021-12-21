@@ -15,13 +15,15 @@ package manager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
-	"encoding/json"
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
+	"go.uber.org/zap"
+
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
@@ -32,7 +34,6 @@ import (
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
-	"go.uber.org/zap"
 )
 
 var (

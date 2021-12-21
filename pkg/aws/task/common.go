@@ -342,7 +342,6 @@ func getWorkstation(executor ctxt.Executor, ctx context.Context, clusterName, cl
 	if cntInstance == 0 {
 		return nil, errors.New("No workstation node")
 	}
-	fmt.Printf(" ***** ***** The user is <%#v> \n\n\n", theInstance)
 
 	return &theInstance, nil
 }

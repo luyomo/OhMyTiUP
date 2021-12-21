@@ -56,7 +56,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf(" *********** ********** *********** \n\n\n")
 
 	// 1. Get all the workstation nodes
 	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
@@ -123,8 +122,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	// 4. Deploy all tidb templates
 	configFiles := []string{"cdc-task.toml", "dm-cluster.yml", "dm-source.yml", "dm-task.yml", "dm-task.yml", "tidb-cluster.yml"}
 	for _, configFile := range configFiles {
-		fmt.Printf("The config file to copy is <%s> \n\n\n", configFile)
-
 		fdFile, err := os.Create(fmt.Sprintf("/tmp/%s", configFile))
 		if err != nil {
 			return err
@@ -148,7 +145,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 		err = (*workstation).Transfer(ctx, fmt.Sprintf("/tmp/%s", configFile), "/opt/tidb/", false, 0)
 		if err != nil {
-			fmt.Printf("The error is <%#v> \n\n\n", err)
 			return err
 		}
 	}
@@ -158,7 +154,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	for _, sqlFile := range sqlFiles {
 		err = (*workstation).Transfer(ctx, fmt.Sprintf("embed/templates/sql/%s", sqlFile), "/opt/tidb/sql/", false, 0)
 		if err != nil {
-			fmt.Printf("The error is <%#v> \n\n\n", err)
 			return err
 		}
 	}
@@ -171,7 +166,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	stdout, _, err = (*workstation).Execute(ctx, `chmod 600 ~/.ssh/id_rsa`, false)
 	if err != nil {
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
@@ -193,7 +187,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	stdout, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
 	if err != nil {
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
@@ -205,7 +198,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	stdout, _, err = (*workstation).Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
 	if err != nil {
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
@@ -222,7 +214,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	stdout, _, err = (*workstation).Execute(ctx, `printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p 1433 -U sa -P 1234@Abcd`, true)
 	if err != nil {
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 

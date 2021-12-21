@@ -27,7 +27,7 @@ import (
 	"github.com/luyomo/tisample/pkg/ctxt"
 	//	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
-	//	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
 )
@@ -44,8 +44,13 @@ func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options) error {
 
 	clusterType := "tisample-tidb2ms"
 
+	clusterTable := [][]string{
+		// Header
+		{"Execution Time", "QPS", "# of records", "Latency"},
+	}
+
 	t := task.NewBuilder().
-		SysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", gOpt.IdentityFile, name, clusterType).
+		SysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", gOpt.IdentityFile, name, clusterType, &clusterTable).
 		BuildAsStep(fmt.Sprintf("  - Sysbench ticdc %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
@@ -55,6 +60,8 @@ func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options) error {
 		}
 		return err
 	}
+
+	tui.PrintTable(clusterTable, true)
 
 	return nil
 }

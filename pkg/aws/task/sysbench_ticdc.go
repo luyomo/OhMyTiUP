@@ -15,19 +15,18 @@ package task
 
 import (
 	"context"
-	//	"encoding/json"
 	"fmt"
 	"os"
 	"path"
+	"strings"
+	"text/template"
+	"time"
+
+	"github.com/fatih/color"
 
 	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
-	"text/template"
-	//	"go.uber.org/zap"
-	//	"math/big"
-	//	"text/template"
-	"time"
 )
 
 /*
@@ -72,6 +71,7 @@ type SysbenchTiCDC struct {
 	clusterName  string
 	clusterType  string
 	scriptParam  ScriptParam
+	clusterTable *[][]string
 }
 
 // Execute implements the Task interface
@@ -89,6 +89,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 
 	var stdout []byte
 	scripts := []string{"cleanup_sysbench_table.sh", "run_sysbench.sh", "analyze_sysbench.sh"}
+
 	for _, script := range scripts {
 		command := fmt.Sprintf("/opt/tidb/scripts/%s", script)
 		stdout, _, err = (*workstation).Execute(ctx, command, true, time.Second*12000)
@@ -99,7 +100,11 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 		}
 	}
 
-	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+	testResult := strings.Split(strings.Replace(string(stdout), "\n", "\t", -1), "\t")
+
+	cyan := color.New(color.FgCyan, color.Bold)
+
+	*c.clusterTable = append(*(c.clusterTable), []string{testResult[0], cyan.Sprint(testResult[1]), testResult[2], cyan.Sprint(testResult[3])})
 
 	return nil
 }

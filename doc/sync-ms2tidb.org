@@ -347,9 +347,24 @@ $curl -X POST -H "Content-Type: application/json" http://localhost:8083/connecto
 
 
 * Format the source code
-   | File name | Done  |
-   |-----------+-------|
-   | vpc.go    | 12/18 |
+   | File name                  | Done  |
+   |----------------------------+-------|
+   | vpc.go                     | 12/18 |
+   | network                    |       |
+   | route_table                |       |
+   | security_group             |       |
+   | ec2                        |       |
+   | db_subnet                  |       |
+   | rds                        |       |
+   | db_parameter               |       |
+   | db_cluster_parameter       |       |
+   | dms_subnet                 |       |
+   | dms_endpoints              |       |
+   | dms_replication_instance   |       |
+   | dms_replication_task       |       |
+   | transit_gateway            |       |
+   | transit_gateway_attachment |       |
+   | vpc_peering                |       |
 
 
 * TOD
@@ -361,4 +376,5 @@ aws ec2 describe-images --filters "Name=name,Values=debian-10-amd64*" "Name=arch
 ** Added version config for TiDB
 ** Add disk to EC2 nodes
 ** Add list function to show all the data
+** Add NLB before TiDB
 

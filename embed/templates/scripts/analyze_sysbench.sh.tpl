@@ -18,8 +18,6 @@ do
     tidbCnt=$(( $tidbCnt + $result ))
 done
 
-echo "The count is <$tidbCnt>"
-
 x=1
 while [ $x -le 200 ]
 do
@@ -33,7 +31,6 @@ do
 
     if [ $tidbCnt -eq $mysqlCnt ] ;
     then
-        echo "Count in mysql is ${mysqlCnt}"
         break
     fi
     sleep 5
@@ -51,4 +48,7 @@ done
 
 
 query="select time_to_sec( timediff(max(max_ts), min(min_ts))  ) as time, sum(count)/time_to_sec( timediff(max(max_ts), min(min_ts))  ) as qps,  sum(count) as count from cdc_qps_data"
-mysql -h {{ .MySQLHost }} -P {{ .MySQLPort  }} -u {{ .MySQLUser  }} -p{{ .MySQLPass }} {{ .MySQLDB  }} -e "${query}"
+mysql -h {{ .MySQLHost }} -P {{ .MySQLPort  }} -u {{ .MySQLUser  }} -p{{ .MySQLPass }} {{ .MySQLDB  }} -s --skip-column-names -e "${query}"
+
+query="select sum(latency)/count(*) as latency from cdc_latency"
+mysql -h {{ .MySQLHost }} -P {{ .MySQLPort  }} -u {{ .MySQLUser  }} -p{{ .MySQLPass }} {{ .MySQLDB  }} -s --skip-column-names -e "${query}"
