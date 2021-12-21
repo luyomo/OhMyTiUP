@@ -5,8 +5,33 @@
    PoC to test the data sync from TiDB to SqlServer thrugh Aurora. So far, there is no approach to sync data from TiDB to SQLServer directly.
  To achieve the near-realtime data sync from TiDB to SQL Server, add SQLServer and DMS.
  [[./png/TiDBCloud2MS.png]]
+
+#+BEGIN_COMMENT
   #+ATTR_HTML: :width 70%
   file:./png/TiDBCloud2MS.png
+#+END_COMMENT
+
+   | Resource Name             | # Of resources |
+   |---------------------------+----------------|
+   | VPC                       |              4 |
+   | Subnets                   |              8 |
+   | Route table               |              4 |
+   | Security Group            |              4 |
+   | DB Cluster Parameter      |              1 |
+   | DB Parameter Parameter    |              1 |
+   | DB Subnet group           |              1 |
+   | Aurora cluster            |              1 |
+   | Aurora Instance           |              1 |
+   | DMS subnet group          |              1 |
+   | DMS endpoints             |              2 |
+   | DMS Replication instance  |              1 |
+   | DMS Replication task      |              1 |
+   | SQLServer                 |              1 |
+   | Routes                    |             13 |
+   | Transit Gateway           |              1 |
+   | TransitGateway Attachment |              4 |
+   | Internet Gateway          |              1 |
+
 * How to setup the aws environment
 ** Setup aws local environment.
 ** Prepare config file be below command
@@ -42,26 +67,7 @@ dms:
    [[./png/tidbcloud2ms-03.png]]
 *** Create the VPC peering from TiDB Cloud
 It will take about half hour to complete all the resources preparation.
-   | Resource Name             | # Of resources |
-   |---------------------------+----------------|
-   | VPC                       |              4 |
-   | Subnets                   |              8 |
-   | Route table               |              4 |
-   | Security Group            |              4 |
-   | DB Cluster Parameter      |              1 |
-   | DB Parameter Parameter    |              1 |
-   | DB Subnet group           |              1 |
-   | Aurora cluster            |              1 |
-   | Aurora Instance           |              1 |
-   | DMS subnet group          |              1 |
-   | DMS endpoints             |              2 |
-   | DMS Replication instance  |              1 |
-   | DMS Replication task      |              1 |
-   | SQLServer                 |              1 |
-   | Routes                    |             13 |
-   | Transit Gateway           |              1 |
-   | TransitGateway Attachment |              4 |
-   | Internet Gateway          |              1 |
+
    [[./png/tidbcloud2ms-04.png]]
 *** Accept all the VPC Peering
    [[./png/tidbcloud2ms-05.png]]
