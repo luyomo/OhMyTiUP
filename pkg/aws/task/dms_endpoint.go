@@ -16,7 +16,7 @@ package task
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	//	"errors"
 	"fmt"
 	//"github.com/luyomo/tisample/pkg/aws/spec"
 	//	"github.com/luyomo/tisample/pkg/ctxt"
@@ -56,12 +56,12 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", endpoints)
+		fmt.Printf("The source endpoint is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
 			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
 			if existsResource == true {
 				DMSInfo.SourceEndpointArn = endpoint.EndpointArn
-				fmt.Printf("The dms source has exists \n\n\n")
+				fmt.Printf("The dms source target has exists \n\n\n")
 				return nil
 			}
 		}
@@ -123,7 +123,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
 		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
-			fmt.Printf("The source end point has not created.\n\n\n")
+			fmt.Printf("The target end point has not created.\n\n\n")
 		} else {
 			fmt.Printf("The error err here is <%#v> \n\n", err)
 			fmt.Printf("----------\n\n")
@@ -134,31 +134,27 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		var endpoints Endpoints
 		if err = json.Unmarshal(stdout, &endpoints); err != nil {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return err
+			return nil
 		}
-		fmt.Printf("The describe target endpoints is <%#v> \n\n\n", endpoints)
+		fmt.Printf("The target endpoint <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
-			fmt.Printf("The describe target endpoint is <%#v> \n\n\n", endpoint)
 			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
 			if existsResource == true {
 				DMSInfo.TargetEndpointArn = endpoint.EndpointArn
-				fmt.Printf("The dms target has exists \n\n\n")
+				fmt.Printf("The dms target endpoint has exists \n\n\n")
 				return nil
 			}
 		}
 	}
 
-	var ec2Instances []EC2
-	err = getEC2Instances(local, ctx, c.clusterName, c.clusterType, "sqlserver", &ec2Instances)
+	dbInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
 	if err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}
-	if len(ec2Instances) == 0 {
-		return errors.New("No sql server instance")
-	}
-	fmt.Printf("The sqlser host for the tartget endpoint <%#v> \n\n\n", ec2Instances)
+	fmt.Printf("The target db instance <%#v> \n\n\n", dbInstance)
 
-	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port 1433 --username sa --password 1234@Abcd --database-name cdc_test --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, ec2Instances[0].PrivateIpAddress, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port %d --username %s --password %s --database-name %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", "cdc_test", c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
@@ -167,6 +163,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
+
 	var endpoint EndpointRecord
 	if err = json.Unmarshal(stdout, &endpoint); err != nil {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)

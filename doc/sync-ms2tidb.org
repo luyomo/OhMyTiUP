@@ -136,10 +136,12 @@ $ aws tidb2ms deploy tidbcloud2ms /tmp/tidbcloud2ms-prod.yaml
 ** Added the image name
 aws ec2 describe-images --filters "Name=name,Values=debian-10-amd64*" "Name=architecture,Values=x86_64" "Name=hypervisor,Values=xen" "Name=image-type,Values=machine" "Name=is-public,Values=true" "Name=block-device-mapping.volume-type,Values=gp2" --query 'reverse(sort_by(Images, &CreationDate))[:1]'
 ** Replace the sqlserver node to rds sqlserver
+   aws rds create-db-parameter-group --db-parameter-group-name tisample --db-parameter-group-family sqlserver-se-15.0 --description "db parameter for sqlserver"
+   aws rds create-db-subnet-group --db-subnet-group-name testtisample --db-subnet-group-description "testing" --subnet-ids '["subnet-0f78be7da103d0e2a","subnet-026307a8b552aff87","subnet-023738198dc3ee489"]'
+   aws rds create-db-instance --db-instance-identifier testtisample-sqlserver --db-instance-class db.m5d.large --engine sqlserver-se --master-username master --master-user-password 1234Abcd --vpc-security-group-ids sg-0b31e630482957f40 --db-subnet-group-name testtisample-sqlserver --db-parameter-group-name tisample --engine-version 15.00.4073.23.v1 --license-model license-included --allocated-storage 100 --backup-retention-period 0
 ** Run from the third node like aws node
 ** Added version config for TiDB
 ** Add disk to EC2 nodes
 ** Add list function to show all the data
 ** Add NLB before TiDB
 ** Add local tidb
-

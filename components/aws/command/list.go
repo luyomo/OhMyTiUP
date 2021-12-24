@@ -14,7 +14,6 @@
 package command
 
 import (
-	"fmt"
 	"path"
 
 	"github.com/luyomo/tisample/pkg/aws/manager"
@@ -47,6 +46,5 @@ func newListCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
 
-	fmt.Printf("The option is <%#v> \n", opt)
 	return cmd
 }

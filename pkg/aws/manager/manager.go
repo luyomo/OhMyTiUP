@@ -119,9 +119,17 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 		if spec.AwsTopoConfigs.DM.Count > 0 {
 			clusterTable = append(clusterTable, []string{"DM", strconv.Itoa(spec.AwsTopoConfigs.DM.Count), spec.AwsTopoConfigs.DM.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
-		clusterTable = append(clusterTable, []string{"Aurora", "1", spec.AwsAuroraConfigs.InstanceType, "-", spec.AwsAuroraConfigs.CIDR, "master"})
-		clusterTable = append(clusterTable, []string{"MSSQLServer", "1", spec.AwsMSConfigs.InstanceType, "-", spec.AwsMSConfigs.CIDR, "-"})
-		clusterTable = append(clusterTable, []string{"DMS", "1", spec.AwsDMSConfigs.InstanceType, "-", spec.AwsDMSConfigs.CIDR, "-"})
+		if spec.AwsAuroraConfigs.InstanceType != "" {
+			clusterTable = append(clusterTable, []string{"Aurora", "1", spec.AwsAuroraConfigs.InstanceType, "-", spec.AwsAuroraConfigs.CIDR, "master"})
+		}
+
+		if spec.AwsMSConfigs.InstanceType != "" {
+			clusterTable = append(clusterTable, []string{"MSSQLServer", "1", spec.AwsMSConfigs.InstanceType, "-", spec.AwsMSConfigs.CIDR, "-"})
+		}
+
+		if spec.AwsDMSConfigs.InstanceType != "" {
+			clusterTable = append(clusterTable, []string{"DMS", "1", spec.AwsDMSConfigs.InstanceType, "-", spec.AwsDMSConfigs.CIDR, "-"})
+		}
 		tui.PrintTable(clusterTable, true)
 	}
 

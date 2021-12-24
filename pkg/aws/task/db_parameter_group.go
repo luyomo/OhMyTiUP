@@ -42,29 +42,28 @@ type CreateDBParameterGroup struct {
 	clusterName    string
 	clusterType    string
 	subClusterType string
+	groupFamily    string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	dbParameterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 	// Get the available zones
-	command := fmt.Sprintf("aws rds describe-db-parameter-groups --db-parameter-group-name '%s'", c.clusterName)
+	command := fmt.Sprintf("aws rds describe-db-parameter-groups --db-parameter-group-name '%s'", dbParameterName)
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), "DBParameterGroup not found") {
-			fmt.Printf("The DB Parameter group has not created.\n\n\n")
-		} else {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
+		if !strings.Contains(string(stderr), "DBParameterGroup not found") {
+			fmt.Printf("The error err here is <%#v> \n\n\n", err)
 			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+			return err
 		}
 	} else {
 		var dbParameterGroups DBParameterGroups
 		if err = json.Unmarshal(stdout, &dbParameterGroups); err != nil {
 			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			return err
 		}
 
 		for _, dbParameterGroup := range dbParameterGroups.DBParameterGroups {
@@ -75,23 +74,22 @@ func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 				return nil
 			}
 		}
-		return nil
 	}
 
-	command = fmt.Sprintf("aws rds create-db-parameter-group --db-parameter-group-name %s --db-parameter-group-family aurora-mysql5.7 --description \"%s\" --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws rds create-db-parameter-group --db-parameter-group-name %s --db-parameter-group-family %s --description \"%s\" --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbParameterName, c.groupFamily, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
+		return err
 	}
 
 	var newDBParameterGroup NewDBParameterGroup
 	if err = json.Unmarshal(stdout, &newDBParameterGroup); err != nil {
 		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
+		return err
 	}
 
 	return nil
@@ -120,28 +118,28 @@ type DestroyDBParameterGroup struct {
 // Execute implements the Task interface
 func (c *DestroyDBParameterGroup) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	dbParameterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 	// Get the available zones
-	command := fmt.Sprintf("aws rds describe-db-parameter-groups --db-parameter-group-name '%s'", c.clusterName)
+	command := fmt.Sprintf("aws rds describe-db-parameter-groups --db-parameter-group-name '%s'", dbParameterName)
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), "DBParameterGroup not found") {
-			fmt.Printf("The DB Parameter group has not created.\n\n\n")
-		} else {
+		if !strings.Contains(string(stderr), "DBParameterGroup not found") {
 			fmt.Printf("ERRORS describe-db-parameter-groups <%s> \n\n", string(stderr))
 			return err
 		}
+		return nil
 	} else {
 		var dbParameterGroups DBParameterGroups
 		if err = json.Unmarshal(stdout, &dbParameterGroups); err != nil {
 			fmt.Printf("ERRORS describe-db-parameter-groups json parsing <%s> \n\n", string(stderr))
-			return nil
+			return err
 		}
 		fmt.Printf("The db cluster is <%#v> \n\n\n", dbParameterGroups)
 		for _, dbParameterGroup := range dbParameterGroups.DBParameterGroups {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbParameterGroup)
 			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbParameterGroup.DBParameterGroupArn, local, ctx)
 			if existsResource == true {
-				command = fmt.Sprintf("aws rds delete-db-parameter-group --db-parameter-group-name %s", c.clusterName)
+				command = fmt.Sprintf("aws rds delete-db-parameter-group --db-parameter-group-name %s", dbParameterName)
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				stdout, stderr, err = local.Execute(ctx, command, false)
 				if err != nil {

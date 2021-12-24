@@ -105,13 +105,3 @@ func getEC2Instances(executor ctxt.Executor, ctx context.Context, clusterName, c
 	}
 	return nil
 }
-
-func instancesExist(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (int, error) {
-	var ec2Instances []EC2
-	err := getEC2Instances(executor, ctx, clusterName, clusterType, subClusterType, &ec2Instances)
-	fmt.Printf("The fetched instances are <%#v> \n\n\n", ec2Instances)
-	if err != nil {
-		return 0, err
-	}
-	return len(ec2Instances), nil
-}

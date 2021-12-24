@@ -775,13 +775,14 @@ func (b *Builder) CreateDBCluster(user, host, clusterName, clusterType, subClust
 	return b
 }
 
-func (b *Builder) CreateDBParameterGroup(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDBParameterGroup(user, host, clusterName, clusterType, subClusterType, groupFamily string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDBParameterGroup{
 		user:           user,
 		host:           host,
 		clusterName:    clusterName,
 		clusterType:    clusterType,
 		subClusterType: subClusterType,
+		groupFamily:    groupFamily,
 		clusterInfo:    clusterInfo,
 	})
 	return b
@@ -854,12 +855,13 @@ func (b *Builder) DestroyDBSubnetGroup(user, host, clusterName, clusterType, sub
 	return b
 }
 
-func (b *Builder) CreateMS(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateMS(user, host, clusterName, clusterType, subClusterType string, awsMSConfigs *spec.AwsMSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateMS{
 		user:           user,
 		host:           host,
 		clusterName:    clusterName,
 		clusterType:    clusterType,
+		awsMSConfigs:   awsMSConfigs,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
@@ -1102,7 +1104,7 @@ func (b *Builder) CreateAurora(user, host, clusterName, clusterType, subClusterT
 		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", titleMsg), NewBuilder().CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DB Cluster parameter Group ... ...", titleMsg), NewBuilder().CreateDBClusterParameterGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DB Cluster ... ...", titleMsg), NewBuilder().CreateDBCluster(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", titleMsg), NewBuilder().CreateDBParameterGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", titleMsg), NewBuilder().CreateDBParameterGroup(user, host, clusterName, clusterType, subClusterType, awsAuroraConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DB Instance ... ...", titleMsg), NewBuilder().CreateDBInstance(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build())
 
 	return b
@@ -1172,7 +1174,9 @@ func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClust
 	clusterInfo.imageId = awsMSConfigs.ImageId
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(user, host, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating MS ... ...", titleMsg), NewBuilder().CreateMS(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build())
+		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", titleMsg), NewBuilder().CreateDBSubnetGroup(user, host, clusterName, clusterType, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", titleMsg), NewBuilder().CreateDBParameterGroup(user, host, clusterName, clusterType, subClusterType, awsMSConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating MS ... ...", titleMsg), NewBuilder().CreateMS(user, host, clusterName, clusterType, subClusterType, awsMSConfigs, clusterInfo).Build())
 
 	return b
 }
@@ -1180,7 +1184,8 @@ func (b *Builder) CreateSqlServer(user, host, clusterName, clusterType, subClust
 func (b *Builder) DestroySqlServer(user, host, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
 
-	b.Step(fmt.Sprintf("%s : Destroying SQL Server ... ...", titleMsg), NewBuilder().DestroyEC(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+	b.Step(fmt.Sprintf("%s : Destroying SQL Server ... ...", titleMsg), NewBuilder().DestroyDBInstance(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Subnet Group ... ...", titleMsg), NewBuilder().DestroyDBSubnetGroup(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().DestroyBasicResource(user, "127.0.0.1", clusterName, clusterType, subClusterType).Build())
 
 	return b

@@ -16,12 +16,16 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	//	"github.com/luyomo/tisample/pkg/aurora/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
-	//	"strconv"
 	"strings"
 	"time"
+
+	//	"github.com/luyomo/tisample/pkg/aurora/ctxt"
+	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
+	//	"strconv"
 )
 
 type CreateDBInstance struct {
@@ -36,76 +40,26 @@ type CreateDBInstance struct {
 // Execute implements the Task interface
 func (c *CreateDBInstance) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	// Get the available zones
-	command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
-	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", c.clusterName)) {
-			fmt.Printf("The DB Instance has not created.\n\n\n")
-		} else {
-			var dbInstances DBInstances
-			if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-				fmt.Printf("*** *** The error here is %#v \n\n", err)
-				return nil
-			}
-
-			return nil
-		}
-	} else {
-		var dbInstances DBInstances
-		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
-		}
-		for _, instance := range dbInstances.DBInstances {
-			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
-			if existsResource == true {
-				auroraConnInfo = instance.Endpoint
-				fmt.Printf("The db instance is+  <%#v> \n\n\n", auroraConnInfo)
-				return nil
-			}
-
-		}
-
-		return nil
+		return err
 	}
+	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 
-	command = fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-cluster-identifier %s --db-parameter-group-name %s --engine aurora-mysql --engine-version 5.7.12 --db-instance-class db.r5.large --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
-	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
-	}
+	doWhenNotFound := func() error {
 
-	var newDBInstance NewDBInstance
-	if err = json.Unmarshal(stdout, &newDBInstance); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
-	}
-	fmt.Printf("The db instance is <%#v>\n\n\n", newDBInstance)
+		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-cluster-identifier %s --db-parameter-group-name %s --engine aurora-mysql --engine-version 5.7.12 --db-instance-class db.r5.large --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, dbClusterName, dbClusterName, c.clusterName, c.clusterType, c.subClusterType)
 
-	for i := 1; i <= 50; i++ {
-		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
-		stdout, stderr, err := local.Execute(ctx, command, false)
+		err = runCreateDBInstance(local, ctx, dbClusterName, command)
 		if err != nil {
-			fmt.Printf("The error err here is <%#v> \n\n\n", err)
-			fmt.Printf("The error stderr here is <%s> \n\n\n", string(stderr))
-			return nil
+			return err
 		}
-		//fmt.Printf("The db cluster is <%#v>\n\n\n", string(stdout))
-		var dbInstances DBInstances
-		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
-		}
+		return nil
+	}
 
-		if dbInstances.DBInstances[0].DBInstanceStatus == "available" {
-			break
-		}
-		time.Sleep(30 * time.Second)
+	doWhenFound := func() error { return nil }
+
+	if err = ExecuteDBInstance(local, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+		return err
 	}
 
 	return nil
@@ -134,50 +88,25 @@ type DestroyDBInstance struct {
 // Execute implements the Task interface
 func (c *DestroyDBInstance) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	// Get the available zones
-	command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
-	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", c.clusterName)) {
-			fmt.Printf("The DB Instance has not created.\n\n\n")
-			return nil
-		} else {
-			fmt.Printf("ERRORS: describe-db-instance  <%s> \n\n", string(stderr))
-			return err
-		}
-	} else {
-		var dbInstances DBInstances
-		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-			fmt.Printf("ERRORS: describe-db-instance json parsing <%s> \n\n", string(stderr))
-			return err
-		}
-		for _, instance := range dbInstances.DBInstances {
-			fmt.Printf("The db instance is <%#v> \n\n\n", instance)
-			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, instance.DBInstanceArn, local, ctx)
-			if existsResource == true {
-				command = fmt.Sprintf("aws rds delete-db-instance --db-instance-identifier %s", c.clusterName)
-				fmt.Printf("The comamnd is <%s> \n\n\n", command)
-				_, stderr, err = local.Execute(ctx, command, false)
-				if err != nil {
-					fmt.Printf("ERRORS: delete-db-instance <%s> \n\n", string(stderr))
-					return err
-				}
-			}
-		}
+		return err
+	}
+	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+
+	doWhenNotFound := func() error {
+		return nil
 	}
 
-	time.Sleep(120 * time.Second)
-	for i := 1; i <= 200; i++ {
-		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", c.clusterName)
-		_, stderr, err := local.Execute(ctx, command, false)
+	doWhenFound := func() error {
+		err = runDestroyDBInstance(local, ctx, dbClusterName)
 		if err != nil {
-			if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", c.clusterName)) {
-				break
-			}
 			return err
 		}
+		return nil
+	}
 
-		time.Sleep(30 * time.Second)
+	if err = ExecuteDBInstance(local, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+		return err
 	}
 
 	return nil
@@ -191,4 +120,179 @@ func (c *DestroyDBInstance) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *DestroyDBInstance) String() string {
 	return fmt.Sprintf("Echo: Generating the DB instance %s ", c.clusterName)
+}
+
+//*****************************************************************************
+
+type CreateMS struct {
+	user           string
+	host           string
+	awsMSConfigs   *spec.AwsMSConfigs
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	clusterInfo    *ClusterInfo
+}
+
+func (c *CreateMS) Execute(ctx context.Context) error {
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	if err != nil {
+		return err
+	}
+	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+
+	doWhenNotFound := func() error {
+		fmt.Printf(" *** *** *** Starting to create instance \n\n\n")
+		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-instance-class %s --engine %s --master-username %s --master-user-password %s --vpc-security-group-ids %s  --db-subnet-group-name %s --db-parameter-group-name %s --engine-version %s --license-model license-included --allocated-storage %d --backup-retention-period 0 --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, (*c.awsMSConfigs).InstanceType, (*c.awsMSConfigs).Engine, (*c.awsMSConfigs).DBMasterUser, (*c.awsMSConfigs).DBMasterUserPass, c.clusterInfo.privateSecurityGroupId, dbClusterName, dbClusterName, (*c.awsMSConfigs).EngineVerion, (*c.awsMSConfigs).DiskSize, c.clusterName, c.clusterType, c.subClusterType)
+
+		err = runCreateDBInstance(local, ctx, dbClusterName, command)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	doWhenFound := func() error { return nil }
+
+	if err = ExecuteDBInstance(local, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *CreateMS) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *CreateMS) String() string {
+	return fmt.Sprintf("Echo: host=%s ", c.host)
+}
+
+//******************************************************************************
+
+func runCreateDBInstance(texecutor ctxt.Executor, ctx context.Context, dbClusterName, createCommand string) error {
+	stdout, stderr, err := texecutor.Execute(ctx, createCommand, false)
+	if err != nil {
+		fmt.Printf("The error here is <%s> \n\n", string(stderr))
+		return err
+	}
+
+	var newDBInstance NewDBInstance
+	if err = json.Unmarshal(stdout, &newDBInstance); err != nil {
+		return err
+	}
+
+	for i := 1; i <= 1000; i++ {
+		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", dbClusterName)
+		stdout, _, err := texecutor.Execute(ctx, command, false)
+		if err != nil {
+			return err
+		}
+
+		var dbInstances DBInstances
+		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
+			return err
+		}
+
+		if len(dbInstances.DBInstances) > 0 && dbInstances.DBInstances[0].DBInstanceStatus == "available" {
+			return nil
+		}
+		time.Sleep(30 * time.Second)
+	}
+	return errors.New("Failed to create db instance")
+}
+
+func runDestroyDBInstance(texecutor ctxt.Executor, ctx context.Context, dbClusterName string) error {
+	command := fmt.Sprintf("aws rds delete-db-instance --skip-final-snapshot --db-instance-identifier %s", dbClusterName)
+
+	_, _, err := texecutor.Execute(ctx, command, false)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(120 * time.Second)
+	for i := 1; i <= 1000; i++ {
+		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", dbClusterName)
+		_, stderr, err := texecutor.Execute(ctx, command, false)
+		if err != nil {
+			if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", dbClusterName)) {
+				return nil
+			} else {
+				return err
+			}
+		}
+
+		time.Sleep(30 * time.Second)
+	}
+	return errors.New("Failed to destroy db instance")
+}
+
+func ExecuteDBInstance(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string, doWhenNotFound *func() error, doWhenFound *func() error) error {
+	dbClusterName := fmt.Sprintf("%s-%s", clusterName, subClusterType)
+
+	// Get the available zones
+	command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", dbClusterName)
+	stdout, stderr, err := texecutor.Execute(ctx, command, false)
+	if err != nil {
+		// No instance found
+		if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", dbClusterName)) {
+			err = (*doWhenNotFound)()
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		var dbInstances DBInstances
+		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
+			fmt.Printf("*** *** The error here is %#v \n\n", err)
+			return err
+		}
+		for _, instance := range dbInstances.DBInstances {
+			existsResource := ExistsResource(clusterType, subClusterType, clusterName, instance.DBInstanceArn, texecutor, ctx)
+			if existsResource == true {
+				err = (*doWhenFound)()
+				if err != nil {
+					return err
+				}
+
+				//auroraConnInfo = instance.Endpoint
+				//fmt.Printf("The db instance is+  <%#v> \n\n\n", auroraConnInfo)
+				fmt.Printf("Found the instance")
+				return nil
+			}
+		}
+
+		return nil
+	}
+
+	return nil
+}
+
+func WaitDBInstanceUntilActive(texecutor ctxt.Executor, ctx context.Context, clusterName string) error {
+	for i := 1; i <= 50; i++ {
+		time.Sleep(30 * time.Second)
+		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", clusterName)
+		stdout, stderr, err := texecutor.Execute(ctx, command, false)
+		if err != nil {
+			fmt.Printf("The error err here is <%#v> \n\n\n", err)
+			fmt.Printf("The error stderr here is <%s> \n\n\n", string(stderr))
+			return err
+		}
+		//fmt.Printf("The db cluster is <%#v>\n\n\n", string(stdout))
+		var dbInstances DBInstances
+		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
+			fmt.Printf("*** *** The error here is %#v \n\n", err)
+			return err
+		}
+
+		if dbInstances.DBInstances[0].DBInstanceStatus == "available" {
+			break
+		}
+	}
+	return errors.New("Failed to wait until the instance becomes active")
 }

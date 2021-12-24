@@ -201,18 +201,15 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// MS Sqlserver setup
-	node, err := getEC2Nodes(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	dbInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
 	if err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}
-	if len(*node) == 0 {
-		return nil
-	}
 
-	deployMS2008(*workstation, ctx, (*node)[0].PrivateIpAddress)
+	deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
 
-	stdout, _, err = (*workstation).Execute(ctx, `printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p 1433 -U sa -P 1234@Abcd`, true)
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p %d -U %s -P %s`, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd"), true)
 	if err != nil {
 		return err
 	}

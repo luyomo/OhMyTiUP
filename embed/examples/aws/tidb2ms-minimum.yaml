@@ -33,11 +33,13 @@ aws_topo_configs:
 aurora:
   cidr: 172.84.0.0/16
   instance_type: db.r5.large
+  db_parameter_family_group: aurora-mysql5.7
 sqlserver:
   cidr: 172.85.0.0/16
   instance_type: m5.2xlarge
   keyname: keyName                       <- to replace
   imageid: ami-01d445a80199e19cc
+  db_parameter_family_group: sqlserver-se-15.0
 dms:
   cidr: 172.86.0.0/16
   instance_type: m5.2xlarge

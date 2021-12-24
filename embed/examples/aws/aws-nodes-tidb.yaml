@@ -24,3 +24,4 @@ aws_topo_configs:
     count: 1
   aurora:
     name: tisampletest
+    db_parameter_family_group: aurora-mysql5.7

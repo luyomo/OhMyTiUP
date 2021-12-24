@@ -132,7 +132,7 @@ type PrepareSysbenchTiCDC struct {
 func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 	if err != nil {
-		return nil
+		return err
 	}
 
 	//	var tplParams ScriptParam
@@ -165,42 +165,43 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The aurora instance is <%#v> \n\n\n", dbInstance)
 	c.scriptParam.MySQLHost = dbInstance.Endpoint.Address
 	c.scriptParam.MySQLPort = dbInstance.Endpoint.Port
 	c.scriptParam.MySQLDB = "cdc_test"
 	c.scriptParam.MySQLUser = dbInstance.MasterUsername
 	c.scriptParam.MySQLPass = "1234Abcd"
 
+	dbInstance, err = getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The sql server here is <%#v> \n\n\n", dbInstance)
+	return nil
+
 	theEC2, err := getEC2Nodes(local, ctx, c.clusterName, c.clusterType, "sqlserver")
 	if err != nil {
 		return nil
 	}
-	fmt.Printf("The sqlserver infomatoon is <%#v> \n\n\n", theEC2)
+
 	c.scriptParam.MSHost = (*theEC2)[0].PrivateIpAddress
 	c.scriptParam.MSPort = 1433
 	c.scriptParam.MSDB = "cdc_test"
 	c.scriptParam.MSUser = "sa"
 	c.scriptParam.MSUser = "1234@Abcd"
 
-	// 3. Get the sqlserver host
-	node, err := getEC2Nodes(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	dbInstance, err = getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
 	if err != nil {
+		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}
-	if len(*node) == 0 {
-		return nil
-	}
 
-	deployMS2008(*workstation, ctx, (*node)[0].PrivateIpAddress)
+	deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
 
 	stdout, _, err := (*workstation).Execute(ctx, `printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p 1433 -U sa -P 1234@Abcd`, true)
 	if err != nil {
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
-
-	//fmt.Printf("The parametesr are <%#v> \n\n\n", tplParams)
 
 	arrScripts := []string{"adjust_sysbench_table.sh", "cleanup_sysbench_table.sh", "analyze_sysbench.sh", "run_sysbench.sh"}
 
@@ -238,7 +239,6 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-password=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", c.scriptParam.TiDBHost, c.scriptParam.TiDBUser, c.scriptParam.TiDBPass, c.scriptParam.TiDBDB, c.scriptParam.TiDBPort, c.scriptParam.NumTables, c.scriptParam.NumTables)
 	}
 	stdout, _, err = (*workstation).Execute(ctx, command, true)
-	fmt.Printf("The sysbench command is <%s>\n\n\n", command)
 	if err != nil {
 		fmt.Printf("The sysbench command is <%s>\n\n\n", command)
 		fmt.Printf("Errors for cleanup <%s> \n\n\n", string(stdout))

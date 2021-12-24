@@ -47,17 +47,15 @@ type DBInstances struct {
 var auroraConnInfo DBInstanceEndpoint
 
 func getRDBInstance(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*DBInstance, error) {
-	command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", clusterName)
+	dbClusterName := fmt.Sprintf("%s-%s", clusterName, subClusterType)
+	command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", dbClusterName)
 	stdout, stderr, err := executor.Execute(ctx, command, false)
 	if err != nil {
-		if !strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", clusterName)) {
-			var dbInstances DBInstances
-			if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-				fmt.Printf("*** *** The error here is %#v \n\n", err)
-				return nil, err
-			}
-
+		if strings.Contains(string(stderr), fmt.Sprintf("DBInstance %s not found", dbClusterName)) {
 			return nil, errors.New("No RDB Instance found(No matched name)")
+		} else {
+			return nil, err
+
 		}
 	}
 

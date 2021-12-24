@@ -222,7 +222,7 @@ func (m *Manager) AuroraDeploy(
 				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
 				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
 				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", "", &clusterInfo).
 				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)

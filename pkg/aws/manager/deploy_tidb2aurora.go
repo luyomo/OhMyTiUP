@@ -229,7 +229,7 @@ func (m *Manager) TiDB2AuroraDeploy(
 				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsWSConfigs, &clusterInfo).
 				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
 				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
-				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", "", &clusterInfo).
 				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)

@@ -144,15 +144,22 @@ type (
 	}
 
 	AwsAuroraConfigs struct {
-		InstanceType string `yaml:"instance_type"`
-		CIDR         string `yaml:"cidr"`
+		InstanceType           string `yaml:"instance_type"`
+		CIDR                   string `yaml:"cidr"`
+		DBParameterFamilyGroup string `yaml:"db_parameter_family_group"`
 	}
 
 	AwsMSConfigs struct {
-		ImageId      string `yaml:"imageid,omitempty"`
-		CIDR         string `yaml:"cidr"`
-		InstanceType string `yaml:"instance_type"`
-		KeyName      string `yaml:"keyname"`
+		ImageId                string `yaml:"imageid,omitempty"`
+		CIDR                   string `yaml:"cidr"`
+		InstanceType           string `yaml:"instance_type"`
+		KeyName                string `yaml:"keyname"`
+		DBParameterFamilyGroup string `yaml:"db_parameter_family_group"`
+		Engine                 string `yaml:"engine"`
+		EngineVerion           string `yaml:"engine_version"`
+		DiskSize               int    `yaml:"disk_size"`
+		DBMasterUser           string `yaml:"db_master_user"`
+		DBMasterUserPass       string `yaml:"db_master_user_pass"`
 	}
 
 	AwsDMSConfigs struct {

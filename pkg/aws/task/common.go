@@ -400,10 +400,10 @@ func getEC2Nodes(executor ctxt.Executor, ctx context.Context, clusterName, clust
 
 }
 
-func deployMS2008(executor ctxt.Executor, ctx context.Context, host string) error {
-	deployFreetds(executor, ctx, "REPLICA", host, 1433)
-	return nil
-}
+// func deploy(executor ctxt.Executor, ctx context.Context, host string, port int) error {
+// 	deployFreetds(executor, ctx, "REPLICA", host, port)
+// 	return nil
+// }
 
 func deployFreetds(executor ctxt.Executor, ctx context.Context, name, host string, port int) error {
 

@@ -49,11 +49,12 @@ type CreateDBCluster struct {
 // Execute implements the Task interface
 func (c *CreateDBCluster) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 	// Get the available zones
-	command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", c.clusterName)
+	command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", dbClusterName)
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", c.clusterName)) {
+		if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", dbClusterName)) {
 			fmt.Printf("The DB Cluster has not created.\n\n\n")
 		} else {
 			fmt.Printf("The error err here is <%#v> \n\n", err)
@@ -78,7 +79,7 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws rds create-db-cluster --db-cluster-identifier %s --engine aurora-mysql --engine-version 5.7.12 --master-username master --master-user-password 1234Abcd --db-subnet-group-name %s --db-cluster-parameter-group-name %s --vpc-security-group-ids %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, c.clusterName, c.clusterInfo.privateSecurityGroupId, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws rds create-db-cluster --db-cluster-identifier %s --engine aurora-mysql --engine-version 5.7.12 --master-username master --master-user-password 1234Abcd --db-subnet-group-name %s --db-cluster-parameter-group-name %s --vpc-security-group-ids %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, dbClusterName, c.clusterName, c.clusterInfo.privateSecurityGroupId, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = local.Execute(ctx, command, false)
 	if err != nil {
@@ -95,7 +96,7 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 	}
 
 	for i := 1; i <= 30; i++ {
-		command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", c.clusterName)
+		command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", dbClusterName)
 		stdout, stderr, err := local.Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("The error err here is <%#v> \n\n", err)
@@ -142,11 +143,16 @@ type DestroyDBCluster struct {
 // Execute implements the Task interface
 func (c *DestroyDBCluster) Execute(ctx context.Context) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	if err != nil {
+		return err
+	}
+
+	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 	// Get the available zones
-	command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", c.clusterName)
+	command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", dbClusterName)
 	stdout, stderr, err := local.Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", c.clusterName)) {
+		if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", dbClusterName)) {
 			fmt.Printf("The DB Cluster has not created.\n\n\n")
 			return nil
 		} else {
@@ -164,7 +170,7 @@ func (c *DestroyDBCluster) Execute(ctx context.Context) error {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
 			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbCluster.DBClusterArn, local, ctx)
 			if existsResource == true {
-				command = fmt.Sprintf("aws rds delete-db-cluster --db-cluster-identifier %s --skip-final-snapshot", c.clusterName)
+				command = fmt.Sprintf("aws rds delete-db-cluster --db-cluster-identifier %s --skip-final-snapshot", dbClusterName)
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				stdout, stderr, err = local.Execute(ctx, command, false)
 				if err != nil {
@@ -178,10 +184,10 @@ func (c *DestroyDBCluster) Execute(ctx context.Context) error {
 	}
 
 	for i := 1; i <= 200; i++ {
-		command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", c.clusterName)
+		command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", dbClusterName)
 		_, stderr, err := local.Execute(ctx, command, false)
 		if err != nil {
-			if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", c.clusterName)) {
+			if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", dbClusterName)) {
 				break
 
 			}
