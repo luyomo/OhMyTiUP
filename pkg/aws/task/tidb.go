@@ -76,6 +76,7 @@ func (e EC2s) String() string {
 	}
 	return fmt.Sprintf(strings.Join(res, ","))
 }
+
 func (e Reservations) String() string {
 	var res []string
 	for _, reservation := range e.Reservations {

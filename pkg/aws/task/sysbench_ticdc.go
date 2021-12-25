@@ -175,30 +175,25 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The sql server here is <%#v> \n\n\n", dbInstance)
-	return nil
 
-	theEC2, err := getEC2Nodes(local, ctx, c.clusterName, c.clusterType, "sqlserver")
-	if err != nil {
-		return nil
-	}
-
-	c.scriptParam.MSHost = (*theEC2)[0].PrivateIpAddress
-	c.scriptParam.MSPort = 1433
+	c.scriptParam.MSHost = dbInstance.Endpoint.Address
+	c.scriptParam.MSPort = dbInstance.Endpoint.Port
 	c.scriptParam.MSDB = "cdc_test"
-	c.scriptParam.MSUser = "sa"
-	c.scriptParam.MSUser = "1234@Abcd"
+	c.scriptParam.MSUser = dbInstance.MasterUsername
+	c.scriptParam.MSUser = "1234Abcd"
 
-	dbInstance, err = getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	// dbInstance, err = getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	// if err != nil {
+	// 	fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
+	// 	return err
+	// }
+
+	// deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
+
+	command := fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, c.scriptParam.TiDBHost, c.scriptParam.TiDBPort, c.scriptParam.TiDBUser, c.scriptParam.TiDBDB)
+	stdout, _, err := (*workstation).Execute(ctx, command, true)
 	if err != nil {
-		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
-		return err
-	}
-
-	deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
-
-	stdout, _, err := (*workstation).Execute(ctx, `printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p 1433 -U sa -P 1234@Abcd`, true)
-	if err != nil {
+		fmt.Printf("The command is <%s> \n\n\n", command)
 		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
@@ -211,7 +206,7 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 			return err
 		}
 
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("chmod 755 /opt/tidb/scripts/%s", scriptName), true)
+		stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("chmod 755 /opt/tidb/scripts/%s", scriptName), true)
 		if err != nil {
 			fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 			return err
@@ -230,8 +225,6 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
-
-	var command string
 
 	if c.scriptParam.TiDBPass == "" {
 		command = fmt.Sprintf("sysbench /usr/share/sysbench/oltp_insert.lua --mysql-host=%s --mysql-user=%s --mysql-db=%s --mysql-port=%d --threads=%d --tables=%d cleanup", c.scriptParam.TiDBHost, c.scriptParam.TiDBUser, c.scriptParam.TiDBDB, c.scriptParam.TiDBPort, c.scriptParam.NumTables, c.scriptParam.NumTables)
