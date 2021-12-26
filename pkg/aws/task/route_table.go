@@ -19,14 +19,12 @@ import (
 	"fmt"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 )
 
 // Mkdir is used to create directory on the target host
 type CreateRouteTable struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
@@ -37,15 +35,10 @@ type CreateRouteTable struct {
 
 // Execute implements the Task interface
 func (c *CreateRouteTable) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return nil
-	}
-
 	if c.isPrivate == true {
-		c.createPrivateSubnets(local, ctx)
+		c.createPrivateSubnets(*c.pexecutor, ctx)
 	} else {
-		c.createPublicSubnets(local, ctx)
+		c.createPublicSubnets(*c.pexecutor, ctx)
 	}
 
 	return nil
@@ -58,7 +51,7 @@ func (c *CreateRouteTable) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateRouteTable) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating route table")
 }
 
 func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx context.Context) error {
@@ -148,8 +141,7 @@ func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx conte
 
 // Mkdir is used to create directory on the target host
 type DestroyRouteTable struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
@@ -158,29 +150,24 @@ type DestroyRouteTable struct {
 
 // Execute implements the Task interface
 func (c *DestroyRouteTable) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+	stdout, _, err := (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
 	if err != nil {
-		return nil
-	}
-
-	stdout, _, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
-	if err != nil {
-		return nil
+		return err
 	}
 
 	var routeTables RouteTables
 	if err = json.Unmarshal(stdout, &routeTables); err != nil {
 		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
-		return nil
+		return err
 	}
 
 	for _, routeTable := range routeTables.RouteTables {
 		command := fmt.Sprintf("aws ec2 delete-route-table --route-table-id %s", routeTable.RouteTableId)
-		stdout, _, err = local.Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n", err)
 			fmt.Printf("----------\n\n")
-			return nil
+			return err
 		}
 	}
 
@@ -194,5 +181,5 @@ func (c *DestroyRouteTable) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyRouteTable) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destroying route table ")
 }

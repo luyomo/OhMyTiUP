@@ -17,14 +17,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
 )
 
 // Mkdir is used to create directory on the target host
 type CreateInternetGateway struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -33,16 +32,11 @@ type CreateInternetGateway struct {
 
 // Execute implements the Task interface
 func (c *CreateInternetGateway) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return nil
-	}
-
 	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Clustere\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	var internetGateways InternetGateways
@@ -58,7 +52,7 @@ func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 
 	command = fmt.Sprintf("aws ec2 create-internet-gateway --tag-specifications \"ResourceType=internet-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
-	stdout, _, err = local.Execute(ctx, command, false)
+	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return nil
 	}
@@ -72,16 +66,16 @@ func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 	//	fmt.Printf("The stdout from the internet gateway preparation: %#v \n\n\n", newInternetGateway)
 	command = fmt.Sprintf("aws ec2 attach-internet-gateway --internet-gateway-id %s --vpc-id %s", newInternetGateway.InternetGateway.InternetGatewayId, c.clusterInfo.vpcInfo.VpcId)
 	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
-	stdout, _, err = local.Execute(ctx, command, false)
+	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return nil
 	}
 
 	command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block 0.0.0.0/0 --gateway-id %s", c.clusterInfo.publicRouteTableId, newInternetGateway.InternetGateway.InternetGatewayId)
 	zap.L().Debug("Command", zap.String("create-route", command))
-	stdout, _, err = local.Execute(ctx, command, false)
+	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return nil
@@ -94,15 +88,14 @@ func (c *CreateInternetGateway) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateInternetGateway) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating internet gateway ")
 }
 
 /******************************************************************************/
 
 // Mkdir is used to create directory on the target host
 type DestroyInternetGateway struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -110,14 +103,10 @@ type DestroyInternetGateway struct {
 
 // Execute implements the Task interface
 func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return nil
-	}
 
 	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error in the DestroyInternetGateway describe-internet-gateways <%s> \n\n\n", string(stderr))
 		return err
@@ -126,7 +115,7 @@ func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
 	var internetGateways InternetGateways
 	if err = json.Unmarshal(stdout, &internetGateways); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
-		return nil
+		return err
 	}
 
 	for _, internetGateway := range internetGateways.InternetGateways {
@@ -134,17 +123,17 @@ func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
 		for _, attachment := range internetGateway.Attachments {
 			command = fmt.Sprintf("aws ec2 detach-internet-gateway --internet-gateway-id %s --vpc-id %s", internetGateway.InternetGatewayId, attachment.VpcId)
 			zap.L().Debug("Command", zap.String("detach-internet-gateway", command))
-			_, _, err := local.Execute(ctx, command, false)
+			_, _, err := (*c.pexecutor).Execute(ctx, command, false)
 			if err != nil {
-				return nil
+				return err
 			}
 		}
 
 		command = fmt.Sprintf("aws ec2 delete-internet-gateway --internet-gateway-id %s", internetGateway.InternetGatewayId)
 		zap.L().Debug("Command", zap.String("delete-internet-gateway", command))
-		stdout, _, err = local.Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 
@@ -158,5 +147,5 @@ func (c *DestroyInternetGateway) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyInternetGateway) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destroying internet gateway")
 }

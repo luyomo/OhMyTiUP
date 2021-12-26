@@ -21,6 +21,7 @@ import (
 	//	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/spf13/cobra"
 )
@@ -39,10 +40,14 @@ Convert the pending status to active, eg:
 				return cmd.Help()
 			}
 
+			sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+			if err != nil {
+				return err
+			}
 			clusterName := args[0]
 			clusterType := args[1]
 			t1 := task.NewBuilder().
-				AcceptVPCPeering(utils.CurrentUser(), "127.0.0.1", clusterName, clusterType).
+				AcceptVPCPeering(&sexecutor, clusterName, clusterType).
 				BuildAsStep(fmt.Sprintf("  - Accept all the vpc peerings from tidb cloud"))
 
 			builder := task.NewBuilder().

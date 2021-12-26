@@ -17,13 +17,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/luyomo/tisample/pkg/executor"
+	//	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
 )
 
 type DeployTiCDC struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -33,19 +33,14 @@ type DeployTiCDC struct {
 
 // Execute implements the Task interface
 func (c *DeployTiCDC) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
-	wsexecutor, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", c.clusterInfo.keyFile)
+	wsexecutor, err := getWSExecutor(*c.pexecutor, ctx, c.clusterName, c.clusterType, "admin", c.clusterInfo.keyFile)
 	if err != nil {
 		return err
 	}
 
 	tidbClusterDetail, err := getTiDBClusterInfo(wsexecutor, ctx, c.clusterName, c.clusterType)
 
-	auroraInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "aurora")
+	auroraInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "aurora")
 	if err != nil {
 		return err
 	}
@@ -87,5 +82,5 @@ func (c *DeployTiCDC) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DeployTiCDC) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying TiCDC")
 }

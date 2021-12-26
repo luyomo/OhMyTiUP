@@ -220,25 +220,30 @@ func (m *Manager) Deploy(
 			if strings.HasPrefix(globalOptions.DataDir, "/") {
 				dirs = append(dirs, globalOptions.DataDir)
 			}
+			sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+			if err != nil {
+				return
+			}
+
 			fmt.Printf("---------------------------\n")
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
 			clusterType := "tisample-tidb"
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", false, &clusterInfo).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", false, &clusterInfo).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", false, &clusterInfo).
-				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", &clusterInfo).
+				CreateVpc(&sexecutor, name, clusterType, "tidb", &clusterInfo).
+				CreateRouteTable(&sexecutor, name, clusterType, "tidb", false, &clusterInfo).
+				CreateNetwork(&sexecutor, name, clusterType, "tidb", false, &clusterInfo).
+				CreateSecurityGroup(&sexecutor, name, clusterType, "tidb", false, &clusterInfo).
+				CreateInternetGateway(&sexecutor, name, clusterType, "tidb", &clusterInfo).
 				//CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreatePDNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiDBNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiKVNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiCDCNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				//CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsWSConfigs, &clusterInfo).
+				DeployTiDB(&sexecutor, name, clusterType, "tidb", base.AwsWSConfigs, &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

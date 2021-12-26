@@ -26,7 +26,6 @@ import (
 
 	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 )
 
 /*
@@ -65,8 +64,7 @@ type ScriptParam struct {
 }
 
 type SysbenchTiCDC struct {
-	user         string
-	host         string
+	pexecutor    *ctxt.Executor
 	identityFile string
 	clusterName  string
 	clusterType  string
@@ -77,12 +75,7 @@ type SysbenchTiCDC struct {
 // Execute implements the Task interface
 func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return nil
-	}
-
-	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", c.identityFile)
+	workstation, err := getWSExecutor(*c.pexecutor, ctx, c.clusterName, c.clusterType, "admin", c.identityFile)
 	if err != nil {
 		return err
 	}
@@ -116,12 +109,11 @@ func (c *SysbenchTiCDC) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *SysbenchTiCDC) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating sysbench ticdc ")
 }
 
 type PrepareSysbenchTiCDC struct {
-	user         string
-	host         string
+	pexecutor    *ctxt.Executor
 	identityFile string
 	clusterName  string
 	clusterType  string
@@ -130,13 +122,8 @@ type PrepareSysbenchTiCDC struct {
 
 // Execute implements the Task interface
 func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
 	//	var tplParams ScriptParam
-	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, "admin", c.identityFile)
+	workstation, err := getWSExecutor(*c.pexecutor, ctx, c.clusterName, c.clusterType, "admin", c.identityFile)
 	if err != nil {
 		return err
 	}
@@ -161,7 +148,7 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	}
 
 	// ****   2. Get aurora connection string
-	dbInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "aurora")
+	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "aurora")
 	if err != nil {
 		return err
 	}
@@ -171,7 +158,7 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	c.scriptParam.MySQLUser = dbInstance.MasterUsername
 	c.scriptParam.MySQLPass = "1234Abcd"
 
-	dbInstance, err = getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	dbInstance, err = getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "sqlserver")
 	if err != nil {
 		return err
 	}
@@ -181,14 +168,6 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	c.scriptParam.MSDB = "cdc_test"
 	c.scriptParam.MSUser = dbInstance.MasterUsername
 	c.scriptParam.MSUser = "1234Abcd"
-
-	// dbInstance, err = getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
-	// if err != nil {
-	// 	fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
-	// 	return err
-	// }
-
-	// deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
 
 	command := fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, c.scriptParam.TiDBHost, c.scriptParam.TiDBPort, c.scriptParam.TiDBUser, c.scriptParam.TiDBDB)
 	stdout, _, err := (*workstation).Execute(ctx, command, true)
@@ -269,7 +248,7 @@ func (c *PrepareSysbenchTiCDC) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *PrepareSysbenchTiCDC) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Preparing sysbench ticdc ")
 }
 
 func copyTemplate(executor *ctxt.Executor, ctx context.Context, file string, tplData *ScriptParam) error {

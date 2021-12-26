@@ -18,13 +18,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 )
 
 type CreateSecurityGroup struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -34,15 +32,11 @@ type CreateSecurityGroup struct {
 
 // Execute implements the Task interface
 func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return nil
-	}
 
 	if c.isPrivate == true {
-		c.createPrivateSG(local, ctx)
+		c.createPrivateSG(*c.pexecutor, ctx)
 	} else {
-		c.createPublicSG(local, ctx)
+		c.createPublicSG(*c.pexecutor, ctx)
 	}
 
 	return nil
@@ -55,7 +49,7 @@ func (c *CreateSecurityGroup) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateSecurityGroup) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating security group ")
 }
 
 func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx context.Context) error {
@@ -181,8 +175,7 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 /******************************************************************************/
 
 type DestroySecurityGroup struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -190,29 +183,25 @@ type DestroySecurityGroup struct {
 
 // Execute implements the Task interface
 func (c *DestroySecurityGroup) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return nil
-	}
 
 	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType)
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	var securityGroups SecurityGroups
 	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("security group", string(stdout)))
-		return nil
+		return err
 	}
 	for _, sg := range securityGroups.SecurityGroups {
 		fmt.Printf("The data is <%#v> \n\n\n", sg.GroupId)
 		command = fmt.Sprintf("aws ec2 delete-security-group --group-id %s ", sg.GroupId)
 		zap.L().Debug("Command", zap.String("delete-security-group", command))
-		_, _, err = local.Execute(ctx, command, false)
+		_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 
@@ -226,5 +215,5 @@ func (c *DestroySecurityGroup) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroySecurityGroup) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destroying security group")
 }

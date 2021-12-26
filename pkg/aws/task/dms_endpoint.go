@@ -19,16 +19,15 @@ import (
 	//	"errors"
 	"fmt"
 	//"github.com/luyomo/tisample/pkg/aws/spec"
-	//	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	//	"github.com/luyomo/tisample/pkg/executor"
 	//	"go.uber.org/zap"
 	"strings"
 	"time"
 )
 
 type CreateDMSSourceEndpoint struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -37,10 +36,9 @@ type CreateDMSSourceEndpoint struct {
 
 // Execute implements the Task interface
 func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
 	command := fmt.Sprintf("aws dms describe-endpoints --filters Name=endpoint-type,Values=source Name=engine-name,Values=aurora")
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
 			fmt.Printf("The source end point has not created.\n\n\n")
@@ -58,7 +56,7 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The source endpoint is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				DMSInfo.SourceEndpointArn = endpoint.EndpointArn
 				fmt.Printf("The dms source target has exists \n\n\n")
@@ -67,7 +65,7 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 		}
 	}
 
-	dbInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "aurora")
+	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "aurora")
 	if err != nil {
 		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
@@ -76,7 +74,7 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 
 	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-source --endpoint-type source --engine-name aurora --server-name %s --port %d --username %s --password %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
+	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -101,14 +99,13 @@ func (c *CreateDMSSourceEndpoint) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateDMSSourceEndpoint) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating DMS Source Endpoints")
 }
 
 /******************************************************************************/
 
 type CreateDMSTargetEndpoint struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -117,10 +114,9 @@ type CreateDMSTargetEndpoint struct {
 
 // Execute implements the Task interface
 func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
 	command := fmt.Sprintf("aws dms describe-endpoints --filters Name=endpoint-type,Values=target Name=engine-name,Values=sqlserver")
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
 			fmt.Printf("The target end point has not created.\n\n\n")
@@ -138,7 +134,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The target endpoint <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				DMSInfo.TargetEndpointArn = endpoint.EndpointArn
 				fmt.Printf("The dms target endpoint has exists \n\n\n")
@@ -147,7 +143,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		}
 	}
 
-	dbInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "sqlserver")
 	if err != nil {
 		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
@@ -156,7 +152,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 
 	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port %d --username %s --password %s --database-name %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", "cdc_test", c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
+	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -181,14 +177,13 @@ func (c *CreateDMSTargetEndpoint) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateDMSTargetEndpoint) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating DMS target endpoint")
 }
 
 /******************************************************************************/
 
 type DestroyDMSEndpoints struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -196,10 +191,8 @@ type DestroyDMSEndpoints struct {
 
 // Execute implements the Task interface
 func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-
 	command := fmt.Sprintf("aws dms describe-endpoints")
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	var deletingEndpoints []string
 	if err != nil {
 		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
@@ -215,11 +208,11 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 			return err
 		}
 		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				command = fmt.Sprintf("aws dms delete-endpoint --endpoint-arn %s", endpoint.EndpointArn)
 
-				stdout, stderr, err = local.Execute(ctx, command, false)
+				stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 
 				if err != nil {
 					fmt.Printf("The comamnd is <%s> \n\n\n", command)
@@ -235,7 +228,7 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 	for i := 1; i <= 50; i++ {
 		cntEndpoints := 0
 
-		stdout, stderr, err := local.Execute(ctx, command, false)
+		stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("ERRORS: describe-endpoints  <%s> \n\n", string(stderr))
 			return err
@@ -269,5 +262,5 @@ func (c *DestroyDMSEndpoints) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyDMSEndpoints) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destroying DMS endpoints")
 }

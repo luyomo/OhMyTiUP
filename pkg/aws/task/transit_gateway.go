@@ -17,7 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"time"
 )
 
@@ -32,8 +32,7 @@ type TransitGateways struct {
 }
 
 type CreateTransitGateway struct {
-	user        string
-	host        string
+	pexecutor   *ctxt.Executor
 	clusterName string
 	clusterType string
 }
@@ -42,9 +41,7 @@ type CreateTransitGateway struct {
 // create-transit-gateway --description testtisample --tag-specifications ...
 // Execute implements the Task interface
 func (c *CreateTransitGateway) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-
-	transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
+	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, c.clusterName)
 	if err != nil {
 		return err
 	}
@@ -54,7 +51,7 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 
 	command := fmt.Sprintf("aws ec2 create-transit-gateway --description %s --tag-specifications --tag-specifications \"ResourceType=transit-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s}]\"", c.clusterName, c.clusterName, c.clusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	_, stderr, err := local.Execute(ctx, command, false)
+	_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n\n", err)
 		fmt.Printf("The error here is <%s> \n\n\n", string(stderr))
@@ -62,7 +59,7 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 	}
 
 	for i := 1; i <= 50; i++ {
-		transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
+		transitGateway, err := getTransitGateway(*c.pexecutor, ctx, c.clusterName)
 		if err != nil {
 			return err
 		}
@@ -86,22 +83,20 @@ func (c *CreateTransitGateway) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateTransitGateway) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating transit gateway ")
 }
 
 /******************************************************************************/
 
 type DestroyTransitGateway struct {
-	user        string
-	host        string
+	pexecutor   *ctxt.Executor
 	clusterName string
 	clusterType string
 }
 
 func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
+	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, c.clusterName)
 
 	if err != nil {
 		return err
@@ -112,7 +107,7 @@ func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
 
 	command := fmt.Sprintf("aws ec2 delete-transit-gateway --transit-gateway-id %s", transitGateway.TransitGatewayId)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	_, stderr, err := local.Execute(ctx, command, false)
+	_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("ERRORS: delete-transit-gateway <%s> \n\n\n", string(stderr))
 		return err
@@ -128,5 +123,5 @@ func (c *DestroyTransitGateway) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyTransitGateway) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destryong transit gateway")
 }

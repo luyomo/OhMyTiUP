@@ -21,6 +21,7 @@ import (
 	"path"
 
 	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 	"math/big"
@@ -47,8 +48,7 @@ type CDCTask struct {
 }
 
 type MakeDBObjects struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -61,17 +61,12 @@ var SqlServerHost string
 
 // Execute implements the Task interface
 func (c *MakeDBObjects) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return nil
-	}
-
 	DBNAME = "cdc_test"
 
 	//	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", c.clusterName, c.clusterType)
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=16\"", c.clusterName, c.clusterType, "workstation")
 	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return nil
 	}
@@ -93,7 +88,7 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 
 	command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err = local.Execute(ctx, command, false)
+	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return nil
 	}
@@ -137,7 +132,7 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	auroraInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "aurora")
+	auroraInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "aurora")
 	if err != nil {
 		fmt.Printf("The error is <%#v> \n\n\n", auroraInstance)
 		return err
@@ -260,5 +255,5 @@ func (c *MakeDBObjects) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *MakeDBObjects) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Making DB Objects ")
 }

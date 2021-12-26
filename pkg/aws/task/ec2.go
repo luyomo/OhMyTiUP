@@ -18,14 +18,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
 	"time"
 )
 
 type CreateDMNodes struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
@@ -35,20 +34,15 @@ type CreateDMNodes struct {
 
 // Execute implements the Task interface
 func (c *CreateDMNodes) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
 	if c.awsTopoConfigs.DM.Count == 0 {
 		zap.L().Debug("There is no DM nodes to be configured")
-		return err
+		return nil
 	}
 
 	// 3. Fetch the count of instance from the instance
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=dm\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -68,7 +62,7 @@ func (c *CreateDMNodes) Execute(ctx context.Context) error {
 	for _idx := 0; _idx < c.awsTopoConfigs.DM.Count-existsNodes; _idx++ {
 		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=dm}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.DM.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
-		stdout, _, err = local.Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			return err
 		}
@@ -83,14 +77,13 @@ func (c *CreateDMNodes) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateDMNodes) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying DM Nodes ")
 }
 
 /******************************************************************************/
 
 type CreatePDNodes struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
@@ -100,20 +93,15 @@ type CreatePDNodes struct {
 
 // Execute implements the Task interface
 func (c *CreatePDNodes) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
 	if c.awsTopoConfigs.PD.Count == 0 {
 		zap.L().Debug("There is no PD nodes to be configured")
-		return err
+		return nil
 	}
 
 	// 3. Fetch the count of instance from the instance
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=pd\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -136,7 +124,7 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 	for _idx := 0; _idx < c.awsTopoConfigs.PD.Count-existsNodes; _idx++ {
 		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=pd}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.PD.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
-		stdout, _, err = local.Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			return err
 		}
@@ -152,14 +140,13 @@ func (c *CreatePDNodes) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreatePDNodes) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying PD Nodes")
 }
 
 /******************************************************************************/
 
 type CreateTiCDCNodes struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
@@ -169,19 +156,14 @@ type CreateTiCDCNodes struct {
 
 // Execute implements the Task interface
 func (c *CreateTiCDCNodes) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
 	if c.awsTopoConfigs.TiCDC.Count == 0 {
 		zap.L().Debug("There is no TiCDC nodes to be configured")
-		return err
+		return nil
 	}
 
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=ticdc\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -201,7 +183,7 @@ func (c *CreateTiCDCNodes) Execute(ctx context.Context) error {
 	for _idx := 0; _idx < c.awsTopoConfigs.TiCDC.Count-existsNodes; _idx++ {
 		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=ticdc}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiCDC.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
-		stdout, _, err = local.Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			return err
 		}
@@ -216,14 +198,13 @@ func (c *CreateTiCDCNodes) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateTiCDCNodes) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying TiCDC Nodes ")
 }
 
 /******************************************************************************/
 
 type CreateTiDBNodes struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
@@ -233,20 +214,16 @@ type CreateTiDBNodes struct {
 
 // Execute implements the Task interface
 func (c *CreateTiDBNodes) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
 
 	if c.awsTopoConfigs.TiDB.Count == 0 {
 		zap.L().Debug("There is no TiDB nodes to be configured")
-		return err
+		return nil
 	}
 
 	// 3. Fetch the count of instance from the instance
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=tidb\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
 		return err
@@ -266,7 +243,7 @@ func (c *CreateTiDBNodes) Execute(ctx context.Context) error {
 	for _idx := 0; _idx < c.awsTopoConfigs.TiDB.Count-existsNodes; _idx++ {
 		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tidb}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiDB.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
-		stdout, _, err = local.Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			return err
 		}
@@ -281,14 +258,13 @@ func (c *CreateTiDBNodes) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateTiDBNodes) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying TiDB Nodes ")
 }
 
 /******************************************************************************/
 
 type CreateTiKVNodes struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
 	clusterName    string
 	clusterType    string
@@ -298,19 +274,14 @@ type CreateTiKVNodes struct {
 
 // Execute implements the Task interface
 func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
 	if c.awsTopoConfigs.TiKV.Count == 0 {
 		zap.L().Debug("There is no TiKV nodes to be configured")
-		return err
+		return nil
 	}
 
 	// 3. Fetch the count of instance from the instance
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=tikv\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -330,7 +301,7 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tikv}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiKV.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
 		//command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --block-device-mappings DeviceName=/dev/sdh,Ebs={DeleteOnTermination=true,VolumeSize=100,VolumeType=gp2,Encrypted=false} --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tikv}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiKV.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
-		stdout, _, err = local.Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			return err
 		}
@@ -345,14 +316,13 @@ func (c *CreateTiKVNodes) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateTiKVNodes) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying TiKV Nodes ")
 }
 
 /******************************************************************************/
 
 type CreateWorkstation struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsWSConfigs   *spec.AwsWSConfigs
 	clusterName    string
 	clusterType    string
@@ -362,13 +332,10 @@ type CreateWorkstation struct {
 
 // Execute implements the Task interface
 func (c *CreateWorkstation) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
+
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -386,7 +353,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 
 	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=workstation}]\"", c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType, c.awsWSConfigs.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("run-instances", command))
-	stdout, _, err = local.Execute(ctx, command, false)
+	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -400,14 +367,13 @@ func (c *CreateWorkstation) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateWorkstation) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying Workstation")
 }
 
 /******************************************************************************/
 
 type DestroyEC struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -415,15 +381,10 @@ type DestroyEC struct {
 
 // Execute implements the Task interface
 func (c *DestroyEC) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return nil
-	}
-
 	// 3. Fetch the count of instance from the instance
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -443,7 +404,7 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 		for _, instance := range reservation.Instances {
 
 			command := fmt.Sprintf("aws ec2 terminate-instances --instance-ids %s", instance.InstanceId)
-			stdout, _, err = local.Execute(ctx, command, false)
+			stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 			if err != nil {
 				return err
 			}
@@ -455,7 +416,7 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 		time.Sleep(5 * time.Second)
 		command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("describe-instances", command))
-		stdout, _, err = local.Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			return err
 		}
@@ -480,5 +441,5 @@ func (c *DestroyEC) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyEC) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destroying EC")
 }

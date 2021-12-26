@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
+	//	"github.com/luyomo/tisample/pkg/executor"
 	"strings"
 )
 
@@ -43,8 +43,7 @@ type TagList struct {
 }
 
 type CreateDBSubnetGroup struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -53,11 +52,10 @@ type CreateDBSubnetGroup struct {
 
 // Execute implements the Task interface
 func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 	dbSubnetGroupName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 	// Get the available zones
 	command := fmt.Sprintf("aws rds describe-db-subnet-groups --db-subnet-group-name %s ", dbSubnetGroupName)
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if !strings.Contains(string(stderr), fmt.Sprintf("DB Subnet group '%s' not found", dbSubnetGroupName)) {
 			fmt.Printf("The error err here is <%#v> \n\n", err)
@@ -75,7 +73,7 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 		}
 
 		for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
-			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, local, ctx)
+			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				return nil
 			}
@@ -88,7 +86,7 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 	}
 	command = fmt.Sprintf("aws rds create-db-subnet-group --db-subnet-group-name %s --db-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbSubnetGroupName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
+	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -106,7 +104,7 @@ func (c *CreateDBSubnetGroup) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateDBSubnetGroup) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating DB Subnet Group ")
 }
 
 func groupExists(groupName string, subnetGroups []DBSubnetGroup) bool {
@@ -154,8 +152,7 @@ func ExistsResource(clusterType, subClusterType, clusterName, resourceName strin
 /******************************************************************************/
 
 type DestroyDBSubnetGroup struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -163,11 +160,11 @@ type DestroyDBSubnetGroup struct {
 
 // Execute implements the Task interface
 func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
+
 	dbSubnetGroupName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 	// Get the available zones
 	command := fmt.Sprintf("aws rds describe-db-subnet-groups --db-subnet-group-name %s ", dbSubnetGroupName)
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if strings.Contains(string(stderr), fmt.Sprintf("DB Subnet group '%s' not found", dbSubnetGroupName)) {
 			fmt.Printf("The DB Cluster has not created.\n\n\n")
@@ -186,11 +183,11 @@ func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
 
 	fmt.Printf("The db subnet groups is <%#v> \n\n\n", dbSubnetGroups)
 	for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
-		existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, local, ctx)
+		existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, *(c.pexecutor), ctx)
 		if existsResource == true {
 			command = fmt.Sprintf("aws rds delete-db-subnet-group --db-subnet-group-name %s", dbSubnetGroupName)
 
-			stdout, stderr, err = local.Execute(ctx, command, false)
+			stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 			if err != nil {
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				fmt.Printf("ERRORS: delete-db-subnet-group <%s> \n\n", string(stderr))
@@ -210,5 +207,5 @@ func (c *DestroyDBSubnetGroup) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyDBSubnetGroup) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destroyng db subnet group")
 }

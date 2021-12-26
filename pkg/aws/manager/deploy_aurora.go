@@ -208,22 +208,27 @@ func (m *Manager) AuroraDeploy(
 			if strings.HasPrefix(globalOptions.DataDir, "/") {
 				dirs = append(dirs, globalOptions.DataDir)
 			}
+			sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+			if err != nil {
+				return
+			}
+
 			fmt.Printf("---------------------------\n")
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
 			clusterType := "tisample-aurora"
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", true, &clusterInfo).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", true, &clusterInfo).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", true, &clusterInfo).
-				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
-				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", "", &clusterInfo).
-				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType, "aurora", &clusterInfo).
+				CreateVpc(&sexecutor, name, clusterType, "aurora", &clusterInfo).
+				CreateRouteTable(&sexecutor, name, clusterType, "aurora", true, &clusterInfo).
+				CreateNetwork(&sexecutor, name, clusterType, "aurora", true, &clusterInfo).
+				CreateSecurityGroup(&sexecutor, name, clusterType, "aurora", true, &clusterInfo).
+				CreateInternetGateway(&sexecutor, name, clusterType, "aurora", &clusterInfo).
+				CreateDBSubnetGroup(&sexecutor, name, clusterType, "aurora", &clusterInfo).
+				CreateDBClusterParameterGroup(&sexecutor, name, clusterType, "aurora", &clusterInfo).
+				CreateDBCluster(&sexecutor, name, clusterType, "aurora", &clusterInfo).
+				CreateDBParameterGroup(&sexecutor, name, clusterType, "aurora", "", &clusterInfo).
+				CreateDBInstance(&sexecutor, name, clusterType, "aurora", &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

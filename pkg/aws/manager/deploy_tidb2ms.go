@@ -30,7 +30,7 @@ import (
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
-	//	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/tisample/pkg/utils"
 	//	"go.uber.org/zap"
 	"os"
 	//"strings"
@@ -83,16 +83,16 @@ func (m *Manager) TiDB2MSDeploy(
 		base.GlobalOptions.SSHType = sshType
 	}
 
-	clusterList, err := m.specManager.GetAllClusters()
-	if err != nil {
-		return err
-	}
-	if err := spec.CheckClusterPortConflict(clusterList, name, topo); err != nil {
-		return err
-	}
-	if err := spec.CheckClusterDirConflict(clusterList, name, topo); err != nil {
-		return err
-	}
+	// clusterList, err := m.specManager.GetAllClusters()
+	// if err != nil {
+	// 	return err
+	// }
+	// if err := spec.CheckClusterPortConflict(clusterList, name, topo); err != nil {
+	// 	return err
+	// }
+	// if err := spec.CheckClusterDirConflict(clusterList, name, topo); err != nil {
+	// 	return err
+	// }
 
 	var (
 		sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
@@ -130,12 +130,16 @@ func (m *Manager) TiDB2MSDeploy(
 
 	globalOptions := base.GlobalOptions
 
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	if err != nil {
+		return err
+	}
 	clusterType := "tisample-tidb2ms"
 
 	var workstationInfo, clusterInfo, auroraInfo, msInfo, dmsInfo task.ClusterInfo
 
 	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(globalOptions.User, "127.0.0.1", name, clusterType, "workstation", base.AwsWSConfigs, &workstationInfo).
+		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, name, clusterType, "workstation", base.AwsWSConfigs, &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 
 		envInitTasks = append(envInitTasks, t1)
@@ -143,19 +147,19 @@ func (m *Manager) TiDB2MSDeploy(
 
 	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DM.Count + base.AwsTopoConfigs.TiCDC.Count
 	if cntEC2Nodes > 0 {
-		t2 := task.NewBuilder().CreateTiDBCluster(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+		t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 		envInitTasks = append(envInitTasks, t2)
 	}
 
 	if base.AwsAuroraConfigs.InstanceType != "" {
-		t3 := task.NewBuilder().CreateAurora(globalOptions.User, "127.0.0.1", name, clusterType, "aurora", base.AwsAuroraConfigs, &auroraInfo).
+		t3 := task.NewBuilder().CreateAurora(&sexecutor, name, clusterType, "aurora", base.AwsAuroraConfigs, &auroraInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora instance"))
 		envInitTasks = append(envInitTasks, t3)
 	}
 
 	if base.AwsMSConfigs.InstanceType != "" {
-		t4 := task.NewBuilder().CreateSqlServer(globalOptions.User, "127.0.0.1", name, clusterType, "sqlserver", base.AwsMSConfigs, &msInfo).
+		t4 := task.NewBuilder().CreateSqlServer(&sexecutor, name, clusterType, "sqlserver", base.AwsMSConfigs, &msInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing sqlserver instance"))
 		envInitTasks = append(envInitTasks, t4)
 	}
@@ -179,34 +183,34 @@ func (m *Manager) TiDB2MSDeploy(
 	var t5 *task.StepDisplay
 	if cntEC2Nodes > 0 {
 		t5 = task.NewBuilder().
-			CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
-			CreateTransitGateway(globalOptions.User, "127.0.0.1", name, clusterType).
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "workstation").
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "tidb").
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "aurora").
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "sqlserver").
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice").
-			CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
-			CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", []string{"aurora"}).
-			CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsWSConfigs, &workstationInfo).
-			DeployTiDBInstance(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
+			CreateDMSService(&sexecutor, name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
+			CreateTransitGateway(&sexecutor, name, clusterType).
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "workstation").
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "tidb").
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "aurora").
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "sqlserver").
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "dmsservice").
+			CreateRouteTgw(&sexecutor, name, clusterType, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
+			CreateRouteTgw(&sexecutor, name, clusterType, "tidb", []string{"aurora"}).
+			CreateRouteTgw(&sexecutor, name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
+			DeployTiDB(&sexecutor, name, clusterType, "tidb", base.AwsWSConfigs, &workstationInfo).
+			DeployTiDBInstance(&sexecutor, name, clusterType, "tidb", &workstationInfo).
 			//MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
-			DeployTiCDC(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
-			BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
+			DeployTiCDC(&sexecutor, name, clusterType, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
+			BuildAsStep(fmt.Sprintf("  - Prepare DMS servicer and additional network resources %s:%d", globalOptions.Host, 22))
 	} else {
 		t5 = task.NewBuilder().
-			CreateDMSService(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
-			CreateTransitGateway(globalOptions.User, "127.0.0.1", name, clusterType).
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "workstation").
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "aurora").
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "sqlserver").
-			CreateTransitGatewayVpcAttachment(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice").
-			CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
-			CreateRouteTgw(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", base.AwsWSConfigs, &workstationInfo).
-			CreateDMSTask(globalOptions.User, "127.0.0.1", name, clusterType, "dmsservice", &dmsInfo).
-			MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
+			CreateDMSService(&sexecutor, name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
+			CreateTransitGateway(&sexecutor, name, clusterType).
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "workstation").
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "aurora").
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "sqlserver").
+			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "dmsservice").
+			CreateRouteTgw(&sexecutor, name, clusterType, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
+			CreateRouteTgw(&sexecutor, name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
+			DeployTiDB(&sexecutor, name, clusterType, "tidb", base.AwsWSConfigs, &workstationInfo).
+			CreateDMSTask(&sexecutor, name, clusterType, "dmsservice", &dmsInfo).
+			MakeDBObjects(&sexecutor, name, clusterType, "tidb", &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 	}
 

@@ -24,13 +24,12 @@ import (
 	//	"github.com/luyomo/tisample/pkg/aurora/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
+	//	"github.com/luyomo/tisample/pkg/executor"
 	//	"strconv"
 )
 
 type CreateDBInstance struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -39,17 +38,14 @@ type CreateDBInstance struct {
 
 // Execute implements the Task interface
 func (c *CreateDBInstance) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
+
 	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 
 	doWhenNotFound := func() error {
 
 		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-cluster-identifier %s --db-parameter-group-name %s --engine aurora-mysql --engine-version 5.7.12 --db-instance-class db.r5.large --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, dbClusterName, dbClusterName, c.clusterName, c.clusterType, c.subClusterType)
 
-		err = runCreateDBInstance(local, ctx, dbClusterName, command)
+		err := runCreateDBInstance(*c.pexecutor, ctx, dbClusterName, command)
 		if err != nil {
 			return err
 		}
@@ -58,7 +54,7 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 
 	doWhenFound := func() error { return nil }
 
-	if err = ExecuteDBInstance(local, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+	if err := ExecuteDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
 		return err
 	}
 
@@ -78,8 +74,7 @@ func (c *CreateDBInstance) String() string {
 /******************************************************************************/
 
 type DestroyDBInstance struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -87,10 +82,7 @@ type DestroyDBInstance struct {
 
 // Execute implements the Task interface
 func (c *DestroyDBInstance) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
+
 	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 
 	doWhenNotFound := func() error {
@@ -98,14 +90,14 @@ func (c *DestroyDBInstance) Execute(ctx context.Context) error {
 	}
 
 	doWhenFound := func() error {
-		err = runDestroyDBInstance(local, ctx, dbClusterName)
+		err := runDestroyDBInstance(*(c.pexecutor), ctx, dbClusterName)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if err = ExecuteDBInstance(local, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+	if err := ExecuteDBInstance(*(c.pexecutor), ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
 		return err
 	}
 
@@ -125,8 +117,7 @@ func (c *DestroyDBInstance) String() string {
 //*****************************************************************************
 
 type CreateMS struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsMSConfigs   *spec.AwsMSConfigs
 	clusterName    string
 	clusterType    string
@@ -135,17 +126,14 @@ type CreateMS struct {
 }
 
 func (c *CreateMS) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
+
 	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
 
 	doWhenNotFound := func() error {
 		fmt.Printf(" *** *** *** Starting to create instance \n\n\n")
 		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-instance-class %s --engine %s --master-username %s --master-user-password %s --vpc-security-group-ids %s  --db-subnet-group-name %s --db-parameter-group-name %s --engine-version %s --license-model license-included --allocated-storage %d --backup-retention-period 0 --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, (*c.awsMSConfigs).InstanceType, (*c.awsMSConfigs).Engine, (*c.awsMSConfigs).DBMasterUser, (*c.awsMSConfigs).DBMasterUserPass, c.clusterInfo.privateSecurityGroupId, dbClusterName, dbClusterName, (*c.awsMSConfigs).EngineVerion, (*c.awsMSConfigs).DiskSize, c.clusterName, c.clusterType, c.subClusterType)
 
-		err = runCreateDBInstance(local, ctx, dbClusterName, command)
+		err := runCreateDBInstance(*c.pexecutor, ctx, dbClusterName, command)
 		if err != nil {
 			return err
 		}
@@ -154,7 +142,7 @@ func (c *CreateMS) Execute(ctx context.Context) error {
 
 	doWhenFound := func() error { return nil }
 
-	if err = ExecuteDBInstance(local, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+	if err := ExecuteDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
 		return err
 	}
 
@@ -168,7 +156,7 @@ func (c *CreateMS) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateMS) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating MS ")
 }
 
 //******************************************************************************

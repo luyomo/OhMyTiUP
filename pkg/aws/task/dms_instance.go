@@ -18,16 +18,15 @@ import (
 	"encoding/json"
 	"fmt"
 	//"github.com/luyomo/tisample/pkg/aws/spec"
-	//	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	//	"github.com/luyomo/tisample/pkg/executor"
 	//	"go.uber.org/zap"
 	//"strings"
 	"time"
 )
 
 type CreateDMSInstance struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -36,10 +35,8 @@ type CreateDMSInstance struct {
 
 // Execute implements the Task interface
 func (c *CreateDMSInstance) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-
 	command := fmt.Sprintf("aws dms describe-replication-instances")
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("ERROR: describe-replication-instances <%s> \n\n", string(stderr))
 		return err
@@ -51,7 +48,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 		}
 
 		for _, replicationInstance := range replicationInstances.ReplicationInstances {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				DMSInfo.ReplicationInstanceArn = replicationInstance.ReplicationInstanceArn
 				fmt.Printf("The replication instance  has exists \n\n\n")
@@ -62,7 +59,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 
 	command = fmt.Sprintf("aws dms create-replication-instance --replication-instance-identifier %s --replication-instance-class %s --engine-version %s --replication-subnet-group-identifier %s --no-multi-az --no-publicly-accessible --replication-subnet-group-identifier %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, "dms.t3.medium", "3.4.6", c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	stdout, stderr, err = local.Execute(ctx, command, false)
+	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -78,7 +75,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 	DMSInfo.ReplicationInstanceArn = replicationInstanceRecord.ReplicationInstance.ReplicationInstanceArn
 	for i := 1; i <= 50; i++ {
 		command = fmt.Sprintf("aws dms describe-replication-instances")
-		stdout, stderr, err := local.Execute(ctx, command, false)
+		stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("The error err here is <%#v> \n\n", err)
 			fmt.Printf("----------\n\n")
@@ -92,7 +89,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 			}
 
 			for _, replicationInstance := range replicationInstances.ReplicationInstances {
-				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
+				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
 				if existsResource == true {
 					if replicationInstance.ReplicationInstanceStatus == "available" {
 						return nil
@@ -114,14 +111,13 @@ func (c *CreateDMSInstance) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateDMSInstance) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying DMS Instance ")
 }
 
 /******************************************************************************/
 
 type DestroyDMSInstance struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -130,11 +126,10 @@ type DestroyDMSInstance struct {
 
 // Execute implements the Task interface
 func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
 	var replicationInstanceArn string
 	command := fmt.Sprintf("aws dms describe-replication-instances")
-	stdout, stderr, err := local.Execute(ctx, command, false)
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("ERRORS: describe-replication-instances is <%s> \n\n\n", string(stderr))
 		return err
@@ -146,12 +141,12 @@ func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
 		}
 
 		for _, replicationInstance := range replicationInstances.ReplicationInstances {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, local, ctx)
+			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				replicationInstanceArn = replicationInstance.ReplicationInstanceArn
 				command = fmt.Sprintf("aws dms delete-replication-instance --replication-instance-arn %s ", replicationInstance.ReplicationInstanceArn)
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)
-				stdout, stderr, err = local.Execute(ctx, command, false)
+				stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 				if err != nil {
 					fmt.Printf("ERRORS delete-replication-instance <%s> \n\n", string(stderr))
 					return err
@@ -168,7 +163,7 @@ func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
 	}
 	for i := 1; i <= 50; i++ {
 		command = fmt.Sprintf("aws dms describe-replication-instances")
-		stdout, stderr, err := local.Execute(ctx, command, false)
+		stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("ERRORS describe-replication-instances <%s> \n\n", string(stderr))
 			return err
@@ -204,5 +199,5 @@ func (c *DestroyDMSInstance) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyDMSInstance) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destroying dms instance")
 }

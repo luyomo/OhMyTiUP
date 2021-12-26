@@ -25,6 +25,7 @@ import (
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	//"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	//	"github.com/luyomo/tisample/pkg/tui"
@@ -43,21 +44,25 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 		return err
 	}
 
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	if err != nil {
+		return err
+	}
 	clusterType := "tisample-aurora"
 
 	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().
-		DestroyDBInstance(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyDBCluster(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyDBParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyDBClusterParameterGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyDBSubnetGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyDBInstance(&sexecutor, name, clusterType, "test").
+		DestroyDBCluster(&sexecutor, name, clusterType, "test").
+		DestroyDBParameterGroup(&sexecutor, name, clusterType, "test").
+		DestroyDBClusterParameterGroup(&sexecutor, name, clusterType, "test").
+		DestroyDBSubnetGroup(&sexecutor, name, clusterType, "test").
+		DestroySecurityGroup(&sexecutor, name, clusterType, "test").
 		//DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyNetwork(&sexecutor, name, clusterType, "test").
+		DestroyRouteTable(&sexecutor, name, clusterType, "test").
+		DestroyInternetGateway(&sexecutor, name, clusterType, "test").
+		DestroyVpc(&sexecutor, name, clusterType, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {

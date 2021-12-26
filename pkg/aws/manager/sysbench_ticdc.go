@@ -25,6 +25,7 @@ import (
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	//	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
@@ -43,6 +44,10 @@ func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options) error {
 	}
 
 	clusterType := "tisample-tidb2ms"
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	if err != nil {
+		return err
+	}
 
 	clusterTable := [][]string{
 		// Header
@@ -50,7 +55,7 @@ func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options) error {
 	}
 
 	t := task.NewBuilder().
-		SysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", gOpt.IdentityFile, name, clusterType, &clusterTable).
+		SysbenchTiCDC(&sexecutor, gOpt.IdentityFile, name, clusterType, &clusterTable).
 		BuildAsStep(fmt.Sprintf("  - Sysbench ticdc %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
@@ -77,9 +82,13 @@ func (m *Manager) PrepareSysbenchTiCDC(name string, gOpt operator.Options, scrip
 	}
 
 	clusterType := "tisample-tidb2ms"
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	if err != nil {
+		return err
+	}
 
 	t := task.NewBuilder().
-		PrepareSysbenchTiCDC(utils.CurrentUser(), "127.0.0.1", gOpt.IdentityFile, name, clusterType, scriptParam).
+		PrepareSysbenchTiCDC(&sexecutor, gOpt.IdentityFile, name, clusterType, scriptParam).
 		BuildAsStep(fmt.Sprintf("  - Sysbench ticdc %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {

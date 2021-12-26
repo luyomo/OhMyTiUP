@@ -20,13 +20,11 @@ import (
 	"fmt"
 	//	"time"
 
-	//	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
 )
 
 type CreateRouteTgw struct {
-	user            string
-	host            string
+	pexecutor       *ctxt.Executor
 	clusterName     string
 	clusterType     string
 	subClusterType  string
@@ -35,10 +33,8 @@ type CreateRouteTgw struct {
 
 // Execute implements the Task interface
 func (c *CreateRouteTgw) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
 
-	//	sourceVpcInfo, err := getVPC(local, ctx, c.clusterName, c.clusterType, c.subClusterType)
-	sourceVpcInfo, err := getVPCInfo(local, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	sourceVpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
 	if err != nil {
 		return err
 	}
@@ -48,13 +44,13 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The source vpc info is <%s> \n\n\n", (*sourceVpcInfo).CidrBlock)
 
-	routeTable, err := getRouteTable(local, ctx, c.clusterName, c.clusterType, c.subClusterType)
+	routeTable, err := getRouteTable(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.subClusterType)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("The route table is <%#v> \n\n\n", routeTable)
 
-	transitGateway, err := getTransitGateway(local, ctx, c.clusterName)
+	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, c.clusterName)
 	if err != nil {
 		return err
 	}
@@ -67,7 +63,7 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 	for _, targetSubClusterType := range c.subClusterTypes {
 		fmt.Printf("The data is <%#v> \n\n\n", targetSubClusterType)
 		//		vpcInfo, err := getVPC(local, ctx, c.clusterName, c.clusterType, targetSubClusterType)
-		vpcInfo, err := getVPCInfo(local, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: targetSubClusterType})
+		vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: targetSubClusterType})
 		if err != nil {
 			return err
 		}
@@ -78,21 +74,21 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 
 		command := fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", routeTable.RouteTableId, (*vpcInfo).CidrBlock, transitGateway.TransitGatewayId)
 		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		_, stderr, err := local.Execute(ctx, command, false)
+		_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n\n", err)
 			fmt.Printf("The error here is <%s> \n\n\n", string(stderr))
 			return err
 		}
 
-		targetRouteTable, err := getRouteTable(local, ctx, c.clusterName, c.clusterType, targetSubClusterType)
+		targetRouteTable, err := getRouteTable(*c.pexecutor, ctx, c.clusterName, c.clusterType, targetSubClusterType)
 		if err != nil {
 			return err
 		}
 
 		command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", targetRouteTable.RouteTableId, (*sourceVpcInfo).CidrBlock, transitGateway.TransitGatewayId)
 
-		_, stderr, err = local.Execute(ctx, command, false)
+		_, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("The comamnd is <%s> \n\n\n", command)
 			fmt.Printf("The error here is <%#v> \n\n\n", err)
@@ -112,5 +108,5 @@ func (c *CreateRouteTgw) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateRouteTgw) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating route tgw ")
 }

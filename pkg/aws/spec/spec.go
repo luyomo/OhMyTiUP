@@ -65,6 +65,8 @@ type (
 	GlobalOptions struct {
 		User            string               `yaml:"user,omitempty" default:"tidb"`
 		Group           string               `yaml:"group,omitempty"`
+		Host            string               `yaml:"host,omitempty"`
+		SSHKey          string               `yaml:"ssh_key,omitempty"`
 		SSHPort         int                  `yaml:"ssh_port,omitempty" default:"22" validate:"ssh_port:editable"`
 		SSHType         executor.SSHType     `yaml:"ssh_type,omitempty" default:"builtin"`
 		TLSEnabled      bool                 `yaml:"enable_tls,omitempty"`
@@ -75,11 +77,6 @@ type (
 		OS              string               `yaml:"os,omitempty" default:"linux"`
 		Arch            string               `yaml:"arch,omitempty"`
 		Custom          interface{}          `yaml:"custom,omitempty" validate:"custom:ignore"`
-		DBHost          string               `yaml:"db_host"     default:"localhost"`
-		DBPort          int                  `yaml:"db_port"     default:"4000"`
-		DBName          string               `yaml:"db_name"     default:"mysql"`
-		DBUser          string               `yaml:"db_user"     default:"root"`
-		DBPassword      string               `yaml:"db_password" default:""`
 	}
 
 	// MonitoredOptions represents the monitored node configuration
@@ -114,6 +111,7 @@ type (
 		KeyFile      string `yaml:"keyfile,omitempty"`
 		CIDR         string `yaml:"cidr,omitempty"`
 		InstanceType string `yaml:"instance_type,omitempty"`
+		TiDBVersion  string `yaml:"tidb_version"`
 	}
 
 	AwsNodeModal struct {

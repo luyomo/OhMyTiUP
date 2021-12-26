@@ -204,6 +204,11 @@ func (m *Manager) TiDB2AuroraDeploy(
 				}
 				dirs = append(dirs, spec.Abs(globalOptions.User, dir))
 			}
+			sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+			if err != nil {
+				return
+			}
+
 			// the default, relative path of data dir is under deploy dir
 			if strings.HasPrefix(globalOptions.DataDir, "/") {
 				dirs = append(dirs, globalOptions.DataDir)
@@ -214,23 +219,23 @@ func (m *Manager) TiDB2AuroraDeploy(
 			clusterType := "tisample-tidb2aurora"
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
-				CreateRouteTable(globalOptions.User, inst.GetHost(), name, clusterType, "test", true, &clusterInfo).
-				CreateNetwork(globalOptions.User, inst.GetHost(), name, clusterType, "test", true, &clusterInfo).
-				CreateSecurityGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", true, &clusterInfo).
-				CreateInternetGateway(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
-				CreateDBSubnetGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreateVpc(&sexecutor, name, clusterType, "test", &clusterInfo).
+				CreateRouteTable(&sexecutor, name, clusterType, "test", true, &clusterInfo).
+				CreateNetwork(&sexecutor, name, clusterType, "test", true, &clusterInfo).
+				CreateSecurityGroup(&sexecutor, name, clusterType, "test", true, &clusterInfo).
+				CreateInternetGateway(&sexecutor, name, clusterType, "test", &clusterInfo).
+				CreateDBSubnetGroup(&sexecutor, name, clusterType, "test", &clusterInfo).
 				//				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreatePDNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiDBNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiKVNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateDMNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiCDCNodes(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				DeployTiDB(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsWSConfigs, &clusterInfo).
-				CreateDBClusterParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
-				CreateDBCluster(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
-				CreateDBParameterGroup(globalOptions.User, inst.GetHost(), name, clusterType, "test", "", &clusterInfo).
-				CreateDBInstance(globalOptions.User, inst.GetHost(), name, clusterType, "test", &clusterInfo).
+				CreatePDNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiDBNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiKVNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiCDCNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
+				DeployTiDB(&sexecutor, name, clusterType, "test", base.AwsWSConfigs, &clusterInfo).
+				CreateDBClusterParameterGroup(&sexecutor, name, clusterType, "test", &clusterInfo).
+				CreateDBCluster(&sexecutor, name, clusterType, "test", &clusterInfo).
+				CreateDBParameterGroup(&sexecutor, name, clusterType, "test", "", &clusterInfo).
+				CreateDBInstance(&sexecutor, name, clusterType, "test", &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

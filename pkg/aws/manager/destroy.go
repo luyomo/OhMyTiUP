@@ -25,6 +25,7 @@ import (
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
@@ -45,16 +46,21 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 		return err
 	}
 
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	if err != nil {
+		return err
+	}
+
 	clusterType := "tisample-tidb"
 	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().
-		DestroyEC(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroySecurityGroup(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyNetwork(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyRouteTable(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyInternetGateway(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
-		DestroyVpc(utils.CurrentUser(), "127.0.0.1", name, clusterType, "test").
+		DestroyEC(&sexecutor, name, clusterType, "test").
+		DestroySecurityGroup(&sexecutor, name, clusterType, "test").
+		DestroyVpcPeering(&sexecutor, name, clusterType).
+		DestroyNetwork(&sexecutor, name, clusterType, "test").
+		DestroyRouteTable(&sexecutor, name, clusterType, "test").
+		DestroyInternetGateway(&sexecutor, name, clusterType, "test").
+		DestroyVpc(&sexecutor, name, clusterType, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {

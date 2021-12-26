@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 	"strconv"
 	"strings"
@@ -68,8 +67,7 @@ func (r SubnetResult) String() string {
 
 // Mkdir is used to create directory on the target host
 type CreateNetwork struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -79,19 +77,14 @@ type CreateNetwork struct {
 
 // Execute implements the Task interface
 func (c *CreateNetwork) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
-	zones, err := getAvailableZones(local, ctx)
+	zones, err := getAvailableZones(*c.pexecutor, ctx)
 	if err != nil {
 		return nil
 	}
 
 	if c.isPrivate == true {
 		zap.L().Debug("Private Route Table ID", zap.String("privateRouteTableId", c.clusterInfo.privateRouteTableId))
-		err := c.createPrivateSubnets(local, ctx, zones)
+		err := c.createPrivateSubnets(*c.pexecutor, ctx, zones)
 		if err != nil {
 			return err
 		}
@@ -99,7 +92,7 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 
 	} else {
 		zap.L().Debug("Public Route Table ID", zap.String("publicRouteTableId", c.clusterInfo.publicRouteTableId))
-		err := c.createPublicSubnets(local, ctx, zones)
+		err := c.createPublicSubnets(*c.pexecutor, ctx, zones)
 		if err != nil {
 			return err
 		}
@@ -116,7 +109,7 @@ func (c *CreateNetwork) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateNetwork) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Creating network ")
 }
 
 func getNextCidr(cidr string, idx int) string {
@@ -141,7 +134,7 @@ func getAvailableZones(executor ctxt.Executor, ctx context.Context) (Availabilit
 	if err != nil {
 		return AvailabilityZones{}, err
 	}
-	//fmt.Printf("The stdout from the local is <%s> \n\n", string(stdout))
+
 	var zones AvailabilityZones
 	if err = json.Unmarshal(stdout, &zones); err != nil {
 		zap.L().Error("Failed to parse json", zap.Error(err))
@@ -240,8 +233,7 @@ func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.
 /******************************************************************************/
 
 type DestroyNetwork struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	clusterName    string
 	clusterType    string
 	subClusterType string
@@ -249,14 +241,9 @@ type DestroyNetwork struct {
 
 // Execute implements the Task interface
 func (c *DestroyNetwork) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
 	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-subnets", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -268,7 +255,7 @@ func (c *DestroyNetwork) Execute(ctx context.Context) error {
 
 	for _, subnet := range subnets.Subnets {
 		command := fmt.Sprintf("aws ec2 delete-subnet --subnet-id %s", subnet.SubnetId)
-		_, stderr, err := local.Execute(ctx, command, false)
+		_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			fmt.Printf("ERRORS delete-subnet <%s> \n\n\n", string(stderr))
 			return err
@@ -285,5 +272,5 @@ func (c *DestroyNetwork) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyNetwork) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Destroying network")
 }

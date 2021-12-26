@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
 	"os"
 	"path"
@@ -28,8 +28,7 @@ import (
 )
 
 type DeployTiDB struct {
-	user           string
-	host           string
+	pexecutor      *ctxt.Executor
 	awsWSConfigs   *spec.AwsWSConfigs
 	clusterName    string
 	clusterType    string
@@ -52,13 +51,8 @@ func (t TplTiupData) String() string {
 
 // Execute implements the Task interface
 func (c *DeployTiDB) Execute(ctx context.Context) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.user})
-	if err != nil {
-		return err
-	}
-
 	// 1. Get all the workstation nodes
-	workstation, err := getWSExecutor(local, ctx, c.clusterName, c.clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
+	workstation, err := getWSExecutor(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
 	if err != nil {
 		return err
 	}
@@ -66,7 +60,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	// 2. Get all the nodes from tag definition
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err := local.Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
 	}
@@ -201,7 +195,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	dbInstance, err := getRDBInstance(local, ctx, c.clusterName, c.clusterType, "sqlserver")
+	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "sqlserver")
 	if err != nil {
 		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
@@ -224,5 +218,5 @@ func (c *DeployTiDB) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DeployTiDB) String() string {
-	return fmt.Sprintf("Echo: host=%s ", c.host)
+	return fmt.Sprintf("Echo: Deploying TiDB")
 }
