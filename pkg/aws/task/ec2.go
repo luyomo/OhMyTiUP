@@ -26,21 +26,22 @@ import (
 type CreateDMNodes struct {
 	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDMNodes) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	if c.awsTopoConfigs.DM.Count == 0 {
 		zap.L().Debug("There is no DM nodes to be configured")
 		return nil
 	}
 
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=dm\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=dm\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -60,7 +61,11 @@ func (c *CreateDMNodes) Execute(ctx context.Context) error {
 	}
 
 	for _idx := 0; _idx < c.awsTopoConfigs.DM.Count-existsNodes; _idx++ {
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=dm}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.DM.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
+		deviceStmt := ""
+		if c.awsTopoConfigs.DM.VolumeSize > 0 {
+			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.DM.VolumeSize)
+		}
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=dm}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.DM.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
@@ -85,21 +90,22 @@ func (c *CreateDMNodes) String() string {
 type CreatePDNodes struct {
 	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreatePDNodes) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	if c.awsTopoConfigs.PD.Count == 0 {
 		zap.L().Debug("There is no PD nodes to be configured")
 		return nil
 	}
 
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=pd\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=pd\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -122,7 +128,12 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 	}
 
 	for _idx := 0; _idx < c.awsTopoConfigs.PD.Count-existsNodes; _idx++ {
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=pd}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.PD.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
+		deviceStmt := ""
+		if c.awsTopoConfigs.PD.VolumeSize > 0 {
+			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.PD.VolumeSize)
+		}
+
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=pd}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.PD.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
@@ -148,20 +159,21 @@ func (c *CreatePDNodes) String() string {
 type CreateTiCDCNodes struct {
 	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateTiCDCNodes) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	if c.awsTopoConfigs.TiCDC.Count == 0 {
 		zap.L().Debug("There is no TiCDC nodes to be configured")
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=ticdc\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=ticdc\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -181,7 +193,11 @@ func (c *CreateTiCDCNodes) Execute(ctx context.Context) error {
 	}
 
 	for _idx := 0; _idx < c.awsTopoConfigs.TiCDC.Count-existsNodes; _idx++ {
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=ticdc}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiCDC.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
+		deviceStmt := ""
+		if c.awsTopoConfigs.TiCDC.VolumeSize > 0 {
+			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.TiCDC.VolumeSize)
+		}
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=ticdc}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiCDC.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
@@ -206,14 +222,14 @@ func (c *CreateTiCDCNodes) String() string {
 type CreateTiDBNodes struct {
 	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateTiDBNodes) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
 	if c.awsTopoConfigs.TiDB.Count == 0 {
 		zap.L().Debug("There is no TiDB nodes to be configured")
@@ -221,7 +237,7 @@ func (c *CreateTiDBNodes) Execute(ctx context.Context) error {
 	}
 
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=tidb\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=tidb\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -241,7 +257,11 @@ func (c *CreateTiDBNodes) Execute(ctx context.Context) error {
 	}
 
 	for _idx := 0; _idx < c.awsTopoConfigs.TiDB.Count-existsNodes; _idx++ {
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tidb}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiDB.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
+		deviceStmt := ""
+		if c.awsTopoConfigs.TiDB.VolumeSize > 0 {
+			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.TiDB.VolumeSize)
+		}
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tidb}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiDB.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
@@ -266,21 +286,22 @@ func (c *CreateTiDBNodes) String() string {
 type CreateTiKVNodes struct {
 	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	if c.awsTopoConfigs.TiKV.Count == 0 {
 		zap.L().Debug("There is no TiKV nodes to be configured")
 		return nil
 	}
 
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=tikv\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=tikv\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
@@ -298,8 +319,11 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 	}
 
 	for _idx := 0; _idx < c.awsTopoConfigs.TiKV.Count-existsNodes; _idx++ {
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tikv}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiKV.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
-		//command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s --block-device-mappings DeviceName=/dev/sdh,Ebs={DeleteOnTermination=true,VolumeSize=100,VolumeType=gp2,Encrypted=false} --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tikv}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiKV.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], c.clusterName, c.clusterType, c.subClusterType)
+		deviceStmt := ""
+		if c.awsTopoConfigs.TiKV.VolumeSize > 0 {
+			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.TiKV.VolumeSize)
+		}
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=tikv}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.TiKV.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
@@ -324,16 +348,16 @@ func (c *CreateTiKVNodes) String() string {
 type CreateWorkstation struct {
 	pexecutor      *ctxt.Executor
 	awsWSConfigs   *spec.AwsWSConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateWorkstation) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -351,7 +375,11 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=workstation}]\"", c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType, c.awsWSConfigs.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, c.clusterName, c.clusterType, c.subClusterType)
+	deviceStmt := ""
+	if c.awsWSConfigs.VolumeSize > 0 {
+		deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsWSConfigs.VolumeSize)
+	}
+	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=workstation}]\"", c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType, c.awsWSConfigs.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, deviceStmt, clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("run-instances", command))
 	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -374,15 +402,16 @@ func (c *CreateWorkstation) String() string {
 
 type DestroyEC struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyEC) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	// 3. Fetch the count of instance from the instance
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -414,7 +443,7 @@ func (c *DestroyEC) Execute(ctx context.Context) error {
 	for idx := 0; idx < 50; idx++ {
 
 		time.Sleep(5 * time.Second)
-		command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+		command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 		zap.L().Debug("Command", zap.String("describe-instances", command))
 		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {

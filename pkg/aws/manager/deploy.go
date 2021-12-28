@@ -228,22 +228,22 @@ func (m *Manager) Deploy(
 			fmt.Printf("---------------------------\n")
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
-			clusterType := "tisample-tidb"
+
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(&sexecutor, name, clusterType, "tidb", &clusterInfo).
-				CreateRouteTable(&sexecutor, name, clusterType, "tidb", false, &clusterInfo).
-				CreateNetwork(&sexecutor, name, clusterType, "tidb", false, &clusterInfo).
-				CreateSecurityGroup(&sexecutor, name, clusterType, "tidb", false, &clusterInfo).
-				CreateInternetGateway(&sexecutor, name, clusterType, "tidb", &clusterInfo).
+				CreateVpc(&sexecutor, "tidb", &clusterInfo).
+				CreateRouteTable(&sexecutor, "tidb", false, &clusterInfo).
+				CreateNetwork(&sexecutor, "tidb", false, &clusterInfo).
+				CreateSecurityGroup(&sexecutor, "tidb", false, &clusterInfo).
+				CreateInternetGateway(&sexecutor, "tidb", &clusterInfo).
 				//CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreatePDNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiDBNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiKVNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateDMNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiCDCNodes(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreatePDNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiDBNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiKVNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiCDCNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				//CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				DeployTiDB(&sexecutor, name, clusterType, "tidb", base.AwsWSConfigs, &clusterInfo).
+				DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
@@ -253,140 +253,11 @@ func (m *Manager) Deploy(
 		return iterErr
 	}
 
-	//// Download missing component
-	//downloadCompTasks = buildDownloadCompTasks(clusterVersion, topo, m.bindVersion)
-
-	//// Deploy components to remote
-	//topo.IterInstance(func(inst spec.Instance) {
-	//	version := m.bindVersion(inst.ComponentName(), clusterVersion)
-	//	deployDir := spec.Abs(globalOptions.User, inst.DeployDir())
-	//	// data dir would be empty for components which don't need it
-	//	dataDirs := spec.MultiDirAbs(globalOptions.User, inst.DataDir())
-	//	// log dir will always be with values, but might not used by the component
-	//	logDir := spec.Abs(globalOptions.User, inst.LogDir())
-	//	// Deploy component
-	//	// prepare deployment server
-	//	deployDirs := []string{
-	//		deployDir, logDir,
-	//		filepath.Join(deployDir, "bin"),
-	//		filepath.Join(deployDir, "conf"),
-	//		filepath.Join(deployDir, "scripts"),
-	//	}
-	//	if globalOptions.TLSEnabled {
-	//		deployDirs = append(deployDirs, filepath.Join(deployDir, "tls"))
-	//	}
-	//	t := task.NewBuilder().
-	//		UserSSH(
-	//			inst.GetHost(),
-	//			inst.GetSSHPort(),
-	//			globalOptions.User,
-	//			gOpt.SSHTimeout,
-	//			gOpt.OptTimeout,
-	//			gOpt.SSHProxyHost,
-	//			gOpt.SSHProxyPort,
-	//			gOpt.SSHProxyUser,
-	//			sshProxyProps.Password,
-	//			sshProxyProps.IdentityFile,
-	//			sshProxyProps.IdentityFilePassphrase,
-	//			gOpt.SSHProxyTimeout,
-	//			gOpt.SSHType,
-	//			globalOptions.SSHType,
-	//		).
-	//		Mkdir(globalOptions.User, inst.GetHost(), deployDirs...).
-	//		Mkdir(globalOptions.User, inst.GetHost(), dataDirs...)
-
-	//	if deployerInstance, ok := inst.(DeployerInstance); ok {
-	//		deployerInstance.Deploy(t, "", deployDir, version, name, clusterVersion)
-	//	} else {
-	//		// copy dependency component if needed
-	//		switch inst.ComponentName() {
-	//		case spec.ComponentTiSpark:
-	//			env := environment.GlobalEnv()
-	//			var sparkVer utils.Version
-	//			if sparkVer, _, iterErr = env.V1Repository().WithOptions(repository.Options{
-	//				GOOS:   inst.OS(),
-	//				GOARCH: inst.Arch(),
-	//			}).LatestStableVersion(spec.ComponentSpark, false); iterErr != nil {
-	//				return
-	//			}
-	//			t = t.DeploySpark(inst, sparkVer.String(), "" /* default srcPath */, deployDir)
-	//		default:
-	//			t = t.CopyComponent(
-	//				inst.ComponentName(),
-	//				inst.OS(),
-	//				inst.Arch(),
-	//				version,
-	//				"", // use default srcPath
-	//				inst.GetHost(),
-	//				deployDir,
-	//			)
-	//		}
-	//	}
-
-	//	// generate and transfer tls cert for instance
-	//	if globalOptions.TLSEnabled {
-	//		t = t.TLSCert(
-	//			inst.GetHost(),
-	//			inst.ComponentName(),
-	//			inst.Role(),
-	//			inst.GetMainPort(),
-	//			ca,
-	//			meta.DirPaths{
-	//				Deploy: deployDir,
-	//				Cache:  m.specManager.Path(name, spec.TempConfigPath),
-	//			})
-	//	}
-
-	//	// generate configs for the component
-	//	t = t.InitConfig(
-	//		name,
-	//		clusterVersion,
-	//		m.specManager,
-	//		inst,
-	//		globalOptions.User,
-	//		opt.IgnoreConfigCheck,
-	//		meta.DirPaths{
-	//			Deploy: deployDir,
-	//			Data:   dataDirs,
-	//			Log:    logDir,
-	//			Cache:  m.specManager.Path(name, spec.TempConfigPath),
-	//		},
-	//	)
-
-	//	deployCompTasks = append(deployCompTasks,
-	//		t.BuildAsStep(fmt.Sprintf("  - Copy %s -> %s", inst.ComponentName(), inst.GetHost())),
-	//	)
-	//})
-
-	//if iterErr != nil {
-	//	return iterErr
-	//}
-
-	//// Deploy monitor relevant components to remote
-	//dlTasks, dpTasks, err := buildMonitoredDeployTask(
-	//	m,
-	//	name,
-	//	uniqueHosts,
-	//	noAgentHosts,
-	//	globalOptions,
-	//	topo.GetMonitoredOptions(),
-	//	clusterVersion,
-	//	gOpt,
-	//	sshProxyProps,
-	//)
-	//if err != nil {
-	//	return err
-	//}
-	//downloadCompTasks = append(downloadCompTasks, dlTasks...)
-	//deployCompTasks = append(deployCompTasks, dpTasks...)
-
 	builder := task.NewBuilder().
 		//Step("+ Generate SSH keys",
 		//Step("+ Generate SSH keys *****************************",
 		//	task.NewBuilder().SSHKeyGen(m.specManager.Path(name, "ssh", "id_rsa")).Build()).
 		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
-		//ParallelStep("+ Download TiDB components", false, downloadCompTasks...).
-		//ParallelStep("+ Copy files", false, deployCompTasks...)
 
 	if afterDeploy != nil {
 		afterDeploy(builder, topo)
@@ -394,7 +265,10 @@ func (m *Manager) Deploy(
 
 	t := builder.Build()
 
-	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", "tisample-tidb")
+
+	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err

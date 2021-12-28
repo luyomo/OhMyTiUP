@@ -30,20 +30,20 @@ import (
 
 type CreateDBInstance struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDBInstance) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	dbClusterName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 
 	doWhenNotFound := func() error {
 
-		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-cluster-identifier %s --db-parameter-group-name %s --engine aurora-mysql --engine-version 5.7.12 --db-instance-class db.r5.large --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, dbClusterName, dbClusterName, c.clusterName, c.clusterType, c.subClusterType)
+		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-cluster-identifier %s --db-parameter-group-name %s --engine aurora-mysql --engine-version 5.7.12 --db-instance-class db.r5.large --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, dbClusterName, dbClusterName, clusterName, clusterType, c.subClusterType)
 
 		err := runCreateDBInstance(*c.pexecutor, ctx, dbClusterName, command)
 		if err != nil {
@@ -54,7 +54,7 @@ func (c *CreateDBInstance) Execute(ctx context.Context) error {
 
 	doWhenFound := func() error { return nil }
 
-	if err := ExecuteDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+	if err := ExecuteDBInstance(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
 		return err
 	}
 
@@ -68,22 +68,22 @@ func (c *CreateDBInstance) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateDBInstance) String() string {
-	return fmt.Sprintf("Echo: Generating the DB instance %s ", c.clusterName)
+	return fmt.Sprintf("Echo: Generating the DB instance")
 }
 
 /******************************************************************************/
 
 type DestroyDBInstance struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyDBInstance) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	dbClusterName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 
 	doWhenNotFound := func() error {
 		return nil
@@ -97,7 +97,7 @@ func (c *DestroyDBInstance) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	if err := ExecuteDBInstance(*(c.pexecutor), ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+	if err := ExecuteDBInstance(*(c.pexecutor), ctx, clusterName, clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
 		return err
 	}
 
@@ -111,7 +111,7 @@ func (c *DestroyDBInstance) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyDBInstance) String() string {
-	return fmt.Sprintf("Echo: Generating the DB instance %s ", c.clusterName)
+	return fmt.Sprintf("Echo: Generating the DB instance")
 }
 
 //*****************************************************************************
@@ -119,19 +119,19 @@ func (c *DestroyDBInstance) String() string {
 type CreateMS struct {
 	pexecutor      *ctxt.Executor
 	awsMSConfigs   *spec.AwsMSConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 func (c *CreateMS) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	dbClusterName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 
 	doWhenNotFound := func() error {
 		fmt.Printf(" *** *** *** Starting to create instance \n\n\n")
-		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-instance-class %s --engine %s --master-username %s --master-user-password %s --vpc-security-group-ids %s  --db-subnet-group-name %s --db-parameter-group-name %s --engine-version %s --license-model license-included --allocated-storage %d --backup-retention-period 0 --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, (*c.awsMSConfigs).InstanceType, (*c.awsMSConfigs).Engine, (*c.awsMSConfigs).DBMasterUser, (*c.awsMSConfigs).DBMasterUserPass, c.clusterInfo.privateSecurityGroupId, dbClusterName, dbClusterName, (*c.awsMSConfigs).EngineVerion, (*c.awsMSConfigs).DiskSize, c.clusterName, c.clusterType, c.subClusterType)
+		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-instance-class %s --engine %s --master-username %s --master-user-password %s --vpc-security-group-ids %s  --db-subnet-group-name %s --db-parameter-group-name %s --engine-version %s --license-model license-included --allocated-storage %d --backup-retention-period 0 --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, (*c.awsMSConfigs).InstanceType, (*c.awsMSConfigs).Engine, (*c.awsMSConfigs).DBMasterUser, (*c.awsMSConfigs).DBMasterUserPass, c.clusterInfo.privateSecurityGroupId, dbClusterName, dbClusterName, (*c.awsMSConfigs).EngineVerion, (*c.awsMSConfigs).DiskSize, clusterName, clusterType, c.subClusterType)
 
 		err := runCreateDBInstance(*c.pexecutor, ctx, dbClusterName, command)
 		if err != nil {
@@ -142,7 +142,7 @@ func (c *CreateMS) Execute(ctx context.Context) error {
 
 	doWhenFound := func() error { return nil }
 
-	if err := ExecuteDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
+	if err := ExecuteDBInstance(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType, &doWhenNotFound, &doWhenFound); err != nil {
 		return err
 	}
 

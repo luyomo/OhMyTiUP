@@ -30,8 +30,6 @@ import (
 type DeployTiDB struct {
 	pexecutor      *ctxt.Executor
 	awsWSConfigs   *spec.AwsWSConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
@@ -51,14 +49,17 @@ func (t TplTiupData) String() string {
 
 // Execute implements the Task interface
 func (c *DeployTiDB) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	// 1. Get all the workstation nodes
-	workstation, err := getWSExecutor(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
+	workstation, err := getWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
 	if err != nil {
 		return err
 	}
 
 	// 2. Get all the nodes from tag definition
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -195,7 +196,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "sqlserver")
+	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
 	if err != nil {
 		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err

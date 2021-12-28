@@ -83,17 +83,6 @@ func (m *Manager) TiDB2MSDeploy(
 		base.GlobalOptions.SSHType = sshType
 	}
 
-	// clusterList, err := m.specManager.GetAllClusters()
-	// if err != nil {
-	// 	return err
-	// }
-	// if err := spec.CheckClusterPortConflict(clusterList, name, topo); err != nil {
-	// 	return err
-	// }
-	// if err := spec.CheckClusterDirConflict(clusterList, name, topo); err != nil {
-	// 	return err
-	// }
-
 	var (
 		sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
 		sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
@@ -139,7 +128,7 @@ func (m *Manager) TiDB2MSDeploy(
 	var workstationInfo, clusterInfo, auroraInfo, msInfo, dmsInfo task.ClusterInfo
 
 	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, name, clusterType, "workstation", base.AwsWSConfigs, &workstationInfo).
+		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 
 		envInitTasks = append(envInitTasks, t1)
@@ -147,19 +136,19 @@ func (m *Manager) TiDB2MSDeploy(
 
 	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DM.Count + base.AwsTopoConfigs.TiCDC.Count
 	if cntEC2Nodes > 0 {
-		t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
+		t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 		envInitTasks = append(envInitTasks, t2)
 	}
 
 	if base.AwsAuroraConfigs.InstanceType != "" {
-		t3 := task.NewBuilder().CreateAurora(&sexecutor, name, clusterType, "aurora", base.AwsAuroraConfigs, &auroraInfo).
+		t3 := task.NewBuilder().CreateAurora(&sexecutor, "aurora", base.AwsAuroraConfigs, &auroraInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora instance"))
 		envInitTasks = append(envInitTasks, t3)
 	}
 
 	if base.AwsMSConfigs.InstanceType != "" {
-		t4 := task.NewBuilder().CreateSqlServer(&sexecutor, name, clusterType, "sqlserver", base.AwsMSConfigs, &msInfo).
+		t4 := task.NewBuilder().CreateSqlServer(&sexecutor, "sqlserver", base.AwsMSConfigs, &msInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing sqlserver instance"))
 		envInitTasks = append(envInitTasks, t4)
 	}
@@ -172,7 +161,9 @@ func (m *Manager) TiDB2MSDeploy(
 
 	t := builder.Build()
 
-	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
@@ -183,41 +174,43 @@ func (m *Manager) TiDB2MSDeploy(
 	var t5 *task.StepDisplay
 	if cntEC2Nodes > 0 {
 		t5 = task.NewBuilder().
-			CreateDMSService(&sexecutor, name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
-			CreateTransitGateway(&sexecutor, name, clusterType).
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "tidb").
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "aurora").
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "sqlserver").
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "dmsservice").
-			CreateRouteTgw(&sexecutor, name, clusterType, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
-			CreateRouteTgw(&sexecutor, name, clusterType, "tidb", []string{"aurora"}).
-			CreateRouteTgw(&sexecutor, name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB(&sexecutor, name, clusterType, "tidb", base.AwsWSConfigs, &workstationInfo).
-			DeployTiDBInstance(&sexecutor, name, clusterType, "tidb", &workstationInfo).
+			CreateDMSService(&sexecutor, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
+			CreateTransitGateway(&sexecutor).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "sqlserver").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice").
+			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
+			CreateRouteTgw(&sexecutor, "tidb", []string{"aurora"}).
+			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
+			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+			DeployTiDBInstance(&sexecutor, "tidb", &workstationInfo).
 			//MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
-			DeployTiCDC(&sexecutor, name, clusterType, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
+			DeployTiCDC(&sexecutor, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
 			BuildAsStep(fmt.Sprintf("  - Prepare DMS servicer and additional network resources %s:%d", globalOptions.Host, 22))
 	} else {
 		t5 = task.NewBuilder().
-			CreateDMSService(&sexecutor, name, clusterType, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
-			CreateTransitGateway(&sexecutor, name, clusterType).
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "aurora").
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "sqlserver").
-			CreateTransitGatewayVpcAttachment(&sexecutor, name, clusterType, "dmsservice").
-			CreateRouteTgw(&sexecutor, name, clusterType, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
-			CreateRouteTgw(&sexecutor, name, clusterType, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB(&sexecutor, name, clusterType, "tidb", base.AwsWSConfigs, &workstationInfo).
-			CreateDMSTask(&sexecutor, name, clusterType, "dmsservice", &dmsInfo).
-			MakeDBObjects(&sexecutor, name, clusterType, "tidb", &workstationInfo).
+			CreateDMSService(&sexecutor, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
+			CreateTransitGateway(&sexecutor).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "sqlserver").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice").
+			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
+			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
+			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+			CreateDMSTask(&sexecutor, "dmsservice", &dmsInfo).
+			MakeDBObjects(&sexecutor, "tidb", &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 	}
 
+	tailctx := context.WithValue(context.Background(), "clusterName", name)
+	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
 	builder = task.NewBuilder().
 		ParallelStep("+ Initialize target host environments", false, t5)
 	t = builder.Build()
-	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
+	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err

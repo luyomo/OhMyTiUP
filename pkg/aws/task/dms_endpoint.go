@@ -28,14 +28,14 @@ import (
 
 type CreateDMSSourceEndpoint struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
 	command := fmt.Sprintf("aws dms describe-endpoints --filters Name=endpoint-type,Values=source Name=engine-name,Values=aurora")
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
@@ -56,7 +56,7 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The source endpoint is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
+			existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				DMSInfo.SourceEndpointArn = endpoint.EndpointArn
 				fmt.Printf("The dms source target has exists \n\n\n")
@@ -65,14 +65,14 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 		}
 	}
 
-	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "aurora")
+	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "aurora")
 	if err != nil {
 		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}
 	fmt.Printf("The dn instance is <%#v> \n\n\n", dbInstance)
 
-	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-source --endpoint-type source --engine-name aurora --server-name %s --port %d --username %s --password %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-source --endpoint-type source --engine-name aurora --server-name %s --port %d --username %s --password %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -106,14 +106,14 @@ func (c *CreateDMSSourceEndpoint) String() string {
 
 type CreateDMSTargetEndpoint struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
 	command := fmt.Sprintf("aws dms describe-endpoints --filters Name=endpoint-type,Values=target Name=engine-name,Values=sqlserver")
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
@@ -134,7 +134,7 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The target endpoint <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
+			existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				DMSInfo.TargetEndpointArn = endpoint.EndpointArn
 				fmt.Printf("The dms target endpoint has exists \n\n\n")
@@ -143,14 +143,14 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 		}
 	}
 
-	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "sqlserver")
+	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
 	if err != nil {
 		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}
 	fmt.Printf("The target db instance <%#v> \n\n\n", dbInstance)
 
-	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port %d --username %s --password %s --database-name %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", "cdc_test", c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port %d --username %s --password %s --database-name %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", "cdc_test", clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -191,6 +191,9 @@ type DestroyDMSEndpoints struct {
 
 // Execute implements the Task interface
 func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	command := fmt.Sprintf("aws dms describe-endpoints")
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	var deletingEndpoints []string
@@ -208,7 +211,7 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 			return err
 		}
 		for _, endpoint := range endpoints.Endpoints {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
+			existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				command = fmt.Sprintf("aws dms delete-endpoint --endpoint-arn %s", endpoint.EndpointArn)
 

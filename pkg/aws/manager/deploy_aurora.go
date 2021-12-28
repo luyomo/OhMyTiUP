@@ -216,19 +216,19 @@ func (m *Manager) AuroraDeploy(
 			fmt.Printf("---------------------------\n")
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
-			clusterType := "tisample-aurora"
+
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(&sexecutor, name, clusterType, "aurora", &clusterInfo).
-				CreateRouteTable(&sexecutor, name, clusterType, "aurora", true, &clusterInfo).
-				CreateNetwork(&sexecutor, name, clusterType, "aurora", true, &clusterInfo).
-				CreateSecurityGroup(&sexecutor, name, clusterType, "aurora", true, &clusterInfo).
-				CreateInternetGateway(&sexecutor, name, clusterType, "aurora", &clusterInfo).
-				CreateDBSubnetGroup(&sexecutor, name, clusterType, "aurora", &clusterInfo).
-				CreateDBClusterParameterGroup(&sexecutor, name, clusterType, "aurora", &clusterInfo).
-				CreateDBCluster(&sexecutor, name, clusterType, "aurora", &clusterInfo).
-				CreateDBParameterGroup(&sexecutor, name, clusterType, "aurora", "", &clusterInfo).
-				CreateDBInstance(&sexecutor, name, clusterType, "aurora", &clusterInfo).
+				CreateVpc(&sexecutor, "aurora", &clusterInfo).
+				CreateRouteTable(&sexecutor, "aurora", true, &clusterInfo).
+				CreateNetwork(&sexecutor, "aurora", true, &clusterInfo).
+				CreateSecurityGroup(&sexecutor, "aurora", true, &clusterInfo).
+				CreateInternetGateway(&sexecutor, "aurora", &clusterInfo).
+				CreateDBSubnetGroup(&sexecutor, "aurora", &clusterInfo).
+				CreateDBClusterParameterGroup(&sexecutor, "aurora", &clusterInfo).
+				CreateDBCluster(&sexecutor, "aurora", &clusterInfo).
+				CreateDBParameterGroup(&sexecutor, "aurora", "", &clusterInfo).
+				CreateDBInstance(&sexecutor, "aurora", &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
@@ -252,7 +252,9 @@ func (m *Manager) AuroraDeploy(
 
 	t := builder.Build()
 
-	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", "tisample-aurora")
+	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err

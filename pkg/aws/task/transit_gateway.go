@@ -32,16 +32,17 @@ type TransitGateways struct {
 }
 
 type CreateTransitGateway struct {
-	pexecutor   *ctxt.Executor
-	clusterName string
-	clusterType string
+	pexecutor *ctxt.Executor
 }
 
 //
 // create-transit-gateway --description testtisample --tag-specifications ...
 // Execute implements the Task interface
 func (c *CreateTransitGateway) Execute(ctx context.Context) error {
-	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, c.clusterName)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
 	if err != nil {
 		return err
 	}
@@ -49,7 +50,7 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-transit-gateway --description %s --tag-specifications --tag-specifications \"ResourceType=transit-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s}]\"", c.clusterName, c.clusterName, c.clusterType)
+	command := fmt.Sprintf("aws ec2 create-transit-gateway --description %s --tag-specifications --tag-specifications \"ResourceType=transit-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s}]\"", clusterName, clusterName, clusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -59,7 +60,7 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 	}
 
 	for i := 1; i <= 50; i++ {
-		transitGateway, err := getTransitGateway(*c.pexecutor, ctx, c.clusterName)
+		transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
 		if err != nil {
 			return err
 		}
@@ -89,14 +90,13 @@ func (c *CreateTransitGateway) String() string {
 /******************************************************************************/
 
 type DestroyTransitGateway struct {
-	pexecutor   *ctxt.Executor
-	clusterName string
-	clusterType string
+	pexecutor *ctxt.Executor
 }
 
 func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
 
-	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, c.clusterName)
+	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, clusterName)
 
 	if err != nil {
 		return err

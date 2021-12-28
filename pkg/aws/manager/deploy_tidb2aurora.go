@@ -216,26 +216,26 @@ func (m *Manager) TiDB2AuroraDeploy(
 			fmt.Printf("---------------------------\n")
 			zap.L().Debug("This is the test message")
 			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
-			clusterType := "tisample-tidb2aurora"
+
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(&sexecutor, name, clusterType, "test", &clusterInfo).
-				CreateRouteTable(&sexecutor, name, clusterType, "test", true, &clusterInfo).
-				CreateNetwork(&sexecutor, name, clusterType, "test", true, &clusterInfo).
-				CreateSecurityGroup(&sexecutor, name, clusterType, "test", true, &clusterInfo).
-				CreateInternetGateway(&sexecutor, name, clusterType, "test", &clusterInfo).
-				CreateDBSubnetGroup(&sexecutor, name, clusterType, "test", &clusterInfo).
+				CreateVpc(&sexecutor, "test", &clusterInfo).
+				CreateRouteTable(&sexecutor, "test", true, &clusterInfo).
+				CreateNetwork(&sexecutor, "test", true, &clusterInfo).
+				CreateSecurityGroup(&sexecutor, "test", true, &clusterInfo).
+				CreateInternetGateway(&sexecutor, "test", &clusterInfo).
+				CreateDBSubnetGroup(&sexecutor, "test", &clusterInfo).
 				//				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreatePDNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiDBNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiKVNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateDMNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateTiCDCNodes(&sexecutor, name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
-				DeployTiDB(&sexecutor, name, clusterType, "test", base.AwsWSConfigs, &clusterInfo).
-				CreateDBClusterParameterGroup(&sexecutor, name, clusterType, "test", &clusterInfo).
-				CreateDBCluster(&sexecutor, name, clusterType, "test", &clusterInfo).
-				CreateDBParameterGroup(&sexecutor, name, clusterType, "test", "", &clusterInfo).
-				CreateDBInstance(&sexecutor, name, clusterType, "test", &clusterInfo).
+				CreatePDNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiDBNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiKVNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateTiCDCNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
+				DeployTiDB(&sexecutor, "test", base.AwsWSConfigs, &clusterInfo).
+				CreateDBClusterParameterGroup(&sexecutor, "test", &clusterInfo).
+				CreateDBCluster(&sexecutor, "test", &clusterInfo).
+				CreateDBParameterGroup(&sexecutor, "test", "", &clusterInfo).
+				CreateDBInstance(&sexecutor, "test", &clusterInfo).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}
@@ -259,7 +259,9 @@ func (m *Manager) TiDB2AuroraDeploy(
 
 	t := builder.Build()
 
-	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", "tisample-tidb2aurora")
+	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err

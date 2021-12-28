@@ -70,15 +70,16 @@ type TiDBClusterDetail struct {
 
 type DeployTiDBInstance struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", c.clusterName, c.clusterType)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", clusterName, clusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -100,7 +101,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", c.clusterName)
+	command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -132,7 +133,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	clusterExists := false
 	for _, tidbClusterInfo := range tidbClusterInfos.TiDBClusterInfos {
-		if tidbClusterInfo.Name == c.clusterName {
+		if tidbClusterInfo.Name == clusterName {
 			clusterExists = true
 			break
 		}
@@ -140,19 +141,19 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	if clusterExists == false {
 
-		stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s v5.2.0 /opt/tidb/tidb-cluster.yml -y`, c.clusterName), false, 300*time.Second)
+		stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s v5.2.0 /opt/tidb/tidb-cluster.yml -y`, clusterName), false, 300*time.Second)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 			return nil
 		}
 
-		stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s`, c.clusterName), false, 300*time.Second)
+		stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s`, clusterName), false, 300*time.Second)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 			return nil
 		}
 	} else {
-		stdout, stderr, err := wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, c.clusterName), false)
+		stdout, stderr, err := wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
 		if err != nil {
 			fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 			return nil
@@ -165,7 +166,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		}
 		for _, component := range tidbClusterDetail.Instances {
 			if component.Status != "Up" {
-				stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s --node %s `, c.clusterName, component.Id), false)
+				stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s --node %s `, clusterName, component.Id), false)
 				if err != nil {
 					fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 					return nil

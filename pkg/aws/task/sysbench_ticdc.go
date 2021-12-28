@@ -74,8 +74,10 @@ type SysbenchTiCDC struct {
 
 // Execute implements the Task interface
 func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	workstation, err := getWSExecutor(*c.pexecutor, ctx, c.clusterName, c.clusterType, "admin", c.identityFile)
+	workstation, err := getWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, "admin", c.identityFile)
 	if err != nil {
 		return err
 	}
@@ -115,22 +117,22 @@ func (c *SysbenchTiCDC) String() string {
 type PrepareSysbenchTiCDC struct {
 	pexecutor    *ctxt.Executor
 	identityFile string
-	clusterName  string
-	clusterType  string
 	scriptParam  ScriptParam
 }
 
 // Execute implements the Task interface
 func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 	//	var tplParams ScriptParam
-	workstation, err := getWSExecutor(*c.pexecutor, ctx, c.clusterName, c.clusterType, "admin", c.identityFile)
+	workstation, err := getWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, "admin", c.identityFile)
 	if err != nil {
 		return err
 	}
 
 	//  *****   1. Fetch the TiDB host
 	if c.scriptParam.TiDBUser == "" {
-		tidbClusterDetail, err := getTiDBClusterInfo(workstation, ctx, c.clusterName, c.clusterType)
+		tidbClusterDetail, err := getTiDBClusterInfo(workstation, ctx, clusterName, clusterType)
 		if err != nil {
 			return err
 		}
@@ -148,7 +150,7 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	}
 
 	// ****   2. Get aurora connection string
-	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "aurora")
+	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "aurora")
 	if err != nil {
 		return err
 	}
@@ -158,7 +160,7 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	c.scriptParam.MySQLUser = dbInstance.MasterUsername
 	c.scriptParam.MySQLPass = "1234Abcd"
 
-	dbInstance, err = getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "sqlserver")
+	dbInstance, err = getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
 	if err != nil {
 		return err
 	}

@@ -51,15 +51,15 @@ type VPCPeeringConnections struct {
 }
 
 type AcceptVPCPeering struct {
-	pexecutor   *ctxt.Executor
-	clusterName string
-	clusterType string
+	pexecutor *ctxt.Executor
 }
 
 // Execute implements the Task interface
 func (c *AcceptVPCPeering) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	vpcs, err := getVPCInfos(*c.pexecutor, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType})
+	vpcs, err := getVPCInfos(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType})
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (c *AcceptVPCPeering) Execute(ctx context.Context) error {
 				return nil
 			}
 
-			routeTable, err := getRouteTableByVPC(*c.pexecutor, ctx, c.clusterName, vpcPeering.AccepterVpcInfo.VpcId)
+			routeTable, err := getRouteTableByVPC(*c.pexecutor, ctx, clusterName, vpcPeering.AccepterVpcInfo.VpcId)
 			if err != nil {
 				return err
 			}
@@ -128,13 +128,14 @@ func (c *AcceptVPCPeering) String() string {
 /******************************************************************************/
 
 type DestroyVpcPeering struct {
-	pexecutor   *ctxt.Executor
-	clusterName string
-	clusterType string
+	pexecutor *ctxt.Executor
 }
 
 func (c *DestroyVpcPeering) Execute(ctx context.Context) error {
-	vpcs, err := getVPCInfos(*(c.pexecutor), ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType})
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	vpcs, err := getVPCInfos(*(c.pexecutor), ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType})
 	if err != nil {
 		return err
 	}

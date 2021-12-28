@@ -55,10 +55,12 @@ func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options) error {
 	}
 
 	t := task.NewBuilder().
-		SysbenchTiCDC(&sexecutor, gOpt.IdentityFile, name, clusterType, &clusterTable).
+		SysbenchTiCDC(&sexecutor, gOpt.IdentityFile, &clusterTable).
 		BuildAsStep(fmt.Sprintf("  - Sysbench ticdc %s ", name))
 
-	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
@@ -88,10 +90,12 @@ func (m *Manager) PrepareSysbenchTiCDC(name string, gOpt operator.Options, scrip
 	}
 
 	t := task.NewBuilder().
-		PrepareSysbenchTiCDC(&sexecutor, gOpt.IdentityFile, name, clusterType, scriptParam).
+		PrepareSysbenchTiCDC(&sexecutor, gOpt.IdentityFile, scriptParam).
 		BuildAsStep(fmt.Sprintf("  - Sysbench ticdc %s ", name))
 
-	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err

@@ -39,13 +39,14 @@ type TransitGatewayVpcAttachments struct {
 
 type CreateTransitGatewayVpcAttachment struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
-	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=state,Values=available,modifying,pending\"", c.clusterName, c.clusterType, c.subClusterType)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType, c.subClusterType)
 
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -63,7 +64,7 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, c.clusterName)
+	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
 	if err != nil {
 		return err
 	}
@@ -71,7 +72,7 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		return errors.New("No transit gateway found")
 	}
 
-	vpc, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	vpc, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	subnets, err := getNetworksString(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.subClusterType, "private")
+	subnets, err := getNetworksString(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType, "private")
 	if err != nil {
 		return err
 	}
@@ -87,7 +88,7 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		return errors.New("No subnets found")
 	}
 
-	command = fmt.Sprintf("aws ec2 create-transit-gateway-vpc-attachment --transit-gateway-id %s --vpc-id %s --subnet-ids '\"'\"'%s'\"'\"' --tag-specifications \"ResourceType=transit-gateway-attachment,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", transitGateway.TransitGatewayId, vpc.VpcId, subnets, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws ec2 create-transit-gateway-vpc-attachment --transit-gateway-id %s --vpc-id %s --subnet-ids '\"'\"'%s'\"'\"' --tag-specifications \"ResourceType=transit-gateway-attachment,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", transitGateway.TransitGatewayId, vpc.VpcId, subnets, clusterName, clusterType, c.subClusterType)
 
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -117,13 +118,14 @@ func (c *CreateTransitGatewayVpcAttachment) String() string {
 /******************************************************************************/
 
 type DestroyTransitGatewayVpcAttachment struct {
-	pexecutor   *ctxt.Executor
-	clusterName string
-	clusterType string
+	pexecutor *ctxt.Executor
 }
 
 func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
-	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", c.clusterName, c.clusterType)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
 
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -153,7 +155,7 @@ func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error 
 		deletingAttachments = append(deletingAttachments, attachment.TransitGatewayAttachmentId)
 	}
 
-	command = fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending,deleting\"", c.clusterName, c.clusterType)
+	command = fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending,deleting\"", clusterName, clusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 
 	for i := 1; i <= 50; i++ {

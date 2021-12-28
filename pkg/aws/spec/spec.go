@@ -114,9 +114,17 @@ type (
 		TiDBVersion  string `yaml:"tidb_version"`
 	}
 
+	AwsNodeVolume struct {
+		Size       int    `yaml:"size,omitempty"`
+		Iops       int    `yaml:"iops,omitempty"`
+		VolumeType string `yaml:"volume-type,omitempty"`
+		Throughput int    `yaml:"throughput,omitempty"`
+	}
+
 	AwsNodeModal struct {
 		InstanceType string `yaml:"instance_type"`
 		Count        int    `yaml:"count"`
+		VolumeSize   int    `yaml:"volumeSize,omitempty"`
 	}
 
 	AuroraConfig struct {
@@ -139,6 +147,7 @@ type (
 		KeyName      string `yaml:"keyname"`
 		KeyFile      string `yaml:"keyfile,omitempty"`
 		UserName     string `yaml:"username"`
+		VolumeSize   int    `yaml:"volumeSize,omitempty"`
 	}
 
 	AwsAuroraConfigs struct {

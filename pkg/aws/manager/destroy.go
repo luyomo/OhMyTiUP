@@ -54,16 +54,18 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 	clusterType := "tisample-tidb"
 	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().
-		DestroyEC(&sexecutor, name, clusterType, "test").
-		DestroySecurityGroup(&sexecutor, name, clusterType, "test").
-		DestroyVpcPeering(&sexecutor, name, clusterType).
-		DestroyNetwork(&sexecutor, name, clusterType, "test").
-		DestroyRouteTable(&sexecutor, name, clusterType, "test").
-		DestroyInternetGateway(&sexecutor, name, clusterType, "test").
-		DestroyVpc(&sexecutor, name, clusterType, "test").
+		DestroyEC(&sexecutor, "test").
+		DestroySecurityGroup(&sexecutor, "test").
+		DestroyVpcPeering(&sexecutor).
+		DestroyNetwork(&sexecutor, "test").
+		DestroyRouteTable(&sexecutor, "test").
+		DestroyInternetGateway(&sexecutor, "test").
+		DestroyVpc(&sexecutor, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
-	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err

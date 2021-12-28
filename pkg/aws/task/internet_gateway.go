@@ -24,15 +24,16 @@ import (
 // Mkdir is used to create directory on the target host
 type CreateInternetGateway struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateInternetGateway) Execute(ctx context.Context) error {
-	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Clustere\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", c.clusterName, c.clusterType, c.subClusterType)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Clustere\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -50,7 +51,7 @@ func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 create-internet-gateway --tag-specifications \"ResourceType=internet-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws ec2 create-internet-gateway --tag-specifications \"ResourceType=internet-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
 	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -96,15 +97,14 @@ func (c *CreateInternetGateway) String() string {
 // Mkdir is used to create directory on the target host
 type DestroyInternetGateway struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
-
-	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {

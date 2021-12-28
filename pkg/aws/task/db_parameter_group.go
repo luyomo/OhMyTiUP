@@ -39,8 +39,6 @@ type NewDBParameterGroup struct {
 
 type CreateDBParameterGroup struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	groupFamily    string
 	clusterInfo    *ClusterInfo
@@ -48,8 +46,10 @@ type CreateDBParameterGroup struct {
 
 // Execute implements the Task interface
 func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	dbParameterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	dbParameterName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 	// Get the available zones
 	command := fmt.Sprintf("aws rds describe-db-parameter-groups --db-parameter-group-name '%s'", dbParameterName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
@@ -68,7 +68,7 @@ func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 
 		for _, dbParameterGroup := range dbParameterGroups.DBParameterGroups {
 
-			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbParameterGroup.DBParameterGroupArn, *c.pexecutor, ctx)
+			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, dbParameterGroup.DBParameterGroupArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				fmt.Printf("The db cluster  has exists \n\n\n")
 				return nil
@@ -76,7 +76,7 @@ func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws rds create-db-parameter-group --db-parameter-group-name %s --db-parameter-group-family %s --description \"%s\" --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbParameterName, c.groupFamily, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws rds create-db-parameter-group --db-parameter-group-name %s --db-parameter-group-family %s --description \"%s\" --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbParameterName, c.groupFamily, clusterName, clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -109,15 +109,15 @@ func (c *CreateDBParameterGroup) String() string {
 
 type DestroyDBParameterGroup struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyDBParameterGroup) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	dbParameterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	dbParameterName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 	// Get the available zones
 	command := fmt.Sprintf("aws rds describe-db-parameter-groups --db-parameter-group-name '%s'", dbParameterName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
@@ -136,7 +136,7 @@ func (c *DestroyDBParameterGroup) Execute(ctx context.Context) error {
 		fmt.Printf("The db cluster is <%#v> \n\n\n", dbParameterGroups)
 		for _, dbParameterGroup := range dbParameterGroups.DBParameterGroups {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbParameterGroup)
-			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbParameterGroup.DBParameterGroupArn, *(c.pexecutor), ctx)
+			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, dbParameterGroup.DBParameterGroupArn, *(c.pexecutor), ctx)
 			if existsResource == true {
 				command = fmt.Sprintf("aws rds delete-db-parameter-group --db-parameter-group-name %s", dbParameterName)
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)

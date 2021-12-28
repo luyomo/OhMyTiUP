@@ -24,17 +24,17 @@ import (
 
 type CreateDMSSubnetGroup struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
 	// Get the available zones
-	command := fmt.Sprintf("aws dms describe-replication-subnet-groups --filters \"Name=replication-subnet-group-id,Values=%s\"", c.clusterName)
+	command := fmt.Sprintf("aws dms describe-replication-subnet-groups --filters \"Name=replication-subnet-group-id,Values=%s\"", clusterName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("The error err here is <%#v> \n\n", err)
@@ -59,7 +59,7 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 	for _, subnet := range c.clusterInfo.privateSubnets {
 		subnets = append(subnets, "\""+subnet+"\"")
 	}
-	command = fmt.Sprintf("aws dms create-replication-subnet-group --replication-subnet-group-identifier %s --replication-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws dms create-replication-subnet-group --replication-subnet-group-identifier %s --replication-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, clusterName, strings.Join(subnets, ","), clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -88,16 +88,15 @@ type DestroyDMSSubnetGroup struct {
 	user           string
 	host           string
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyDMSSubnetGroup) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
 
 	// Get the available zones
-	command := fmt.Sprintf("aws dms describe-replication-subnet-groups --filters \"Name=replication-subnet-group-id,Values=%s\"", c.clusterName)
+	command := fmt.Sprintf("aws dms describe-replication-subnet-groups --filters \"Name=replication-subnet-group-id,Values=%s\"", clusterName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		fmt.Printf("ERRORS describe-replication-subnet-groups <%s> \n\n\n", string(stderr))

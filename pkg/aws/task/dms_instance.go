@@ -27,14 +27,15 @@ import (
 
 type CreateDMSInstance struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDMSInstance) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	command := fmt.Sprintf("aws dms describe-replication-instances")
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -48,7 +49,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 		}
 
 		for _, replicationInstance := range replicationInstances.ReplicationInstances {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
+			existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				DMSInfo.ReplicationInstanceArn = replicationInstance.ReplicationInstanceArn
 				fmt.Printf("The replication instance  has exists \n\n\n")
@@ -57,7 +58,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws dms create-replication-instance --replication-instance-identifier %s --replication-instance-class %s --engine-version %s --replication-subnet-group-identifier %s --no-multi-az --no-publicly-accessible --replication-subnet-group-identifier %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, "dms.t3.medium", "3.4.6", c.clusterName, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws dms create-replication-instance --replication-instance-identifier %s --replication-instance-class %s --engine-version %s --replication-subnet-group-identifier %s --no-multi-az --no-publicly-accessible --replication-subnet-group-identifier %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, "dms.t3.medium", "3.4.6", clusterName, clusterName, clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -89,7 +90,7 @@ func (c *CreateDMSInstance) Execute(ctx context.Context) error {
 			}
 
 			for _, replicationInstance := range replicationInstances.ReplicationInstances {
-				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
+				existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
 				if existsResource == true {
 					if replicationInstance.ReplicationInstanceStatus == "available" {
 						return nil
@@ -118,14 +119,14 @@ func (c *CreateDMSInstance) String() string {
 
 type DestroyDMSInstance struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
 	var replicationInstanceArn string
 	command := fmt.Sprintf("aws dms describe-replication-instances")
@@ -141,7 +142,7 @@ func (c *DestroyDMSInstance) Execute(ctx context.Context) error {
 		}
 
 		for _, replicationInstance := range replicationInstances.ReplicationInstances {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
+			existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, replicationInstance.ReplicationInstanceArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				replicationInstanceArn = replicationInstance.ReplicationInstanceArn
 				command = fmt.Sprintf("aws dms delete-replication-instance --replication-instance-arn %s ", replicationInstance.ReplicationInstanceArn)

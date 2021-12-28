@@ -27,15 +27,16 @@ import (
 
 type CreateDMSTask struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDMSTask) Execute(ctx context.Context) error {
-	command := fmt.Sprintf("aws dms describe-replication-tasks --filters Name=replication-task-id,Values=%s", c.clusterName)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	command := fmt.Sprintf("aws dms describe-replication-tasks --filters Name=replication-task-id,Values=%s", clusterName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if strings.Contains(string(stderr), fmt.Sprintf("No Tasks found matching provided filters")) {
@@ -53,7 +54,7 @@ func (c *CreateDMSTask) Execute(ctx context.Context) error {
 			return err
 		}
 		for _, replicationTask := range replicationTasks.ReplicationTasks {
-			existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, *c.pexecutor, ctx)
+			existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, replicationTask.ReplicationTaskArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				fmt.Printf("The replication instance  has exists \n\n\n")
 				return nil
@@ -63,7 +64,7 @@ func (c *CreateDMSTask) Execute(ctx context.Context) error {
 
 	tableMapping := `{"rules": [{"rule-type": "selection","rule-id": "1","rule-name": "1","object-locator": {"schema-name": "cdc_test","table-name": "%"},"rule-action": "include"}]}`
 
-	command = fmt.Sprintf("aws dms create-replication-task --replication-task-identifier %s --source-endpoint-arn %s --target-endpoint-arn %s --replication-instance-arn %s --migration-type %s --table-mappings '\"'\"'%s'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", c.clusterName, DMSInfo.SourceEndpointArn, DMSInfo.TargetEndpointArn, DMSInfo.ReplicationInstanceArn, "full-load-and-cdc", tableMapping, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws dms create-replication-task --replication-task-identifier %s --source-endpoint-arn %s --target-endpoint-arn %s --replication-instance-arn %s --migration-type %s --table-mappings '\"'\"'%s'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, DMSInfo.SourceEndpointArn, DMSInfo.TargetEndpointArn, DMSInfo.ReplicationInstanceArn, "full-load-and-cdc", tableMapping, clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -81,7 +82,7 @@ func (c *CreateDMSTask) Execute(ctx context.Context) error {
 
 	taskIsReady := false
 	for i := 1; i <= 50; i++ {
-		command = fmt.Sprintf("aws dms describe-replication-tasks --filters Name=replication-task-id,Values=%s", c.clusterName)
+		command = fmt.Sprintf("aws dms describe-replication-tasks --filters Name=replication-task-id,Values=%s", clusterName)
 
 		stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
@@ -98,7 +99,7 @@ func (c *CreateDMSTask) Execute(ctx context.Context) error {
 			}
 
 			for _, replicationTask := range replicationTasks.ReplicationTasks {
-				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, *c.pexecutor, ctx)
+				existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, replicationTask.ReplicationTaskArn, *c.pexecutor, ctx)
 				if existsResource == true {
 					if replicationTask.Status == "ready" {
 						fmt.Printf("The task becomes ready \n\n\n")
@@ -143,15 +144,16 @@ func (c *CreateDMSTask) String() string {
 
 type DestroyDMSTask struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyDMSTask) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	for i := 1; i <= 200; i++ {
-		command := fmt.Sprintf("aws dms describe-replication-tasks --filters Name=replication-task-id,Values=%s", c.clusterName)
+		command := fmt.Sprintf("aws dms describe-replication-tasks --filters Name=replication-task-id,Values=%s", clusterName)
 		stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
 			if strings.Contains(string(stderr), fmt.Sprintf("No Tasks found matching provided filters")) {
@@ -172,7 +174,7 @@ func (c *DestroyDMSTask) Execute(ctx context.Context) error {
 				return nil
 			}
 			for _, replicationTask := range replicationTasks.ReplicationTasks {
-				existsResource := ExistsDMSResource(c.clusterType, c.subClusterType, c.clusterName, replicationTask.ReplicationTaskArn, (*c.pexecutor), ctx)
+				existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, replicationTask.ReplicationTaskArn, (*c.pexecutor), ctx)
 				if existsResource == true {
 					if replicationTask.Status == "running" {
 						command = fmt.Sprintf("aws dms stop-replication-task --replication-task-arn %s", replicationTask.ReplicationTaskArn)

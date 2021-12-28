@@ -23,8 +23,6 @@ import (
 
 type CreateSecurityGroup struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 	isPrivate      bool `default:false`
@@ -53,8 +51,11 @@ func (c *CreateSecurityGroup) String() string {
 }
 
 func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	// Get the available zones
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", clusterName, clusterType, c.subClusterType)
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
 		return nil
@@ -71,7 +72,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 		return nil
 	}
 
-	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", c.clusterName, c.clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", clusterName, c.clusterInfo.vpcInfo.VpcId, clusterName, clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("create-security-group", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -114,9 +115,11 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 }
 
 func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
 	// Get the available zones
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-security-groups", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -134,7 +137,7 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 		return err
 	}
 
-	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterName, c.clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", clusterName, c.clusterInfo.vpcInfo.VpcId, clusterName, clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("create-security-group", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -176,15 +179,14 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 
 type DestroySecurityGroup struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroySecurityGroup) Execute(ctx context.Context) error {
-
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, c.subClusterType)
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err

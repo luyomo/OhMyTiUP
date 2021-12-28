@@ -26,8 +26,6 @@ import (
 type CreateRouteTable struct {
 	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 	isPrivate      bool `default:false`
@@ -55,8 +53,11 @@ func (c *CreateRouteTable) String() string {
 }
 
 func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	// Get the available zones
-	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", c.clusterName, c.clusterType, c.subClusterType), false)
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", clusterName, clusterType, c.subClusterType), false)
 	if err != nil {
 		return nil
 	}
@@ -73,7 +74,7 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", c.clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", c.clusterInfo.vpcInfo.VpcId, clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("create-route-table", zap.String("command", command))
 	var retRouteTable ResultRouteTable
 	stdout, _, err = executor.Execute(ctx, command, false)
@@ -93,8 +94,11 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 }
 
 func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	// Get the available zones
-	stdout, stderr, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", c.clusterName, c.clusterType, c.subClusterType), false)
+	stdout, stderr, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", clusterName, clusterType, c.subClusterType), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
@@ -114,7 +118,7 @@ func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx conte
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterInfo.vpcInfo.VpcId, c.clusterName, c.clusterType, c.subClusterType)
+	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterInfo.vpcInfo.VpcId, clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	var retRouteTable ResultRouteTable
 	stdout, stderr, err = executor.Execute(ctx, command, false)
@@ -143,14 +147,15 @@ func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx conte
 type DestroyRouteTable struct {
 	pexecutor      *ctxt.Executor
 	awsTopoConfigs *spec.AwsTopoConfigs
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyRouteTable) Execute(ctx context.Context) error {
-	stdout, _, err := (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", c.clusterName, c.clusterType, c.subClusterType), false)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	stdout, _, err := (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, c.subClusterType), false)
 	if err != nil {
 		return err
 	}

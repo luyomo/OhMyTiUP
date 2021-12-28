@@ -25,16 +25,16 @@ import (
 
 type CreateRouteTgw struct {
 	pexecutor       *ctxt.Executor
-	clusterName     string
-	clusterType     string
 	subClusterType  string
 	subClusterTypes []string
 }
 
 // Execute implements the Task interface
 func (c *CreateRouteTgw) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	sourceVpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	sourceVpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 	if err != nil {
 		return err
 	}
@@ -44,13 +44,13 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The source vpc info is <%s> \n\n\n", (*sourceVpcInfo).CidrBlock)
 
-	routeTable, err := getRouteTable(*c.pexecutor, ctx, c.clusterName, c.clusterType, c.subClusterType)
+	routeTable, err := getRouteTable(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("The route table is <%#v> \n\n\n", routeTable)
 
-	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, c.clusterName)
+	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
 	if err != nil {
 		return err
 	}
@@ -62,8 +62,8 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 
 	for _, targetSubClusterType := range c.subClusterTypes {
 		fmt.Printf("The data is <%#v> \n\n\n", targetSubClusterType)
-		//		vpcInfo, err := getVPC(local, ctx, c.clusterName, c.clusterType, targetSubClusterType)
-		vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: targetSubClusterType})
+		//		vpcInfo, err := getVPC(local, ctx, clusterName, clusterType, targetSubClusterType)
+		vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: targetSubClusterType})
 		if err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 			return err
 		}
 
-		targetRouteTable, err := getRouteTable(*c.pexecutor, ctx, c.clusterName, c.clusterType, targetSubClusterType)
+		targetRouteTable, err := getRouteTable(*c.pexecutor, ctx, clusterName, clusterType, targetSubClusterType)
 		if err != nil {
 			return err
 		}

@@ -40,16 +40,16 @@ type DBClusters struct {
 
 type CreateDBCluster struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDBCluster) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	dbClusterName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 	// Get the available zones
 	command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", dbClusterName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
@@ -71,7 +71,7 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 
 		for _, dbCluster := range dbClusters.DBClusters {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
-			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbCluster.DBClusterArn, *c.pexecutor, ctx)
+			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, dbCluster.DBClusterArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				fmt.Printf("The db cluster  has exists \n\n\n")
 				return nil
@@ -79,7 +79,7 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 		}
 	}
 
-	command = fmt.Sprintf("aws rds create-db-cluster --db-cluster-identifier %s --engine aurora-mysql --engine-version 5.7.12 --master-username master --master-user-password 1234Abcd --db-subnet-group-name %s --db-cluster-parameter-group-name %s --vpc-security-group-ids %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, dbClusterName, c.clusterName, c.clusterInfo.privateSecurityGroupId, c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws rds create-db-cluster --db-cluster-identifier %s --engine aurora-mysql --engine-version 5.7.12 --master-username master --master-user-password 1234Abcd --db-subnet-group-name %s --db-cluster-parameter-group-name %s --vpc-security-group-ids %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, dbClusterName, clusterName, c.clusterInfo.privateSecurityGroupId, clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -134,14 +134,15 @@ func (c *CreateDBCluster) String() string {
 
 type DestroyDBCluster struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyDBCluster) Execute(ctx context.Context) error {
-	dbClusterName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	dbClusterName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 	// Get the available zones
 	command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", dbClusterName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
@@ -162,7 +163,7 @@ func (c *DestroyDBCluster) Execute(ctx context.Context) error {
 
 		for _, dbCluster := range dbClusters.DBClusters {
 			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
-			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, dbCluster.DBClusterArn, *(c.pexecutor), ctx)
+			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, dbCluster.DBClusterArn, *(c.pexecutor), ctx)
 			if existsResource == true {
 				command = fmt.Sprintf("aws rds delete-db-cluster --db-cluster-identifier %s --skip-final-snapshot", dbClusterName)
 				fmt.Printf("The comamnd is <%s> \n\n\n", command)

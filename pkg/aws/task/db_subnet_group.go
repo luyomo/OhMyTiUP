@@ -44,15 +44,16 @@ type TagList struct {
 
 type CreateDBSubnetGroup struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
-	dbSubnetGroupName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	dbSubnetGroupName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 	// Get the available zones
 	command := fmt.Sprintf("aws rds describe-db-subnet-groups --db-subnet-group-name %s ", dbSubnetGroupName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
@@ -73,7 +74,7 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 		}
 
 		for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
-			existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, *c.pexecutor, ctx)
+			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, subnetGroups.DBSubnetGroupArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				return nil
 			}
@@ -84,7 +85,7 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 	for _, subnet := range c.clusterInfo.privateSubnets {
 		subnets = append(subnets, "\""+subnet+"\"")
 	}
-	command = fmt.Sprintf("aws rds create-db-subnet-group --db-subnet-group-name %s --db-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbSubnetGroupName, c.clusterName, strings.Join(subnets, ","), c.clusterName, c.clusterType, c.subClusterType)
+	command = fmt.Sprintf("aws rds create-db-subnet-group --db-subnet-group-name %s --db-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbSubnetGroupName, clusterName, strings.Join(subnets, ","), clusterName, clusterType, c.subClusterType)
 	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -153,15 +154,15 @@ func ExistsResource(clusterType, subClusterType, clusterName, resourceName strin
 
 type DestroyDBSubnetGroup struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	dbSubnetGroupName := fmt.Sprintf("%s-%s", c.clusterName, c.subClusterType)
+	dbSubnetGroupName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 	// Get the available zones
 	command := fmt.Sprintf("aws rds describe-db-subnet-groups --db-subnet-group-name %s ", dbSubnetGroupName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
@@ -183,7 +184,7 @@ func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
 
 	fmt.Printf("The db subnet groups is <%#v> \n\n\n", dbSubnetGroups)
 	for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
-		existsResource := ExistsResource(c.clusterType, c.subClusterType, c.clusterName, subnetGroups.DBSubnetGroupArn, *(c.pexecutor), ctx)
+		existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, subnetGroups.DBSubnetGroupArn, *(c.pexecutor), ctx)
 		if existsResource == true {
 			command = fmt.Sprintf("aws rds delete-db-subnet-group --db-subnet-group-name %s", dbSubnetGroupName)
 

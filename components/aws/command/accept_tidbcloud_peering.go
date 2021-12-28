@@ -44,17 +44,18 @@ Convert the pending status to active, eg:
 			if err != nil {
 				return err
 			}
-			clusterName := args[0]
-			clusterType := args[1]
+
+			ctx := context.WithValue(context.Background(), "clusterName", args[0])
+			ctx = context.WithValue(ctx, "clusterType", args[1])
 			t1 := task.NewBuilder().
-				AcceptVPCPeering(&sexecutor, clusterName, clusterType).
+				AcceptVPCPeering(&sexecutor).
 				BuildAsStep(fmt.Sprintf("  - Accept all the vpc peerings from tidb cloud"))
 
 			builder := task.NewBuilder().
 				ParallelStep("+ Initialize target host environments", false, t1)
 
 			t := builder.Build()
-			if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
+			if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
 				return err
 			}
 			return nil

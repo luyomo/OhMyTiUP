@@ -488,22 +488,18 @@ func (b *Builder) Deploy(user, host string) *Builder {
 	return b
 }
 
-func (b *Builder) CreateVpc(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateVpc(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateVpc{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateNetwork(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateNetwork(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateNetwork{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 		isPrivate:      isPrivate,
@@ -511,11 +507,9 @@ func (b *Builder) CreateNetwork(pexecutor *ctxt.Executor, clusterName, clusterTy
 	return b
 }
 
-func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateRouteTable{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 		isPrivate:      isPrivate,
@@ -523,11 +517,9 @@ func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, clusterName, cluste
 	return b
 }
 
-func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateSecurityGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 		isPrivate:      isPrivate,
@@ -535,228 +527,186 @@ func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, clusterName, clu
 	return b
 }
 
-func (b *Builder) CreatePDNodes(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreatePDNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreatePDNodes{
 		pexecutor:      pexecutor,
 		awsTopoConfigs: awsTopoConfigs,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateTiDBNodes(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateTiDBNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateTiDBNodes{
 		pexecutor:      pexecutor,
 		awsTopoConfigs: awsTopoConfigs,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateTiKVNodes{
 		pexecutor:      pexecutor,
 		awsTopoConfigs: awsTopoConfigs,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDMNodes(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDMNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDMNodes{
 		pexecutor:      pexecutor,
 		awsTopoConfigs: awsTopoConfigs,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateTiCDCNodes(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateTiCDCNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateTiCDCNodes{
 		pexecutor:      pexecutor,
 		awsTopoConfigs: awsTopoConfigs,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateWorkstation{
 		pexecutor:      pexecutor,
 		awsWSConfigs:   awsWSConfigs,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateInternetGateway(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateInternetGateway(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateInternetGateway{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) AcceptVPCPeering(pexecutor *ctxt.Executor, clusterName, clusterType string) *Builder {
+func (b *Builder) AcceptVPCPeering(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &AcceptVPCPeering{
-		pexecutor:   pexecutor,
-		clusterName: clusterName,
-		clusterType: clusterType,
+		pexecutor: pexecutor,
 	})
 	return b
 }
 
-func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDB{
 		pexecutor:      pexecutor,
 		awsWSConfigs:   awsWSConfigs,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateRouteTgw(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, subClusterTypes []string) *Builder {
+func (b *Builder) CreateRouteTgw(pexecutor *ctxt.Executor, subClusterType string, subClusterTypes []string) *Builder {
 	b.tasks = append(b.tasks, &CreateRouteTgw{
 		pexecutor:       pexecutor,
-		clusterName:     clusterName,
-		clusterType:     clusterType,
 		subClusterType:  subClusterType,
 		subClusterTypes: subClusterTypes,
 	})
 	return b
 }
 
-func (b *Builder) DestroyEC(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyEC(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyEC{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroySecurityGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroySecurityGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroySecurityGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyVpcPeering(pexecutor *ctxt.Executor, clusterName, clusterType string) *Builder {
+func (b *Builder) DestroyVpcPeering(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyVpcPeering{
-		pexecutor:   pexecutor,
-		clusterName: clusterName,
-		clusterType: clusterType,
+		pexecutor: pexecutor,
 	})
 	return b
 }
 
-func (b *Builder) DestroyNetwork(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyNetwork(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyNetwork{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyRouteTable(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyRouteTable(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyRouteTable{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyInternetGateway(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyInternetGateway(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyInternetGateway{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyVpc(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyVpc(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyVpc{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateDBSubnetGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDBSubnetGroup(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDBSubnetGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDBClusterParameterGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDBClusterParameterGroup(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDBClusterParameterGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDBCluster(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDBCluster(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDBCluster{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDBParameterGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType, groupFamily string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDBParameterGroup(pexecutor *ctxt.Executor, subClusterType, groupFamily string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDBParameterGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		groupFamily:    groupFamily,
 		clusterInfo:    clusterInfo,
@@ -764,72 +714,58 @@ func (b *Builder) CreateDBParameterGroup(pexecutor *ctxt.Executor, clusterName, 
 	return b
 }
 
-func (b *Builder) CreateDBInstance(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDBInstance(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDBInstance{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDBInstance(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDBInstance(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDBInstance{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDBCluster(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDBCluster(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDBCluster{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDBParameterGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDBParameterGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDBParameterGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDBClusterParameterGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDBClusterParameterGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDBClusterParameterGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDBSubnetGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDBSubnetGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDBSubnetGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) CreateMS(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsMSConfigs *spec.AwsMSConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateMS(pexecutor *ctxt.Executor, subClusterType string, awsMSConfigs *spec.AwsMSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateMS{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		awsMSConfigs:   awsMSConfigs,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
@@ -837,345 +773,291 @@ func (b *Builder) CreateMS(pexecutor *ctxt.Executor, clusterName, clusterType, s
 	return b
 }
 
-func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDBInstance{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) DeployTiCDC(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DeployTiCDC(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiCDC{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) MakeDBObjects(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) MakeDBObjects(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &MakeDBObjects{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDMSSourceEndpoint(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDMSSourceEndpoint(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDMSSourceEndpoint{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDMSTargetEndpoint(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDMSTargetEndpoint(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDMSTargetEndpoint{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDMSInstance(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDMSInstance(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDMSInstance{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDMSSubnetGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDMSSubnetGroup(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDMSSubnetGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateDMSTask(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDMSTask(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDMSTask{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
 	return b
 }
 
-func (b *Builder) CreateTransitGateway(pexecutor *ctxt.Executor, clusterName, clusterType string) *Builder {
+func (b *Builder) CreateTransitGateway(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &CreateTransitGateway{
-		pexecutor:   pexecutor,
-		clusterName: clusterName,
-		clusterType: clusterType,
+		pexecutor: pexecutor,
 	})
 	return b
 }
 
-func (b *Builder) CreateTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) CreateTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &CreateTransitGatewayVpcAttachment{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDMSInstance(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDMSInstance(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDMSInstance{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDMSTask(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDMSTask(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDMSTask{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDMSEndpoints(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDMSEndpoints(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDMSEndpoints{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyDMSSubnetGroup(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
+func (b *Builder) DestroyDMSSubnetGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDMSSubnetGroup{
 		pexecutor:      pexecutor,
-		clusterName:    clusterName,
-		clusterType:    clusterType,
 		subClusterType: subClusterType,
 	})
 	return b
 }
 
-func (b *Builder) DestroyTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, clusterName, clusterType string) *Builder {
+func (b *Builder) DestroyTransitGatewayVpcAttachment(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyTransitGatewayVpcAttachment{
-		pexecutor:   pexecutor,
-		clusterName: clusterName,
-		clusterType: clusterType,
+		pexecutor: pexecutor,
 	})
 	return b
 }
 
-func (b *Builder) DestroyTransitGateway(pexecutor *ctxt.Executor, clusterName, clusterType string) *Builder {
+func (b *Builder) DestroyTransitGateway(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyTransitGateway{
-		pexecutor:   pexecutor,
-		clusterName: clusterName,
-		clusterType: clusterType,
+		pexecutor: pexecutor,
 	})
 	return b
 }
 
-func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	if isPrivate == true {
-		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", titleMsg), NewBuilder().CreateVpc(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating Route Table ... ...", titleMsg), NewBuilder().CreateRouteTable(pexecutor, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating Network ... ... ", titleMsg), NewBuilder().CreateNetwork(pexecutor, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating Security Group ... ... ", titleMsg), NewBuilder().CreateSecurityGroup(pexecutor, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build())
+		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo).Build())
 	} else {
-		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", titleMsg), NewBuilder().CreateVpc(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating route table ... ...", titleMsg), NewBuilder().CreateRouteTable(pexecutor, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating network ... ...", titleMsg), NewBuilder().CreateNetwork(pexecutor, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating security group ... ...", titleMsg), NewBuilder().CreateSecurityGroup(pexecutor, clusterName, clusterType, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating internet gateway ... ...", titleMsg), NewBuilder().CreateInternetGateway(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build())
+		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating route table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating security group ... ...", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating internet gateway ... ...", subClusterType), NewBuilder().CreateInternetGateway(pexecutor, subClusterType, clusterInfo).Build())
 	}
 
 	return b
 }
 
-func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
-
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(pexecutor, clusterName, clusterType, subClusterType, false, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating workstation ... ...", titleMsg), NewBuilder().CreateWorkstation(pexecutor, clusterName, clusterType, subClusterType, awsWSConfigs, clusterInfo).Build())
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, false, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo).Build())
 
 	return b
 }
 
-func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsTopoConfigs.General.CIDR
 
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(pexecutor, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
 		//		CreateWorkstation(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).
-		Step(fmt.Sprintf("%s : Creating PD Nodes ... ...", titleMsg), NewBuilder().CreatePDNodes(pexecutor, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", titleMsg), NewBuilder().CreateTiDBNodes(pexecutor, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", titleMsg), NewBuilder().CreateTiKVNodes(pexecutor, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", titleMsg), NewBuilder().CreateDMNodes(pexecutor, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", titleMsg), NewBuilder().CreateTiCDCNodes(pexecutor, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo).Build())
+		Step(fmt.Sprintf("%s : Creating PD Nodes ... ...", subClusterType), NewBuilder().CreatePDNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", subClusterType), NewBuilder().CreateTiDBNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build())
 		//		DeployTiDB(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo)
 
 	return b
 }
 
-func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsAuroraConfigs *spec.AwsAuroraConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, subClusterType string, awsAuroraConfigs *spec.AwsAuroraConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsAuroraConfigs.CIDR
 
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
-
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(pexecutor, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", titleMsg), NewBuilder().CreateDBSubnetGroup(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Cluster parameter Group ... ...", titleMsg), NewBuilder().CreateDBClusterParameterGroup(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Cluster ... ...", titleMsg), NewBuilder().CreateDBCluster(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", titleMsg), NewBuilder().CreateDBParameterGroup(pexecutor, clusterName, clusterType, subClusterType, awsAuroraConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Instance ... ...", titleMsg), NewBuilder().CreateDBInstance(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build())
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", subClusterType), NewBuilder().CreateDBSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Cluster parameter Group ... ...", subClusterType), NewBuilder().CreateDBClusterParameterGroup(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Cluster ... ...", subClusterType), NewBuilder().CreateDBCluster(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", subClusterType), NewBuilder().CreateDBParameterGroup(pexecutor, subClusterType, awsAuroraConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Instance ... ...", subClusterType), NewBuilder().CreateDBInstance(pexecutor, subClusterType, clusterInfo).Build())
 
 	return b
 }
 
-func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
-	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", titleMsg), NewBuilder().DestroyInternetGateway(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying security group ... ...", titleMsg), NewBuilder().DestroySecurityGroup(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying network ... ...", titleMsg), NewBuilder().DestroyNetwork(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying route table ... ...", titleMsg), NewBuilder().DestroyRouteTable(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying VPC ... ...", titleMsg), NewBuilder().DestroyVpc(pexecutor, clusterName, clusterType, subClusterType).Build())
+func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+
+	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroySecurityGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying network ... ...", subClusterType), NewBuilder().DestroyNetwork(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying route table ... ...", subClusterType), NewBuilder().DestroyRouteTable(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyVpc(pexecutor, subClusterType).Build())
 
 	return b
 }
 
-func (b *Builder) DestroyEC2Nodes(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+func (b *Builder) DestroyEC2Nodes(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 
-	b.Step(fmt.Sprintf("%s : Destroying VPC ... ...", titleMsg), NewBuilder().DestroyEC(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying VPC ... ...", titleMsg), NewBuilder().DestroyBasicResource(pexecutor, clusterName, clusterType, subClusterType).Build())
-
-	return b
-}
-
-func (b *Builder) DestroyDMSService(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string) *Builder {
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
-
-	b.Step(fmt.Sprintf("%s : Destroying DMS Task ... ...", titleMsg), NewBuilder().DestroyDMSTask(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DMS Instance ... ...", titleMsg), NewBuilder().DestroyDMSInstance(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DMS Endpoints ... ...", titleMsg), NewBuilder().DestroyDMSEndpoints(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DMS Subnet Group ... ...", titleMsg), NewBuilder().DestroyDMSSubnetGroup(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().DestroyBasicResource(pexecutor, clusterName, clusterType, subClusterType).Build())
+	b.Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyEC(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 
 	return b
 }
 
-func (b *Builder) DestroyTransitGateways(pexecutor *ctxt.Executor, clusterName, clusterType string) *Builder {
+func (b *Builder) DestroyDMSService(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 
-	titleMsg := fmt.Sprintf(" %s - %s  ", clusterName, clusterType)
-
-	b.Step(fmt.Sprintf("%s : Destroying Transit Gateway VPC Attachment ... ...", titleMsg), NewBuilder().DestroyTransitGatewayVpcAttachment(pexecutor, clusterName, clusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying Transit Gateway ... ...", titleMsg), NewBuilder().DestroyTransitGateway(pexecutor, clusterName, clusterType).Build())
-
-	return b
-}
-
-func (b *Builder) DestroyAurora(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
-
-	b.Step(fmt.Sprintf("%s : Destroying DBN Instance ... ...", titleMsg), NewBuilder().DestroyDBInstance(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Cluster ... ...", titleMsg), NewBuilder().DestroyDBCluster(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Paramter Group ... ...", titleMsg), NewBuilder().DestroyDBParameterGroup(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Cluster Parameter Group  ... ...", titleMsg), NewBuilder().DestroyDBClusterParameterGroup(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Subnet Group ... ...", titleMsg), NewBuilder().DestroyDBSubnetGroup(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().DestroyBasicResource(pexecutor, clusterName, clusterType, subClusterType).Build())
+	b.Step(fmt.Sprintf("%s : Destroying DMS Task ... ...", subClusterType), NewBuilder().DestroyDMSTask(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DMS Instance ... ...", subClusterType), NewBuilder().DestroyDMSInstance(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DMS Endpoints ... ...", subClusterType), NewBuilder().DestroyDMSEndpoints(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DMS Subnet Group ... ...", subClusterType), NewBuilder().DestroyDMSSubnetGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 
 	return b
 }
 
-func (b *Builder) CreateSqlServer(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsMSConfigs *spec.AwsMSConfigs, clusterInfo *ClusterInfo) *Builder {
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
+func (b *Builder) DestroyTransitGateways(pexecutor *ctxt.Executor) *Builder {
 
+	b.Step(fmt.Sprintf("Destroying Transit Gateway VPC Attachment ... ..."), NewBuilder().DestroyTransitGatewayVpcAttachment(pexecutor).Build()).
+		Step(fmt.Sprintf("Destroying Transit Gateway ... ..."), NewBuilder().DestroyTransitGateway(pexecutor).Build())
+
+	return b
+}
+
+func (b *Builder) DestroyAurora(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+
+	b.Step(fmt.Sprintf("%s : Destroying DB Instance ... ...", subClusterType), NewBuilder().DestroyDBInstance(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Cluster ... ...", subClusterType), NewBuilder().DestroyDBCluster(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Paramter Group ... ...", subClusterType), NewBuilder().DestroyDBParameterGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Cluster Parameter Group  ... ...", subClusterType), NewBuilder().DestroyDBClusterParameterGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Subnet Group ... ...", subClusterType), NewBuilder().DestroyDBSubnetGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
+
+	return b
+}
+
+func (b *Builder) CreateSqlServer(pexecutor *ctxt.Executor, subClusterType string, awsMSConfigs *spec.AwsMSConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsMSConfigs.CIDR
 	clusterInfo.keyName = awsMSConfigs.KeyName
 	clusterInfo.instanceType = awsMSConfigs.InstanceType
 	clusterInfo.imageId = awsMSConfigs.ImageId
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(pexecutor, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", titleMsg), NewBuilder().CreateDBSubnetGroup(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", titleMsg), NewBuilder().CreateDBParameterGroup(pexecutor, clusterName, clusterType, subClusterType, awsMSConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating MS ... ...", titleMsg), NewBuilder().CreateMS(pexecutor, clusterName, clusterType, subClusterType, awsMSConfigs, clusterInfo).Build())
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", subClusterType), NewBuilder().CreateDBSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", subClusterType), NewBuilder().CreateDBParameterGroup(pexecutor, subClusterType, awsMSConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating MS ... ...", subClusterType), NewBuilder().CreateMS(pexecutor, subClusterType, awsMSConfigs, clusterInfo).Build())
 
 	return b
 }
 
-func (b *Builder) DestroySqlServer(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
-
-	b.Step(fmt.Sprintf("%s : Destroying SQL Server ... ...", titleMsg), NewBuilder().DestroyDBInstance(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Subnet Group ... ...", titleMsg), NewBuilder().DestroyDBSubnetGroup(pexecutor, clusterName, clusterType, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", titleMsg), NewBuilder().DestroyBasicResource(pexecutor, clusterName, clusterType, subClusterType).Build())
+func (b *Builder) DestroySqlServer(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.Step(fmt.Sprintf("%s : Destroying SQL Server ... ...", subClusterType), NewBuilder().DestroyDBInstance(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying DB Subnet Group ... ...", subClusterType), NewBuilder().DestroyDBSubnetGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 
 	return b
 }
 
-func (b *Builder) CreateDMSService(pexecutor *ctxt.Executor, clusterName, clusterType, subClusterType string, awsDMSConfigs *spec.AwsDMSConfigs, clusterInfo *ClusterInfo) *Builder {
-	titleMsg := fmt.Sprintf(" %s - %s - %s ", clusterName, clusterType, subClusterType)
-	// Step(fmt.Sprintf("%s : Destroying VPC ... ...", titleMsg), NewBuilder()..Build()  ).
-
+func (b *Builder) CreateDMSService(pexecutor *ctxt.Executor, subClusterType string, awsDMSConfigs *spec.AwsDMSConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsDMSConfigs.CIDR
 	clusterInfo.instanceType = awsDMSConfigs.InstanceType
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", titleMsg), NewBuilder().CreateBasicResource(pexecutor, clusterName, clusterType, subClusterType, true, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DMS Subnet Group ... ...", titleMsg), NewBuilder().CreateDMSSubnetGroup(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DMS Instance ... ...", titleMsg), NewBuilder().CreateDMSInstance(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DMS Source Endpoint ... ...", titleMsg), NewBuilder().CreateDMSSourceEndpoint(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DMS Target Endpoint ... ...", titleMsg), NewBuilder().CreateDMSTargetEndpoint(pexecutor, clusterName, clusterType, subClusterType, clusterInfo).Build())
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DMS Subnet Group ... ...", subClusterType), NewBuilder().CreateDMSSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DMS Instance ... ...", subClusterType), NewBuilder().CreateDMSInstance(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DMS Source Endpoint ... ...", subClusterType), NewBuilder().CreateDMSSourceEndpoint(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DMS Target Endpoint ... ...", subClusterType), NewBuilder().CreateDMSTargetEndpoint(pexecutor, subClusterType, clusterInfo).Build())
 
 	return b
 }
 
-func (b *Builder) SysbenchTiCDC(pexecutor *ctxt.Executor, identityFile, clusterName, clusterType string, clusterTable *[][]string) *Builder {
+func (b *Builder) SysbenchTiCDC(pexecutor *ctxt.Executor, identityFile string, clusterTable *[][]string) *Builder {
 	b.tasks = append(b.tasks, &SysbenchTiCDC{
 		pexecutor:    pexecutor,
 		identityFile: identityFile, // The identity file for workstation user. To improve better.
-		clusterName:  clusterName,
-		clusterType:  clusterType,
 		clusterTable: clusterTable,
 	})
 	return b
 }
 
-func (b *Builder) PrepareSysbenchTiCDC(pexecutor *ctxt.Executor, identityFile, clusterName, clusterType string, scriptParam ScriptParam) *Builder {
+func (b *Builder) PrepareSysbenchTiCDC(pexecutor *ctxt.Executor, identityFile string, scriptParam ScriptParam) *Builder {
 	b.tasks = append(b.tasks, &PrepareSysbenchTiCDC{
 		pexecutor:    pexecutor,
 		identityFile: identityFile, // The identity file for workstation user. To improve better.
-		clusterName:  clusterName,
-		clusterType:  clusterType,
 		scriptParam:  scriptParam,
 	})
 	return b

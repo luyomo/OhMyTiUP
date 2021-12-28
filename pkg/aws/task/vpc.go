@@ -25,15 +25,16 @@ import (
 
 type CreateVpc struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateVpc) Execute(ctx context.Context) error {
-	vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 	if err == nil {
 		zap.L().Info("Fetched VPC Info", zap.String("VPC Info", vpcInfo.String()))
 		c.clusterInfo.vpcInfo = *vpcInfo
@@ -44,7 +45,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 		return err
 	}
 
-	_, _, err = (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterInfo.cidr, c.clusterName, c.clusterType, c.subClusterType), false)
+	_, _, err = (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterInfo.cidr, clusterName, clusterType, c.subClusterType), false)
 	if err != nil {
 		zap.L().Error("Failed to create vpc. VPCInfo: ", zap.String("VpcInfo", c.clusterInfo.String()))
 		return err
@@ -52,11 +53,12 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 
 	time.Sleep(5 * time.Second)
 
-	vpcInfo, err = getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	vpcInfo, err = getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 	if err == nil {
 		zap.L().Info("Fetched VPC Info", zap.String("VPC Info", vpcInfo.String()))
 		c.clusterInfo.vpcInfo = *vpcInfo
 		return nil
+
 	}
 
 	return errors.New("Failed to create vpc")
@@ -76,8 +78,6 @@ func (c *CreateVpc) String() string {
 
 type DestroyVpc struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 }
 
@@ -85,11 +85,13 @@ type DestroyVpc struct {
    Description: Destroy the VPC if it does not exists.
 */
 func (c *DestroyVpc) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
 	// Fetch the vpc info.
 	//  1. Return if no vpc is found
 	//  2. Return error if it fails
-	vpcInfo, err := getVPCInfo(*(c.pexecutor), ctx, ResourceTag{clusterName: c.clusterName, clusterType: c.clusterType, subClusterType: c.subClusterType})
+	vpcInfo, err := getVPCInfo(*(c.pexecutor), ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 
 	if err != nil {
 		if err.Error() == "No VPC found" {

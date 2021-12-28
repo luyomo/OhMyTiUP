@@ -51,15 +51,17 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 	}
 
 	t0 := task.NewBuilder().
-		DestroyTransitGateways(&sexecutor, name, clusterType).
-		DestroyDMSService(&sexecutor, name, clusterType, "dmsservice").
-		DestroyVpcPeering(&sexecutor, name, clusterType).
+		DestroyTransitGateways(&sexecutor).
+		DestroyDMSService(&sexecutor, "dmsservice").
+		DestroyVpcPeering(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().
 		ParallelStep("+ Initialize target host environments", false, t0)
 	t := builder.Build()
-	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
@@ -71,25 +73,25 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 
 	var auroraInfo, msInfo task.ClusterInfo
 	t1 := task.NewBuilder().
-		DestroyEC2Nodes(&sexecutor, name, clusterType, "tidb").
+		DestroyEC2Nodes(&sexecutor, "tidb").
 		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
 
 	t2 := task.NewBuilder().
-		DestroyAurora(&sexecutor, name, clusterType, "aurora", &auroraInfo).
+		DestroyAurora(&sexecutor, "aurora", &auroraInfo).
 		BuildAsStep(fmt.Sprintf("  - Destroying aurora db cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t2)
 
 	t3 := task.NewBuilder().
-		DestroySqlServer(&sexecutor, name, clusterType, "sqlserver", &msInfo).
+		DestroySqlServer(&sexecutor, "sqlserver", &msInfo).
 		BuildAsStep(fmt.Sprintf("  - Destroying sqlserver cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t3)
 
 	t4 := task.NewBuilder().
-		DestroyEC2Nodes(&sexecutor, name, clusterType, "workstation").
+		DestroyEC2Nodes(&sexecutor, "workstation").
 		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t4)
@@ -99,7 +101,9 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 
 	t = builder.Build()
 
-	if err := t.Execute(ctxt.New(context.Background(), 5)); err != nil {
+	tailctx := context.WithValue(context.Background(), "clusterName", name)
+	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(tailctx, 5)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err

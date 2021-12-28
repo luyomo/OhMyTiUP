@@ -52,20 +52,22 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 
 	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().
-		DestroyDBInstance(&sexecutor, name, clusterType, "test").
-		DestroyDBCluster(&sexecutor, name, clusterType, "test").
-		DestroyDBParameterGroup(&sexecutor, name, clusterType, "test").
-		DestroyDBClusterParameterGroup(&sexecutor, name, clusterType, "test").
-		DestroyDBSubnetGroup(&sexecutor, name, clusterType, "test").
-		DestroySecurityGroup(&sexecutor, name, clusterType, "test").
+		DestroyDBInstance(&sexecutor, "test").
+		DestroyDBCluster(&sexecutor, "test").
+		DestroyDBParameterGroup(&sexecutor, "test").
+		DestroyDBClusterParameterGroup(&sexecutor, "test").
+		DestroyDBSubnetGroup(&sexecutor, "test").
+		DestroySecurityGroup(&sexecutor, "test").
 		//DestroyVpcPeering(utils.CurrentUser(), "127.0.0.1", name, clusterType).
-		DestroyNetwork(&sexecutor, name, clusterType, "test").
-		DestroyRouteTable(&sexecutor, name, clusterType, "test").
-		DestroyInternetGateway(&sexecutor, name, clusterType, "test").
-		DestroyVpc(&sexecutor, name, clusterType, "test").
+		DestroyNetwork(&sexecutor, "test").
+		DestroyRouteTable(&sexecutor, "test").
+		DestroyInternetGateway(&sexecutor, "test").
+		DestroyVpc(&sexecutor, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
-	if err := t.Execute(ctxt.New(context.Background(), 1)); err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err

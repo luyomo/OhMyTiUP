@@ -24,8 +24,6 @@ import (
 
 type DeployTiCDC struct {
 	pexecutor      *ctxt.Executor
-	clusterName    string
-	clusterType    string
 	subClusterType string
 	clusterInfo    *ClusterInfo
 	clusterTable   *[][]string
@@ -33,14 +31,17 @@ type DeployTiCDC struct {
 
 // Execute implements the Task interface
 func (c *DeployTiCDC) Execute(ctx context.Context) error {
-	wsexecutor, err := getWSExecutor(*c.pexecutor, ctx, c.clusterName, c.clusterType, "admin", c.clusterInfo.keyFile)
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	wsexecutor, err := getWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, "admin", c.clusterInfo.keyFile)
 	if err != nil {
 		return err
 	}
 
-	tidbClusterDetail, err := getTiDBClusterInfo(wsexecutor, ctx, c.clusterName, c.clusterType)
+	tidbClusterDetail, err := getTiDBClusterInfo(wsexecutor, ctx, clusterName, clusterType)
 
-	auroraInstance, err := getRDBInstance(*c.pexecutor, ctx, c.clusterName, c.clusterType, "aurora")
+	auroraInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "aurora")
 	if err != nil {
 		return err
 	}
