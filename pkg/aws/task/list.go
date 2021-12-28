@@ -52,21 +52,22 @@ type List struct {
 func (c *List) Execute(ctx context.Context, clusterName, clusterType string) error {
 	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User})
 
-	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", clusterName, clusterType), false)
+	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Name,Values=%s\"", clusterName, clusterType), false)
 	if err != nil {
 		fmt.Printf("The error here is <%#v> \n\n", err)
 		fmt.Printf("----------\n\n")
 		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
+		return err
 	}
 
 	var vpcs Vpcs
 	if err = json.Unmarshal(stdout, &vpcs); err != nil {
 		fmt.Printf("The error here is %#v \n\n", err)
-		return nil
+		return err
 	}
 
 	for _, vpc := range vpcs.Vpcs {
+		fmt.Printf("The vpcs are <%#v> \n\n\n", vpc)
 		c.ArnComponents = append(c.ArnComponents, ARNComponent{
 			"VPC",
 			clusterName,
@@ -80,6 +81,8 @@ func (c *List) Execute(ctx context.Context, clusterName, clusterType string) err
 			"-",
 		})
 	}
+
+	return nil
 
 	// Get the route table
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)

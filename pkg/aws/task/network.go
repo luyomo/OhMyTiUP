@@ -17,6 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
 	"strconv"
@@ -39,6 +41,7 @@ type Subnet struct {
 	State            string `json:"State"`
 	SubnetId         string `json:"SubnetId"`
 	VpcId            string `json:"VpcId"`
+	Tags             []Tag  `json:"Tags"`
 }
 
 type Subnets struct {
@@ -278,4 +281,59 @@ func (c *DestroyNetwork) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *DestroyNetwork) String() string {
 	return fmt.Sprintf("Echo: Destroying network")
+}
+
+//******************************************************************************
+
+type ListNetwork struct {
+	pexecutor    *ctxt.Executor
+	tableSubnets *[][]string
+}
+
+// Execute implements the Task interface
+func (c *ListNetwork) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" ", clusterName, clusterType)
+	zap.L().Debug("Command", zap.String("describe-subnets", command))
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	if err != nil {
+		return err
+	}
+	var subnets Subnets
+	if err = json.Unmarshal(stdout, &subnets); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
+		return err
+	}
+
+	for _, subnet := range subnets.Subnets {
+		componentName := "-"
+		for _, tagItem := range subnet.Tags {
+			if tagItem.Key == "Type" {
+				componentName = tagItem.Value
+			}
+		}
+		(*c.tableSubnets) = append(*c.tableSubnets, []string{
+			componentName,
+			subnet.AvailabilityZone,
+			subnet.SubnetId,
+			subnet.CidrBlock,
+			subnet.State,
+			subnet.VpcId,
+		})
+	}
+
+	sort.Sort(byComponentNameZone(*c.tableSubnets))
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListNetwork) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListNetwork) String() string {
+	return fmt.Sprintf("Echo: Listing network")
 }

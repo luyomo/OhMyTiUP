@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
+	"sort"
 	"time"
 )
 
@@ -120,4 +121,53 @@ func (c *DestroyVpc) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *DestroyVpc) String() string {
 	return fmt.Sprintf("Echo: Destroying vpc")
+}
+
+/******************************************************************************/
+
+type ListVpc struct {
+	pexecutor *ctxt.Executor
+	tableVPC  *[][]string
+}
+
+func (c *ListVpc) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	// Fetch the vpc info.
+	//  1. Return if no vpc is found
+	//  2. Return error if it fails
+	vpcInfos, err := getVPCInfos(*(c.pexecutor), ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType})
+
+	if err != nil {
+		return err
+	}
+	for _, vpc := range vpcInfos.Vpcs {
+		componentName := "-"
+		for _, tagItem := range vpc.Tags {
+			if tagItem.Key == "Type" {
+				componentName = tagItem.Value
+			}
+		}
+		(*c.tableVPC) = append(*c.tableVPC, []string{
+			componentName,
+			vpc.VpcId,
+			vpc.CidrBlock,
+			vpc.State,
+		})
+	}
+
+	sort.Sort(byComponentName(*c.tableVPC))
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListVpc) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListVpc) String() string {
+	return fmt.Sprintf("Echo: Listing vpc")
 }

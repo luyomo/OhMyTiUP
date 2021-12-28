@@ -3,7 +3,11 @@ global:
   ssh_port: 22
   deploy_dir: "/home/admin/tidb/tidb-deploy"
   data_dir: "/home/admin/tidb/tidb-data"
-server_configs: {}
+server_configs: 
+{{ if gt (len .TiCDC) 0 }}
+  cdc:
+    per-table-memory-quota: 20971520
+{{ end  }}
 {{ if gt (len .PD) 0 }}
 pd_servers:
   {{- range .PD }}

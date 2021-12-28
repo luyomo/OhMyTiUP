@@ -36,6 +36,7 @@ type Vpc struct {
 	State     string `json:"State"`
 	VpcId     string `json:"VpcId"`
 	OwnerId   string `json:"OwnerId"`
+	Tags      []Tag  `json:"Tags"`
 }
 
 type Vpcs struct {
@@ -461,4 +462,30 @@ func deployFreetds(executor ctxt.Executor, ctx context.Context, name, host strin
 		fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 	*/
 	return nil
+}
+
+/************************** The function for the [][]string sort **************/
+type byComponentNameZone [][]string
+
+func (items byComponentNameZone) Len() int      { return len(items) }
+func (items byComponentNameZone) Swap(i, j int) { items[i], items[j] = items[j], items[i] }
+func (items byComponentNameZone) Less(i, j int) bool {
+	if items[i][0] < items[j][0] {
+		return true
+	}
+	if items[i][0] == items[j][0] && items[i][1] < items[j][1] {
+		return true
+	}
+	return false
+}
+
+type byComponentName [][]string
+
+func (items byComponentName) Len() int      { return len(items) }
+func (items byComponentName) Swap(i, j int) { items[i], items[j] = items[j], items[i] }
+func (items byComponentName) Less(i, j int) bool {
+	if items[i][0] < items[j][0] {
+		return true
+	}
+	return false
 }

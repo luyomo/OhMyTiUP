@@ -1062,3 +1062,19 @@ func (b *Builder) PrepareSysbenchTiCDC(pexecutor *ctxt.Executor, identityFile st
 	})
 	return b
 }
+
+func (b *Builder) ListVpc(pexecutor *ctxt.Executor, tableVPC *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListVpc{
+		pexecutor: pexecutor,
+		tableVPC:  tableVPC,
+	})
+	return b
+}
+
+func (b *Builder) ListNetwork(pexecutor *ctxt.Executor, tableSubnets *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListNetwork{
+		pexecutor:    pexecutor,
+		tableSubnets: tableSubnets,
+	})
+	return b
+}
