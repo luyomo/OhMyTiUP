@@ -196,3 +196,57 @@ func (c *DestroyTransitGatewayVpcAttachment) Rollback(ctx context.Context) error
 func (c *DestroyTransitGatewayVpcAttachment) String() string {
 	return fmt.Sprintf("Echo: Destroying transit gateway vpc attachment")
 }
+
+/******************************************************************************/
+
+type ListTransitGatewayVpcAttachment struct {
+	pexecutor                         *ctxt.Executor
+	tableTransitGatewayVpcAttachments *[][]string
+}
+
+func (c *ListTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
+
+	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+	if err != nil {
+		fmt.Printf("The comamnd is <%s> \n\n\n", command)
+		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
+		return err
+	}
+	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
+
+	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
+		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments json parsing <%s> \n\n", string(stderr))
+		return err
+	}
+
+	for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
+		//	fmt.Printf("The attachment is <%#v> \n\n\n", attachment)
+		componentName := "-"
+		for _, tagItem := range attachment.Tags {
+			if tagItem.Key == "Type" {
+				componentName = tagItem.Value
+			}
+		}
+		(*c.tableTransitGatewayVpcAttachments) = append(*c.tableTransitGatewayVpcAttachments, []string{
+			componentName,
+			attachment.VpcId,
+			attachment.State,
+		})
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListTransitGatewayVpcAttachment) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListTransitGatewayVpcAttachment) String() string {
+	return fmt.Sprintf("Echo: Listing transit gateway vpc attachment")
+}

@@ -44,25 +44,43 @@ func (m *Manager) ListTiDB2MSCluster(clusterName string, opt DeployOptions) erro
 		return err
 	}
 
-	tableVPC := [][]string{
-		// Header
-		{"Component Name", "VPC ID", "CIDR", "Status"},
-	}
-	t1 := task.NewBuilder().ListVpc(&sexecutor, &tableVPC).
-		BuildAsStep(fmt.Sprintf("  - Listing VPC"))
-
+	// 001. VPC listing
+	tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
+	t1 := task.NewBuilder().ListVpc(&sexecutor, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
 	listTasks = append(listTasks, t1)
 
-	tableSubnets := [][]string{
-		// Header
-		{"Component Name", "Zone", "Subnet ID", "CIDR", "State", "VPC ID"},
-	}
-	t2 := task.NewBuilder().ListNetwork(&sexecutor, &tableSubnets).
-		BuildAsStep(fmt.Sprintf("  - Listing Subnets"))
-
+	// 002. subnets
+	tableSubnets := [][]string{{"Component Name", "Zone", "Subnet ID", "CIDR", "State", "VPC ID"}}
+	t2 := task.NewBuilder().ListNetwork(&sexecutor, &tableSubnets).BuildAsStep(fmt.Sprintf("  - Listing Subnets"))
 	listTasks = append(listTasks, t2)
 
-	builder := task.NewBuilder().ParallelStep("+ Initialize target host environments", false, listTasks...)
+	// 003. subnets
+	tableRouteTables := [][]string{{"Component Name", "Route Table ID", "DestinationCidrBlock", "TransitGatewayId", "GatewayId", "State", "Origin"}}
+	t3 := task.NewBuilder().ListRouteTable(&sexecutor, &tableRouteTables).BuildAsStep(fmt.Sprintf("  - Listing Route Tables"))
+	listTasks = append(listTasks, t3)
+
+	// 004. Security Groups
+	tableSecurityGroups := [][]string{{"Component Name", "Ip Protocol", "Source Ip Range", "From Port", "To Port"}}
+	t4 := task.NewBuilder().ListSecurityGroup(&sexecutor, &tableSecurityGroups).BuildAsStep(fmt.Sprintf("  - Listing Security Groups"))
+	listTasks = append(listTasks, t4)
+
+	// 005. Transit gateway
+	var transitGateway task.TransitGateway
+	t5 := task.NewBuilder().ListTransitGateway(&sexecutor, &transitGateway).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway "))
+	listTasks = append(listTasks, t5)
+
+	// 006. Transit gateway vpc attachment
+	tableTransitGatewayVpcAttachments := [][]string{{"Component Name", "VPC ID", "State"}}
+	t6 := task.NewBuilder().ListTransitGatewayVpcAttachment(&sexecutor, &tableTransitGatewayVpcAttachments).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway vpc attachment"))
+	listTasks = append(listTasks, t6)
+
+	// 007. EC2
+	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Preivate IP", "Public IP", "Image ID"}}
+	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	listTasks = append(listTasks, t7)
+
+	// *********************************************************************
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
 
 	t := builder.Build()
 
@@ -70,24 +88,6 @@ func (m *Manager) ListTiDB2MSCluster(clusterName string, opt DeployOptions) erro
 		return err
 	}
 
-	// insList := task.ListTiDB2Aurora{User: opt.User}
-	// insList.Execute(ctxt.New(context.Background(), 1), clusterName, "tisample-tidb2ms", "aurora")
-	// //fmt.Printf("The list is <%#v>", insList)
-
-	// for _, v := range insList.ArnComponents {
-	// 	clusterTable = append(clusterTable, []string{
-	// 		v.ComponentType,
-	// 		v.ComponentName,
-	// 		v.ComponentID,
-	// 		v.ImageID,
-	// 		v.InstanceName,
-	// 		v.KeyName,
-	// 		v.State,
-	// 		v.CIDR,
-	// 		v.Zone,
-	// 		v.Region,
-	// 	})
-	// }
 	titleFont := color.New(color.FgRed, color.Bold)
 	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("tisample-tidb2ms"))
 	fmt.Printf("Cluster Name :      %s\n\n", titleFont.Sprint(clusterName))
@@ -96,7 +96,21 @@ func (m *Manager) ListTiDB2MSCluster(clusterName string, opt DeployOptions) erro
 	fmt.Printf("Resource Type:      %s\n", cyan.Sprint("VPC"))
 	tui.PrintTable(tableVPC, true)
 
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Subnets"))
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Subnet"))
 	tui.PrintTable(tableSubnets, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Route Table"))
+	tui.PrintTable(tableRouteTables, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Security Group"))
+	tui.PrintTable(tableSecurityGroups, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Transit Gateway"))
+	fmt.Printf("Resource ID  :      %s    State: %s \n", cyan.Sprint(transitGateway.TransitGatewayId), cyan.Sprint(transitGateway.State))
+	tui.PrintTable(tableTransitGatewayVpcAttachments, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
+	tui.PrintTable(tableECs, true)
+
 	return nil
 }

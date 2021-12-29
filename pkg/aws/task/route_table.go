@@ -188,3 +188,60 @@ func (c *DestroyRouteTable) Rollback(ctx context.Context) error {
 func (c *DestroyRouteTable) String() string {
 	return fmt.Sprintf("Echo: Destroying route table ")
 }
+
+/******************************************************************************/
+
+// Mkdir is used to create directory on the target host
+type ListRouteTable struct {
+	pexecutor        *ctxt.Executor
+	tableRouteTables *[][]string
+}
+
+// Execute implements the Task interface
+func (c *ListRouteTable) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	stdout, _, err := (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" ", clusterName, clusterType), false)
+	if err != nil {
+		return err
+	}
+
+	var routeTables RouteTables
+	if err = json.Unmarshal(stdout, &routeTables); err != nil {
+		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
+		return err
+	}
+
+	for _, routeTable := range routeTables.RouteTables {
+		componentName := "-"
+		for _, tagItem := range routeTable.Tags {
+			if tagItem.Key == "Type" {
+				componentName = tagItem.Value
+			}
+		}
+		for _, route := range routeTable.Routes {
+			(*c.tableRouteTables) = append(*c.tableRouteTables, []string{
+				componentName,
+				routeTable.RouteTableId,
+				route.DestinationCidrBlock,
+				route.TransitGatewayId,
+				route.GatewayId,
+				route.State,
+				route.Origin,
+			})
+		}
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListRouteTable) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListRouteTable) String() string {
+	return fmt.Sprintf("Echo: Listing route table ")
+}

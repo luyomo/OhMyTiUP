@@ -1078,3 +1078,43 @@ func (b *Builder) ListNetwork(pexecutor *ctxt.Executor, tableSubnets *[][]string
 	})
 	return b
 }
+
+func (b *Builder) ListRouteTable(pexecutor *ctxt.Executor, tableRouteTables *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListRouteTable{
+		pexecutor:        pexecutor,
+		tableRouteTables: tableRouteTables,
+	})
+	return b
+}
+
+func (b *Builder) ListSecurityGroup(pexecutor *ctxt.Executor, tableSecurityGroups *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListSecurityGroup{
+		pexecutor:           pexecutor,
+		tableSecurityGroups: tableSecurityGroups,
+	})
+	return b
+}
+
+func (b *Builder) ListTransitGateway(pexecutor *ctxt.Executor, transitGateway *TransitGateway) *Builder {
+	b.tasks = append(b.tasks, &ListTransitGateway{
+		pexecutor:      pexecutor,
+		transitGateway: transitGateway,
+	})
+	return b
+}
+
+func (b *Builder) ListTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, tableTransitGatewayVpcAttachments *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListTransitGatewayVpcAttachment{
+		pexecutor:                         pexecutor,
+		tableTransitGatewayVpcAttachments: tableTransitGatewayVpcAttachments,
+	})
+	return b
+}
+
+func (b *Builder) ListEC(pexecutor *ctxt.Executor, tableECs *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListEC{
+		pexecutor: pexecutor,
+		tableECs:  tableECs,
+	})
+	return b
+}

@@ -20,6 +20,7 @@ import (
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
+	"sort"
 	"time"
 )
 
@@ -471,4 +472,74 @@ func (c *DestroyEC) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *DestroyEC) String() string {
 	return fmt.Sprintf("Echo: Destroying EC")
+}
+
+/******************************************************************************/
+
+type ListEC struct {
+	pexecutor *ctxt.Executor
+	tableECs  *[][]string
+}
+
+// Execute implements the Task interface
+func (c *ListEC) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	// 3. Fetch the count of instance from the instance
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=instance-state-code,Values=0,16,64,80\"", clusterName, clusterType)
+	zap.L().Debug("Command", zap.String("describe-instances", command))
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	if err != nil {
+		return err
+	}
+
+	var reservations Reservations
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+		return err
+	}
+
+	if len(reservations.Reservations) == 0 {
+		return nil
+	}
+
+	for _, reservation := range reservations.Reservations {
+
+		for _, instance := range reservation.Instances {
+			componentName := "-"
+			componentCluster := "-"
+			for _, tagItem := range instance.Tags {
+				if tagItem["Key"] == "Type" {
+					componentCluster = tagItem["Value"]
+				}
+				if tagItem["Key"] == "Component" {
+					componentName = tagItem["Value"]
+				}
+			}
+			(*c.tableECs) = append(*c.tableECs, []string{
+				componentName,
+				componentCluster,
+				instance.State.Name,
+				instance.InstanceId,
+				instance.InstanceType,
+				instance.PrivateIpAddress,
+				instance.PublicIpAddress,
+				instance.ImageId,
+			})
+		}
+	}
+	sort.Sort(byComponentName(*c.tableECs))
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListEC) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListEC) String() string {
+	return fmt.Sprintf("Echo: Listing EC")
 }

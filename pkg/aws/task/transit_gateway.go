@@ -125,3 +125,35 @@ func (c *DestroyTransitGateway) Rollback(ctx context.Context) error {
 func (c *DestroyTransitGateway) String() string {
 	return fmt.Sprintf("Echo: Destryong transit gateway")
 }
+
+/******************************************************************************/
+
+type ListTransitGateway struct {
+	pexecutor      *ctxt.Executor
+	transitGateway *TransitGateway
+}
+
+func (c *ListTransitGateway) Execute(ctx context.Context) error {
+	//	fmt.Printf("**************************************xxxxxxxxx*******\n\n\n\n\n\n\n")
+
+	clusterName := ctx.Value("clusterName").(string)
+
+	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, clusterName)
+
+	if err != nil {
+		return err
+	}
+	if transitGateway == nil {
+		return nil
+	}
+	*c.transitGateway = *transitGateway
+	return nil
+}
+
+func (c *ListTransitGateway) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+func (c *ListTransitGateway) String() string {
+	return fmt.Sprintf("Echo: Listing transit gateway")
+}

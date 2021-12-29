@@ -68,8 +68,18 @@ func (c ClusterInfo) String() string {
 	return fmt.Sprintf("vpcInfo:[%s], privateRouteTableId:%s, publicRouteTableId:%s, privateSecurityGroupId:%s, publicSecurityGroupId:%s, privateSubnets:%s, publicSubnet:%s, pcxTidb2Aurora:%s", c.vpcInfo.String(), c.privateRouteTableId, c.publicRouteTableId, c.privateSecurityGroupId, c.publicSecurityGroupId, strings.Join(c.privateSubnets, ","), c.publicSubnet, c.pcxTidb2Aurora)
 }
 
+type Route struct {
+	DestinationCidrBlock string `json:"DestinationCidrBlock"`
+	TransitGatewayId     string `json:"TransitGatewayId"`
+	GatewayId            string `json:"GatewayId"`
+	Origin               string `json:"Origin"`
+	State                string `json:"State"`
+}
+
 type RouteTable struct {
-	RouteTableId string `json:"RouteTableId"`
+	RouteTableId string  `json:"RouteTableId"`
+	Tags         []Tag   `json:"Tags"`
+	Routes       []Route `json:"Routes"`
 }
 
 type ResultRouteTable struct {
@@ -96,11 +106,26 @@ func (r RouteTables) String() string {
 	return fmt.Sprintf("RouteTables:%s", strings.Join(res, ","))
 }
 
+type IpRanges struct {
+	CidrIp string `json:"CidrIp"`
+}
+
+type IpPermissions struct {
+	FromPort   int        `json:"FromPort"`
+	IpProtocol string     `json:"IpProtocol"`
+	IpRanges   []IpRanges `json:"IpRanges"`
+	ToPort     int        `json:"ToPort"`
+}
+
 type SecurityGroups struct {
 	SecurityGroups []SecurityGroup `json:"SecurityGroups"`
 }
+
 type SecurityGroup struct {
-	GroupId string `json:"GroupId"`
+	GroupId       string          `json:"GroupId"`
+	GroupName     string          `json:"GroupName"`
+	IpPermissions []IpPermissions `json:"IpPermissions"`
+	Tags          []Tag           `json:"Tags"`
 }
 
 func (s SecurityGroup) String() string {

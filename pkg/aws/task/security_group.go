@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
+	"strconv"
 )
 
 type CreateSecurityGroup struct {
@@ -218,4 +219,64 @@ func (c *DestroySecurityGroup) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *DestroySecurityGroup) String() string {
 	return fmt.Sprintf("Echo: Destroying security group")
+}
+
+/******************************************************************************/
+
+type ListSecurityGroup struct {
+	pexecutor           *ctxt.Executor
+	tableSecurityGroups *[][]string
+}
+
+// Execute implements the Task interface
+func (c *ListSecurityGroup) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" ", clusterName, clusterType)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	if err != nil {
+		return err
+	}
+
+	var securityGroups SecurityGroups
+	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("security group", string(stdout)))
+		return err
+	}
+	for _, sg := range securityGroups.SecurityGroups {
+		componentName := "-"
+		for _, tagItem := range sg.Tags {
+			if tagItem.Key == "Type" {
+				componentName = tagItem.Value
+			}
+		}
+		for _, ipPermission := range sg.IpPermissions {
+			(*c.tableSecurityGroups) = append(*c.tableSecurityGroups, []string{
+				componentName,
+				ipPermission.IpProtocol,
+				ipPermission.IpRanges[0].CidrIp,
+				strconv.Itoa(ipPermission.FromPort),
+				strconv.Itoa(ipPermission.ToPort),
+			})
+
+		}
+		// command = fmt.Sprintf("aws ec2 delete-security-group --group-id %s ", sg.GroupId)
+		// zap.L().Debug("Command", zap.String("delete-security-group", command))
+		// _, _, err = (*c.pexecutor).Execute(ctx, command, false)
+		// if err != nil {
+		// 	return err
+		// }
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListSecurityGroup) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListSecurityGroup) String() string {
+	return fmt.Sprintf("Echo: Listing security group")
 }
