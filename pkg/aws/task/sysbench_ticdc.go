@@ -77,7 +77,7 @@ func (c *SysbenchTiCDC) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	workstation, err := getWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, "admin", c.identityFile)
+	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, "admin", c.identityFile)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 	//	var tplParams ScriptParam
-	workstation, err := getWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, "admin", c.identityFile)
+	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, "admin", c.identityFile)
 	if err != nil {
 		return err
 	}

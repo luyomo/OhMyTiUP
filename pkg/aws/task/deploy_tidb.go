@@ -17,14 +17,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/luyomo/tisample/embed"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"go.uber.org/zap"
 	"os"
 	"path"
 	"strings"
 	"text/template"
+
+	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"go.uber.org/zap"
 )
 
 type DeployTiDB struct {
@@ -53,7 +54,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	clusterType := ctx.Value("clusterType").(string)
 
 	// 1. Get all the workstation nodes
-	workstation, err := getWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
+	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
 	if err != nil {
 		return err
 	}

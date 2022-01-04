@@ -17,11 +17,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"time"
+
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
-	"sort"
-	"time"
 )
 
 type CreateDMNodes struct {
@@ -542,4 +543,21 @@ func (c *ListEC) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *ListEC) String() string {
 	return fmt.Sprintf("Echo: Listing EC")
+}
+
+func ListClusterEc2s(ctx context.Context, pexecutor ctxt.Executor, clusterName string) (*Reservations, error) {
+	// 3. Fetch the count of instance from the instance
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\"  \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName)
+	zap.L().Debug("Command", zap.String("describe-instances", command))
+	stdout, _, err := pexecutor.Execute(ctx, command, false)
+	if err != nil {
+		return nil, err
+	}
+
+	var reservations Reservations
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+		return nil, err
+	}
+	return &reservations, nil
 }
