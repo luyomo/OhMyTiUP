@@ -70,7 +70,6 @@ func (c *AcceptVPCPeering) Execute(ctx context.Context) error {
 	}
 
 	command := fmt.Sprintf("aws ec2 describe-vpc-peering-connections --filters \"Name=accepter-vpc-info.vpc-id,Values=%s\" ", strings.Join(arrVpcs, ","))
-	fmt.Printf("The command is <%s> \n\n\n", command)
 
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -83,15 +82,12 @@ func (c *AcceptVPCPeering) Execute(ctx context.Context) error {
 	}
 
 	for _, vpcPeering := range vpcPeerings.VpcPeeringConnections {
-		fmt.Printf("The vpc info is <%#v> \n\n\n", vpcPeering)
 		if vpcPeering.Status.Code == "pending-acceptance" {
 			command = fmt.Sprintf("aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id %s", vpcPeering.VpcPeeringConnectionId)
-			fmt.Printf("The command is <%s> \n\n\n", command)
 
-			_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+			_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 			if err != nil {
-				fmt.Printf("The error is <%s> \n\n\n", string(stderr))
-				return nil
+				return err
 			}
 
 			routeTable, err := getRouteTableByVPC(*c.pexecutor, ctx, clusterName, vpcPeering.AccepterVpcInfo.VpcId)
@@ -100,12 +96,8 @@ func (c *AcceptVPCPeering) Execute(ctx context.Context) error {
 			}
 
 			command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --vpc-peering-connection-id %s", routeTable.RouteTableId, vpcPeering.RequesterVpcInfo.CidrBlock, vpcPeering.VpcPeeringConnectionId)
-			fmt.Printf("The comamnd is <%s> \n\n\n", command)
-			_, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
+			_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 			if err != nil {
-				fmt.Printf("The error here is <%#v> \n\n", err)
-				fmt.Printf("----------\n\n")
-				fmt.Printf("The error here is <%s> \n\n", string(stderr))
 				return err
 			}
 		}
@@ -146,8 +138,6 @@ func (c *DestroyVpcPeering) Execute(ctx context.Context) error {
 	}
 
 	command := fmt.Sprintf("aws ec2 describe-vpc-peering-connections --filters \"Name=accepter-vpc-info.vpc-id,Values=%s\" ", strings.Join(arrVpcs, ","))
-	fmt.Printf("The command is <%s> \n\n\n", command)
-
 	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return nil
@@ -159,11 +149,10 @@ func (c *DestroyVpcPeering) Execute(ctx context.Context) error {
 	}
 
 	for _, pcx := range vpcPeerings.VpcPeeringConnections {
-		fmt.Printf("The vpc info is <%#v> \n\n\n", pcx)
+
 		command := fmt.Sprintf("aws ec2 delete-vpc-peering-connection --vpc-peering-connection-id %s", pcx.VpcPeeringConnectionId)
-		_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+		_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("ERRORS: delete-vpc-peering-connection  <%s> \n\n\n", string(stderr))
 			return err
 		}
 	}

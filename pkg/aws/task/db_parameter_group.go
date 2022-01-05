@@ -55,14 +55,11 @@ func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if !strings.Contains(string(stderr), "DBParameterGroup not found") {
-			fmt.Printf("The error err here is <%#v> \n\n\n", err)
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
 			return err
 		}
 	} else {
 		var dbParameterGroups DBParameterGroups
 		if err = json.Unmarshal(stdout, &dbParameterGroups); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return err
 		}
 
@@ -70,25 +67,19 @@ func (c *CreateDBParameterGroup) Execute(ctx context.Context) error {
 
 			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, dbParameterGroup.DBParameterGroupArn, *c.pexecutor, ctx)
 			if existsResource == true {
-				fmt.Printf("The db cluster  has exists \n\n\n")
 				return nil
 			}
 		}
 	}
 
 	command = fmt.Sprintf("aws rds create-db-parameter-group --db-parameter-group-name %s --db-parameter-group-family %s --description \"%s\" --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbParameterName, c.groupFamily, clusterName, clusterName, clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
 
 	var newDBParameterGroup NewDBParameterGroup
 	if err = json.Unmarshal(stdout, &newDBParameterGroup); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return err
 	}
 
@@ -123,29 +114,22 @@ func (c *DestroyDBParameterGroup) Execute(ctx context.Context) error {
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if !strings.Contains(string(stderr), "DBParameterGroup not found") {
-			fmt.Printf("ERRORS describe-db-parameter-groups <%s> \n\n", string(stderr))
 			return err
 		}
 		return nil
 	} else {
 		var dbParameterGroups DBParameterGroups
 		if err = json.Unmarshal(stdout, &dbParameterGroups); err != nil {
-			fmt.Printf("ERRORS describe-db-parameter-groups json parsing <%s> \n\n", string(stderr))
 			return err
 		}
-		fmt.Printf("The db cluster is <%#v> \n\n\n", dbParameterGroups)
 		for _, dbParameterGroup := range dbParameterGroups.DBParameterGroups {
-			fmt.Printf("The cluster info is <%#v> \n\n\n", dbParameterGroup)
 			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, dbParameterGroup.DBParameterGroupArn, *(c.pexecutor), ctx)
 			if existsResource == true {
 				command = fmt.Sprintf("aws rds delete-db-parameter-group --db-parameter-group-name %s", dbParameterName)
-				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 				if err != nil {
-					fmt.Printf("ERRORS delete-db-parameter-group <%s> \n\n\n", string(stderr))
 					return err
 				}
-				fmt.Printf("The db cluster  has exists \n\n\n")
 				return nil
 			}
 		}

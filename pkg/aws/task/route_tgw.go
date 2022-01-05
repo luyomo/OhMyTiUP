@@ -35,20 +35,21 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 	clusterType := ctx.Value("clusterType").(string)
 
 	sourceVpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
+
 	if err != nil {
+		if err.Error() == "No VPC found" {
+			return nil
+		}
 		return err
 	}
 	if sourceVpcInfo == nil {
-		fmt.Printf("No source vpc info\n\n\n")
 		return nil
 	}
-	fmt.Printf("The source vpc info is <%s> \n\n\n", (*sourceVpcInfo).CidrBlock)
 
 	routeTable, err := getRouteTable(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The route table is <%#v> \n\n\n", routeTable)
 
 	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
 	if err != nil {
@@ -58,26 +59,21 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 		return errors.New("No transit gateway found")
 	}
 
-	fmt.Printf("The transit gateway is <%#v> \n\n\n", transitGateway)
-
 	for _, targetSubClusterType := range c.subClusterTypes {
-		fmt.Printf("The data is <%#v> \n\n\n", targetSubClusterType)
-		//		vpcInfo, err := getVPC(local, ctx, clusterName, clusterType, targetSubClusterType)
 		vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: targetSubClusterType})
 		if err != nil {
+			if err.Error() == "No VPC found" {
+				continue
+			}
 			return err
 		}
 		if vpcInfo == nil {
 			continue
 		}
-		fmt.Printf("The vpc info is <%s> \n\n\n", (*vpcInfo).CidrBlock)
 
 		command := fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", routeTable.RouteTableId, (*vpcInfo).CidrBlock, transitGateway.TransitGatewayId)
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+		_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n\n", err)
-			fmt.Printf("The error here is <%s> \n\n\n", string(stderr))
 			return err
 		}
 
@@ -88,11 +84,8 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 
 		command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", targetRouteTable.RouteTableId, (*sourceVpcInfo).CidrBlock, transitGateway.TransitGatewayId)
 
-		_, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
+		_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The comamnd is <%s> \n\n\n", command)
-			fmt.Printf("The error here is <%#v> \n\n\n", err)
-			fmt.Printf("The error here is <%s> \n\n\n", string(stderr))
 			return err
 		}
 

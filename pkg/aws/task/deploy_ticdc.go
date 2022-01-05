@@ -42,7 +42,12 @@ func (c *DeployTiCDC) Execute(ctx context.Context) error {
 	tidbClusterDetail, err := getTiDBClusterInfo(wsexecutor, ctx, clusterName, clusterType)
 
 	auroraInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "aurora")
+	fmt.Printf("The error here is <%#v> \n\n\n", err)
+	fmt.Printf("\n\n\n")
 	if err != nil {
+		if err.Error() == "No RDB Instance found(No matched name)" {
+			return nil
+		}
 		return err
 	}
 	fmt.Printf("The aurora is <%#v> \n\n\n", auroraInstance)

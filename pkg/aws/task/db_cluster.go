@@ -54,61 +54,44 @@ func (c *CreateDBCluster) Execute(ctx context.Context) error {
 	command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", dbClusterName)
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", dbClusterName)) {
-			fmt.Printf("The DB Cluster has not created.\n\n\n")
-		} else {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+		if !strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", dbClusterName)) {
+			return err
 		}
 	} else {
 		var dbClusters DBClusters
 		if err = json.Unmarshal(stdout, &dbClusters); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			return err
 		}
 
 		for _, dbCluster := range dbClusters.DBClusters {
-			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
 			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, dbCluster.DBClusterArn, *c.pexecutor, ctx)
 			if existsResource == true {
-				fmt.Printf("The db cluster  has exists \n\n\n")
 				return nil
 			}
 		}
 	}
 
 	command = fmt.Sprintf("aws rds create-db-cluster --db-cluster-identifier %s --engine aurora-mysql --engine-version 5.7.12 --master-username master --master-user-password 1234Abcd --db-subnet-group-name %s --db-cluster-parameter-group-name %s --vpc-security-group-ids %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, dbClusterName, clusterName, c.clusterInfo.privateSecurityGroupId, clusterName, clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
+		return err
 	}
 
 	var newDBCluster NewDBCluster
 	if err = json.Unmarshal(stdout, &newDBCluster); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
+		return err
 	}
 
 	for i := 1; i <= 30; i++ {
 		command := fmt.Sprintf("aws rds describe-db-clusters --db-cluster-identifier '%s'", dbClusterName)
-		stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+		stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+			return err
 		}
 
 		var dbClusters DBClusters
 		if err = json.Unmarshal(stdout, &dbClusters); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			return err
 		}
 
 		if dbClusters.DBClusters[0].Status == "available" {
@@ -148,32 +131,24 @@ func (c *DestroyDBCluster) Execute(ctx context.Context) error {
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if strings.Contains(string(stderr), fmt.Sprintf("DBCluster %s not found", dbClusterName)) {
-			fmt.Printf("The DB Cluster has not created.\n\n\n")
 			return nil
 		} else {
-			fmt.Printf("ERRORS: describe-db-clusters <%s> \n\n", string(stderr))
 			return err
 		}
 	} else {
 		var dbClusters DBClusters
 		if err = json.Unmarshal(stdout, &dbClusters); err != nil {
-			fmt.Printf("ERRORS: describe-db-clusters json parsing <%s> \n\n", string(stderr))
 			return err
 		}
 
 		for _, dbCluster := range dbClusters.DBClusters {
-			fmt.Printf("The cluster info is <%#v> \n\n\n", dbCluster)
 			existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, dbCluster.DBClusterArn, *(c.pexecutor), ctx)
 			if existsResource == true {
 				command = fmt.Sprintf("aws rds delete-db-cluster --db-cluster-identifier %s --skip-final-snapshot", dbClusterName)
-				fmt.Printf("The comamnd is <%s> \n\n\n", command)
 				stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 				if err != nil {
-					fmt.Printf("ERRORS delete-db-cluster <%s> \n\n", string(stderr))
 					return err
 				}
-
-				fmt.Printf("The db cluster  has exists \n\n\n")
 			}
 		}
 	}

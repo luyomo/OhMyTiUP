@@ -48,15 +48,12 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 
 	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType, c.subClusterType)
 
-	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
 	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
 	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return err
 	}
 
@@ -74,6 +71,9 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 
 	vpc, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 	if err != nil {
+		if err.Error() == "No VPC found" {
+			return nil
+		}
 		return err
 	}
 	if vpc == nil {
@@ -90,16 +90,13 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 
 	command = fmt.Sprintf("aws ec2 create-transit-gateway-vpc-attachment --transit-gateway-id %s --vpc-id %s --subnet-ids '\"'\"'%s'\"'\"' --tag-specifications \"ResourceType=transit-gateway-attachment,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", transitGateway.TransitGatewayId, vpc.VpcId, subnets, clusterName, clusterType, c.subClusterType)
 
-	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
+	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
 	var transitGatewayVpcAttachment TransitGatewayVpcAttachment
 
 	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachment); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return err
 	}
 	return nil
@@ -127,48 +124,38 @@ func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error 
 
 	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
 
-	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
 		return err
 	}
 	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
 
 	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments json parsing <%s> \n\n", string(stderr))
 		return err
 	}
 
 	var deletingAttachments []string
 	for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
-		fmt.Printf("The attachment is <%#v> \n\n\n", attachment)
 		command = fmt.Sprintf("aws ec2 delete-transit-gateway-vpc-attachment --transit-gateway-attachment-id  %s", attachment.TransitGatewayAttachmentId)
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-
-		stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 
 		if err != nil {
-			fmt.Printf("ERRORS: delete-transit-gateway-vpc-attachments json parsing <%s> \n\n", string(stderr))
 			return err
 		}
 		deletingAttachments = append(deletingAttachments, attachment.TransitGatewayAttachmentId)
 	}
 
 	command = fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending,deleting\"", clusterName, clusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 
 	for i := 1; i <= 50; i++ {
 		cntAttachments := 0
-		stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+		stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
 			return err
 		}
 		var transitGatewayVpcAttachments TransitGatewayVpcAttachments
 
 		if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-			fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
 			return err
 		}
 		for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
@@ -178,7 +165,6 @@ func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error 
 				}
 			}
 		}
-		fmt.Printf("The counting here is <%d> \n\n\n", cntAttachments)
 		if cntAttachments == 0 {
 			break
 		}
@@ -210,21 +196,17 @@ func (c *ListTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 
 	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
 
-	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The comamnd is <%s> \n\n\n", command)
-		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments  <%s> \n\n", string(stderr))
 		return err
 	}
 	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
 
 	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-		fmt.Printf("ERRORS: describe-transit-gateway-vpc-attachments json parsing <%s> \n\n", string(stderr))
 		return err
 	}
 
 	for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
-		//	fmt.Printf("The attachment is <%#v> \n\n\n", attachment)
 		componentName := "-"
 		for _, tagItem := range attachment.Tags {
 			if tagItem.Key == "Type" {

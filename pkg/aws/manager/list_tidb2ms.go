@@ -79,6 +79,11 @@ func (m *Manager) ListTiDB2MSCluster(clusterName string, opt DeployOptions) erro
 	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t7)
 
+	// 008. NLB
+	var nlb task.LoadBalancer
+	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
+	listTasks = append(listTasks, t8)
+
 	// *********************************************************************
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
 
@@ -109,6 +114,7 @@ func (m *Manager) ListTiDB2MSCluster(clusterName string, opt DeployOptions) erro
 	fmt.Printf("Resource ID  :      %s    State: %s \n", cyan.Sprint(transitGateway.TransitGatewayId), cyan.Sprint(transitGateway.State))
 	tui.PrintTable(tableTransitGatewayVpcAttachments, true)
 
+	fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(nlb.DNSName))
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 

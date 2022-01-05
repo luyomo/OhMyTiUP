@@ -110,7 +110,6 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 
 		}
 	}
-	fmt.Printf("The sqlserver host is <%s> \n\n\n", SqlServerHost)
 
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile})
 	if err != nil {
@@ -124,22 +123,19 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 
 	stdout, stderr, err := wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
-		return nil
+		return err
 	}
 
 	var tidbClusterDetail TiDBClusterDetail
 	if err = json.Unmarshal(stdout, &tidbClusterDetail); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
-		return nil
+		return err
 	}
 
 	auroraInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "aurora")
 	if err != nil {
-		fmt.Printf("The error is <%#v> \n\n\n", auroraInstance)
 		return err
 	}
-	fmt.Printf("The aurora is <%#v> \n\n\n", auroraInstance)
 
 	hasRunTiDB := false
 	for _, component := range tidbClusterDetail.Instances {
@@ -148,55 +144,43 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 			command := fmt.Sprintf(`mysql -h %s -P %d -u root -e "create database if not exists %s"`, component.Host, component.Port, DBNAME)
 			stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
 			if err != nil {
-				fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 				return err
 			}
-			fmt.Printf("The command is <%s> \n\n\n", command)
-			fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 
 			command = fmt.Sprintf(`mysql -h %s -P %d -u root %s -e "source /opt/tidb/sql/ontime_tidb.ddl"`, component.Host, component.Port, DBNAME)
 			stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
 			if err != nil {
-				fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 				return err
 			}
-			fmt.Printf("The command is <%s> \n\n\n", command)
-			fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 
 			command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd -e "create database if not exists %s"`, auroraInstance.Endpoint.Address, auroraInstance.Endpoint.Port, DBNAME)
 			stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
 			if err != nil {
-				fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 				return err
 			}
-			fmt.Printf("The command is <%s> \n\n\n", command)
-			fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 
 			command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd %s -e "source /opt/tidb/sql/ontime_mysql.ddl"`, auroraInstance.Endpoint.Address, auroraInstance.Endpoint.Port, DBNAME)
 			stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
 			if err != nil {
-				fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 				return err
 			}
-			fmt.Printf("The command is <%s> \n\n\n", command)
-			fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 
 			hasRunTiDB = true
 		}
 
-		if component.Role == "sqlserver" && component.Status == "Up" {
-			fmt.Printf("Starting to run queries against sql server \n\n\n")
-			//command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd %s -e "source /opt/tidb/sql/ontime_mysql.ddl"`, auroraConnInfo.Address, auroraConnInfo.Port, DBNAME)
-			//stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
-			//if err != nil {
-			//	fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
-			//	return err
-			//}
-			//fmt.Printf("The command is <%s> \n\n\n", command)
-			//fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
+		// if component.Role == "sqlserver" && component.Status == "Up" {
+		// 	fmt.Printf("Starting to run queries against sql server \n\n\n")
+		// 	//command = fmt.Sprintf(`mysql -h %s -P %d -u master -p1234Abcd %s -e "source /opt/tidb/sql/ontime_mysql.ddl"`, auroraConnInfo.Address, auroraConnInfo.Port, DBNAME)
+		// 	//stdout, stderr, err = wsexecutor.Execute(ctx, command, false)
+		// 	//if err != nil {
+		// 	//	fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
+		// 	//	return err
+		// 	//}
+		// 	//fmt.Printf("The command is <%s> \n\n\n", command)
+		// 	//fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
 
-			//tsql -H 172.83.11.115 -p 1433 -U sa -P 1234@Abcd -D cdc_test
-		}
+		// 	//tsql -H 172.83.11.115 -p 1433 -U sa -P 1234@Abcd -D cdc_test
+		// }
 	}
 
 	fdFile, err := os.Create(fmt.Sprintf("/tmp/%s", "freetds.conf"))
@@ -242,10 +226,6 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 		return err
 	}
-	fmt.Printf("The command is <%s> \n\n\n", command)
-	fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
-
-	//tsql -H 172.83.11.115 -p 1433 -U sa -P 1234@Abcd -D cdc_test
 
 	return nil
 }

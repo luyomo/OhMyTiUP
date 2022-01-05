@@ -942,7 +942,11 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", subClusterType), NewBuilder().CreateTiDBNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build())
+		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build())
 		//		DeployTiDB(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo)
 
 	return b
@@ -974,8 +978,10 @@ func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType 
 
 func (b *Builder) DestroyEC2Nodes(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 
-	b.Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyEC(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
+	b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Target Group ... ...", subClusterType), NewBuilder().DestroyTargetGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying EC2 nodes ... ...", subClusterType), NewBuilder().DestroyEC(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 
 	return b
 }
@@ -1034,6 +1040,9 @@ func (b *Builder) DestroySqlServer(pexecutor *ctxt.Executor, subClusterType stri
 }
 
 func (b *Builder) CreateDMSService(pexecutor *ctxt.Executor, subClusterType string, awsDMSConfigs *spec.AwsDMSConfigs, clusterInfo *ClusterInfo) *Builder {
+	if awsDMSConfigs.CIDR == "" && awsDMSConfigs.InstanceType == "" {
+		return b
+	}
 	clusterInfo.cidr = awsDMSConfigs.CIDR
 	clusterInfo.instanceType = awsDMSConfigs.InstanceType
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
@@ -1115,6 +1124,76 @@ func (b *Builder) ListEC(pexecutor *ctxt.Executor, tableECs *[][]string) *Builde
 	b.tasks = append(b.tasks, &ListEC{
 		pexecutor: pexecutor,
 		tableECs:  tableECs,
+	})
+	return b
+}
+
+func (b *Builder) ListNLB(pexecutor *ctxt.Executor, subClusterType string, nlb *LoadBalancer) *Builder {
+	b.tasks = append(b.tasks, &ListNLB{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		nlb:            nlb,
+	})
+	return b
+}
+
+func (b *Builder) CreateTargetGroup(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateTargetGroup{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) RegisterTarget(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &RegisterTarget{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) CreateNLB(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateNLB{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) CreateNLBListener(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateNLBListener{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) CreateTiDBNLB(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build())
+
+	return b
+}
+
+func (b *Builder) DestroyNLB(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyNLB{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyTargetGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyTargetGroup{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
 	})
 	return b
 }

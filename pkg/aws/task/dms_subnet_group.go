@@ -45,8 +45,6 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 
 		var dmsSubnetGroups DMSSubnetGroups
 		if err = json.Unmarshal(stdout, &dmsSubnetGroups); err != nil {
-			fmt.Printf("The data is <%s> \n\n\n", string(command))
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return err
 		}
 
@@ -60,12 +58,8 @@ func (c *CreateDMSSubnetGroup) Execute(ctx context.Context) error {
 		subnets = append(subnets, "\""+subnet+"\"")
 	}
 	command = fmt.Sprintf("aws dms create-replication-subnet-group --replication-subnet-group-identifier %s --replication-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, clusterName, strings.Join(subnets, ","), clusterName, clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
 
@@ -102,8 +96,6 @@ func (c *DestroyDMSSubnetGroup) Execute(ctx context.Context) error {
 		fmt.Printf("ERRORS describe-replication-subnet-groups <%s> \n\n\n", string(stderr))
 		return err
 	} else {
-		fmt.Printf("The data is <%s> \n\n\n", string(command))
-
 		var dmsSubnetGroups DMSSubnetGroups
 		if err = json.Unmarshal(stdout, &dmsSubnetGroups); err != nil {
 			fmt.Printf("ERRORS describe-replication-subnet-groups json parsing <%s> \n\n\n", string(stderr))
@@ -112,7 +104,6 @@ func (c *DestroyDMSSubnetGroup) Execute(ctx context.Context) error {
 
 		for _, subnet := range dmsSubnetGroups.DMSSubnetGroups {
 			command = fmt.Sprintf("aws dms delete-replication-subnet-group --replication-subnet-group-identifier %s", subnet.ReplicationSubnetGroupIdentifier)
-			fmt.Printf("The comamnd is <%s> \n\n\n", command)
 			stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 
 			if err != nil {

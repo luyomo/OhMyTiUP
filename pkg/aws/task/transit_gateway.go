@@ -50,12 +50,9 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws ec2 create-transit-gateway --description %s --tag-specifications --tag-specifications \"ResourceType=transit-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s}]\"", clusterName, clusterName, clusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+	command := fmt.Sprintf("aws ec2 create-transit-gateway --description %s --tag-specifications \"ResourceType=transit-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s}]\"", clusterName, clusterName, clusterType)
+	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n\n", err)
-		fmt.Printf("The error here is <%s> \n\n\n", string(stderr))
 		return err
 	}
 
@@ -106,10 +103,8 @@ func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
 	}
 
 	command := fmt.Sprintf("aws ec2 delete-transit-gateway --transit-gateway-id %s", transitGateway.TransitGatewayId)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
-	_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("ERRORS: delete-transit-gateway <%s> \n\n\n", string(stderr))
 		return err
 	}
 
@@ -134,8 +129,6 @@ type ListTransitGateway struct {
 }
 
 func (c *ListTransitGateway) Execute(ctx context.Context) error {
-	//	fmt.Printf("**************************************xxxxxxxxx*******\n\n\n\n\n\n\n")
-
 	clusterName := ctx.Value("clusterName").(string)
 
 	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, clusterName)

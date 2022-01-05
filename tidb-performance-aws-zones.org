@@ -1,0 +1,61 @@
+* Performance comparison between different nodes
+  |           IP | Zone |
+  |--------------+------|
+  |  172.83.1.94 | 1a   |
+  |  172.83.2.92 | 1c   |
+  | 172.83.2.243 |      |
+
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.1.94 4000 
+Selected device ens5, address 172.82.11.32, port 60347 for outgoing packets
+Tracing the path to 172.83.1.94 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.1.94 [open]  0.373 ms  0.258 ms  0.258 ms
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.1.94 4000 
+Selected device ens5, address 172.82.11.32, port 43963 for outgoing packets
+Tracing the path to 172.83.1.94 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.1.94 [open]  0.420 ms  0.262 ms  0.257 ms
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.1.94 4000 
+Selected device ens5, address 172.82.11.32, port 40357 for outgoing packets
+Tracing the path to 172.83.1.94 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.1.94 [open]  0.489 ms  0.350 ms  0.341 ms
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.2.92 4000 
+Selected device ens5, address 172.82.11.32, port 49955 for outgoing packets
+Tracing the path to 172.83.2.92 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.2.92 [open]  1.949 ms  1.800 ms  1.796 ms
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.2.92 4000 
+Selected device ens5, address 172.82.11.32, port 51177 for outgoing packets
+Tracing the path to 172.83.2.92 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.2.92 [open]  1.805 ms  1.670 ms  1.687 ms
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.2.92 4000 
+Selected device ens5, address 172.82.11.32, port 59461 for outgoing packets
+Tracing the path to 172.83.2.92 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.2.92 [open]  1.815 ms  1.704 ms  1.698 ms
+admin@ip-172-82-11-32:~$ tcptrace 172.83.2.243 4000
+2 args remaining, starting with '172.83.2.243'
+Ostermann's tcptrace -- version 6.6.7 -- Thu Nov  4, 2004
+
+Running file '172.83.2.243' (1 of 2)
+172.83.2.243: No such file or directory
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.2.243 4000
+Selected device ens5, address 172.82.11.32, port 46401 for outgoing packets
+Tracing the path to 172.83.2.243 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.2.243  2.176 ms  1.805 ms  1.795 ms
+ 3  172.83.2.243 [open]  2.421 ms  1.819 ms  1.848 ms
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.2.243 4000
+Selected device ens5, address 172.82.11.32, port 48717 for outgoing packets
+Tracing the path to 172.83.2.243 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.2.243  1.857 ms  1.778 ms  1.764 ms
+ 3  172.83.2.243 [open]  2.407 ms  1.872 ms  1.878 ms
+admin@ip-172-82-11-32:~$ tcptraceroute 172.83.2.243 4000
+Selected device ens5, address 172.82.11.32, port 39505 for outgoing packets
+Tracing the path to 172.83.2.243 on TCP port 4000, 30 hops max
+ 1  * * *
+ 2  172.83.2.243  1.818 ms  1.700 ms  1.709 ms
+ 3  172.83.2.243 [open]  2.213 ms  1.852 ms  1.874 ms

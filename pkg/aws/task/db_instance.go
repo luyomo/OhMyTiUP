@@ -130,7 +130,6 @@ func (c *CreateMS) Execute(ctx context.Context) error {
 	dbClusterName := fmt.Sprintf("%s-%s", clusterName, c.subClusterType)
 
 	doWhenNotFound := func() error {
-		fmt.Printf(" *** *** *** Starting to create instance \n\n\n")
 		command := fmt.Sprintf("aws rds create-db-instance --db-instance-identifier %s --db-instance-class %s --engine %s --master-username %s --master-user-password %s --vpc-security-group-ids %s  --db-subnet-group-name %s --db-parameter-group-name %s --engine-version %s --license-model license-included --allocated-storage %d --backup-retention-period 0 --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbClusterName, (*c.awsMSConfigs).InstanceType, (*c.awsMSConfigs).Engine, (*c.awsMSConfigs).DBMasterUser, (*c.awsMSConfigs).DBMasterUserPass, c.clusterInfo.privateSecurityGroupId, dbClusterName, dbClusterName, (*c.awsMSConfigs).EngineVerion, (*c.awsMSConfigs).DiskSize, clusterName, clusterType, c.subClusterType)
 
 		err := runCreateDBInstance(*c.pexecutor, ctx, dbClusterName, command)
@@ -162,9 +161,8 @@ func (c *CreateMS) String() string {
 //******************************************************************************
 
 func runCreateDBInstance(texecutor ctxt.Executor, ctx context.Context, dbClusterName, createCommand string) error {
-	stdout, stderr, err := texecutor.Execute(ctx, createCommand, false)
+	stdout, _, err := texecutor.Execute(ctx, createCommand, false)
 	if err != nil {
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
 
@@ -237,7 +235,6 @@ func ExecuteDBInstance(texecutor ctxt.Executor, ctx context.Context, clusterName
 	} else {
 		var dbInstances DBInstances
 		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return err
 		}
 		for _, instance := range dbInstances.DBInstances {
@@ -249,8 +246,6 @@ func ExecuteDBInstance(texecutor ctxt.Executor, ctx context.Context, clusterName
 				}
 
 				//auroraConnInfo = instance.Endpoint
-				//fmt.Printf("The db instance is+  <%#v> \n\n\n", auroraConnInfo)
-				fmt.Printf("Found the instance")
 				return nil
 			}
 		}
@@ -265,16 +260,12 @@ func WaitDBInstanceUntilActive(texecutor ctxt.Executor, ctx context.Context, clu
 	for i := 1; i <= 50; i++ {
 		time.Sleep(30 * time.Second)
 		command := fmt.Sprintf("aws rds describe-db-instances --db-instance-identifier '%s'", clusterName)
-		stdout, stderr, err := texecutor.Execute(ctx, command, false)
+		stdout, _, err := texecutor.Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("The error err here is <%#v> \n\n\n", err)
-			fmt.Printf("The error stderr here is <%s> \n\n\n", string(stderr))
 			return err
 		}
-		//fmt.Printf("The db cluster is <%#v>\n\n\n", string(stdout))
 		var dbInstances DBInstances
 		if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return err
 		}
 

@@ -175,3 +175,12 @@ https://www.cnblogs.com/xuliuzai/p/11243376.html
 
 mysql -h 172.83.1.49 -P 4000 -u root cdc_test -e "alter table sbtest2 add column tidb_ts timestamp default current_timestamp "
 
+
+aws elbv2 create-target-group --name testtisample --protocol TCP --port 4000 --vpc-id  vpc-0a0b77e3dda822203 --target-type instance
+-- arn:aws:elasticloadbalancing:ap-northeast-1:385595570414:targetgroup/testtisample/b446a8cd70efca38
+
+aws elbv2 register-targets --target-group-arn arn:aws:elasticloadbalancing:ap-northeast-1:385595570414:targetgroup/testtisample/b446a8cd70efca38 --targets Id=i-00f8c695d756bf19e Id=i-074aed5319afd0c5e
+
+aws elbv2 create-load-balancer --name testtisample  --type network --subnets subnet-008d0786c982a0888 subnet-04f7f8418f6cf18d8 subnet-031e5e77fa0a5a975 --scheme internal
+
+aws elbv2 create-listener --load-balancer-arn arn:aws:elasticloadbalancing:ap-northeast-1:385595570414:loadbalancer/net/testtisample/228507d53f1808b9 --protocol TCP --port 4000 --default-actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:ap-northeast-1:385595570414:targetgroup/testtisample/b446a8cd70efca38

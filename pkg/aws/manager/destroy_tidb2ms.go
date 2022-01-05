@@ -57,7 +57,7 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().
-		ParallelStep("+ Initialize target host environments", false, t0)
+		ParallelStep("+ Destroying tidb2ms solution service ... ...", false, t0)
 	t := builder.Build()
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)

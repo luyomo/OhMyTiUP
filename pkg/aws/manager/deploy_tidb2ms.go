@@ -153,7 +153,7 @@ func (m *Manager) TiDB2MSDeploy(
 		envInitTasks = append(envInitTasks, t4)
 	}
 
-	builder := task.NewBuilder().ParallelStep("+ Initialize target host environments", false, envInitTasks...)
+	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb2ms solution service", false, envInitTasks...)
 
 	if afterDeploy != nil {
 		afterDeploy(builder, topo)
@@ -186,6 +186,7 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
 			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			DeployTiDBInstance(&sexecutor, "tidb", &workstationInfo).
+			//			CreateTiDBNLB(&sexecutor, "tidb", &clusterInfo).
 			//MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
 			DeployTiCDC(&sexecutor, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
 			BuildAsStep(fmt.Sprintf("  - Prepare DMS servicer and additional network resources %s:%d", globalOptions.Host, 22))
@@ -208,7 +209,7 @@ func (m *Manager) TiDB2MSDeploy(
 	tailctx := context.WithValue(context.Background(), "clusterName", name)
 	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
 	builder = task.NewBuilder().
-		ParallelStep("+ Initialize target host environments", false, t5)
+		ParallelStep("+ Deploying tidb2ms solution service ... ...", false, t5)
 	t = builder.Build()
 	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {

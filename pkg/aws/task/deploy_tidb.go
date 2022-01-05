@@ -198,6 +198,9 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
 	if err != nil {
+		if err.Error() == "No RDB Instance found(No matched name)" {
+			return nil
+		}
 		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}

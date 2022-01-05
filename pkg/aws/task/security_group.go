@@ -199,7 +199,6 @@ func (c *DestroySecurityGroup) Execute(ctx context.Context) error {
 		return err
 	}
 	for _, sg := range securityGroups.SecurityGroups {
-		fmt.Printf("The data is <%#v> \n\n\n", sg.GroupId)
 		command = fmt.Sprintf("aws ec2 delete-security-group --group-id %s ", sg.GroupId)
 		zap.L().Debug("Command", zap.String("delete-security-group", command))
 		_, _, err = (*c.pexecutor).Execute(ctx, command, false)

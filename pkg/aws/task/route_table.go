@@ -112,14 +112,12 @@ func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx conte
 		return nil
 	}
 
-	fmt.Printf("*** *** *** The parsed data is \n %#v \n\n\n", routeTables)
 	if len(routeTables.RouteTables) > 0 {
 		c.clusterInfo.publicRouteTableId = routeTables.RouteTables[0].RouteTableId
 		return nil
 	}
 
 	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterInfo.vpcInfo.VpcId, clusterName, clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	var retRouteTable ResultRouteTable
 	stdout, stderr, err = executor.Execute(ctx, command, false)
 	if err != nil {
@@ -135,7 +133,7 @@ func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx conte
 		return nil
 	}
 	//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
-	fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", retRouteTable.TheRouteTable.RouteTableId)
+
 	c.clusterInfo.publicRouteTableId = retRouteTable.TheRouteTable.RouteTableId
 
 	return nil

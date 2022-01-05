@@ -276,16 +276,12 @@ func getNetworksString(executor ctxt.Executor, ctx context.Context, clusterName,
 
 func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName string) (*TransitGateway, error) {
 	command := fmt.Sprintf("aws ec2 describe-transit-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName)
-	stdout, stderr, err := executor.Execute(ctx, command, false)
+	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error err here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
 		return nil, err
 	} else {
 		var transitGateways TransitGateways
 		if err = json.Unmarshal(stdout, &transitGateways); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil, err
 		}
 		for _, transitGateway := range transitGateways.TransitGateways {
@@ -386,9 +382,8 @@ func getWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, cl
 
 func getTiDBClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*TiDBClusterDetail, error) {
 
-	stdout, stderr, err := (*wsexecutor).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
+	stdout, _, err := (*wsexecutor).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 		return nil, err
 	}
 
@@ -465,27 +460,15 @@ func deployFreetds(executor ctxt.Executor, ctx context.Context, name, host strin
 
 	err = executor.Transfer(ctx, fmt.Sprintf("/tmp/%s", "freetds.conf"), "/tmp/freetds.conf", false, 0)
 	if err != nil {
-		fmt.Printf("The error is <%#v> \n\n\n", err)
 		return err
 	}
 
 	command := fmt.Sprintf(`mv /tmp/freetds.conf /etc/freetds/`)
-	_, stderr, err := executor.Execute(ctx, command, true)
+	_, _, err = executor.Execute(ctx, command, true)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
 		return err
 	}
 
-	/*
-		command = fmt.Sprintf(`bsqldb -i /opt/tidb/freetds.conf -S %s -U sa -P 1234@Abcd -i /opt/tidb/sql/ontime_ms.ddl`, tplData.Name)
-		stdout, stderr, err = executor.Execute(ctx, command, false)
-		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
-			return err
-		}
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The result from command <%s> \n\n\n", string(stdout))
-	*/
 	return nil
 }
 
@@ -513,4 +496,118 @@ func (items byComponentName) Less(i, j int) bool {
 		return true
 	}
 	return false
+}
+
+type TargetGroups struct {
+	TargetGroups []TargetGroup `json:"TargetGroups"`
+}
+
+type TargetGroup struct {
+	TargetGroupArn  string `json:"TargetGroupArn"`
+	TargetGroupName string `json:"TargetGroupName"`
+	Protocol        string `json:"Protocol"`
+	Port            int    `json:"Port"`
+	VpcId           string `json:"VpcId"`
+	TargetType      string `json:"TargetType"`
+}
+
+type TagDescription struct {
+	Tags []Tag `json:"Tags"`
+}
+
+type TagDescriptions struct {
+	TagDescriptions []TagDescription `json:"TagDescriptions"`
+}
+
+func ExistsELBResource(executor ctxt.Executor, ctx context.Context, clusterType, subClusterType, clusterName, resourceName string) bool {
+	command := fmt.Sprintf("aws elbv2 describe-tags --resource-arns %s ", resourceName)
+	stdout, _, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		return false
+	}
+
+	var tagDescriptions TagDescriptions
+	if err = json.Unmarshal(stdout, &tagDescriptions); err != nil {
+		return false
+	}
+	matchedCnt := 0
+	for _, tagDescription := range tagDescriptions.TagDescriptions {
+		for _, tag := range tagDescription.Tags {
+			if tag.Key == "Cluster" && tag.Value == clusterType {
+				matchedCnt++
+			}
+			if tag.Key == "Type" && tag.Value == subClusterType {
+				matchedCnt++
+			}
+			if tag.Key == "Name" && tag.Value == clusterName {
+				matchedCnt++
+			}
+			if matchedCnt == 3 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*TargetGroup, error) {
+	command := fmt.Sprintf("aws elbv2 describe-target-groups --name \"%s\"", clusterName)
+	stdout, stderr, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		if strings.Contains(string(stderr), "One or more target groups not found") {
+			return nil, errors.New("No target group found")
+		} else {
+			return nil, err
+		}
+	}
+	var targetGroups TargetGroups
+	if err = json.Unmarshal(stdout, &targetGroups); err != nil {
+		return nil, err
+	}
+
+	for _, targetGroup := range targetGroups.TargetGroups {
+		if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, targetGroup.TargetGroupArn); existsResource == true {
+			return &targetGroup, nil
+		}
+	}
+	return nil, errors.New("No target group found")
+}
+
+type LoadBalancer struct {
+	LoadBalancerArn  string `json:"LoadBalancerArn"`
+	DNSName          string `json:"DNSName"`
+	LoadBalancerName string `json:"LoadBalancerName"`
+	Scheme           string `json:"Scheme"`
+	VpcId            string `json:"VpcId"`
+	State            struct {
+		Code string `json:"Code"`
+	} `json:"State"`
+	Type string `json:"Type"`
+}
+
+type LoadBalancers struct {
+	LoadBalancers []LoadBalancer `json:"LoadBalancers"`
+}
+
+func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*LoadBalancer, error) {
+	command := fmt.Sprintf("aws elbv2 describe-load-balancers --name \"%s\"", clusterName)
+	stdout, stderr, err := executor.Execute(ctx, command, false)
+	if err != nil {
+		if strings.Contains(string(stderr), fmt.Sprintf("Load balancers '[%s]' not found", clusterName)) {
+			return nil, errors.New("No NLB found")
+		} else {
+			return nil, err
+		}
+	}
+	var loadBalancers LoadBalancers
+	if err = json.Unmarshal(stdout, &loadBalancers); err != nil {
+		return nil, err
+	}
+
+	for _, loadBalancer := range loadBalancers.LoadBalancers {
+		if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, loadBalancer.LoadBalancerArn); existsResource == true {
+			return &loadBalancer, nil
+		}
+	}
+	return nil, errors.New("No NLB found")
 }

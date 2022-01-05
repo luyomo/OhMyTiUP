@@ -40,26 +40,18 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 	command := fmt.Sprintf("aws dms describe-endpoints --filters Name=endpoint-type,Values=source Name=engine-name,Values=aurora")
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
-			fmt.Printf("The source end point has not created.\n\n\n")
-		} else {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+		if !strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
+			return err
 		}
 	} else {
 		var endpoints Endpoints
 		if err = json.Unmarshal(stdout, &endpoints); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
 			return nil
 		}
-		fmt.Printf("The source endpoint is <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
 			existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				DMSInfo.SourceEndpointArn = endpoint.EndpointArn
-				fmt.Printf("The dms source target has exists \n\n\n")
 				return nil
 			}
 		}
@@ -67,25 +59,18 @@ func (c *CreateDMSSourceEndpoint) Execute(ctx context.Context) error {
 
 	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "aurora")
 	if err != nil {
-		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}
-	fmt.Printf("The dn instance is <%#v> \n\n\n", dbInstance)
 
 	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-source --endpoint-type source --engine-name aurora --server-name %s --port %d --username %s --password %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", clusterName, clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
 
 	var endpoint EndpointRecord
 	if err = json.Unmarshal(stdout, &endpoint); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
+		return err
 	}
 	DMSInfo.SourceEndpointArn = endpoint.Endpoint.EndpointArn
 
@@ -118,26 +103,18 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 	command := fmt.Sprintf("aws dms describe-endpoints --filters Name=endpoint-type,Values=target Name=engine-name,Values=sqlserver")
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
-			fmt.Printf("The target end point has not created.\n\n\n")
-		} else {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+		if !strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
+			return err
 		}
 	} else {
 		var endpoints Endpoints
 		if err = json.Unmarshal(stdout, &endpoints); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			return err
 		}
-		fmt.Printf("The target endpoint <%#v> \n\n\n", endpoints)
 		for _, endpoint := range endpoints.Endpoints {
 			existsResource := ExistsDMSResource(clusterType, c.subClusterType, clusterName, endpoint.EndpointArn, *c.pexecutor, ctx)
 			if existsResource == true {
 				DMSInfo.TargetEndpointArn = endpoint.EndpointArn
-				fmt.Printf("The dms target endpoint has exists \n\n\n")
 				return nil
 			}
 		}
@@ -145,25 +122,18 @@ func (c *CreateDMSTargetEndpoint) Execute(ctx context.Context) error {
 
 	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
 	if err != nil {
-		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}
-	fmt.Printf("The target db instance <%#v> \n\n\n", dbInstance)
 
 	command = fmt.Sprintf("aws dms create-endpoint --endpoint-identifier %s-target --endpoint-type target --engine-name sqlserver --server-name %s --port %d --username %s --password %s --database-name %s --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, dbInstance.Endpoint.Address, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd", "cdc_test", clusterName, clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
 
 	var endpoint EndpointRecord
 	if err = json.Unmarshal(stdout, &endpoint); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
+		return err
 	}
 	DMSInfo.TargetEndpointArn = endpoint.Endpoint.EndpointArn
 
@@ -198,16 +168,12 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	var deletingEndpoints []string
 	if err != nil {
-		if strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
-			fmt.Printf("The source end point has not created.\n\n\n")
-		} else {
-			fmt.Printf("ERRORS: describe-endpoints  <%s> \n\n", string(stderr))
+		if !strings.Contains(string(stderr), "No Endpoints found matching provided filters") {
 			return err
 		}
 	} else {
 		var endpoints Endpoints
 		if err = json.Unmarshal(stdout, &endpoints); err != nil {
-			fmt.Printf("ERRORS: describe-endpoints json parsing <%s> \n\n\n", string(stderr))
 			return err
 		}
 		for _, endpoint := range endpoints.Endpoints {
@@ -218,8 +184,6 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 				stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 
 				if err != nil {
-					fmt.Printf("The comamnd is <%s> \n\n\n", command)
-					fmt.Printf("ERRORS: delete-endpoint  <%s> \n\n", string(stderr))
 					return err
 				}
 				deletingEndpoints = append(deletingEndpoints, endpoint.EndpointArn)
@@ -231,14 +195,12 @@ func (c *DestroyDMSEndpoints) Execute(ctx context.Context) error {
 	for i := 1; i <= 50; i++ {
 		cntEndpoints := 0
 
-		stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+		stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
-			fmt.Printf("ERRORS: describe-endpoints  <%s> \n\n", string(stderr))
 			return err
 		} else {
 			var endpoints Endpoints
 			if err = json.Unmarshal(stdout, &endpoints); err != nil {
-				fmt.Printf("ERRORS: describe-endpoints json parsing %#v \n\n", err)
 				return err
 			}
 			for _, endpoint := range endpoints.Endpoints {

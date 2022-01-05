@@ -89,7 +89,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 	var reservations Reservations
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return nil
+		return err
 	}
 
 	var theInstance EC2
@@ -105,30 +105,28 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if err = json.Unmarshal(stdout, &reservations); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return nil
+		return err
 	}
 
-	fmt.Printf(" *** *** *** *** Coming here for tidb instance deployment \n\n\n")
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile})
 	if err != nil {
-		return nil
+		return err
 	}
 
-	stdout, stderr, err := wsexecutor.Execute(ctx, `/home/admin/.tiup/bin/tiup cluster list --format json `, false)
+	stdout, _, err = wsexecutor.Execute(ctx, `/home/admin/.tiup/bin/tiup cluster list --format json `, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
-		return nil
+		return err
 	}
 
 	var tidbClusterInfos TiDBClusterInfos
 	if err = json.Unmarshal(stdout, &tidbClusterInfos); err != nil {
 		zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
-		return nil
+		return err
 	}
 
 	clusterExists := false
@@ -141,22 +139,19 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	if clusterExists == false {
 
-		stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s v5.2.0 /opt/tidb/tidb-cluster.yml -y`, clusterName), false, 300*time.Second)
+		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s v5.2.0 /opt/tidb/tidb-cluster.yml -y`, clusterName), false, 300*time.Second)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
-			return nil
+			return err
 		}
 
-		stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s`, clusterName), false, 300*time.Second)
+		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s`, clusterName), false, 300*time.Second)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
-			return nil
+			return err
 		}
 	} else {
-		stdout, stderr, err := wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
+		stdout, _, err := wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
 		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
-			return nil
+			return err
 		}
 
 		var tidbClusterDetail TiDBClusterDetail
@@ -166,10 +161,9 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		}
 		for _, component := range tidbClusterDetail.Instances {
 			if component.Status != "Up" {
-				stdout, stderr, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s --node %s `, clusterName, component.Id), false)
+				stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s --node %s `, clusterName, component.Id), false)
 				if err != nil {
-					fmt.Printf("The error here is <%#v> \n\n\n", string(stderr))
-					return nil
+					return err
 				}
 			}
 		}

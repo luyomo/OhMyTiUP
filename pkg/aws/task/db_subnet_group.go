@@ -59,18 +59,13 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if !strings.Contains(string(stderr), fmt.Sprintf("DB Subnet group '%s' not found", dbSubnetGroupName)) {
-			fmt.Printf("The error err here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
-			fmt.Printf("The error stderr here is <%s> \n\n", string(stderr))
-			return nil
+			return err
 		}
 	} else {
-		fmt.Printf("The data is <%s> \n\n\n", string(command))
 
 		var dbSubnetGroups DBSubnetGroups
 		if err = json.Unmarshal(stdout, &dbSubnetGroups); err != nil {
-			fmt.Printf("*** *** The error here is %#v \n\n", err)
-			return nil
+			return err
 		}
 
 		for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
@@ -86,13 +81,9 @@ func (c *CreateDBSubnetGroup) Execute(ctx context.Context) error {
 		subnets = append(subnets, "\""+subnet+"\"")
 	}
 	command = fmt.Sprintf("aws rds create-db-subnet-group --db-subnet-group-name %s --db-subnet-group-description \"%s\" --subnet-ids '\"'\"'[%s]'\"'\"' --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", dbSubnetGroupName, clusterName, strings.Join(subnets, ","), clusterName, clusterType, c.subClusterType)
-	fmt.Printf("The comamnd is <%s> \n\n\n", command)
 	stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
+		return err
 	}
 
 	return nil
@@ -119,17 +110,13 @@ func groupExists(groupName string, subnetGroups []DBSubnetGroup) bool {
 
 func ExistsResource(clusterType, subClusterType, clusterName, resourceName string, executor ctxt.Executor, ctx context.Context) bool {
 	command := fmt.Sprintf("aws rds list-tags-for-resource --resource-name %s ", resourceName)
-	stdout, stderr, err := executor.Execute(ctx, command, false)
+	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return false
 	}
 
 	var tagList TagList
 	if err = json.Unmarshal(stdout, &tagList); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return false
 	}
 	matchedCnt := 0
@@ -168,21 +155,17 @@ func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
 	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		if strings.Contains(string(stderr), fmt.Sprintf("DB Subnet group '%s' not found", dbSubnetGroupName)) {
-			fmt.Printf("The DB Cluster has not created.\n\n\n")
 			return nil
 		} else {
-			fmt.Printf("ERRORS: describe-db-subnet-groups <%s> \n\n\n", string(stderr))
 			return err
 		}
 	}
 
 	var dbSubnetGroups DBSubnetGroups
 	if err = json.Unmarshal(stdout, &dbSubnetGroups); err != nil {
-		fmt.Printf("ERRORS: describe-db-subnet-groups json parsing  <%s> \n\n", string(stderr))
 		return err
 	}
 
-	fmt.Printf("The db subnet groups is <%#v> \n\n\n", dbSubnetGroups)
 	for _, subnetGroups := range dbSubnetGroups.DBSubnetGroups {
 		existsResource := ExistsResource(clusterType, c.subClusterType, clusterName, subnetGroups.DBSubnetGroupArn, *(c.pexecutor), ctx)
 		if existsResource == true {
@@ -190,8 +173,6 @@ func (c *DestroyDBSubnetGroup) Execute(ctx context.Context) error {
 
 			stdout, stderr, err = (*c.pexecutor).Execute(ctx, command, false)
 			if err != nil {
-				fmt.Printf("The comamnd is <%s> \n\n\n", command)
-				fmt.Printf("ERRORS: delete-db-subnet-group <%s> \n\n", string(stderr))
 				return err
 			}
 			return nil
