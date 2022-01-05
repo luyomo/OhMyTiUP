@@ -19,14 +19,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/luyomo/tisample/embed"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
-	"go.uber.org/zap"
 	"os"
 	"path"
 	"strings"
 	"text/template"
+
+	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
+	"go.uber.org/zap"
 	//	"github.com/luyomo/tisample/pkg/executor"
 	//	"strings"
 )
@@ -368,7 +369,7 @@ func getWorkstation(executor ctxt.Executor, ctx context.Context, clusterName, cl
 	return &theInstance, nil
 }
 
-func getWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType, user, keyFile string) (*ctxt.Executor, error) {
+func GetWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType, user, keyFile string) (*ctxt.Executor, error) {
 	workstation, err := getWorkstation(texecutor, ctx, clusterName, clusterType)
 	if err != nil {
 		return nil, err

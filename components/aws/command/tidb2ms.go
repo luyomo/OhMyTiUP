@@ -41,6 +41,7 @@ func newTiDB2MSCmd() *cobra.Command {
 		newSysbenchTiCDCCmd(),
 		newSysbenchPrepareCmd(),
 		newTemplateCmd(),
+		newTiDB2MSScale(),
 	)
 	return cmd
 }
@@ -143,6 +144,40 @@ You can retain some nodes and roles data when destroy cluster, eg:
 	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataNodes, "retain-node-data", nil, "Specify the nodes or hosts whose data will be retained")
 	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataRoles, "retain-role-data", nil, "Specify the roles whose data will be retained")
 	cmd.Flags().BoolVar(&destroyOpt.Force, "force", false, "Force will ignore remote error while destroy the cluster")
+
+	return cmd
+}
+
+func newTiDB2MSScale() *cobra.Command {
+	opt := manager.TiDB2MSScaleOptions{
+		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
+	}
+	cmd := &cobra.Command{
+		Use:          "scale <cluster-name> <topology.yaml>",
+		Short:        "scale tidb cluster",
+		Long:         "scale-in or scale-out the tidb cluster",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+			topoFile := args[1]
+			if data, err := os.ReadFile(topoFile); err == nil {
+				teleTopology = string(data)
+			}
+			fmt.Printf("The command here is %v \n", teleCommand)
+
+			return cm.TiDB2MSScale(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+		},
+	}
+
+	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
 
 	return cmd
 }

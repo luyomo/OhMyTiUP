@@ -613,6 +613,18 @@ func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, aw
 	return b
 }
 
+func (b *Builder) ScaleTiDB(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, awsTopoConfig *spec.AwsTopoConfigs, clusterInfo *ClusterInfo, oldInstances *Reservations) *Builder {
+	b.tasks = append(b.tasks, &ScaleTiDB{
+		pexecutor:      pexecutor,
+		awsWSConfigs:   awsWSConfigs,
+		awsTopoConfig:  awsTopoConfig,
+		subClusterType: subClusterType,
+		clusterInfo:    clusterInfo,
+		oldInstances:   oldInstances,
+	})
+	return b
+}
+
 func (b *Builder) CreateRouteTgw(pexecutor *ctxt.Executor, subClusterType string, subClusterTypes []string) *Builder {
 	b.tasks = append(b.tasks, &CreateRouteTgw{
 		pexecutor:       pexecutor,
@@ -774,6 +786,15 @@ func (b *Builder) CreateMS(pexecutor *ctxt.Executor, subClusterType string, awsM
 }
 
 func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &DeployTiDBInstance{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) ScaleTiDBInstance(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDBInstance{
 		pexecutor:      pexecutor,
 		subClusterType: subClusterType,
@@ -947,7 +968,6 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build())
-		//		DeployTiDB(user, host, clusterName, clusterType, subClusterType, awsTopoConfigs, clusterInfo)
 
 	return b
 }

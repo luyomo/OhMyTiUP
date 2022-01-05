@@ -16,20 +16,20 @@ package manager
 import (
 	"context"
 	"crypto/tls"
-	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
-	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws/clusterutil"
-	"github.com/luyomo/tisample/pkg/ctxt"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
-	perrs "github.com/pingcap/errors"
+	"github.com/luyomo/tisample/pkg/utils"
 )
 
 // ScaleIn the cluster.
@@ -68,57 +68,39 @@ func (m *Manager) ScaleIn(
 
 		log.Infof("Scale-in nodes...")
 	}
-
-	metadata, err := m.meta(name)
-	if err != nil &&
-		!errors.Is(perrs.Cause(err), meta.ErrValidate) &&
-		!errors.Is(perrs.Cause(err), spec.ErrMultipleTiSparkMaster) &&
-		!errors.Is(perrs.Cause(err), spec.ErrMultipleTisparkWorker) &&
-		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) {
-		// ignore conflict check error, node may be deployed by former version
-		// that lack of some certain conflict checks
-		return err
-	}
-
-	topo := metadata.GetTopology()
-	base := metadata.GetBaseMeta()
+	log.Infof("Scaled cluster `%s` in successfully", name)
 
 	// Regenerate configuration
-	regenConfigTasks, hasImported := buildRegenConfigTasks(m, name, topo, base, nodes, true)
-
-	// handle dir scheme changes
-	if hasImported {
-		if err := spec.HandleImportPathMigration(name); err != nil {
-			return err
-		}
-	}
-
-	tlsCfg, err := topo.TLSConfig(m.specManager.Path(name, spec.TLSCertKeyDir))
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
 	if err != nil {
 		return err
 	}
-
-	b, err := m.sshTaskBuilder(name, topo, base.User, gOpt)
+	ctx := ctxt.New(context.Background(), 1)
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, name, "clusterType", "c.awsWSConfigs.UserName", "c.awsWSConfigs.KeyFile")
 	if err != nil {
 		return err
 	}
-
-	scale(b, metadata, tlsCfg)
-
-	t := b.
-		ParallelStep("+ Refresh instance configs", force, regenConfigTasks...).
-		Parallel(force, buildReloadPromTasks(metadata.GetTopology(), nodes...)...).
-		Build()
-
-	if err := t.Execute(ctxt.New(context.Background(), gOpt.Concurrency)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
-			return err
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster scale-in %s  -y -N %s --transfer-timeout %d`, name, gOpt.Nodes[0], gOpt.APITimeout), false, 300*time.Second)
+	if err != nil {
+		return err
+	}
+	//delete ec2
+	reservations, err := task.ListClusterEc2s(ctx, sexecutor, name)
+	instanceID := ""
+	for _, resvs := range reservations.Reservations {
+		for _, instance := range resvs.Instances {
+			if strings.HasPrefix(gOpt.Nodes[0], instance.PrivateIpAddress) {
+				instanceID = instance.InstanceId
+				break
+			}
 		}
-		return perrs.Trace(err)
 	}
 
-	log.Infof("Scaled cluster `%s` in successfully", name)
+	_, _, err = sexecutor.Execute(ctx, fmt.Sprintf("aws ec2 terminate-instances --instance-ids %s", instanceID), false)
+	if err != nil {
+		return err
+	}
+	log.Infof("Delete Ec2  successfully")
 
 	return nil
 }

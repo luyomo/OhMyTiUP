@@ -16,7 +16,6 @@ package command
 import (
 	"crypto/tls"
 
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/spf13/cobra"
@@ -36,7 +35,7 @@ func newScaleInCmd() *cobra.Command {
 			teleCommand = append(teleCommand, scrubClusterName(clusterName))
 
 			scale := func(b *task.Builder, imetadata spec.Metadata, tlsCfg *tls.Config) {
-				metadata := imetadata.(*spec.ClusterMeta)
+				/*metadata := imetadata.(*spec.ClusterMeta)
 
 				nodes := gOpt.Nodes
 				if !gOpt.Force {
@@ -46,6 +45,7 @@ func newScaleInCmd() *cobra.Command {
 				b.ClusterOperate(metadata.Topology, operator.ScaleInOperation, gOpt, tlsCfg).
 					UpdateMeta(clusterName, metadata, nodes).
 					UpdateTopology(clusterName, tidbSpec.Path(clusterName), metadata, nodes)
+				*/
 			}
 
 			return cm.ScaleIn(clusterName, skipConfirm, gOpt, scale)
