@@ -381,7 +381,7 @@ func GetWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, cl
 	return &wsexecutor, nil
 }
 
-func getTiDBClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*TiDBClusterDetail, error) {
+func getTiDBClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterName string) (*TiDBClusterDetail, error) {
 
 	stdout, _, err := (*wsexecutor).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
 	if err != nil {

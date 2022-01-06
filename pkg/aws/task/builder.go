@@ -613,14 +613,12 @@ func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, aw
 	return b
 }
 
-func (b *Builder) ScaleTiDB(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, awsTopoConfig *spec.AwsTopoConfigs, clusterInfo *ClusterInfo, oldInstances *Reservations) *Builder {
+func (b *Builder) ScaleTiDB(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, awsTopoConfig *spec.AwsTopoConfigs) *Builder {
 	b.tasks = append(b.tasks, &ScaleTiDB{
 		pexecutor:      pexecutor,
 		awsWSConfigs:   awsWSConfigs,
 		awsTopoConfig:  awsTopoConfig,
 		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-		oldInstances:   oldInstances,
 	})
 	return b
 }

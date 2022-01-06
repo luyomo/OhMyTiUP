@@ -39,7 +39,7 @@ func (c *DeployTiCDC) Execute(ctx context.Context) error {
 		return err
 	}
 
-	tidbClusterDetail, err := getTiDBClusterInfo(wsexecutor, ctx, clusterName, clusterType)
+	tidbClusterDetail, err := getTiDBClusterInfo(wsexecutor, ctx, clusterName)
 
 	auroraInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "aurora")
 	fmt.Printf("The error here is <%#v> \n\n\n", err)

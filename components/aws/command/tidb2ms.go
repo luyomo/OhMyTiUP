@@ -172,6 +172,7 @@ func newTiDB2MSScale() *cobra.Command {
 				teleTopology = string(data)
 			}
 			fmt.Printf("The command here is %v \n", teleCommand)
+			fmt.Printf("The cluster name is <%s> \n", clusterName)
 
 			return cm.TiDB2MSScale(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},

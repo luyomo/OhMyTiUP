@@ -62,7 +62,10 @@ func (c *CreateDMNodes) Execute(ctx context.Context) error {
 		existsNodes = existsNodes + len(reservation.Instances)
 	}
 
-	for _idx := 0; _idx < c.awsTopoConfigs.DM.Count-existsNodes; _idx++ {
+	for _idx := 0; _idx < c.awsTopoConfigs.DM.Count; _idx++ {
+		if _idx < existsNodes {
+			continue
+		}
 		deviceStmt := ""
 		if c.awsTopoConfigs.DM.VolumeSize > 0 {
 			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.DM.VolumeSize)
@@ -129,7 +132,10 @@ func (c *CreatePDNodes) Execute(ctx context.Context) error {
 		existsNodes = existsNodes + len(reservation.Instances)
 	}
 
-	for _idx := 0; _idx < c.awsTopoConfigs.PD.Count-existsNodes; _idx++ {
+	for _idx := 0; _idx < c.awsTopoConfigs.PD.Count; _idx++ {
+		if _idx < existsNodes {
+			continue
+		}
 		deviceStmt := ""
 		if c.awsTopoConfigs.PD.VolumeSize > 0 {
 			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.PD.VolumeSize)
@@ -194,7 +200,10 @@ func (c *CreateTiCDCNodes) Execute(ctx context.Context) error {
 		existsNodes = existsNodes + len(reservation.Instances)
 	}
 
-	for _idx := 0; _idx < c.awsTopoConfigs.TiCDC.Count-existsNodes; _idx++ {
+	for _idx := 0; _idx < c.awsTopoConfigs.TiCDC.Count; _idx++ {
+		if _idx < existsNodes {
+			continue
+		}
 		deviceStmt := ""
 		if c.awsTopoConfigs.TiCDC.VolumeSize > 0 {
 			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.TiCDC.VolumeSize)
@@ -258,7 +267,10 @@ func (c *CreateTiDBNodes) Execute(ctx context.Context) error {
 		existsNodes = existsNodes + len(reservation.Instances)
 	}
 
-	for _idx := 0; _idx < c.awsTopoConfigs.TiDB.Count-existsNodes; _idx++ {
+	for _idx := 0; _idx < c.awsTopoConfigs.TiDB.Count; _idx++ {
+		if _idx < existsNodes {
+			continue
+		}
 		deviceStmt := ""
 		if c.awsTopoConfigs.TiDB.VolumeSize > 0 {
 			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.TiDB.VolumeSize)
@@ -320,7 +332,10 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 		existsNodes = existsNodes + len(reservation.Instances)
 	}
 
-	for _idx := 0; _idx < c.awsTopoConfigs.TiKV.Count-existsNodes; _idx++ {
+	for _idx := 0; _idx < c.awsTopoConfigs.TiKV.Count; _idx++ {
+		if _idx < existsNodes {
+			continue
+		}
 		deviceStmt := ""
 		if c.awsTopoConfigs.TiKV.VolumeSize > 0 {
 			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.TiKV.VolumeSize)

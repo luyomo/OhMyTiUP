@@ -132,7 +132,7 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 
 	//  *****   1. Fetch the TiDB host
 	if c.scriptParam.TiDBUser == "" {
-		tidbClusterDetail, err := getTiDBClusterInfo(workstation, ctx, clusterName, clusterType)
+		tidbClusterDetail, err := getTiDBClusterInfo(workstation, ctx, clusterName)
 		if err != nil {
 			return err
 		}

@@ -26,7 +26,7 @@ import (
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
-	"github.com/pingcap/errors"
+	//	"github.com/pingcap/errors"
 
 	//	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/luyomo/tisample/pkg/ctxt"
@@ -59,15 +59,15 @@ func (m *Manager) TiDB2MSScale(
 		return err
 	}
 
-	exist, err := m.specManager.Exist(name)
-	if err != nil {
-		return err
-	}
+	// exist, err := m.specManager.Exist(name)
+	// if err != nil {
+	// 	return err
+	// }
 
-	if !exist {
-		// FIXME: When change to use args, the suggestion text need to be updatem.
-		return errors.New("cluster is not found")
-	}
+	// if !exist {
+	// 	// FIXME: When change to use args, the suggestion text need to be updatem.
+	// 	return errors.New("cluster is not found")
+	// }
 
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
@@ -137,10 +137,6 @@ func (m *Manager) TiDB2MSScale(
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	reserves, err := task.ListClusterEc2s(ctx, sexecutor, name)
-	if err != nil {
-		return err
-	}
-
 	var pds, tidbs, tikvs, ticdc, dm []task.EC2
 
 	for _, reserv := range reserves.Reservations {
@@ -200,7 +196,7 @@ func (m *Manager) TiDB2MSScale(
 
 	var t5 *task.StepDisplay
 	t5 = task.NewBuilder().
-		ScaleTiDB(&sexecutor, "tidb", base.AwsWSConfigs, base.AwsTopoConfigs, &workstationInfo, reserves).
+		ScaleTiDB(&sexecutor, "tidb", base.AwsWSConfigs, base.AwsTopoConfigs).
 		BuildAsStep(fmt.Sprintf("  - Prepare Ec2  resources %s:%d", globalOptions.Host, 22))
 
 	tailctx := context.WithValue(context.Background(), "clusterName", name)
