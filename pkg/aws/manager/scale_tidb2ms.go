@@ -19,7 +19,6 @@ import (
 	"fmt"
 	//	"go.uber.org/zap"
 	"os"
-	"time"
 
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws/clusterutil"
@@ -136,41 +135,6 @@ func (m *Manager) TiDB2MSScale(
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	reserves, err := task.ListClusterEc2s(ctx, sexecutor, name)
-	var pds, tidbs, tikvs, ticdc, dm []task.EC2
-
-	for _, reserv := range reserves.Reservations {
-		for _, instance := range reserv.Instances {
-			cmp := instance.Tags[0]["Component"]
-			switch cmp {
-			case "pd":
-				pds = append(pds, instance)
-			case "tidb":
-				tidbs = append(tidbs, instance)
-			case "tikv":
-				tikvs = append(tikvs, instance)
-			case "ticdc":
-				ticdc = append(ticdc, instance)
-			case "dm":
-				dm = append(dm, instance)
-			}
-		}
-	}
-
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, name, clusterType, base.AwsWSConfigs.UserName, base.AwsWSConfigs.KeyFile)
-	if err != nil {
-		return err
-	}
-	if err := tryScaleIn(ctx, name, pds, 2379, base.AwsTopoConfigs.PD.Count, &sexecutor, workstation); err != nil {
-		return err
-	}
-	if err := tryScaleIn(ctx, name, tidbs, 4000, base.AwsTopoConfigs.TiDB.Count, &sexecutor, workstation); err != nil {
-		return err
-	}
-	if err := tryScaleIn(ctx, name, tikvs, 20160, base.AwsTopoConfigs.TiKV.Count, &sexecutor, workstation); err != nil {
-		return err
-	}
-
 	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DM.Count + base.AwsTopoConfigs.TiCDC.Count
 	if cntEC2Nodes > 0 {
 		t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
@@ -213,25 +177,5 @@ func (m *Manager) TiDB2MSScale(
 	}
 
 	log.Infof("Cluster `%s` scaled successfully ", name)
-	return nil
-}
-
-func tryScaleIn(ctx context.Context, clusterName string, pds []task.EC2, port, newCount int, sexecutor *ctxt.Executor, workstation *ctxt.Executor) error {
-	if len(pds) > newCount {
-		//scale in pd
-		startIdx := len(pds) - newCount
-		for i := startIdx; i < len(pds); i++ {
-			instance := pds[i]
-			nodeId := fmt.Sprintf("%s:%d", instance.PrivateIpAddress, port)
-			_, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster scale-in %s  -y -N %s --transfer-timeout %d`, clusterName, nodeId, 200), false, 300*time.Second)
-			if err != nil {
-				return err
-			}
-			_, _, err = (*sexecutor).Execute(ctx, fmt.Sprintf("aws ec2 terminate-instances --instance-ids %s", instance.InstanceId), false)
-			if err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
