@@ -46,15 +46,13 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 
 	tidbClusterInfo, err := getTiDBClusterInfo(workstation, ctx, clusterName)
 	if err != nil {
-		fmt.Printf("The error for fetching cluster info is <%s> \n\n\n", err.Error())
 		return err
 	}
-	fmt.Printf("The TiDB Cluster info is <%#v> \n\n\n\n\n\n", *tidbClusterInfo)
 
 	// 2. Get all the nodes from tag definition
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false, 600*time.Second)
 	if err != nil {
 		return err
 	}
@@ -64,7 +62,6 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 	tidbMap := make(map[string]bool)
 	ticdcMap := make(map[string]bool)
 	dmMap := make(map[string]bool)
-	//	fmt.Printf("The original instances info is <%#v> \n\n\n\n\n\n", c.oldInstances.Reservations)
 
 	for _, instance := range tidbClusterInfo.Instances {
 		if instance.Role == "pd" {
@@ -79,7 +76,6 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 		if instance.Role == "cdc" {
 			ticdcMap[instance.Host] = true
 		}
-		//fmt.Printf("The instance is <%#v> \n\n\n", instance)
 	}
 
 	var reservations Reservations
@@ -88,7 +84,6 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("All the pd nodes are <%#v> \n\n\n\n\n\n", pdMap)
 	activeNodesMap := make(map[string]map[string][][]string)
 	var tplData TplTiupData
 	for _, reservation := range reservations.Reservations {
@@ -98,12 +93,10 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 					if !pdMap[instance.PrivateIpAddress] {
 						tplData.PD = append(tplData.PD, instance.PrivateIpAddress)
 					} else {
-						fmt.Printf("The pd node info here is <%#v> \n\n\n\n\n\n", instance)
 						if activeNodesMap["pd"] == nil {
 							activeNodesMap["pd"] = make(map[string][][]string)
 						}
 						nodeId := SearchTiDBNode(tidbClusterInfo.Instances, instance.PrivateIpAddress)
-						fmt.Printf("The node ID is <%s> \n\n\n\n\n\n", nodeId)
 						activeNodesMap["pd"][instance.SubnetId] = append(activeNodesMap["pd"][instance.SubnetId], []string{instance.InstanceId, nodeId})
 
 					}
@@ -155,43 +148,65 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 			}
 		}
 	}
-	fmt.Printf("The organized data is <%#v> \n\n\n\n\n\n", activeNodesMap)
+
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
 
-	if activeNodesMap["tikv"] != nil {
-		maxEntity := 0
-		for _, nodesBySubnets := range activeNodesMap["tikv"] {
-			if maxEntity < len(nodesBySubnets) {
-				maxEntity = len(nodesBySubnets)
-			}
-			fmt.Printf("The nodes are number of nodes <%d> and <%#v> \n\n\n\n\n\n", c.awsTopoConfig.TiKV.Count, nodesBySubnets)
+	var nodes2Remove [][]string
+	scaledInTiKV := 0
+	scaleNode := func(componentName string, nodeInfo []string) error {
+		_, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster scale-in %s  -y -N %s --transfer-timeout %d`, clusterName, nodeInfo[1], 200), false, 300*time.Second)
+		if err != nil {
+			return err
 		}
-		runNodes := 0
-		for idx := 0; idx < maxEntity; idx++ {
-			fmt.Printf("The idx for destroying <%d> and <%d> \n\n\n\n\n\n", idx, runNodes)
-			for _, nodesBySubnets := range activeNodesMap["tikv"] {
-				if idx < len(nodesBySubnets) {
-					runNodes++
-					if runNodes > c.awsTopoConfig.TiKV.Count {
-						// To remove the node
-						fmt.Printf("THe element to to destroy <%#v> \n\n\n\n\n\n", nodesBySubnets[idx])
+		nodes2Remove = append(nodes2Remove, nodeInfo)
 
-						_, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster scale-in %s  -y -N %s --transfer-timeout %d`, clusterName, nodesBySubnets[idx][1], 200), false, 300*time.Second)
-						if err != nil {
-							return err
-						}
-						_, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster prune %s -y`, clusterName), false, 0)
-						if err != nil {
-							return err
-						}
+		if componentName == "tikv" {
+			scaledInTiKV++
+		}
+		return nil
+	}
 
-						_, _, err = (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 terminate-instances --instance-ids %s", nodesBySubnets[idx][0]), false)
-						if err != nil {
-							return err
-						}
-					}
+	if err = scaleTiDBNode(&scaleNode, &activeNodesMap, "pd", c.awsTopoConfig.TiKV.Count); err != nil {
+		return err
+	}
 
+	if err = scaleTiDBNode(&scaleNode, &activeNodesMap, "tikv", c.awsTopoConfig.TiKV.Count); err != nil {
+		return err
+	}
+
+	if err = scaleTiDBNode(&scaleNode, &activeNodesMap, "tidb", c.awsTopoConfig.TiDB.Count); err != nil {
+		return err
+	}
+
+	if err = scaleTiDBNode(&scaleNode, &activeNodesMap, "ticdc", c.awsTopoConfig.TiDB.Count); err != nil {
+		return err
+	}
+
+	if len(nodes2Remove) > 0 {
+		for cnt := 0; cnt < 100; cnt++ {
+			time.Sleep(15 * time.Second)
+			tidbClusterInfo, err = getTiDBClusterInfo(workstation, ctx, clusterName)
+			if err != nil {
+				return err
+			}
+			numTombstoneNodes := 0
+			for _, instance := range tidbClusterInfo.Instances {
+				if instance.Status == "Tombstone" {
+					numTombstoneNodes++
 				}
+			}
+			if numTombstoneNodes == scaledInTiKV {
+				_, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster prune %s -y`, clusterName), false, 600*time.Second)
+				if err != nil {
+					return err
+				}
+				for _, node := range nodes2Remove {
+					_, _, err = (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 terminate-instances --instance-ids %s", node[0]), false, 600*time.Second)
+					if err != nil {
+						return err
+					}
+				}
+				break
 			}
 		}
 	}
@@ -230,14 +245,7 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 			buffer.WriteString("\n")
 		}
 	}
-	// if len(tplData.DM) > 0 {
-	// 	buffer.WriteString("dm_servers:\n")
-	// 	for _, ip := range tplData.DM {
-	// 		buffer.WriteString("  - host: ")
-	// 		buffer.WriteString(ip)
-	// 		buffer.WriteString("\n")
-	// 	}
-	// }
+
 	if err := os.WriteFile("/tmp/scale.yaml", buffer.Bytes(), os.FileMode(0644)); err != nil {
 		return err
 	}
@@ -249,6 +257,35 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster scale-out %s  -y %s`, clusterName, "/opt/tidb/scale.yaml"), false, 300*time.Second)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func scaleTiDBNode(funcScaleIn *func(componentName string, nodeId []string) error, activeNodesMap *map[string]map[string][][]string, componentName string, nodeCount int) error {
+	// tikv/pd/tidb/cdc
+	if (*activeNodesMap)[componentName] != nil {
+		maxEntity := 0
+		for _, nodesBySubnets := range (*activeNodesMap)[componentName] {
+			if maxEntity < len(nodesBySubnets) {
+				maxEntity = len(nodesBySubnets)
+			}
+		}
+		runNodes := 0
+		for idx := 0; idx < maxEntity; idx++ {
+			for _, nodesBySubnets := range (*activeNodesMap)[componentName] {
+				if idx < len(nodesBySubnets) {
+					runNodes++
+					// c.awsTopoConfig.TiKV.Count
+					if runNodes > nodeCount {
+						// To remove the node
+						if err := (*funcScaleIn)(componentName, nodesBySubnets[idx]); err != nil {
+							return err
+						}
+					}
+
+				}
+			}
+		}
 	}
 	return nil
 }
