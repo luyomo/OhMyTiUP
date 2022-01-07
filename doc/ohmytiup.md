@@ -45,126 +45,29 @@ tiup cloud-cluster deploy tidb-test v5.3.0 ./topology.yaml #TODO：加一些用�
 配置文件：
 
 ```
-# Follow 官方 global 配置项设计；在官方基础上增加Region和AZ信息
-global:
-  user: "tidb"
-  ssh_port: 22
-  deploy_dir: "/tidb/tidb-deploy"
-  data_dir: "/tidb/tidb-data"
-  vpc: XXXXX # 配置全局，可选 默认 VPC 自动生成
-  iam: XXXXX # 配置，可选，默认自动生成 iam 所有节点的 iam 角色
-  region: # 配置所有节点的默认 region。
-
-instance_template: # 可选，会提供几个默认的实例模板
-  - micro_ins1:
-      instance_type: t3.micro
-      image_id: xxxx # 可选，默认值只要是一个tidb能run的镜像即可
-      - storage: # 可选，设定挂几个 EBS，以及挂在那里
-         type: gp3
-         iops: 3000
-         mount: "/tidb1"
-         capacity: 256GB
-      - storage:
-         type: gp2
-         iops: 3000
-         mount: "/tidb2"
-         capacity: 256GB
-        
-lb: # 负载均衡器配置
-   enable: true 
-   # TODO：可能还需要配入口 IP，路由规则等，    
-
-
-# # Monitored variables are applied to all the machines.
-monitored: 
-# 细节略，直接 Follow 官方设计，不做修改
-
-
-server_configs:
-# 细节略，直接 Follow 官方设计，不做修改
-
-pd_servers:
-  - instance: micro_ins1
-    # ssh_port: 22
-    # name: "pd-1"
-    # client_port: 2379
-    # peer_port: 2380
-    # deploy_dir: "/tidb-deploy/pd-2379"
-    # data_dir: "/tidb-data/pd-2379"
-    # log_dir: "/tidb-deploy/pd-2379/log"
-    # numa_node: "0,1"
-    # # The following configs are used to overwrite the `server_configs.pd` values.
-    # config:
-    #   schedule.max-merge-region-size: 20
-    #   schedule.max-merge-region-keys: 200000 
-    # 上面是官方提供的配置，我们直接follow，此外，每一个组件节点都加入一下配置
-    vpc: XXXXX # 配置当前节点 VPC
-    iam: XXXXX # 配置所前点的 iam 角色
-    az: # 配置当前节点可用区，可选
-    count: 3
-
-tidb_servers: 
-  - instance: micro_ins1
-    # ssh_port: 22
-    # port: 4000
-    # status_port: 10080
-    # deploy_dir: "/tidb-deploy/tidb-4000"
-    # log_dir: "/tidb-deploy/tidb-4000/log"
-    # numa_node: "0,1"
-    # # The following configs are used to overwrite the `server_configs.tidb` values.
-    # config:
-    #   log.slow-query-file: tidb-slow-overwrited.log 
-    # 上面是官方提供的配置，我们直接follow，此外，每一个组件节点都加入一下配置
-    vpc: XXXXX # 配置当前节点 VPC
-    iam: XXXXX # 配置所前点的 iam 角色
-    az: # 配置当前节点可用区
-  - instance: micro_ins1 
-  - instance: micro_ins1
-
-tikv_servers: 
-  - instance: micro_ins1
-    # ssh_port: 22
-    # port: 20160
-    # status_port: 20180
-    # deploy_dir: "/tidb-deploy/tikv-20160"
-    # data_dir: "/tidb-data/tikv-20160"
-    # log_dir: "/tidb-deploy/tikv-20160/log"
-    # numa_node: "0,1"
-    # # The following configs are used to overwrite the `server_configs.tikv` values.
-    # config:
-    #   server.grpc-concurrency: 4
-    #   server.labels: { zone: "zone1", dc: "dc1", host: "host1" }
-
-  - instance: micro_ins1 
-  - instance: micro_ins1
-
-cdc_servers: 
-  - instance: micro_ins1
-    # port: 8300
-    # deploy_dir: "/tidb-deploy/cdc-8300"
-    # data_dir: "/tidb-data/cdc-8300"
-    # log_dir: "/tidb-deploy/cdc-8300/log"
-    # gc-ttl: 86400 
-  - instance: micro_ins1
-  - instance: micro_ins1
-
-monitoring_servers:
-  - host: micro_ins1
-
-grafana_servers:
-  - host: micro_ins1
-
-alertmanager_servers:
-  - host: micro_ins1
-  
-aws_cloud_formation_configs:
-    template_body_file_path: xxxx.json # 和 template_url 任选其一
-    template_url: https://  
-    parameters:
-     - param1: vvv
-     - user: root
-     #...
-
+aws_topo_configs:
+  general:
+    imageid: ami-0ac97798ccf296e02            # Image ID for TiDB cluster's EC2 node
+    keyname: jay.pingcap                      # key name to login from workstation to EC2 nodes 
+    cidr: 172.83.0.0/16                       # VPC cidr
+    instance_type: m5.2xlarge                 # default instance type for EC2 nodes
+    tidb_version: v5.2.0                      # TiDB version to deploy
+  pd:
+    instance_type: m5.2xlarge                 # PD instance type
+    count: 3                                  # Number of PD nodes to generate
+  tidb:
+    instance_type: m5.2xlarge                 # TiDB instance type
+    count: 2                                  # Number of TiDB nodes to generate
+  tikv:
+    instance_type: m5.2xlarge                 # TiKV instance type
+    count: 3                                  # Number of TiKV nodes to generate
+    volumeSize: 80                            # Volume Size of the TiKV nodes
+  dm:
+    instance_type: t2.micro                   # DM instance type
+    count: 1                                  # Number of DM node to generate
+  ticdc:
+    instance_type: m5.2xlarge                 # TiCDC instance type
+    count: 1                                  # Number of TiCDC nodes to generate
 ```
 
 ##### 扩缩容集群
@@ -224,3 +127,35 @@ Flags:
       --retain-role-data stringArray   Specify the roles whose data will be retained，指定需要保留的节点（停止 EC2 而非销毁 EC2）
 ```
 
+#### Example
+##### Scaling
+```
+pi@ohmytiup:~/workspace/tisample $ ./bin/aws tidb2ms scale hackathon ~/workspace/hackathon/aws-tidb-simple.yaml 
+Please confirm your topology:
+AWS Region:      Tokyo
+Cluster type:    tidb
+Cluster name:    hackathon
+Cluster version: v5.1.0
+User Name:       admin
+Key Name:        jay
+
+Component    # of nodes  Instance Type  Image Name             CIDR           User
+---------    ----------  -------------  ----------             ----           ----
+Workstation  1           m5.2xlarge     ami-0ac97798ccf296e02  172.82.0.0/16  admin
+TiDB         2           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+PD           3           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+TiKV         3           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+TiCDC        1           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+DM           1           t2.micro       ami-0ac97798ccf296e02  172.83.0.0/16  master
+Attention:
+    1. If the topology is not what you expected, check your yaml file.
+    2. Please confirm there is no port/directory conflicts in same host.
+Do you want to continue? [y/N]: (default=N) y
+  - Preparing workstation ... Done
+  - Preparing tidb servers ... Done
++ Initialize target host environments
+  - Prepare Ec2  resources :22 ... Done
+Cluster `hackathon` scaled successfully 
+```
+#### Reference
+[youtube](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
