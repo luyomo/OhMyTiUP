@@ -20,11 +20,11 @@ TiUP 作为 TiDB 系列所有产品线的入口，是非常重要的生态工具
 #### 背景
 TiUP Cluster 用于在生产上部署 TiDB 集群，提供了非常丰富的功能以适用于生产上复杂的部署环境。但 TiUP Cluster 主要是为 on-premise 场景部署而设计的，并未考虑云上场景。虽然在云上场景中，tidb operator 已经能提供丰富的集群部署和管理能力，但 tidb operator 依赖 K8s，在追求轻量和易运维的场景中并不适用。目前在云上但不使用 K8s 的场景中，TiDB 集群的部署和管理仍然是一块空白。
 
-#### 设计架构
-![alt text](doc/png/oh-my-tiup.png)
-
 #### 产品设计
 我们设计了一个新的名为 cloud-cluster 的 TiUP 组件，专门用于 TiDB 集群的云上部署和管理。
+
+#### 设计架构
+![alt text](doc/png/oh-my-tiup.png)
 
 ##### 部署集群
 在部署集群时，cloud-cluster 不需要用户指定要部署的目标主机 IP，而是用户指定要部署的目标主机机型，Region、AZ 等信息，cloud-cluster 可以自动向 AWS 申请虚机并部署 TiDB 集群。
@@ -114,7 +114,7 @@ The error here is <&errors.errorString{s:"No RDB Instance found(No matched name)
 Verbose debug logs has been written to /home/pi/.tiup/logs/aws-nodes-debug-2022-01-08-09-05-27.log.
 ```
 
-Check generated aws resources
+AWS resources
 ```
 pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms list hackathon
 + Listing aws resources
@@ -195,7 +195,7 @@ tikv            tidb               running  i-0ebb8edf4cfae6c08  m5.2xlarge     
 workstation     workstation        running  i-0a0e4c9b7167c6fa8  m5.2xlarge     172.82.11.69  54.65.110.179  ami-0ac97798ccf296e02
 ```
 
-Check TiDB cluster status
+TiDB cluster status
 ```
 pi@c1s11:~/workspace/tisample $ ssh -i '~/.ssh/jaypingcap.pem' admin@54.65.110.179
 admin@ip-172-82-11-69:~$ tiup cluster display hackathon
@@ -220,13 +220,12 @@ ID                  Role  Host          Ports        OS/Arch       Status  Data 
 Total nodes: 9
 ```
 
+
 ##### 扩缩容集群
 ###### 能力
 - 扩容集群时可以自动向 AWS 申请 EC2，并自动完成部署
 - 缩容时可以自动停止或销毁 EC2，由用户选择是否直接销毁 EC2
-
-###### Scale out
-####### User Interface
+###### User Interface
 官方扩缩容设计见：使用 TiUP 扩容缩容 TiDB 集群
 扩容配置文件（scale-out.yaml）：
 
@@ -295,7 +294,7 @@ Do you want to continue? [y/N]: (default=N) y
 Cluster `hackathon` scaled successfully
 ```
 
-Check generated aws resources
+AWS resources
 ```
 pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms list hackathon
 + Listing aws resources
@@ -338,7 +337,7 @@ tikv            tidb               running  i-045aa3b3445a4aa20  m5.2xlarge     
 workstation     workstation        running  i-0a0e4c9b7167c6fa8  m5.2xlarge     172.82.11.69  54.65.110.179  ami-0ac97798ccf296e02
 ```
 
-Check TiDB cluster status
+TiDB cluster status
 ```
 admin@ip-172-82-11-69:~$ tiup cluster display hackathon
 Starting component `cluster`: /home/admin/.tiup/components/cluster/v1.8.1/tiup-cluster display hackathon
@@ -366,8 +365,8 @@ ID                  Role  Host          Ports        OS/Arch       Status  Data 
 Total nodes: 13
 ```
 
-###### Scale in
-####### User Interface
+##### 缩容集群
+###### User Interface(Same to 扩容集群命令)
 官方扩缩容设计见：使用 TiUP 扩容缩容 TiDB 集群
 扩容配置文件（scale-in.yaml）：
 
@@ -409,9 +408,9 @@ tiup cloud-cluster scale-in <cluster-name> --node 10.0.1.5:20160 [--retain]
 --retain 停止 EC2 而非销毁 EC2，以保留数据
 Scale out cluster using below commands
 
-####### Command Example
+###### Command Example
 ```
-pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms scale hackathon ~/workspace/hackathon/aws-tidb-simple.yaml 
+pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms scale hackathon ~/workspace/hackathon/scale-in.yaml
 Please confirm your topology:
 AWS Region:      Tokyo
 Cluster type:    tidb
@@ -464,6 +463,7 @@ tikv            tidb               running  i-0f501a53bd0a8451c  m5.2xlarge     
 tikv            tidb               running  i-0ebb8edf4cfae6c08  m5.2xlarge     172.83.1.109                 ami-0ac97798ccf296e02
 workstation     workstation        running  i-0a0e4c9b7167c6fa8  m5.2xlarge     172.82.11.69  54.65.110.179  ami-0ac97798ccf296e02
 ```
+TiDB Cluster status
 ```
 admin@ip-172-82-11-69:~$ tiup cluster display hackathon 
 Starting component `cluster`: /home/admin/.tiup/components/cluster/v1.8.1/tiup-cluster display hackathon
@@ -519,6 +519,47 @@ pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms destroy hackathon
 
 ```
 
+AWS resources
+```
+pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms list hackathon
++ Listing aws resources
+  - Listing VPC ... Done
+  - Listing Subnets ... Done
+  - Listing Route Tables ... Done
+  - Listing Security Groups ... Done
+  - Listing Transit gateway  ... Done
+  - Listing Transit gateway vpc attachment ... Done
+  - Listing EC2 ... Done
+  - Listing Load Balancer  ... Done
+Cluster  Type:      tisample-tidb2ms
+Cluster Name :      hackathon
+
+Resource Type:      VPC
+Component Name  VPC ID  CIDR  Status
+--------------  ------  ----  ------
+
+Resource Type:      Subnet
+Component Name  Zone  Subnet ID  CIDR  State  VPC ID
+--------------  ----  ---------  ----  -----  ------
+
+Resource Type:      Route Table
+Component Name  Route Table ID  DestinationCidrBlock  TransitGatewayId  GatewayId  State  Origin
+--------------  --------------  --------------------  ----------------  ---------  -----  ------
+
+Resource Type:      Security Group
+Component Name  Ip Protocol  Source Ip Range  From Port  To Port
+--------------  -----------  ---------------  ---------  -------
+
+Resource Type:      Transit Gateway
+Resource ID  :          State:  
+Component Name  VPC ID  State
+--------------  ------  -----
+
+Load Balancer:      
+Resource Type:      EC2
+Component Name  Component Cluster  State  Instance ID  Instance Type  Preivate IP  Public IP  Image ID
+--------------  -----------------  -----  -----------  -------------  -----------  ---------  --------
 ```
 #### Reference
-[youtube viedo - Deployment Example](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
+Deployment Example                             -> [youtube viedo](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
+TiDB -> TiCDC -> Aurora -> DMS -> SQLServer    -> [Data sync](doc/sync-ms2tidb.org)
