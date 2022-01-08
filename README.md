@@ -523,16 +523,7 @@ pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms destroy hackathon
 
 ```
 AWS resources
-```{css, echo=FALSE}
-pre {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-pre[class] {
-  max-height: 100px;
-  
-}
+```
 pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms list hackathon
 + Listing aws resources
   - Listing VPC ... Done
