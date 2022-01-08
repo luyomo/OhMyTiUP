@@ -23,9 +23,9 @@ TiUP Cluster 用于在生产上部署 TiDB 集群，提供了非常丰富的功�
 #### 产品设计
 我们设计了一个新的名为 cloud-cluster 的 TiUP 组件，专门用于 TiDB 集群的云上部署和管理。
   - [部署集群](https://github.com/luyomo/tisample#%E9%83%A8%E7%BD%B2%E9%9B%86%E7%BE%A4)
-  - 扩容
-  - 缩容
-  - 销毁集群
+  - [扩容](https://github.com/luyomo/tisample#扩容)
+  - [缩容](https://github.com/luyomo/tisample#%E7%BC%A9%E5%AE%B9%E9%9B%86%E7%BE%A4)
+  - [销毁集群](https://github.com/luyomo/tisample#%E9%94%80%E6%AF%81%E9%9B%86%E7%BE%A4)
 
 #### 设计架构
 ![alt text](doc/png/oh-my-tiup.png)
@@ -225,7 +225,7 @@ Total nodes: 9
 ```
 
 
-##### 扩缩容集群
+##### 扩容集群
 ###### 能力
 - 扩容集群时可以自动向 AWS 申请 EC2，并自动完成部署
 - 缩容时可以自动停止或销毁 EC2，由用户选择是否直接销毁 EC2
