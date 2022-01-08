@@ -22,6 +22,10 @@ TiUP Cluster 用于在生产上部署 TiDB 集群，提供了非常丰富的功�
 
 #### 产品设计
 我们设计了一个新的名为 cloud-cluster 的 TiUP 组件，专门用于 TiDB 集群的云上部署和管理。
+  - [部署集群](https://github.com/luyomo/tisample#%E9%83%A8%E7%BD%B2%E9%9B%86%E7%BE%A4)
+  - 扩容
+  - 缩容
+  - 销毁集群
 
 #### 设计架构
 ![alt text](doc/png/oh-my-tiup.png)
@@ -561,5 +565,5 @@ Component Name  Component Cluster  State  Instance ID  Instance Type  Preivate I
 --------------  -----------------  -----  -----------  -------------  -----------  ---------  --------
 ```
 #### Reference
-Deployment Example                             -> [youtube viedo](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
-TiDB -> TiCDC -> Aurora -> DMS -> SQLServer    -> [Data sync](doc/sync-ms2tidb.org)
+ - Deployment Example                             -> [youtube viedo](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
+ - TiDB -> TiCDC -> Aurora -> DMS -> SQLServer    -> [Data sync](doc/sync-ms2tidb.org)
