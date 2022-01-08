@@ -522,8 +522,8 @@ pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms destroy hackathon
   - Destroying workstation cluster hackathon  ... Done
 
 ```
-
-AWS resources
+<details>
+<summary>AWS resources</summary>
 ```
 pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms list hackathon
 + Listing aws resources
@@ -564,6 +564,7 @@ Resource Type:      EC2
 Component Name  Component Cluster  State  Instance ID  Instance Type  Preivate IP  Public IP  Image ID
 --------------  -----------------  -----  -----------  -------------  -----------  ---------  --------
 ```
+<details>
 #### Reference
  - [youtube viedo Deployment example](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
  - [TiDB -> TiCDC -> Aurora -> DMS -> SQLServer](doc/sync-ms2tidb.org)
