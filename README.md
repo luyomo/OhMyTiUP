@@ -221,12 +221,12 @@ Total nodes: 9
 ```
 
 ##### 扩缩容集群
-
 ###### 能力
 - 扩容集群时可以自动向 AWS 申请 EC2，并自动完成部署
 - 缩容时可以自动停止或销毁 EC2，由用户选择是否直接销毁 EC2
 
-###### User Interface
+###### Scale out
+####### User Interface
 官方扩缩容设计见：使用 TiUP 扩容缩容 TiDB 集群
 扩容配置文件（scale-out.yaml）：
 
@@ -243,10 +243,12 @@ aws_topo_configs:
     count: 3                                  # Number of PD nodes to generate
   tidb:
     instance_type: m5.2xlarge                 # TiDB instance type
-    count: 3                                  # Number of TiDB nodes to generate                -> Scale one TiDB node from 2 to 3
+    #Scale one TiDB node from 2 to 3
+    count: 3                                  # Number of TiDB nodes to generate 
   tikv:
     instance_type: m5.2xlarge                 # TiKV instance type
-    count: 6                                  # Number of TiKV nodes to generate                -> Scale three TiKV nodes from 3 to 6
+    # Scale three TiKV nodes from 3 to 6
+    count: 6                                  # Number of TiKV nodes to generate
     volumeSize: 80                            # Volume Size of the TiKV nodes
   dm:
     instance_type: t2.micro                   # DM instance type
@@ -259,15 +261,8 @@ aws_topo_configs:
 命令参数直接 follow 官方设计：
 tiup cloud-cluster scale <cluster-name> scale-out.yaml
 
-缩容(todo)：
-tiup cloud-cluster scale-in <cluster-name> --node 10.0.1.5:20160 [--retain]
-
-缩容指定节点
---retain 停止 EC2 而非销毁 EC2，以保留数据
-Scale out cluster using below commands
-
 ```
-pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms scale hackathon ~/workspace/hackathon/aws-tidb-simple.yaml                                                                                        [0/4754]
+pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms scale hackathon ~/workspace/hackathon/scale-out.yaml
 Please confirm your topology:
 AWS Region:      Tokyo
 Cluster type:    tidb
@@ -371,30 +366,52 @@ ID                  Role  Host          Ports        OS/Arch       Status  Data 
 Total nodes: 13
 ```
 
-
-
-
-##### 销毁集群
-###### 能力
-- 自动停止或销毁集群所使用的所有 EC2，由用户选择是否直接销毁 EC2
-###### User Interface
+###### Scale in
+####### User Interface
+官方扩缩容设计见：使用 TiUP 扩容缩容 TiDB 集群
+扩容配置文件（scale-in.yaml）：
 
 ```
-➜  ~ tiup cloud-cluster destroy --help
-Usage:
-  tiup-cluster destroy <cluster-name> [flags]
-
-Flags:
-      --force                          Force will ignore remote error while destroy the cluster
-  -h, --help                           help for destroy
-      --retain-node-data stringArray   Specify the nodes or hosts whose data will be retained，指定需要保留的节点（停止 EC2 而非销毁 EC2）
-      --retain-role-data stringArray   Specify the roles whose data will be retained，指定需要保留的节点（停止 EC2 而非销毁 EC2）
+aws_topo_configs:
+  general:
+    imageid: ami-0ac97798ccf296e02            # Image ID for TiDB cluster's EC2 node
+    keyname: jay.pingcap                      # key name to login from workstation to EC2 nodes
+    cidr: 172.83.0.0/16                       # VPC cidr
+    instance_type: m5.2xlarge                 # default instance type for EC2 nodes
+    tidb_version: v5.2.0                      # TiDB version to deploy
+  pd:
+    instance_type: m5.2xlarge                 # PD instance type
+    count: 3                                  # Number of PD nodes to generate
+  tidb:
+    instance_type: m5.2xlarge                 # TiDB instance type
+    #Scale one TiDB node from 3 to 2
+    count: 2                                  # Number of TiDB nodes to generate 
+  tikv:
+    instance_type: m5.2xlarge                 # TiKV instance type
+    # Scale three TiKV nodes from 6 to 3
+    count: 3                                  # Number of TiKV nodes to generate
+    volumeSize: 80                            # Volume Size of the TiKV nodes
+  dm:
+    instance_type: t2.micro                   # DM instance type
+    count: 1                                  # Number of DM node to generate
+  ticdc:
+    instance_type: m5.2xlarge                 # TiCDC instance type
+    count: 1                                  # Number of TiCDC nodes to generate
 ```
 
-#### Example
-##### Scaling
+命令参数直接 follow 官方设计：
+tiup cloud-cluster scale <cluster-name> scale-out.yaml
+
+缩容(todo)：
+tiup cloud-cluster scale-in <cluster-name> --node 10.0.1.5:20160 [--retain]
+
+缩容指定节点
+--retain 停止 EC2 而非销毁 EC2，以保留数据
+Scale out cluster using below commands
+
+####### Command Example
 ```
-pi@ohmytiup:~/workspace/tisample $ ./bin/aws tidb2ms scale hackathon ~/workspace/hackathon/aws-tidb-simple.yaml
+pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms scale hackathon ~/workspace/hackathon/aws-tidb-simple.yaml 
 Please confirm your topology:
 AWS Region:      Tokyo
 Cluster type:    tidb
@@ -415,11 +432,93 @@ Attention:
     1. If the topology is not what you expected, check your yaml file.
     2. Please confirm there is no port/directory conflicts in same host.
 Do you want to continue? [y/N]: (default=N) y
++ Initialize target host environments
+  - Preparing workstation ... ⠦ Echo: Creating VPC 
++ Initialize target host environments
+  - Preparing workstation ... ⠹ Echo: Creating VPC 
++ Initialize target host environments
   - Preparing workstation ... Done
   - Preparing tidb servers ... Done
 + Initialize target host environments
   - Prepare Ec2  resources :22 ... Done
-Cluster `hackathon` scaled successfully
+Cluster `hackathon` scaled successfully 
+```
+
+AWS resources
+```
+pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms list hackathon
+... ... ...
+Load Balancer:      hackathon-cf7959a3b0c7415c.elb.ap-northeast-1.amazonaws.com
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP   Public IP      Image ID
+--------------  -----------------  -----    -----------          -------------  -----------   ---------      --------
+dm              tidb               running  i-07d62c419ca2b3fe3  t2.micro       172.83.1.66                  ami-0ac97798ccf296e02
+pd              tidb               running  i-05a19af4d8bfdfb7a  m5.2xlarge     172.83.1.117                 ami-0ac97798ccf296e02
+pd              tidb               running  i-040ce4539e62fa6a5  m5.2xlarge     172.83.3.9                   ami-0ac97798ccf296e02
+pd              tidb               running  i-0c2d80f6333f6a77b  m5.2xlarge     172.83.2.21                  ami-0ac97798ccf296e02
+ticdc           tidb               running  i-0bb01a195b1f3cb32  m5.2xlarge     172.83.1.149                 ami-0ac97798ccf296e02
+tidb            tidb               running  i-02e57d8abdcc8c66f  m5.2xlarge     172.83.2.197                 ami-0ac97798ccf296e02
+tidb            tidb               running  i-06d7e53de2c2adba8  m5.2xlarge     172.83.3.8                   ami-0ac97798ccf296e02
+tikv            tidb               running  i-0e24e56798270fda6  m5.2xlarge     172.83.2.59                  ami-0ac97798ccf296e02
+tikv            tidb               running  i-0f501a53bd0a8451c  m5.2xlarge     172.83.3.247                 ami-0ac97798ccf296e02
+tikv            tidb               running  i-0ebb8edf4cfae6c08  m5.2xlarge     172.83.1.109                 ami-0ac97798ccf296e02
+workstation     workstation        running  i-0a0e4c9b7167c6fa8  m5.2xlarge     172.82.11.69  54.65.110.179  ami-0ac97798ccf296e02
+```
+```
+admin@ip-172-82-11-69:~$ tiup cluster display hackathon 
+Starting component `cluster`: /home/admin/.tiup/components/cluster/v1.8.1/tiup-cluster display hackathon
+Cluster type:       tidb
+Cluster name:       hackathon
+Cluster version:    v5.2.0
+Deploy user:        admin
+SSH type:           builtin
+Dashboard URL:      http://172.83.1.117:2379/dashboard
+ID                  Role  Host          Ports        OS/Arch       Status  Data Dir                               Deploy Dir
+--                  ----  ----          -----        -------       ------  --------                               ----------
+172.83.1.149:8300   cdc   172.83.1.149  8300         linux/x86_64  Up      /home/admin/tidb/tidb-data/cdc-8300    /home/admin/tidb/tidb-deploy/cdc-8300
+172.83.1.117:2379   pd    172.83.1.117  2379/2380    linux/x86_64  Up|UI   /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.2.21:2379    pd    172.83.2.21   2379/2380    linux/x86_64  Up      /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.3.9:2379     pd    172.83.3.9    2379/2380    linux/x86_64  Up|L    /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.2.197:4000   tidb  172.83.2.197  4000/10080   linux/x86_64  Up      -                                      /home/admin/tidb/tidb-deploy/tidb-4000
+172.83.3.8:4000     tidb  172.83.3.8    4000/10080   linux/x86_64  Up      -                                      /home/admin/tidb/tidb-deploy/tidb-4000
+172.83.1.109:20160  tikv  172.83.1.109  20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+172.83.2.59:20160   tikv  172.83.2.59   20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+172.83.3.247:20160  tikv  172.83.3.247  20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+Total nodes: 9
+```
+
+##### 销毁集群
+###### 能力
+- 自动停止或销毁集群所使用的所有 EC2，由用户选择是否直接销毁 EC2
+###### User Interface
+
+```
+➜  ~ tiup cloud-cluster destroy --help
+Usage:
+  tiup-cluster destroy <cluster-name> [flags]
+
+Flags:
+      --force                          Force will ignore remote error while destroy the cluster
+  -h, --help                           help for destroy
+      --retain-node-data stringArray   Specify the nodes or hosts whose data will be retained，指定需要保留的节点（停止 EC2 而非销毁 EC2）
+      --retain-role-data stringArray   Specify the roles whose data will be retained，指定需要保留的节点（停止 EC2 而非销毁 EC2）
+```
+
+###### Command Example
+```
+pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms destroy hackathon                                    
+                                                   
++ Destroying tidb2ms solution service ... ...                                                         
++ Destroying tidb2ms solution service ... ...  
+... ...
++ Destroying all the componets
+  - Destroying EC2 nodes cluster hackathon  ... Done
+  - Destroying aurora db cluster hackathon  ... Done
+  - Destroying sqlserver cluster hackathon  ... Done
+  - Destroying workstation cluster hackathon  ... Done
+
+```
+
 ```
 #### Reference
-[youtube](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
+[youtube viedo - Deployment Example](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
