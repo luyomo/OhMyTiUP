@@ -564,5 +564,7 @@ Component Name  Component Cluster  State  Instance ID  Instance Type  Preivate I
 --------------  -----------------  -----  -----------  -------------  -----------  ---------  --------
 ```
 #### Reference
- - [youtube viedo Deployment example](https://www.youtube.com/watch?v=2P9Dqkaay2A&t=103s)
+ - [youtube: Oh My TiUP - Deployment](https://youtu.be/2P9Dqkaay2A)
+ - [youtube: Oh My TiUP - Scaling](https://youtu.be/EeTqFikqTmU)
+ - [youtube: Oh My TiUP - TiCDC sysbench](https://youtu.be/3SuJFXjc4PE)
  - [TiDB -> TiCDC -> Aurora -> DMS -> SQLServer](doc/sync-ms2tidb.org)
