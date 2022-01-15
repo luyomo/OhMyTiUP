@@ -1232,3 +1232,12 @@ func (b *Builder) DestroyCloudFormation(pexecutor *ctxt.Executor) *Builder {
 	})
 	return b
 }
+
+func (b *Builder) DeployPDNS(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs) *Builder {
+	b.tasks = append(b.tasks, &DeployPDNS{
+		pexecutor:      pexecutor,
+		awsWSConfigs:   awsWSConfigs,
+		subClusterType: subClusterType,
+	})
+	return b
+}

@@ -14,7 +14,7 @@
 package command
 
 import (
-	"fmt"
+	//	"fmt"
 	"os"
 	"path"
 
@@ -28,32 +28,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newTiDB2MSCmd() *cobra.Command {
+func newPDNS() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tidb2ms <sub_command>",
-		Short: "Run commands for tidb 2 sqlserver",
+		Use:   "pdns <sub_command>",
+		Short: "Deploy powerdns service",
 	}
 
 	cmd.AddCommand(
-		newTiDB2MSDeploy(),
-		newListTiDB2MSCmd(),
-		newDestroyTiDB2MSCmd(),
-		newSysbenchTiCDCCmd(),
-		newSysbenchPrepareCmd(),
-		newTemplateCmd(),
-		newTiDB2MSScale(),
+		newDeployPDNS(),
+		newListPDNSCmd(),
+		newDestroyPDNSCmd(),
 	)
 	return cmd
 }
 
-func newTiDB2MSDeploy() *cobra.Command {
-	opt := manager.TiDB2MSDeployOptions{
+func newDeployPDNS() *cobra.Command {
+	opt := manager.PDNSDeployOptions{
 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
 	}
 	cmd := &cobra.Command{
 		Use:          "deploy <cluster-name> <topology.yaml>",
-		Short:        "Deploy an aurora for demo",
-		Long:         "Deploy an aurora for demo. SSH connection will be used to deploy files, as well as creating system users for running the service.",
+		Short:        "Deploy the powerdns service using TiDB",
+		Long:         "Deploy the powerdns service against TiDB.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
@@ -70,7 +66,7 @@ func newTiDB2MSDeploy() *cobra.Command {
 				teleTopology = string(data)
 			}
 
-			return cm.TiDB2MSDeploy(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.PDNSDeploy(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 
@@ -79,13 +75,13 @@ func newTiDB2MSDeploy() *cobra.Command {
 	return cmd
 }
 
-func newListTiDB2MSCmd() *cobra.Command {
+func newListPDNSCmd() *cobra.Command {
 	opt := manager.DeployOptions{
 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
 	}
 	cmd := &cobra.Command{
 		Use:   "list <cluster-name>",
-		Short: "List all clusters or cluster of aurora db",
+		Short: "List all clusters or cluster of pdns",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
 			if err != nil {
@@ -97,7 +93,7 @@ func newListTiDB2MSCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.ListTiDB2MSCluster(clusterName, opt)
+			return cm.ListPDNSService(clusterName, opt)
 		},
 	}
 
@@ -106,7 +102,7 @@ func newListTiDB2MSCmd() *cobra.Command {
 	return cmd
 }
 
-func newDestroyTiDB2MSCmd() *cobra.Command {
+func newDestroyPDNSCmd() *cobra.Command {
 	destroyOpt := operator.Options{}
 	cmd := &cobra.Command{
 		Use:   "destroy <cluster-name>",
@@ -136,48 +132,13 @@ You can retain some nodes and roles data when destroy cluster, eg:
 				}
 			}
 
-			return cm.DestroyTiDB2MSCluster(clusterName, gOpt, destroyOpt, skipConfirm)
+			return cm.DestroyPDNSService(clusterName, gOpt, destroyOpt, skipConfirm)
 		},
 	}
 
 	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataNodes, "retain-node-data", nil, "Specify the nodes or hosts whose data will be retained")
 	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataRoles, "retain-role-data", nil, "Specify the roles whose data will be retained")
 	cmd.Flags().BoolVar(&destroyOpt.Force, "force", false, "Force will ignore remote error while destroy the cluster")
-
-	return cmd
-}
-
-func newTiDB2MSScale() *cobra.Command {
-	opt := manager.TiDB2MSScaleOptions{
-		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
-	}
-	cmd := &cobra.Command{
-		Use:          "scale <cluster-name> <topology.yaml>",
-		Short:        "scale tidb cluster",
-		Long:         "scale-in or scale-out the tidb cluster",
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
-			if err != nil {
-				return err
-			}
-			if !shouldContinue {
-				return nil
-			}
-
-			clusterName := args[0]
-			topoFile := args[1]
-			if data, err := os.ReadFile(topoFile); err == nil {
-				teleTopology = string(data)
-			}
-			fmt.Printf("The command here is %v \n", teleCommand)
-			fmt.Printf("The cluster name is <%s> \n", clusterName)
-
-			return cm.TiDB2MSScale(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
-		},
-	}
-
-	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
 
 	return cmd
 }

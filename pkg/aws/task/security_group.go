@@ -159,6 +159,13 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 		return err
 	}
 
+	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 80 --cidr 0.0.0.0/0", c.clusterInfo.publicSecurityGroupId)
+	zap.L().Debug("Command", zap.String("create-security-group", command))
+	stdout, _, err = executor.Execute(ctx, command, false)
+	if err != nil {
+		return err
+	}
+
 	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", c.clusterInfo.publicSecurityGroupId, c.clusterInfo.cidr)
 	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 	stdout, _, err = executor.Execute(ctx, command, false)
