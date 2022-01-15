@@ -1,0 +1,28 @@
+aws_topo_configs:
+  general:
+    imageid: ami-0ac97798ccf296e02            # Image ID for TiDB cluster's EC2 node
+    keyname: jay.pingcap                      # key name to login from workstation to EC2 nodes 
+    cidr: 172.83.0.0/16                       # VPC cidr
+    instance_type: m5.2xlarge                 # default instance type for EC2 nodes
+    tidb_version: v5.2.0                      # TiDB version to deploy
+  pd:
+    instance_type: m5.2xlarge                 # PD instance type
+    count: 3                                  # Number of PD nodes to generate
+  tidb:
+    instance_type: m5.2xlarge                 # TiDB instance type
+    count: 2                                  # Number of TiDB nodes to generate
+  tikv:
+    instance_type: m5.2xlarge                 # TiKV instance type
+    count: 3                                  # Number of TiKV nodes to generate
+    volumeSize: 80                            # Volume Size of the TiKV nodes
+  dm:
+    instance_type: t2.micro                   # DM instance type
+    count: 1                                  # Number of DM node to generate
+  ticdc:
+    instance_type: m5.2xlarge                 # TiCDC instance type
+    count: 1                                  # Number of TiCDC nodes to generate
+    #aws_cloud_formation_configs:
+    #  template_body_file_path: /tmp/ec2.yaml
+    #  parameters:
+    #    KeyName: jay.pingcap
+    #    MyIP: 182.10.1.2  

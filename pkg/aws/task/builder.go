@@ -1215,3 +1215,20 @@ func (b *Builder) DestroyTargetGroup(pexecutor *ctxt.Executor, subClusterType st
 	})
 	return b
 }
+
+func (b *Builder) CreateCloudFormation(pexecutor *ctxt.Executor, awsCloudFormationConfigs *spec.AwsCloudFormationConfigs, cloudFormationType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateCloudFormation{
+		pexecutor:                pexecutor,
+		awsCloudFormationConfigs: awsCloudFormationConfigs,
+		cloudFormationType:       cloudFormationType,
+		clusterInfo:              clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) DestroyCloudFormation(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyCloudFormation{
+		pexecutor: pexecutor,
+	})
+	return b
+}

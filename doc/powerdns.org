@@ -1,0 +1,68 @@
+* Environment preparation 
+** Prepare the TiDB using OhMyTiUP
+** Docker and docker-composer preparation
+   #+BEGIN_SRC
+   sudo apt-get install -y docker.io docker-compose dnsutils
+   sudo gpasswd -a $USER docker
+   #+END_SRC
+** powerdns installation
+   #+BEGIN_SRC
+  docker pull emaxchou/pdns:4.2.0
+  docker pull ngoduykhanh/powerdns-admin
+  docker run --name pdns -d \
+             --network host \
+             -e MYSQL_USER=root \
+             -e MYSQL_PASS=passwd \
+             -e MYSQL_HOST=powerdns-bd415e86a5836a7b.elb.ap-northeast-1.amazonaws.com \
+             -e MYSQL_PORT=4000 \
+         psitrax/powerdns:4 \
+         --cache-ttl=120 \
+         --allow-axfr-ips=0.0.0.0/0
+
+             -p 53:53 \
+             -p 53:53/udp \
+   #+END_SRC
+ 
+** powerdns-admin
+   #+BEGIN_SRC
+version: "3"
+
+services:
+  app:
+    image: ngoduykhanh/powerdns-admin:latest
+    container_name: powerdns_admin
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+    network_mode: host
+    environment:
+      - SQLALCHEMY_DATABASE_URI=mysql://root:passwd@fjjtest-0e292c22e83e1a17.elb.ap-northeast-1.amazonaws.com:4000/pdns
+      - GUINCORN_TIMEOUT=60
+      - GUNICORN_WORKERS=2
+      - GUNICORN_LOGLEVEL=DEBUG
+  pdns:
+    image: emaxchou/pdns:4.2.0
+    container_name: pdns
+    network_mode: host
+    environment:
+      - MYSQL_USER=root
+      - MYSQL_PASS=passwd
+      - MYSQL_HOST=fjjtest-0e292c22e83e1a17.elb.ap-northeast-1.amazonaws.com
+      - MYSQL_PORT=4000
+    command:
+      - --cache-ttl=120
+      - --allow-axfr-ips=0.0.0.0/0
+   #+END_SRC
+
+*** How to set the api for pdns
+    https://book.gxd88.cn/dns/install-powerdns#1.1.2%20PowerDNS-Admin
+   #+BEGIN_SRC
+api=yes  
+api-key=dsshfkhduhefbsdhgyfsjfsd
+webserver-address=0.0.0.0
+webserver-allow-from=127.0.0.1,0.0.0.0/0
+   #+END_SRC
+ 
+   
+  

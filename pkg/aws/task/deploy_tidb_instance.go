@@ -139,7 +139,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	if clusterExists == false {
 
-		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s v5.2.0 /opt/tidb/tidb-cluster.yml -y`, clusterName), false, 300*time.Second)
+		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s v5.3.0 /opt/tidb/tidb-cluster.yml -y`, clusterName), false, 300*time.Second)
 		if err != nil {
 			return err
 		}

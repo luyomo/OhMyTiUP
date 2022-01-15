@@ -174,42 +174,50 @@ type (
 		InstanceType string `yaml:"instance_type"`
 	}
 
+	AwsCloudFormationConfigs struct {
+		Parameters           map[string]string `yaml:"parameters"`
+		TemplateBodyFilePath string            `yaml:"template_body_file_path"`
+		TemplateURL          string            `yaml:"template_url"`
+	}
+
 	// Specification represents the specification of topology.yaml
 	Specification struct {
-		GlobalOptions    GlobalOptions        `yaml:"global,omitempty" validate:"global:editable"`
-		MonitoredOptions MonitoredOptions     `yaml:"monitored,omitempty" validate:"monitored:editable"`
-		ServerConfigs    ServerConfigs        `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
-		AwsWSConfigs     AwsWSConfigs         `yaml:"workstation,omitempty"`
-		AwsTopoConfigs   AwsTopoConfigs       `yaml:"aws_topo_configs"`
-		AwsAuroraConfigs AwsAuroraConfigs     `yaml:"aurora,omitempty"`
-		AwsMSConfigs     AwsMSConfigs         `yaml:"sqlserver,omitempty"`
-		AwsDMSConfigs    AwsDMSConfigs        `yaml:"dms,omitempty"`
-		TiDBServers      []*TiDBSpec          `yaml:"tidb_servers"`
-		TiKVServers      []*TiKVSpec          `yaml:"tikv_servers"`
-		TiFlashServers   []*TiFlashSpec       `yaml:"tiflash_servers"`
-		PDServers        []*PDSpec            `yaml:"pd_servers"`
-		PumpServers      []*PumpSpec          `yaml:"pump_servers,omitempty"`
-		Drainers         []*DrainerSpec       `yaml:"drainer_servers,omitempty"`
-		CDCServers       []*CDCSpec           `yaml:"cdc_servers,omitempty"`
-		TiSparkMasters   []*TiSparkMasterSpec `yaml:"tispark_masters,omitempty"`
-		TiSparkWorkers   []*TiSparkWorkerSpec `yaml:"tispark_workers,omitempty"`
-		Monitors         []*PrometheusSpec    `yaml:"monitoring_servers"`
-		Grafanas         []*GrafanaSpec       `yaml:"grafana_servers,omitempty"`
-		Alertmanagers    []*AlertmanagerSpec  `yaml:"alertmanager_servers,omitempty"`
-		NginxServers     []*NginxSpec         `yaml:"nginx_servers"`
+		GlobalOptions            GlobalOptions            `yaml:"global,omitempty" validate:"global:editable"`
+		MonitoredOptions         MonitoredOptions         `yaml:"monitored,omitempty" validate:"monitored:editable"`
+		ServerConfigs            ServerConfigs            `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
+		AwsWSConfigs             AwsWSConfigs             `yaml:"workstation,omitempty"`
+		AwsTopoConfigs           AwsTopoConfigs           `yaml:"aws_topo_configs"`
+		AwsAuroraConfigs         AwsAuroraConfigs         `yaml:"aurora,omitempty"`
+		AwsMSConfigs             AwsMSConfigs             `yaml:"sqlserver,omitempty"`
+		AwsDMSConfigs            AwsDMSConfigs            `yaml:"dms,omitempty"`
+		AwsCloudFormationConfigs AwsCloudFormationConfigs `yaml:"aws_cloud_formation_configs"`
+		TiDBServers              []*TiDBSpec              `yaml:"tidb_servers"`
+		TiKVServers              []*TiKVSpec              `yaml:"tikv_servers"`
+		TiFlashServers           []*TiFlashSpec           `yaml:"tiflash_servers"`
+		PDServers                []*PDSpec                `yaml:"pd_servers"`
+		PumpServers              []*PumpSpec              `yaml:"pump_servers,omitempty"`
+		Drainers                 []*DrainerSpec           `yaml:"drainer_servers,omitempty"`
+		CDCServers               []*CDCSpec               `yaml:"cdc_servers,omitempty"`
+		TiSparkMasters           []*TiSparkMasterSpec     `yaml:"tispark_masters,omitempty"`
+		TiSparkWorkers           []*TiSparkWorkerSpec     `yaml:"tispark_workers,omitempty"`
+		Monitors                 []*PrometheusSpec        `yaml:"monitoring_servers"`
+		Grafanas                 []*GrafanaSpec           `yaml:"grafana_servers,omitempty"`
+		Alertmanagers            []*AlertmanagerSpec      `yaml:"alertmanager_servers,omitempty"`
+		NginxServers             []*NginxSpec             `yaml:"nginx_servers"`
 	}
 )
 
 // BaseTopo is the base info to topology.
 type BaseTopo struct {
-	GlobalOptions    *GlobalOptions
-	MonitoredOptions *MonitoredOptions
-	AwsWSConfigs     *AwsWSConfigs
-	AwsTopoConfigs   *AwsTopoConfigs
-	AwsAuroraConfigs *AwsAuroraConfigs
-	AwsMSConfigs     *AwsMSConfigs
-	AwsDMSConfigs    *AwsDMSConfigs
-	MasterList       []string
+	GlobalOptions            *GlobalOptions
+	MonitoredOptions         *MonitoredOptions
+	AwsWSConfigs             *AwsWSConfigs
+	AwsTopoConfigs           *AwsTopoConfigs
+	AwsAuroraConfigs         *AwsAuroraConfigs
+	AwsMSConfigs             *AwsMSConfigs
+	AwsDMSConfigs            *AwsDMSConfigs
+	AwsCloudFormationConfigs *AwsCloudFormationConfigs
+	MasterList               []string
 
 	Monitors      []*PrometheusSpec
 	Grafanas      []*GrafanaSpec
@@ -274,14 +282,15 @@ type UpgradableMetadata interface {
 // NewPart implements ScaleOutTopology interface.
 func (s *Specification) NewPart() Topology {
 	return &Specification{
-		GlobalOptions:    s.GlobalOptions,
-		MonitoredOptions: s.MonitoredOptions,
-		ServerConfigs:    s.ServerConfigs,
-		AwsWSConfigs:     s.AwsWSConfigs,
-		AwsTopoConfigs:   s.AwsTopoConfigs,
-		AwsAuroraConfigs: s.AwsAuroraConfigs,
-		AwsMSConfigs:     s.AwsMSConfigs,
-		AwsDMSConfigs:    s.AwsDMSConfigs,
+		GlobalOptions:            s.GlobalOptions,
+		MonitoredOptions:         s.MonitoredOptions,
+		ServerConfigs:            s.ServerConfigs,
+		AwsWSConfigs:             s.AwsWSConfigs,
+		AwsTopoConfigs:           s.AwsTopoConfigs,
+		AwsAuroraConfigs:         s.AwsAuroraConfigs,
+		AwsMSConfigs:             s.AwsMSConfigs,
+		AwsDMSConfigs:            s.AwsDMSConfigs,
+		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
 	}
 }
 
@@ -316,17 +325,18 @@ func (s *Specification) Type() string {
 // BaseTopo implements Topology interface.
 func (s *Specification) BaseTopo() *BaseTopo {
 	return &BaseTopo{
-		GlobalOptions:    &s.GlobalOptions,
-		MonitoredOptions: s.GetMonitoredOptions(),
-		AwsWSConfigs:     &s.AwsWSConfigs,
-		AwsTopoConfigs:   &s.AwsTopoConfigs,
-		AwsAuroraConfigs: &s.AwsAuroraConfigs,
-		AwsMSConfigs:     &s.AwsMSConfigs,
-		AwsDMSConfigs:    &s.AwsDMSConfigs,
-		MasterList:       s.GetPDList(),
-		Monitors:         s.Monitors,
-		Grafanas:         s.Grafanas,
-		Alertmanagers:    s.Alertmanagers,
+		GlobalOptions:            &s.GlobalOptions,
+		MonitoredOptions:         s.GetMonitoredOptions(),
+		AwsWSConfigs:             &s.AwsWSConfigs,
+		AwsTopoConfigs:           &s.AwsTopoConfigs,
+		AwsAuroraConfigs:         &s.AwsAuroraConfigs,
+		AwsMSConfigs:             &s.AwsMSConfigs,
+		AwsDMSConfigs:            &s.AwsDMSConfigs,
+		AwsCloudFormationConfigs: &s.AwsCloudFormationConfigs,
+		MasterList:               s.GetPDList(),
+		Monitors:                 s.Monitors,
+		Grafanas:                 s.Grafanas,
+		Alertmanagers:            s.Alertmanagers,
 	}
 }
 
@@ -521,27 +531,28 @@ func (s *Specification) GetEtcdProxyClient(tlsCfg *tls.Config, tcpProxy *proxy.T
 func (s *Specification) Merge(that Topology) Topology {
 	spec := that.(*Specification)
 	return &Specification{
-		GlobalOptions:    s.GlobalOptions,
-		MonitoredOptions: s.MonitoredOptions,
-		ServerConfigs:    s.ServerConfigs,
-		AwsWSConfigs:     s.AwsWSConfigs,
-		AwsTopoConfigs:   s.AwsTopoConfigs,
-		AwsAuroraConfigs: s.AwsAuroraConfigs,
-		AwsMSConfigs:     s.AwsMSConfigs,
-		AwsDMSConfigs:    s.AwsDMSConfigs,
-		TiDBServers:      append(s.TiDBServers, spec.TiDBServers...),
-		TiKVServers:      append(s.TiKVServers, spec.TiKVServers...),
-		PDServers:        append(s.PDServers, spec.PDServers...),
-		TiFlashServers:   append(s.TiFlashServers, spec.TiFlashServers...),
-		PumpServers:      append(s.PumpServers, spec.PumpServers...),
-		Drainers:         append(s.Drainers, spec.Drainers...),
-		CDCServers:       append(s.CDCServers, spec.CDCServers...),
-		TiSparkMasters:   append(s.TiSparkMasters, spec.TiSparkMasters...),
-		TiSparkWorkers:   append(s.TiSparkWorkers, spec.TiSparkWorkers...),
-		Monitors:         append(s.Monitors, spec.Monitors...),
-		Grafanas:         append(s.Grafanas, spec.Grafanas...),
-		Alertmanagers:    append(s.Alertmanagers, spec.Alertmanagers...),
-		NginxServers:     append(s.NginxServers, spec.NginxServers...),
+		GlobalOptions:            s.GlobalOptions,
+		MonitoredOptions:         s.MonitoredOptions,
+		ServerConfigs:            s.ServerConfigs,
+		AwsWSConfigs:             s.AwsWSConfigs,
+		AwsTopoConfigs:           s.AwsTopoConfigs,
+		AwsAuroraConfigs:         s.AwsAuroraConfigs,
+		AwsMSConfigs:             s.AwsMSConfigs,
+		AwsDMSConfigs:            s.AwsDMSConfigs,
+		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
+		TiDBServers:              append(s.TiDBServers, spec.TiDBServers...),
+		TiKVServers:              append(s.TiKVServers, spec.TiKVServers...),
+		PDServers:                append(s.PDServers, spec.PDServers...),
+		TiFlashServers:           append(s.TiFlashServers, spec.TiFlashServers...),
+		PumpServers:              append(s.PumpServers, spec.PumpServers...),
+		Drainers:                 append(s.Drainers, spec.Drainers...),
+		CDCServers:               append(s.CDCServers, spec.CDCServers...),
+		TiSparkMasters:           append(s.TiSparkMasters, spec.TiSparkMasters...),
+		TiSparkWorkers:           append(s.TiSparkWorkers, spec.TiSparkWorkers...),
+		Monitors:                 append(s.Monitors, spec.Monitors...),
+		Grafanas:                 append(s.Grafanas, spec.Grafanas...),
+		Alertmanagers:            append(s.Alertmanagers, spec.Alertmanagers...),
+		NginxServers:             append(s.NginxServers, spec.NginxServers...),
 	}
 }
 
@@ -561,20 +572,21 @@ func fillCustomDefaults(globalOptions *GlobalOptions, data interface{}) error {
 }
 
 var (
-	globalOptionTypeName     = reflect.TypeOf(GlobalOptions{}).Name()
-	monitorOptionTypeName    = reflect.TypeOf(MonitoredOptions{}).Name()
-	serverConfigsTypeName    = reflect.TypeOf(ServerConfigs{}).Name()
-	awsWSConfigsTypeName     = reflect.TypeOf(AwsWSConfigs{}).Name()
-	awsTopoConfigsTypeName   = reflect.TypeOf(AwsTopoConfigs{}).Name()
-	awsAuroraConfigsTypeName = reflect.TypeOf(AwsAuroraConfigs{}).Name()
-	awsMSConfigsTypeName     = reflect.TypeOf(AwsMSConfigs{}).Name()
-	awsDMSConfigsTypeName    = reflect.TypeOf(AwsDMSConfigs{}).Name()
+	globalOptionTypeName             = reflect.TypeOf(GlobalOptions{}).Name()
+	monitorOptionTypeName            = reflect.TypeOf(MonitoredOptions{}).Name()
+	serverConfigsTypeName            = reflect.TypeOf(ServerConfigs{}).Name()
+	awsWSConfigsTypeName             = reflect.TypeOf(AwsWSConfigs{}).Name()
+	awsTopoConfigsTypeName           = reflect.TypeOf(AwsTopoConfigs{}).Name()
+	awsAuroraConfigsTypeName         = reflect.TypeOf(AwsAuroraConfigs{}).Name()
+	awsMSConfigsTypeName             = reflect.TypeOf(AwsMSConfigs{}).Name()
+	awsDMSConfigsTypeName            = reflect.TypeOf(AwsDMSConfigs{}).Name()
+	awsCloudFormationConfigsTypeName = reflect.TypeOf(AwsCloudFormationConfigs{}).Name()
 )
 
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {

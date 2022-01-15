@@ -1,0 +1,188 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+      This is the test for aurora preparation
+Parameters:
+  username:
+    Type: String
+    Description: The username for rdb
+  password:
+    Type: String
+    Description: The password of rdb
+Resources:
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+
+  mySubnet01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: "ap-northeast-1a"
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+  mySubnet02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: "ap-northeast-1c"
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+  myRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: myVPC
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+  mySubnetRouteTableAssociation01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: mySubnet01
+      RouteTableId:
+        Ref: myRouteTable
+  mySubnetRouteTableAssociation02:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: mySubnet02
+      RouteTableId:
+        Ref: myRouteTable
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId:
+        Ref: myVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+  myDBSubnetGroup: 
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupDescription: description
+      SubnetIds: 
+        - Ref: mySubnet01
+        - Ref: mySubnet02
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+  RDSDBClusterParameterGroup: 
+    Type: "AWS::RDS::DBClusterParameterGroup"
+    Properties: 
+      Description: "CloudFormation Sample Aurora Cluster Parameter Group"
+      Family: aurora-mysql5.7
+      Parameters: 
+        time_zone: Asia/Tokyo
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+  RDSDBParameterGroup:
+    Type: 'AWS::RDS::DBParameterGroup'
+    Properties:
+      Description: CloudFormation Sample Aurora Parameter Group
+      Family: aurora-mysql5.7
+      Parameters:
+        sql_mode: IGNORE_SPACE
+        max_allowed_packet: 1024
+        innodb_buffer_pool_size: '{DBInstanceClassMemory*3/4}'
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+          #  RDSCluster: 
+          #    Type: "AWS::RDS::DBCluster"
+          #    Properties: 
+          #      DBClusterParameterGroupName: 
+          #        Ref: RDSDBClusterParameterGroup
+          #      DBSubnetGroupName: 
+          #        Ref: myDBSubnetGroup
+          #      Engine: aurora-mysql5.7
+          #      MasterUserPassword: 
+          #        Ref: password
+          #      MasterUsername: 
+          #        Ref: username
+          #      Tags:
+          #        - Key: Cluster
+          #          Value: tisample-tidb2ms
+          #        - Key: Type
+          #          Value: aurora
+          #        - Key: Name
+          #          Value: hackathon
+          #  RDSDBInstance1: 
+          #    Type: "AWS::RDS::DBInstance"
+          #    Properties: 
+          #    #      AvailabilityZone: 
+          #    #        Fn::GetAtt:
+          #    #          - mySubnet01
+          #    #          - AvailabilityZone
+          #      DBClusterIdentifier: 
+          #        Ref: RDSCluster
+          #      DBInstanceClass: db.r3.xlarge
+          #      DBParameterGroupName: 
+          #        Ref: RDSDBParameterGroup
+          #      DBSubnetGroupName: 
+          #        Ref: myDBSubnetGroup
+          #      DBSecurityGroups:
+          #        - Ref: InstanceSecurityGroup
+          #      Engine: aurora-mysql5.7
+          #      MasterUsername:  master
+          #      MasterUserPassword:
+          #        Ref: password
+          #      PubliclyAccessible: "false"
+          #      Tags:
+          #        - Key: Cluster
+          #          Value: tisample-tidb2ms
+          #        - Key: Type
+          #          Value: aurora
+          #        - Key: Name
+          #          Value: hackathon

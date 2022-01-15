@@ -96,6 +96,12 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 
 	destroyTasks = append(destroyTasks, t4)
 
+	t5 := task.NewBuilder().
+		DestroyCloudFormation(&sexecutor).
+		BuildAsStep(fmt.Sprintf("  - Destroying cloudformation %s ", name))
+
+	destroyTasks = append(destroyTasks, t5)
+
 	builder = task.NewBuilder().
 		ParallelStep("+ Destroying all the componets", false, destroyTasks...)
 
