@@ -54,7 +54,7 @@ func (m *Manager) ListPDNSService(clusterName string, opt DeployOptions) error {
 			return err
 		}
 		for _, rec := range *ret {
-			tableCluster = append(tableCluster, []string{rec["Cluster"], "", ""})
+			tableCluster = append(tableCluster, []string{rec["Name"], "", ""})
 		}
 
 		tui.PrintTable(tableCluster, true)

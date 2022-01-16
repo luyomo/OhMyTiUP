@@ -19,6 +19,7 @@ import (
 	"os"
 	"path"
 	"text/template"
+	"time"
 	//	"github.com/aws/aws-sdk-go/aws"
 	//	"github.com/aws/aws-sdk-go/aws/session"
 	//	"github.com/aws/aws-sdk-go/service/cloudformation"
@@ -41,7 +42,6 @@ type DeployPDNS struct {
 func (c *DeployPDNS) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	fmt.Printf("The cluster name is <%s> \n\n\n\n\n\n", clusterName)
 
 	// 1. Get all the workstation nodes
 	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
@@ -181,7 +181,7 @@ func (c *DeployPDNS) Execute(ctx context.Context) error {
 	}
 
 	// 6. Create database for pdns
-	if _, _, err := (*workstation).Execute(ctx, `docker-compose -f /opt/pdns/docker-compose.yaml up -d`, false); err != nil {
+	if _, _, err := (*workstation).Execute(ctx, `docker-compose -f /opt/pdns/docker-compose.yaml up -d`, false, 300*time.Second); err != nil {
 		return err
 	}
 	return nil

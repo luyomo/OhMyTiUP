@@ -232,8 +232,8 @@ func SearchVPCName(executor *ctxt.Executor, ctx context.Context, clusterKeyWord 
 	for _, vpc := range vpcs.Vpcs {
 		entry := make(map[string]string)
 		for _, tag := range vpc.Tags {
-			if tag.Key == "Cluster" {
-				entry["Cluster"] = tag.Value
+			if tag.Key == "Name" {
+				entry["Name"] = tag.Value
 			}
 			if tag.Key == "Type" {
 				entry["Type"] = tag.Value

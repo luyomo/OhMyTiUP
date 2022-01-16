@@ -1,68 +1,150 @@
-* Environment preparation 
-** Prepare the TiDB using OhMyTiUP
-** Docker and docker-composer preparation
-   #+BEGIN_SRC
-   sudo apt-get install -y docker.io docker-compose dnsutils
-   sudo gpasswd -a $USER docker
-   #+END_SRC
-** powerdns installation
-   #+BEGIN_SRC
-  docker pull emaxchou/pdns:4.2.0
-  docker pull ngoduykhanh/powerdns-admin
-  docker run --name pdns -d \
-             --network host \
-             -e MYSQL_USER=root \
-             -e MYSQL_PASS=passwd \
-             -e MYSQL_HOST=powerdns-bd415e86a5836a7b.elb.ap-northeast-1.amazonaws.com \
-             -e MYSQL_PORT=4000 \
-         psitrax/powerdns:4 \
-         --cache-ttl=120 \
-         --allow-axfr-ips=0.0.0.0/0
+* Deployment from OhMyTiUP
+** Show the config file
+#+BEGIN_SRC
+pi@c1s11:~/workspace/tisample $ more embed/templates/config/aws-tidb-low.yaml
+aws_topo_configs:
+  general:
+    imageid: ami-0ac97798ccf296e02            # Image ID for TiDB cluster's EC2 node
+    keyname: jay.pingcap                      # key name to login from workstation to EC2 nodes 
+    cidr: 172.83.0.0/16                       # VPC cidr
+    instance_type: t2.medium                  # default instance type for EC2 nodes
+    tidb_version: v5.2.0                      # TiDB version to deploy
+  pd:
+    instance_type: t2.micro                   # PD instance type
+    count: 3                                  # Number of PD nodes to generate
+  tidb:
+    instance_type: t2.medium                  # TiDB instance type
+    count: 2                                  # Number of TiDB nodes to generate
+  tikv:
+    instance_type: t2.medium                  # TiKV instance type
+    count: 3                                  # Number of TiKV nodes to generate
+#+END_SRC
+** Deploy the PDNS on TiDB
+#+BEGIN_SRC
+pi@c1s11:~/workspace/tisample $ ./bin/aws pdns deploy pdnstest embed/templates/config/aws-tidb-low.yaml 
+Please confirm your topology:
+AWS Region:      Tokyo
+Cluster type:    tidb
+Cluster name:    pdnstest
+Cluster version: v5.1.0
+User Name:       admin
+Key Name:        jay
 
-             -p 53:53 \
-             -p 53:53/udp \
-   #+END_SRC
- 
-** powerdns-admin
-   #+BEGIN_SRC
-version: "3"
+Component    # of nodes  Instance Type  Image Name             CIDR           User
+---------    ----------  -------------  ----------             ----           ----
+Workstation  1           m5.2xlarge     ami-0ac97798ccf296e02  172.82.0.0/16  admin
+TiDB         2           t2.medium      ami-0ac97798ccf296e02  172.83.0.0/16  master
+PD           3           t2.micro       ami-0ac97798ccf296e02  172.83.0.0/16  master
+TiKV         3           t2.medium      ami-0ac97798ccf296e02  172.83.0.0/16  master
+Attention:
+    1. If the topology is not what you expected, check your yaml file.
+    2. Please confirm there is no port/directory conflicts in same host.
+Do you want to continue? [y/N]: (default=N) y
++ Deploying all the sub components for tidb2ms solution service
+  - Preparing workstation ... Echo: Creating VPC
++ Deploying all the sub components for tidb2ms solution service
+  - Preparing workstation ... Done
+tidb : Creating TiKV Nodes ... ... ... Done
++ Deploying all the sub components for tidb2ms solution service
+  - Preparing workstation ... Done
+  - Preparing tidb servers ... Done
++ Deploying tidb2ms solution service ... ...
+  - Deploying PDNS service :22 ... Done
 
-services:
-  app:
-    image: ngoduykhanh/powerdns-admin:latest
-    container_name: powerdns_admin
-    logging:
-      driver: json-file
-      options:
-        max-size: 50m
-    network_mode: host
-    environment:
-      - SQLALCHEMY_DATABASE_URI=mysql://root:passwd@fjjtest-0e292c22e83e1a17.elb.ap-northeast-1.amazonaws.com:4000/pdns
-      - GUINCORN_TIMEOUT=60
-      - GUNICORN_WORKERS=2
-      - GUNICORN_LOGLEVEL=DEBUG
-  pdns:
-    image: emaxchou/pdns:4.2.0
-    container_name: pdns
-    network_mode: host
-    environment:
-      - MYSQL_USER=root
-      - MYSQL_PASS=passwd
-      - MYSQL_HOST=fjjtest-0e292c22e83e1a17.elb.ap-northeast-1.amazonaws.com
-      - MYSQL_PORT=4000
-    command:
-      - --cache-ttl=120
-      - --allow-axfr-ips=0.0.0.0/0
-   #+END_SRC
+Verbose debug logs has been written to /home/pi/.tiup/logs/aws-nodes-debug-2022-01-16-17-31-26.log.
+#+END_SRC
+** List the powerdns cluster
+#+BEGIN_SRC
+pi@c1s11:~/workspace/tisample $ ./bin/aws pdns list all 
+Cluster Name
+------------
+pdnstest
+pi@c1s11:~/workspace/tisample $ ./bin/aws pdns list pdnstest                                                                                                                                       [17/4717]
++ Listing aws resources                     
+  - Listing VPC ... Done                        
+  - Listing Subnets ... Done                    
+  - Listing Route Tables ... Done
+  - Listing Security Groups ... Done                                                                  
+  - Listing Transit gateway  ... Done
+  - Listing Transit gateway vpc attachment ... Done                                                                                                                                                         
+  - Listing EC2 ... Done                                                                                                                                                                                    
+  - Listing Load Balancer  ... Done                                                                                                                                                                         
+Cluster  Type:      tisample-tidb2ms                                                                                                                                                                        
+Cluster Name :      pdnstest                                                                                                                                                                                
+                                                                                                                                                                                                            
+Resource Type:      VPC                                                                                                                                                                                     
+Component Name  VPC ID                 CIDR           Status                                                                                                                                                
+--------------  ------                 ----           ------                                                                                                                                                
+tidb            vpc-043951e63400dbffe  172.83.0.0/16  available                                                                                                                                             
+workstation     vpc-0b5c3e99161fc0171  172.82.0.0/16  available                                                                                                                                             
+                                                   
+Resource Type:      Subnet
+Component Name  Zone             Subnet ID                 CIDR            State      VPC ID
+--------------  ----             ---------                 ----            -----      ------
+tidb            ap-northeast-1a  subnet-0e1fd233550f9f70d  172.83.1.0/24   available  vpc-043951e63400dbffe
+tidb            ap-northeast-1c  subnet-0a4d97a15acfb9043  172.83.2.0/24   available  vpc-043951e63400dbffe
+tidb            ap-northeast-1d  subnet-059d2c5de8b600674  172.83.3.0/24   available  vpc-043951e63400dbffe
+workstation     ap-northeast-1a  subnet-07e39a677584fd9f8  172.82.11.0/24  available  vpc-0b5c3e99161fc0171
 
-*** How to set the api for pdns
-    https://book.gxd88.cn/dns/install-powerdns#1.1.2%20PowerDNS-Admin
-   #+BEGIN_SRC
-api=yes  
-api-key=dsshfkhduhefbsdhgyfsjfsd
-webserver-address=0.0.0.0
-webserver-allow-from=127.0.0.1,0.0.0.0/0
-   #+END_SRC
- 
-   
-  
+Resource Type:      Route Table
+Component Name  Route Table ID         DestinationCidrBlock  TransitGatewayId       GatewayId              State   Origin
+--------------  --------------         --------------------  ----------------       ---------              -----   ------
+tidb            rtb-029e70ec4e9dcd1d1  172.82.0.0/16         tgw-0d899ee9a4480eb66                         active  CreateRoute
+tidb            rtb-029e70ec4e9dcd1d1  172.83.0.0/16                                local                  active  CreateRouteTable
+workstation     rtb-09a718690e5d93b03  172.82.0.0/16                                local                  active  CreateRouteTable
+workstation     rtb-09a718690e5d93b03  172.83.0.0/16         tgw-0d899ee9a4480eb66                         active  CreateRoute
+workstation     rtb-09a718690e5d93b03  0.0.0.0/0                                    igw-0ebb445ed19716cf5  active  CreateRoute
+
+Resource Type:      Security Group
+Component Name  Ip Protocol  Source Ip Range  From Port  To Port
+--------------  -----------  ---------------  ---------  -------
+workstation     tcp          0.0.0.0/0        80         80
+workstation     tcp          172.82.0.0/16    0          65535
+workstation     tcp          0.0.0.0/0        22         22
+workstation     icmp         172.82.0.0/16    -1         -1
+tidb            tcp          0.0.0.0/0        8300       8300
+tidb            tcp          0.0.0.0/0        1433       1433
+tidb            tcp          0.0.0.0/0        20180      20180
+tidb            tcp          172.83.0.0/16    0          65535
+tidb            tcp          0.0.0.0/0        22         22
+tidb            tcp          0.0.0.0/0        4000       4000
+tidb            tcp          0.0.0.0/0        2379       2379
+tidb            tcp          0.0.0.0/0        20160      20160
+tidb            tcp          0.0.0.0/0        3306       3306
+tidb            tcp          0.0.0.0/0        2380       2380
+tidb            icmp         172.83.0.0/16    -1         -1
+tidb            tcp          0.0.0.0/0        10080      10080
+
+
+Resource Type:      Transit Gateway
+Resource ID  :      tgw-0d899ee9a4480eb66    State: available 
+Component Name  VPC ID                 State
+--------------  ------                 -----
+workstation     vpc-0b5c3e99161fc0171  available
+tidb            vpc-043951e63400dbffe  available
+
+Load Balancer:      pdnstest-72ad85fb8d5873cf.elb.ap-northeast-1.amazonaws.com
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP    Public IP      Image ID
+--------------  -----------------  -----    -----------          -------------  -----------    ---------      --------
+pd              tidb               running  i-0c13f651b6808910d  t2.micro       172.83.2.195                  ami-0ac97798ccf296e02
+pd              tidb               running  i-0899e4a41e448667f  t2.micro       172.83.3.17                   ami-0ac97798ccf296e02
+pd              tidb               running  i-0cf7889716f278ab0  t2.micro       172.83.1.39                   ami-0ac97798ccf296e02
+tidb            tidb               running  i-0e6f9befa5383e984  t2.medium      172.83.1.13                   ami-0ac97798ccf296e02
+tidb            tidb               running  i-02d6946786909253c  t2.medium      172.83.2.103                  ami-0ac97798ccf296e02
+tikv            tidb               running  i-064301c39b777fec6  t2.medium      172.83.2.226                  ami-0ac97798ccf296e02
+tikv            tidb               running  i-0eba66be68b96612d  t2.medium      172.83.1.219                  ami-0ac97798ccf296e02
+tikv            tidb               running  i-0187ddb212f4bd77a  t2.medium      172.83.3.232                  ami-0ac97798ccf296e02
+workstation     workstation        running  i-00e4b45c479de280c  m5.2xlarge     172.82.11.181  3.112.132.201  ami-0ac97798ccf296e02
+#+END_SRC
+
+** Login to powerdns admin web
+[[./png/pdns.01.png]]
+
+** Access workstation to get powerdns api key
+#+BEGIN_SRC
+pi@c1s11:~/workspace/tisample $ ssh -i '~/.ssh/jaypingcap.pem' admin@3.112.132.201
+Linux ip-172-82-11-181 4.19.0-16-cloud-amd64 #1 SMP Debian 4.19.181-1 (2021-03-19) x86_64
+admin@ip-172-82-11-181:~$ grep api-key /opt/pdns/pdns.local.conf 
+api-key=sfkjdhsdfsfsddffffaddfh
+#+END_SRC
