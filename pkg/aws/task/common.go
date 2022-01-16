@@ -207,6 +207,47 @@ type CreateVpcPeering struct {
 	targetVPC ResourceTag
 }
 
+func contains(s *[]map[string]string, str string) bool {
+	for _, v := range *s {
+		if v["Cluster"] == str {
+			return true
+		}
+	}
+
+	return false
+}
+
+func SearchVPCName(executor *ctxt.Executor, ctx context.Context, clusterKeyWord string) (*[]map[string]string, error) {
+	stdout, _, err := (*executor).Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters Name=tag:Cluster,Values=%s ", clusterKeyWord), false)
+	if err != nil {
+		return nil, err
+	}
+	var retValue []map[string]string
+
+	var vpcs Vpcs
+	if err := json.Unmarshal(stdout, &vpcs); err != nil {
+		zap.L().Debug("The error to parse the string ", zap.Error(err))
+		return nil, err
+	}
+	for _, vpc := range vpcs.Vpcs {
+		entry := make(map[string]string)
+		for _, tag := range vpc.Tags {
+			if tag.Key == "Cluster" {
+				entry["Cluster"] = tag.Value
+			}
+			if tag.Key == "Type" {
+				entry["Type"] = tag.Value
+			}
+		}
+		if !contains(&retValue, entry["Cluster"]) {
+			retValue = append(retValue, entry)
+		}
+	}
+
+	return &retValue, nil
+
+}
+
 func getVPCInfos(executor ctxt.Executor, ctx context.Context, vpc ResourceTag) (*Vpcs, error) {
 	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" ", vpc.clusterName, vpc.clusterType), false)
 	if err != nil {

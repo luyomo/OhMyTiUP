@@ -60,7 +60,6 @@ func (c *DeployPDNS) Execute(ctx context.Context) error {
 	}
 
 	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
-	fmt.Printf("The NLB is <%#v> \n\n\n\n\n\n", *nlb)
 
 	// 4. Deploy docker-compose file
 	type TiDBCONN struct {

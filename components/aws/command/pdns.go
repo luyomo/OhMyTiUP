@@ -47,9 +47,12 @@ func newDeployPDNS() *cobra.Command {
 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
 	}
 	cmd := &cobra.Command{
-		Use:          "deploy <cluster-name> <topology.yaml>",
-		Short:        "Deploy the powerdns service using TiDB",
-		Long:         "Deploy the powerdns service against TiDB.",
+		Use:   "deploy <cluster-name> <topology.yaml>",
+		Short: "Deploy the powerdns service using TiDB",
+		Long: `Deploy the powerdns service against TiDB.
+aws pdns list clusterName
+aws pdns list all
+`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)

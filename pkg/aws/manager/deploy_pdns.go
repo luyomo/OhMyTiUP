@@ -151,26 +151,24 @@ func (m *Manager) PDNSDeploy(
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	if 1 == 0 {
-		if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
-			if errorx.Cast(err) != nil {
-				// FIXME: Map possible task errors and give suggestions.
-				return err
-			}
+	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
 			return err
 		}
+		return err
 	}
 
 	var t5 *task.StepDisplay
 
 	t5 = task.NewBuilder().
-		// CreateTransitGateway(&sexecutor).
-		// CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-		// CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
-		// CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
-		// DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-		// DeployTiDBInstance(&sexecutor, "tidb", &workstationInfo).
-		// CreateTiDBNLB(&sexecutor, "tidb", &clusterInfo).
+		CreateTransitGateway(&sexecutor).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
+		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
+		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+		DeployTiDBInstance(&sexecutor, "tidb", &workstationInfo).
+		CreateTiDBNLB(&sexecutor, "tidb", &clusterInfo).
 		DeployPDNS(&sexecutor, "tidb", base.AwsWSConfigs).
 		BuildAsStep(fmt.Sprintf("  - Deploying PDNS service %s:%d", globalOptions.Host, 22))
 

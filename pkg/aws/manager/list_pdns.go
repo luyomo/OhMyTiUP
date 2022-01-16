@@ -17,6 +17,7 @@ import (
 	//	"errors"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/fatih/color"
 
@@ -42,6 +43,22 @@ func (m *Manager) ListPDNSService(clusterName string, opt DeployOptions) error {
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
 	if err != nil {
 		return err
+	}
+
+	if strings.ToUpper(clusterName) == "ALL" {
+		// Search all the pdns cluster and show it
+		// | pdns cluster name | pdns version | tidb version |
+		tableCluster := [][]string{{"Cluster Name"}}
+		ret, err := task.SearchVPCName(&sexecutor, ctx, "tisample-pdns")
+		if err != nil {
+			return err
+		}
+		for _, rec := range *ret {
+			tableCluster = append(tableCluster, []string{rec["Cluster"], "", ""})
+		}
+
+		tui.PrintTable(tableCluster, true)
+		return nil
 	}
 
 	// 001. VPC listing
