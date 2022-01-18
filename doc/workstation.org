@@ -1,0 +1,5 @@
+* Procedures
+  apt-get install nodejs npm cmake
+  git clone https://github.com/billchurch/webssh2.git
+  cd app
+  npm install

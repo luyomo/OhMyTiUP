@@ -71,6 +71,7 @@ type TiDBClusterDetail struct {
 type DeployTiDBInstance struct {
 	pexecutor      *ctxt.Executor
 	subClusterType string
+	tidbVersion    string
 	clusterInfo    *ClusterInfo
 }
 
@@ -139,7 +140,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	if clusterExists == false {
 
-		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s v5.3.0 /opt/tidb/tidb-cluster.yml -y`, clusterName), false, 300*time.Second)
+		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s %s /opt/tidb/tidb-cluster.yml -y`, clusterName, c.tidbVersion), false, 300*time.Second)
 		if err != nil {
 			return err
 		}

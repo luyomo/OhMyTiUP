@@ -783,10 +783,11 @@ func (b *Builder) CreateMS(pexecutor *ctxt.Executor, subClusterType string, awsM
 	return b
 }
 
-func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, subClusterType, tidbVersion string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDBInstance{
 		pexecutor:      pexecutor,
 		subClusterType: subClusterType,
+		tidbVersion:    tidbVersion,
 		clusterInfo:    clusterInfo,
 	})
 	return b
@@ -1235,6 +1236,15 @@ func (b *Builder) DestroyCloudFormation(pexecutor *ctxt.Executor) *Builder {
 
 func (b *Builder) DeployPDNS(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs) *Builder {
 	b.tasks = append(b.tasks, &DeployPDNS{
+		pexecutor:      pexecutor,
+		awsWSConfigs:   awsWSConfigs,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
+func (b *Builder) DeployWS(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs) *Builder {
+	b.tasks = append(b.tasks, &DeployWS{
 		pexecutor:      pexecutor,
 		awsWSConfigs:   awsWSConfigs,
 		subClusterType: subClusterType,

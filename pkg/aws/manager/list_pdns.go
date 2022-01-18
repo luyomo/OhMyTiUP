@@ -46,8 +46,6 @@ func (m *Manager) ListPDNSService(clusterName string, opt DeployOptions) error {
 	}
 
 	if strings.ToUpper(clusterName) == "ALL" {
-		// Search all the pdns cluster and show it
-		// | pdns cluster name | pdns version | tidb version |
 		tableCluster := [][]string{{"Cluster Name"}}
 		ret, err := task.SearchVPCName(&sexecutor, ctx, "tisample-pdns")
 		if err != nil {

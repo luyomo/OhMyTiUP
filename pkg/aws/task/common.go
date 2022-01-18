@@ -653,3 +653,27 @@ func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterTyp
 	}
 	return nil, errors.New("No NLB found")
 }
+
+func installWebSSH2(wexecutor *ctxt.Executor, ctx context.Context) error {
+
+	commands := []string{"apt-get install -y nodejs npm cmake", "[ -d /opt/webssh2 ] || git clone https://github.com/billchurch/webssh2.git /opt/webssh2", "npm install /opt/webssh2/app"}
+
+	for _, command := range commands {
+		_, _, err := (*wexecutor).Execute(ctx, command, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := (*wexecutor).Transfer(ctx, "embed/templates/systemd/webssh2.service", "/tmp/", false, 0)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = (*wexecutor).Execute(ctx, "mv /tmp/webssh2.service /etc/systemd/system/", true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

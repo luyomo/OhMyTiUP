@@ -1,0 +1,9 @@
+[Unit]
+Description=foo
+
+[Service]
+WorkingDirectory=/opt/webssh2/app
+ExecStart=npm start
+
+[Install]
+WantedBy=multi-user.target

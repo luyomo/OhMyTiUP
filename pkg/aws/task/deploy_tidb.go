@@ -111,7 +111,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, `chown -R admin:admin /opt/tidb`, true); err != nil {
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`chown -R %s:%s /opt/tidb`, c.awsWSConfigs.UserName, c.awsWSConfigs.UserName), true); err != nil {
 		return err
 	}
 

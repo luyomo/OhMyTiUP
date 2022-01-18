@@ -167,9 +167,10 @@ func (m *Manager) PDNSDeploy(
 		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
 		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
 		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-		DeployTiDBInstance(&sexecutor, "tidb", &workstationInfo).
+		DeployTiDBInstance(&sexecutor, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
 		CreateTiDBNLB(&sexecutor, "tidb", &clusterInfo).
 		DeployPDNS(&sexecutor, "tidb", base.AwsWSConfigs).
+		DeployWS(&sexecutor, "tidb", base.AwsWSConfigs).
 		BuildAsStep(fmt.Sprintf("  - Deploying PDNS service %s:%d", globalOptions.Host, 22))
 
 	tailctx := context.WithValue(context.Background(), "clusterName", name)
