@@ -783,10 +783,11 @@ func (b *Builder) CreateMS(pexecutor *ctxt.Executor, subClusterType string, awsM
 	return b
 }
 
-func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, subClusterType, tidbVersion string, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, subClusterType, tidbVersion string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDBInstance{
 		pexecutor:      pexecutor,
 		subClusterType: subClusterType,
+		awsWSConfigs:   awsWSConfigs,
 		tidbVersion:    tidbVersion,
 		clusterInfo:    clusterInfo,
 	})

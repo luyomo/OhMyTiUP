@@ -598,7 +598,6 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Starting to ws deployment \n\n\n\n\n\n")
 	err = installWebSSH2(workstation, ctx)
 	if err != nil {
 		return err
@@ -607,7 +606,7 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 	return nil
 
 	// 2. install docker/docker-compose/dnsutil
-	if _, _, err := (*workstation).Execute(ctx, `apt-get install -y docker.io docker-compose dnsutils`, true); err != nil {
+	if err := installPKGs(workstation, ctx, []string{"docker.io", "docker-compose", "dnsutils"}); err != nil {
 		return err
 	}
 

@@ -185,6 +185,10 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// stdout, _, err = (*workstation).Execute(ctx, `yum update`, true)
+	// if err != nil {
+	// 	return err
+	// }
 
 	stdout, _, err = (*workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
 	if err != nil {
@@ -192,10 +196,19 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
-	if err != nil {
+	if err := installPKGs(workstation, ctx, []string{"mariadb-client-10.3"}); err != nil {
 		return err
 	}
+
+	// stdout, _, err = (*workstation).Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// stdout, _, err = (*workstation).Execute(ctx, `yum install -y mariadb.x86_64`, true)
+	// if err != nil {
+	// 	return err
+	// }
 
 	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
 	if err != nil {

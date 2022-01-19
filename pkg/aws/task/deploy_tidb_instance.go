@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	//	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
@@ -70,6 +71,7 @@ type TiDBClusterDetail struct {
 
 type DeployTiDBInstance struct {
 	pexecutor      *ctxt.Executor
+	awsWSConfigs   *spec.AwsWSConfigs
 	subClusterType string
 	tidbVersion    string
 	clusterInfo    *ClusterInfo
@@ -114,12 +116,12 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile})
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: c.awsWSConfigs.UserName, KeyFile: c.clusterInfo.keyFile})
 	if err != nil {
 		return err
 	}
 
-	stdout, _, err = wsexecutor.Execute(ctx, `/home/admin/.tiup/bin/tiup cluster list --format json `, false)
+	stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster list --format json `, c.awsWSConfigs.UserName), false)
 	if err != nil {
 		return err
 	}
@@ -140,17 +142,17 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	if clusterExists == false {
 
-		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster deploy %s %s /opt/tidb/tidb-cluster.yml -y`, clusterName, c.tidbVersion), false, 300*time.Second)
+		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster deploy %s %s /opt/tidb/tidb-cluster.yml -y`, c.awsWSConfigs.UserName, clusterName, c.tidbVersion), false, 300*time.Second)
 		if err != nil {
 			return err
 		}
 
-		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s`, clusterName), false, 300*time.Second)
+		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s`, c.awsWSConfigs.UserName, clusterName), false, 300*time.Second)
 		if err != nil {
 			return err
 		}
 	} else {
-		stdout, _, err := wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster display %s --format json `, clusterName), false)
+		stdout, _, err := wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster display %s --format json `, c.awsWSConfigs.UserName, clusterName), false)
 		if err != nil {
 			return err
 		}
@@ -162,7 +164,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		}
 		for _, component := range tidbClusterDetail.Instances {
 			if component.Status != "Up" {
-				stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup cluster start %s --node %s `, clusterName, component.Id), false)
+				stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s --node %s `, c.awsWSConfigs.UserName, clusterName, component.Id), false)
 				if err != nil {
 					return err
 				}

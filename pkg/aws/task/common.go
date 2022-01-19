@@ -415,11 +415,45 @@ func GetWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, cl
 	if err != nil {
 		return nil, err
 	}
+
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile})
 	if err != nil {
 		return nil, err
 	}
+	//lsb_release --id
 	return &wsexecutor, nil
+}
+
+func containString(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func installPKGs(wsexecutor *ctxt.Executor, ctx context.Context, packages []string) error {
+	stdout, _, err := (*wsexecutor).Execute(ctx, "lsb_release --id", true)
+	if err != nil {
+		return err
+	}
+	osVersion := strings.Split(string(stdout), ":")
+
+	for _, pkg := range packages {
+		if containString([]string{"Debian"}, strings.TrimSpace(osVersion[1])) {
+			if _, _, err := (*wsexecutor).Execute(ctx, fmt.Sprintf("apt-get install -y %s", pkg), true); err != nil {
+				return err
+			}
+		} else {
+			if _, _, err := (*wsexecutor).Execute(ctx, fmt.Sprintf("yum install -y %s", pkg), true); err != nil {
+				return err
+			}
+		}
+
+	}
+	return nil
+
 }
 
 func getTiDBClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterName string) (*TiDBClusterDetail, error) {
@@ -470,9 +504,8 @@ func getEC2Nodes(executor ctxt.Executor, ctx context.Context, clusterName, clust
 
 func deployFreetds(executor ctxt.Executor, ctx context.Context, name, host string, port int) error {
 
-	_, _, err := executor.Execute(ctx, `apt-get install -y freetds-bin`, true)
-	if err != nil {
-		return nil
+	if err := installPKGs(&executor, ctx, []string{"freetds-bin"}); err != nil {
+		return err
 	}
 
 	fdFile, err := os.Create(fmt.Sprintf("/tmp/%s", "freetds.conf"))
@@ -656,7 +689,11 @@ func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterTyp
 
 func installWebSSH2(wexecutor *ctxt.Executor, ctx context.Context) error {
 
-	commands := []string{"apt-get install -y nodejs npm cmake", "[ -d /opt/webssh2 ] || git clone https://github.com/billchurch/webssh2.git /opt/webssh2", "npm install /opt/webssh2/app"}
+	if err := installPKGs(wexecutor, ctx, []string{"nodejs", "npm", "cmake"}); err != nil {
+		return err
+	}
+
+	commands := []string{"[ -d /opt/webssh2 ] || git clone https://github.com/billchurch/webssh2.git /opt/webssh2", "npm install /opt/webssh2/app"}
 
 	for _, command := range commands {
 		_, _, err := (*wexecutor).Execute(ctx, command, true)

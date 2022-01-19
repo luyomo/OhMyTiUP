@@ -50,7 +50,7 @@ func (c *DeployPDNS) Execute(ctx context.Context) error {
 	}
 
 	// 2. install docker/docker-compose/dnsutil
-	if _, _, err := (*workstation).Execute(ctx, `apt-get install -y docker.io docker-compose dnsutils`, true); err != nil {
+	if err := installPKGs(workstation, ctx, []string{"docker.io", "docker-compose", "dnsutils"}); err != nil {
 		return err
 	}
 
