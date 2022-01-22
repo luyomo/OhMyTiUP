@@ -1,0 +1,720 @@
+* Aurora Setup
+** VPC
+   Go to the below link [[https://ap-northeast-1.console.aws.amazon.com/vpc/home?region=ap-northeast-1#vpcs:]]
+   #+CAPTION: VPC preparation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpc.01.png]]
+   #+CAPTION: VPC preparation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpc.02.png]]
+   #+CAPTION: VPC preparation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpc.03.png]]
+** Subnet
+   #+CAPTION: Subnet Preparation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/subnet.01.png]]
+   #+CAPTION: Subnet Preparation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/subnet.02.png]]
+   #+CAPTION: Subnet Preparation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/subnet.03.png]]
+** Security Group
+   #+CAPTION: Security Group 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.sg.01.png]]
+   #+CAPTION: Security Group 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.sg.02.png]]
+   #+CAPTION: Security Group 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.sg.03.png]]   
+** DB Subnets group
+   Go to [[https://ap-northeast-1.console.aws.amazon.com/rds/home?region=ap-northeast-1]]
+   #+CAPTION: DB Subnet Preparation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.subnet.group.01.png]]
+   #+CAPTION: DB Subnet Preparation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.subnet.group.02.png]]
+   #+CAPTION: DB Subnet Preparation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.subnet.group.03.png]]
+** DB Cluster Parameter
+   #+CAPTION: DB Cluster Parameter preparation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.cluster.parameter.01.png]]
+   #+CAPTION: DB Cluster Parameter preparation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.cluster.parameter.02.png]]
+   #+CAPTION: DB Cluster Parameter preparation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.cluster.parameter.03.png]]
+   #+CAPTION: DB Cluster Parameter preparation 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.cluster.parameter.04.png]]
+** DB Parameter
+   #+CAPTION: DB Parameter preparation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.parameter.01.png]]
+   #+CAPTION: DB Parameter preparation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.parameter.02.png]]
+   #+CAPTION: DB Parameter preparation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/db.parameter.03.png]]
+** DB Cluster/Instance
+   #+CAPTION: DB Cluster instance 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.instance.01.png]]
+   #+CAPTION: DB Cluster instance 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.instance.02.png]]
+   #+CAPTION: DB Cluster instance 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.instance.03.png]]
+   #+CAPTION: DB Cluster instance 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.instance.04.png]]
+   #+CAPTION: DB Cluster instance 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+* EC2 Workstation Setup
+** VPC
+   #+CAPTION: Workstation VPC 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.vpc.01.png]]
+   #+CAPTION: Workstation VPC 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.vpc.02.png]]
+** Internet Gateway
+   #+CAPTION: Workstation Internet Gateway 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ig.01.png]]
+   #+CAPTION: Workstation Internet Gateway 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ig.02.png]]
+   #+CAPTION: Workstation Internet Gateway 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ig.03.png]]
+   #+CAPTION: Workstation Internet Gateway 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ig.04.png]]      
+** Subnet
+   #+CAPTION: Workstation Subnet 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.subnet.01.png]]
+   #+CAPTION: Workstation Subnet 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.subnet.02.png]]
+** Route Table
+   #+CAPTION: Workstation route table 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.rt.01.png]]
+   #+CAPTION: Workstation route table 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.rt.02.png]]
+   #+CAPTION: Workstation route table 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.rt.03.png]]
+   #+CAPTION: Workstation route table 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.rt.04.png]]
+   #+CAPTION: Workstation route table 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.rt.05.png]]
+   #+CAPTION: Workstation route table 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.rt.06.png]]
+   #+CAPTION: Workstation route table 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.rt.07.png]]
+   #+CAPTION: Workstation route table 08
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.rt.08.png]]      
+** Security Group
+   #+CAPTION: Workstation Security Group 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.sg.01.png]]
+   #+CAPTION: Workstation Security Group 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.sg.02.png]]
+   #+CAPTION: Workstation Security Group 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.sg.03.png]]   
+** EC2 Instance
+   #+CAPTION: Workstation EC2 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.01.png]]
+   #+CAPTION: Workstation EC2 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.02.png]]
+   #+CAPTION: Workstation EC2 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.03.png]]
+   #+CAPTION: Workstation EC2 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.04.png]]
+   #+CAPTION: Workstation EC2 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.05.png]]
+   #+CAPTION: Workstation EC2 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.06.png]]
+   #+CAPTION: Workstation EC2 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.07.png]]
+   #+CAPTION: Workstation EC2 08
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.08.png]]
+   #+CAPTION: Workstation EC2 09
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.09.png]]
+   #+CAPTION: Workstation EC2 10
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.10.png]]
+   #+CAPTION: Workstation EC2 11
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.11.png]]
+   #+CAPTION: Workstation EC2 12
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.12.png]]
+   #+CAPTION: Workstation EC2 13
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.ec2.13.png]]
+* Setup TiDB Cloud
+* VPC Peering
+** Setup VPC peering with workstation
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.01.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.02.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.03.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.04.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.05.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.06.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.07.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 08
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.08.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 09
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.09.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 10
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.10.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 11
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.11.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 12
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.12.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 13
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.13.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 14
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.14.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 15
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.15.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 16
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.16.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 17
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.17.png]]
+   #+CAPTION: VPC Peering between TiDB Cloud and Workstation/Aurora 18
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.21.png]]
+** Add rule to workstation route table to allow the TiDB access
+   #+CAPTION: Add rule to workstation route table for TiDB access 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.18.png]]
+   #+CAPTION: Add rule to workstation route table for TiDB access 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.19.png]]
+   #+CAPTION: Add rule to workstation route table for TiDB access 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.20.png]]
+** Get endpoint from TiDB Cloud
+   #+CAPTION: Get endpoint from TiDB Cloud 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.22.png]]
+   #+CAPTION: Get endpoint from TiDB Cloud 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.23.png]]
+   #+BEGIN_SRC
+admin@ip-172-81-11-131:~$ sudo apt-get -y update
+admin@ip-172-81-11-131:~$ sudo apt-get install -y mariadb-client
+   #+END_SRC
+   #+CAPTION: Get endpoint from TiDB Cloud 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.24.png]]
+** Create vpc peering between workstation and aurora
+   #+CAPTION: Create VPC Peering between Aurora and Workstation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.aurora.01.png]]
+   #+CAPTION: Create VPC Peering between Aurora and Workstation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.aurora.02.png]]
+   #+CAPTION: Create VPC Peering between Aurora and Workstation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.aurora.03.png]]
+   #+CAPTION: Create VPC Peering between Aurora and Workstation 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.aurora.04.png]]
+   #+CAPTION: Create VPC Peering between Aurora and Workstation 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.aurora.05.png]]
+   #+CAPTION: Create VPC Peering between Aurora and Workstation 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.aurora.06.png]]
+   #+CAPTION: Create VPC Peering between Aurora and Workstation 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/vpcpeering.aurora.07.png]]
+** Setup route table for aurora access from TiDB Cloud and workstation
+   #+CAPTION: Setup route table for aurora access from TiDB Cloud and workstation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.rt.01.png]]
+   #+CAPTION: Setup route table for aurora access from TiDB Cloud and workstation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.rt.02.png]]
+   #+CAPTION: Setup route table for aurora access from TiDB Cloud and workstation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.rt.03.png]]
+   #+CAPTION: Setup route table for aurora access from TiDB Cloud and workstation 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.rt.04.png]]
+   #+CAPTION: Setup route table for aurora access from TiDB Cloud and workstation 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.rt.05.png]]
+   #+CAPTION: Setup route table for aurora access from TiDB Cloud and workstation 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.rt.06.png]]
+   #+CAPTION: Setup route table for aurora access from TiDB Cloud and workstation 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.rt.07.png]]
+   #+CAPTION: Setup route table for aurora access from TiDB Cloud and workstation 08
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.rt.08.png]]
+
+** Open aurora's security group to TiDB Cloud and Workstation
+   #+CAPTION: Open aurora security group 3306 port to TiDC Cloud and workstation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.sg.11.png]]
+   #+CAPTION: Open aurora security group 3306 port to TiDC Cloud and workstation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.sg.12.png]]
+   #+CAPTION: Open aurora security group 3306 port to TiDC Cloud and workstation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.sg.13.png]]
+   #+CAPTION: Open aurora security group 3306 port to TiDC Cloud and workstation 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.sg.14.png]]
+
+* TiCDC verification
+** Data sync from TiDB Cloud to Aurora from starting point
+*** Setup
+   #+CAPTION: TiCDC setup on TiDB Cloud from starting point 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.01.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from starting point 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.02.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from starting point 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.03.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from starting point 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.04.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from starting point 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.05.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from starting point 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.06.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from starting point 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.07.png]]
+*** Verification
+#+BEGIN_SRC
+MySQL [(none)]> show databases;
++--------------------+
+| Database           |
++--------------------+
+| INFORMATION_SCHEMA |
+| METRICS_SCHEMA     |
+| PERFORMANCE_SCHEMA |
+| mysql              |
+| test               |
++--------------------+
+5 rows in set (0.001 sec)
+
+MySQL [(none)]> create database ticdc_test;
+Query OK, 0 rows affected (0.536 sec)
+
+MySQL [(none)]> use ticdc_test;
+Database changed
+MySQL [ticdc_test]> create table cdctest01(col01 int primary key, col02 varchar(32));
+Query OK, 0 rows affected (0.537 sec)
+
+MySQL [ticdc_test]> insert into cdctest01 values(1,'Test data');
+Query OK, 1 row affected (0.008 sec)
+
+MySQL [ticdc_test]> update cdctest01 set col02 = 'data updated' where col01 = 1;
+Query OK, 1 row affected (0.008 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+MySQL [ticdc_test]> delete from cdctest01 where col01 = 1;
+Query OK, 1 row affected (0.008 sec)
+
+MySQL [ticdc_test]> alter table cdctest01 add column col03 text;
+Query OK, 0 rows affected (0.527 sec)
+
+MySQL [ticdc_test]> insert into cdctest01 values(1, 'First column', 'text column');
+Query OK, 1 row affected (0.008 sec)
+
+MySQL [ticdc_test]> update cdctest01 set col02 = 'column updated' where col01 = 1;
+Query OK, 1 row affected (0.008 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+MySQL [ticdc_test]> delete from cdctest01;
+Query OK, 1 row affected (0.009 sec)
+
+MySQL [ticdc_test]> drop table cdctest01;
+Query OK, 0 rows affected (0.524 sec)
+
+#+END_SRC
+
+#+BEGIN_SRC
+MySQL [(none)]> select "This is the connection to Aurora" as Subject;                                                                                                                                       
++----------------------------------+                                                                                                                                                                        
+| Subject                          |                                                                                                                                                                        
++----------------------------------+                                                                                                                                                                        
+| This is the connection to Aurora |                                                                                                                                                                        
++----------------------------------+                                                                                                                                                                        
+1 row in set (0.001 sec)                                                                                                                                                                                    
+                                                                                                                                                                                                            
+MySQL [(none)]> show databases;                                                                                                                                                                             
++--------------------+                  
+| Database           |     
++--------------------+             
+| information_schema |
+| mysql              | 
+| performance_schema |                  
+| sys                |                                                                                                                                                                                      
++--------------------+  
+4 rows in set (0.030 sec)
+                                                   
+MySQL [(none)]> show databases;       
++--------------------+                
+| Database           |                
++--------------------+                
+| information_schema |                
+| mysql              |  
+| performance_schema |
+| sys                |                      
+| ticdc_test         |                  
++--------------------+                  
+5 rows in set (0.001 sec)               
+                                                   
+MySQL [(none)]> use ticdc_test;         
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+                                                   
+Database changed     
+MySQL [ticdc_test]> show tables; 
++----------------------+         
+| Tables_in_ticdc_test |
++----------------------+
+| cdctest01            |
++----------------------+
+1 row in set (0.001 sec)
+MySQL [ticdc_test]> select * from cdctest01;
++-------+-----------+            
+| col01 | col02     |
++-------+-----------+
+|     1 | Test data |            
++-------+-----------+   
+1 row in set (0.004 sec)
+
+MySQL [ticdc_test]> select * from cdctest01;
++-------+--------------+
+| col01 | col02        |
++-------+--------------+
+|     1 | data updated |
++-------+--------------+
+1 row in set (0.001 sec)
+
+MySQL [ticdc_test]> select * from cdctest01;
+Empty set (0.001 sec)
+
+MySQL [ticdc_test]> show create table cdctest01;
++-----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Table     | Create Table                                                                                                                                                              |
++-----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| cdctest01 | CREATE TABLE `cdctest01` (
+  `col01` int(11) NOT NULL,
+  `col02` varchar(32) DEFAULT NULL,
+  `col03` text,
+  PRIMARY KEY (`col01`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 |
++-----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+1 row in set (0.001 sec)
+
+MySQL [ticdc_test]> select * from cdctest01;
++-------+--------------+-------------+
+| col01 | col02        | col03       |
++-------+--------------+-------------+
+|     1 | First column | text column |
++-------+--------------+-------------+
+1 row in set (0.001 sec)
+
+MySQL [ticdc_test]> select * from cdctest01;
++-------+----------------+-------------+
+| col01 | col02          | col03       |
++-------+----------------+-------------+
+|     1 | column updated | text column |
++-------+----------------+-------------+
+1 row in set (0.001 sec)
+
+MySQL [ticdc_test]> select * from cdctest01;
+Empty set (0.001 sec)
+
+#+END_SRC
+
+** Data sync from TiDB Cloud to Aurora from starting point
+*** Setup
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.11.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.12.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.13.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.14.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.15.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.16.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.17.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 08
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.18.png]]
+   #+CAPTION: TiCDC setup on TiDB Cloud from specified TSO 09
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ticdc.test.19.png]]
+*** Verification
+#+BEGIN_SRC
+MySQL [ticdc_test]> show tables; 
+Empty set (0.001 sec)
+
+MySQL [ticdc_test]> create table cdctest01_notsync(col01 int primary key, col02 varchar(32), create_timestamp timestamp default current_timestamp);
+Query OK, 0 rows affected (0.536 sec)
+
+MySQL [ticdc_test]> insert into cdctest01_notsync(col01, col02) values (1,'test');
+Query OK, 1 row affected (0.009 sec)
+
+MySQL [ticdc_test]> show master status;
++-------------+--------------------+--------------+------------------+-------------------+
+| File        | Position           | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+--------------------+--------------+------------------+-------------------+
+| tidb-binlog | 430663247044018179 |              |                  |                   |
++-------------+--------------------+--------------+------------------+-------------------+
+1 row in set (0.002 sec)
+
+MySQL [ticdc_test]> create table cdctest01_sync(col01 int primary key, col02 varchar(32), create_timestamp timestamp default current_timestamp);
+Query OK, 0 rows affected (0.531 sec)
+
+MySQL [ticdc_test]> insert into cdctest01_sync(col01, col02) values (1,'test');
+Query OK, 1 row affected (0.008 sec)
+
+MySQL [ticdc_test]> show tables; 
++----------------------+
+| Tables_in_ticdc_test |
++----------------------+
+| cdctest01_notsync    |
+| cdctest01_sync       |
++----------------------+
+2 rows in set (0.001 sec)
+
+
+#+END_SRC
+
+#+BEGIN_SRC
+MySQL [ticdc_test]> show tables; 
+Empty set (0.001 sec)
+
+MySQL [ticdc_test]> show tables; 
++----------------------+
+| Tables_in_ticdc_test |
++----------------------+
+| cdctest01_sync       |
++----------------------+
+1 row in set (0.004 sec)
+
+MySQL [ticdc_test]> select * from cdctest01_sync;
++-------+-------+---------------------+
+| col01 | col02 | create_timestamp    |
++-------+-------+---------------------+
+|     1 | test  | 2022-01-22 11:12:57 |
++-------+-------+---------------------+
+1 row in set (0.001 sec)
+
+MySQL [ticdc_test]> 
+
+#+END_SRC
+* Data migration using dumpling and lighting
+** Get the latest TSO for TiCDC sync
+#+BEGIN_SRC
+MySQL [(none)]> show master status;
++-------------+--------------------+--------------+------------------+-------------------+
+| File        | Position           | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+--------------------+--------------+------------------+-------------------+
+| tidb-binlog | 430664343802347521 |              |                  |                   |
++-------------+--------------------+--------------+------------------+-------------------+
+1 row in set (0.005 sec)
+#+END_SRC
+** Data migration from TiDB to MySQL
+   Please refer to the link [[https://docs.google.com/spreadsheets/d/16vq2zzxjFNffuJOv20OJ-XhByMMev_i8623iU1idwCM/edit#gid=1303422253][Data migration from TiDB to MySQL]]
+* TiCDC Setup
+  Please follow the ticdc setup on TiDB Cloud
+
+* Note
+  ./bin/aws tidb2ms sysbench_prepare -N 50 toppan --identity-file=/home/pi/.ssh/jay-west.pem --db-host private-tidb.53bd942c.50c5d2e.us-west-2.shared.aws.tidbcloud.com --dbname cdc_test --user root -P 1234Abcd --port 4000
