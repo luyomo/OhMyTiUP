@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+     The template is used to deploy one workstation
+Parameters:
+  InstanceType:
+    Description: Workstation instance type
+    Type: String
+    Default: t2.medium
+    AllowedValues:
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+    - t2.xlarge
+    - t2.2xlarge
+    - c6g.medium
+    - c6g.large
+    - c6g.xlarge
+    - c6g.2xlarge
+    - c6g.4xlarge
+    - c6g.8xlarge
+    - c6g.12xlarge
+    - c6g.16xlarge
+    ConstraintDescription: must be a valid ec2 instance type
+  VpcCidr:
+    Type: String
+    Default: 172.81.0.0/16
+    Description: The cidr of workstation
+  AllowCidr:
+    Type: String
+    Default:  0.0.0.0/0
+    Description: The cidr of workstation
+  username:
+    Type: String
+    Description: The ssh key to access the workstation
+Resources:
+  workstationVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidr
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Cluster
+          Value: ohmytiup-tidb2aurora
+        - Key: Type
+          Value: workstation
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+  workstationSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: workstationVPC
+      CidrBlock: !Select [ 11, !Cidr [ !Ref VpcCidr, 12, 8  ]  ]
+      AvailabilityZone: "ap-northeast-1c"
+      Tags:
+        - Key: Cluster
+          Value: ohmytiup-tidb2aurora
+        - Key: Type
+          Value: workstation
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+  workstationRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: workstationVPC
+      Tags:
+        - Key: Cluster
+          Value: ohmytiup-tidb2aurora
+        - Key: Type
+          Value: workstation
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+  workstationSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: workstationSubnet
+      RouteTableId:
+        Ref: workstationRT
+  workstationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow DB access from client
+      VpcId:
+        Ref: workstationVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp:
+          Ref: AllowCidr 
+      Tags:
+        - Key: Cluster
+          Value: ohmytiup-tidb2aurora
+        - Key: Type
+          Value: workstation
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+  workstationInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Cluster
+          Value: ohmytiup-tidb2aurora
+        - Key: Type
+          Value: workstation
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+  internetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId:
+         Ref: workstationRT
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId:
+         Ref: workstationInternetGateway
+  attachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: workstationVPC
+      InternetGatewayId:
+        Ref: workstationInternetGateway
+  workstationInstance: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: ami-0ac97798ccf296e02
+      KeyName: jay.pingcap
+      InstanceType:
+        Ref: InstanceType
+      BlockDeviceMappings: 
+      - DeviceName: /dev/sdm
+        Ebs: 
+          VolumeType: io1
+          Iops: 200
+          DeleteOnTermination: false
+          VolumeSize: 20
+      - DeviceName: /dev/sdk
+        NoDevice: {}
+      NetworkInterfaces: 
+      - AssociatePublicIpAddress: true
+        DeviceIndex: "0"
+        GroupSet: 
+          - Ref: workstationSecurityGroup
+        SubnetId: 
+          Ref: workstationSubnet
+      Tags:
+        - Key: Cluster
+          Value: ohmytiup-tidb2aurora
+        - Key: Type
+          Value: workstation
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
