@@ -1,0 +1,85 @@
+* Aurora Setup
+  Please check the [[https://s3.ap-northeast-1.amazonaws.com/tidb.cloudformation.template/tidb2aurora/aurora.yaml][cloud formation template]] for below resource
+   #+CAPTION: Aurora Setup by Cloudformation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.stack.01.png]]
+   #+CAPTION: Aurora Setup by Cloudformation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.stack.02.png]]
+   #+CAPTION: Aurora Setup by Cloudformation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.stack.03.png]]
+   #+CAPTION: Aurora Setup by Cloudformation 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.stack.04.png]]
+   #+CAPTION: Aurora Setup by Cloudformation 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.stack.05.png]]
+   #+CAPTION: Aurora Setup by Cloudformation 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.stack.06.png]]
+   #+CAPTION: Aurora Setup by Cloudformation 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.stack.07.png]]
+   #+CAPTION: Aurora Setup by Cloudformation 08
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.stack.08.png]]
+* Workstation Setup
+    Please check the [[https://s3.ap-northeast-1.amazonaws.com/tidb.cloudformation.template/tidb2aurora/workstation.yaml][cloud formation template]] for below resource
+   #+CAPTION: Workstation Setup by Cloudformation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.stack.01.png]]
+   #+CAPTION: Workstation Setup by Cloudformation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.stack.02.png]]
+   #+CAPTION: Workstation Setup by Cloudformation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.stack.03.png]]
+   #+CAPTION: Workstation Setup by Cloudformation 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.stack.04.png]]
+   #+CAPTION: Workstation Setup by Cloudformation 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.stack.05.png]]
+   #+CAPTION: Workstation Setup by Cloudformation 06
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.stack.06.png]]
+   #+CAPTION: Workstation Setup by Cloudformation 07
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.stack.07.png]]
+   #+CAPTION: Workstation Setup by Cloudformation 08
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/ws.stack.08.png]]
+* Resource confirmation
+   #+CAPTION: Resource confirmation after cloudformation 01
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/stack.01.png]]
+   #+CAPTION: Resource confirmation after cloudformation 02
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/stack.02.png]]
+   #+CAPTION: Resource confirmation after cloudformation 03
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/stack.03.png]]
+   #+CAPTION: Resource confirmation after cloudformation 04
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/stack.04.png]]
