@@ -139,50 +139,62 @@ Resources:
           Value: aurora
         - Key: Name
           Value: hackathon
-          #  RDSCluster: 
-          #    Type: "AWS::RDS::DBCluster"
-          #    Properties: 
-          #      DBClusterParameterGroupName: 
-          #        Ref: RDSDBClusterParameterGroup
-          #      DBSubnetGroupName: 
-          #        Ref: myDBSubnetGroup
-          #      Engine: aurora-mysql5.7
-          #      MasterUserPassword: 
-          #        Ref: password
-          #      MasterUsername: 
-          #        Ref: username
-          #      Tags:
-          #        - Key: Cluster
-          #          Value: tisample-tidb2ms
-          #        - Key: Type
-          #          Value: aurora
-          #        - Key: Name
-          #          Value: hackathon
-          #  RDSDBInstance1: 
-          #    Type: "AWS::RDS::DBInstance"
-          #    Properties: 
-          #    #      AvailabilityZone: 
-          #    #        Fn::GetAtt:
-          #    #          - mySubnet01
-          #    #          - AvailabilityZone
-          #      DBClusterIdentifier: 
-          #        Ref: RDSCluster
-          #      DBInstanceClass: db.r3.xlarge
-          #      DBParameterGroupName: 
-          #        Ref: RDSDBParameterGroup
-          #      DBSubnetGroupName: 
-          #        Ref: myDBSubnetGroup
-          #      DBSecurityGroups:
-          #        - Ref: InstanceSecurityGroup
-          #      Engine: aurora-mysql5.7
-          #      MasterUsername:  master
-          #      MasterUserPassword:
-          #        Ref: password
-          #      PubliclyAccessible: "false"
-          #      Tags:
-          #        - Key: Cluster
-          #          Value: tisample-tidb2ms
-          #        - Key: Type
-          #          Value: aurora
-          #        - Key: Name
-          #          Value: hackathon
+  RDSCluster: 
+    Type: AWS::RDS::DBCluster
+    DeletionPolicy: Snapshot
+    Properties: 
+      DBClusterIdentifier: tidb2aurora
+      DBClusterParameterGroupName: 
+        Ref: RDSDBClusterParameterGroup
+      DBSubnetGroupName: 
+        Ref: myDBSubnetGroup
+      Engine: aurora-mysql
+      EngineVersion: 5.7.mysql_aurora.2.10.1
+      VpcSecurityGroupIds:
+        - Ref: InstanceSecurityGroup
+      MasterUserPassword: 
+        Ref: password
+      MasterUsername: 
+        Ref: username
+      StorageEncrypted: false
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+  RDSDBInstance1: 
+    Type: AWS::RDS::DBInstance
+    Properties: 
+      DBClusterIdentifier:
+        Ref: RDSCluster
+      DBInstanceClass: db.r5.xlarge
+      DBParameterGroupName: 
+        Ref: RDSDBParameterGroup
+      Engine: aurora-mysql
+      PubliclyAccessible: "false"
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon
+  RDSDBInstance2: 
+    Type: AWS::RDS::DBInstance
+    Properties: 
+      DBClusterIdentifier:
+        Ref: RDSCluster
+      DBInstanceClass: db.r5.xlarge
+      DBParameterGroupName: 
+        Ref: RDSDBParameterGroup
+      Engine: aurora-mysql
+      PubliclyAccessible: "false"
+      Tags:
+        - Key: Cluster
+          Value: tisample-tidb2ms
+        - Key: Type
+          Value: aurora
+        - Key: Name
+          Value: hackathon

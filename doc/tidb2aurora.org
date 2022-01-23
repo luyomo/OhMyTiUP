@@ -92,17 +92,18 @@
    #+attr_html: :width 800px
    #+attr_latex: :width 800px
    [[./png/tidb2aurora/aurora.instance.02.png]]
-   #+CAPTION: DB Cluster instance 02
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.instance.03.png]]
    #+CAPTION: DB Cluster instance 03
    #+attr_html: :width 800px
    #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.instance.04.png]]
+   [[./png/tidb2aurora/aurora.instance.03.png]]
    #+CAPTION: DB Cluster instance 04
    #+attr_html: :width 800px
    #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.instance.04.png]]
+   #+CAPTION: DB Cluster instance 05
+   #+attr_html: :width 800px
+   #+attr_latex: :width 800px
+   [[./png/tidb2aurora/aurora.instance.05.png]]
 * EC2 Workstation Setup
 ** VPC
    #+CAPTION: Workstation VPC 01
