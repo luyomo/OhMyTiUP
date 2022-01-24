@@ -1,0 +1,148 @@
+* Architect
+* Copy data from TiDB 2 Aurora through S3 - Manually
+** Create the s3 bucket for data copy
+   #+CAPTION: Create the s3 bucket for data copy 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/01.s3.bucket.01.png]]
+   #+CAPTION: Create the s3 bucket for data copy 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/01.s3.bucket.02.png]]
+   #+CAPTION: Create the s3 bucket for data copy 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/01.s3.bucket.03.png]]
+   #+CAPTION: Create the s3 bucket for data copy 04
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/01.s3.bucket.04.png]]
+   #+CAPTION: Create the s3 bucket for data copy 05
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/01.s3.bucket.05.png]]
+   #+CAPTION: Create the s3 bucket for data copy 06
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/01.s3.bucket.06.png]]
+   #+CAPTION: Create the s3 bucket for data copy 07
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/01.s3.bucket.07.png]]
+** Export data to s3 bucket
+   #+CAPTION: Export data to s3 bucket 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/02.data.export.s3.01.png]]
+    #+CAPTION: Export data to s3 bucket 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/02.data.export.s3.02.png]]
+** Create s3 policy
+   #+CAPTION: Create s3 policy 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/03.policy.01.png]]
+   #+CAPTION: Create s3 policy 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/03.policy.02.png]]
+   #+CAPTION: Create s3 policy 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/03.policy.03.png]]
+   #+CAPTION: Create s3 policy 04
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/03.policy.04.png]]
+   #+CAPTION: Create s3 policy 05
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/03.policy.05.png]]
+   #+CAPTION: Create s3 policy 06
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/03.policy.06.png]]
+** Create s3 role attached to Aurora
+   #+CAPTION: Create s3 role attached to Aurora 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.01.png]]
+   #+CAPTION: Create s3 role attached to Aurora 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.02.png]]
+   #+CAPTION: Create s3 role attached to Aurora 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.03.png]]
+   #+CAPTION: Create s3 role attached to Aurora 04
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.04.png]]
+   #+CAPTION: Create s3 role attached to Aurora 05
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.05.png]]
+   #+CAPTION: Create s3 role attached to Aurora 06
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.06.png]]
+   #+CAPTION: Create s3 role attached to Aurora 07
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.07.png]]
+** Attache s3 role to Aurora
+   #+CAPTION: Attache s3 role to Aurora 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/05.rds.role.01.png]]
+   #+CAPTION: Attache s3 role to Aurora 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/05.rds.role.02.png]]
+   #+CAPTION: Attache s3 role to Aurora 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/05.rds.role.03.png]]   
+** Update db cluster parameter for s3
+   #+CAPTION: Update db cluster parameter for s3 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.01.png]]
+   #+CAPTION: Update db cluster parameter for s3 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.02.png]]
+   #+CAPTION: Update db cluster parameter for s3 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.03.png]]   
+** Create endpoint for aurora
+   #+CAPTION: Create endpoint for aurora 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/07.rds.endpoint.01.png]]
+   #+CAPTION: Create endpoint for aurora 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/07.rds.endpoint.02.png]]
+   #+CAPTION: Create endpoint for aurora 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/07.rds.endpoint.03.png]]
+   #+CAPTION: Create endpoint for aurora 04
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/07.rds.endpoint.04.png]]   
+** Try data import
+   #+CAPTION: Try data import 
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/08.import.from.s3.01.png]]
+   #+CAPTION: Try data import 
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/08.import.from.s3.02.png]]
+* Copy data from TiDB 2 Aurora through S3 - CloudFormation
+* Copy data from TiDB 2 Aurora through S3 - OhMyTiUP
