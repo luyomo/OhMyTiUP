@@ -146,3 +146,4 @@
    [[./png/copyDataTiDB2AuroraS3/08.import.from.s3.02.png]]
 * Copy data from TiDB 2 Aurora through S3 - CloudFormation
 * Copy data from TiDB 2 Aurora through S3 - OhMyTiUP
+  #+html: <p align="center"><img src="./png/copyDataTiDB2AuroraS3/08.import.from.s3.02.png" /></p>
