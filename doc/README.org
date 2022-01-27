@@ -1,0 +1,20 @@
+# TiUp documentation
+
+* INDEX
+** TiDB Solution
+ #+CAPTION: Index of all topics
+ #+ATTR_HTML: :border 2 :rules all :frame border
+ | Link             | Comment                                              | Source                                     |
+ |------------------+------------------------------------------------------+--------------------------------------------|
+ | [[./baidu-uuid.org][uuid generator]]   | Use uid-generator from baidu to generate sequence id | [[https://github.com/baidu/uid-generator.git]] |
+ | [[./powerdns.org][powerdns on TiDB]] | Deploy powerdbs on TiDB                              |                                            |
+
+** TiDB Cloud on aws solution
+ #+CAPTION: Index of all topics on aws
+ #+ATTR_HTML: :border 2 :rules all :frame border
+ | Link                                      | Comment                                                  | Source |
+ |-------------------------------------------+----------------------------------------------------------+--------|
+ | [[./copyDataTiDB2Aurora.org][data copy from TiDB Cloud To Aurora MySQL]] | data copy from TiDB Cloud to Aurora through S3           |        |
+ | [[./tidb2aurora.org][TiDB Cloud To Aurora]]                      | TiDB Cloud -> TiCDC -> Aurora                            |        |
+ | [[./tidb2aurora_cloudformation.org][TiDB Cloud To Aurora(cloudformation)]]      | TiDB Cloud -> TiCDC -> Aurora(cloudformation deployment) |        |
+ | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]            | Redshift --federated query--> TiDB Cloud                 |        |
