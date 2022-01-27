@@ -1,0 +1,34 @@
+* Create TiDB Table to be accessed from redshift
+* Create redshift cluster
+* Create secret in the secrets manager for TiDB Cloud
+* Create policy for TiDB Cloud secret
+  #+BEGIN_SRC
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AccessSecret",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetResourcePolicy",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:ListSecretVersionIds"
+            ],
+            "Resource": "arn:aws:secretsmanager:ap-northeast-1:385595570414:secret:tidbcloud_secret-Nj3mzF"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetRandomPassword",
+                "secretsmanager:ListSecrets"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+  #+END_SRC
+* Create role to attach to redshift
+* Attach role to redshift
+* Create external schema
