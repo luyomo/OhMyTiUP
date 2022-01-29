@@ -1,5 +1,6 @@
 * Prepare basic aws resource
 ** VPC
+ #+CAPTION: VPC resource
  #+ATTR_HTML: :width 800 :style border:2px solid black;
  [[./png/federatedSQLtidbcloud2redshift/01.01.vpc.png]]
 
