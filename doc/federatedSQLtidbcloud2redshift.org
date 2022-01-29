@@ -1,3 +1,22 @@
+* Prepare basic aws resource
+** VPC
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.01.vpc.png]]
+
+** VPC Peering to TiDB Cloud
+** Subnets
+** Route table
+** Endpoint
+** Security group
+* Prepare secrets and role
+** secrets manager
+** policy
+** role
+* Redshift
+** subnets group
+** redshift
+
+
 * Create TiDB Table to be accessed from redshift
 * Create redshift cluster
 * Create secret in the secrets manager for TiDB Cloud
@@ -32,3 +51,16 @@
 * Create role to attach to redshift
 * Attach role to redshift
 * Create external schema
+#+BEGIN_SRC
+CREATE TABLE `innodb_index_stats` (
+`database_name` varchar(64) COLLATE utf8_bin NOT NULL,
+`table_name` varchar(64) COLLATE utf8_bin NOT NULL,
+`index_name` varchar(64) COLLATE utf8_bin NOT NULL,
+`last_update` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+`stat_name` varchar(64) COLLATE utf8_bin NOT NULL,
+`stat_value` bigint(20) unsigned NOT NULL,
+`sample_size` bigint(20) unsigned DEFAULT NULL,
+`stat_description` varchar(1024) COLLATE utf8_bin NOT NULL,
+PRIMARY KEY (`database_name`,`table_name`,`index_name`,`stat_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin STATS_PERSISTENT=0;
+#+END_SRC
