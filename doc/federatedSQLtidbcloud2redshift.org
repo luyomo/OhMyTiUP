@@ -5,24 +5,95 @@
  [[./png/federatedSQLtidbcloud2redshift/01.01.vpc.png]]
 
 ** VPC Peering to TiDB Cloud
+*** Invite customer's VPC to TiDB Cloud
+ #+CAPTION: VPC Peering to TiDB Cloud 01
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.02.tidbcloud.vpcpeering.01.png]]
+ #+CAPTION: VPC Peering to TiDB Cloud 02
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.02.tidbcloud.vpcpeering.02.png]]
+ #+CAPTION: VPC Peering to TiDB Cloud 03
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.02.tidbcloud.vpcpeering.03.png]]
+*** Go to [[https://ap-northeast-1.console.aws.amazon.com/vpc/home?region=ap-northeast-1#PeeringConnections:][vpc peering]] to accept the invitation
+ #+CAPTION: VPC Peering to TiDB Cloud 04
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.02.tidbcloud.vpcpeering.04.png]]
+ #+CAPTION: VPC Peering to TiDB Cloud 05
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.02.tidbcloud.vpcpeering.05.png]]
+*** Wait several minutes until TiDB Cloud's vpc peering status becomes active
+ #+CAPTION: VPC Peering to TiDB Cloud 06
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.02.tidbcloud.vpcpeering.06.png]]
 ** Subnets
+ #+CAPTION: Subnets
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.03.subnets.png]]
 ** Route table
+ #+CAPTION: Route table 01
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.04.route.01.png]]
+ #+CAPTION: Route table 02
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.04.route.02.png]]
 ** Endpoint
+ #+CAPTION: Secretsmanager Endpoint 01
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.05.endpoint.01.png]]
+ #+CAPTION: Secretsmanager Endpoint 02
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.05.endpoint.02.png]]
+ #+CAPTION: Secretsmanager Endpoint 03
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.05.endpoint.03.png]]
+ #+CAPTION: Secretsmanager Endpoint 04
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.05.endpoint.04.png]]
 ** Security group
+   Add the 443 port to security group for the secrets manager service access
+ #+CAPTION: Security Group
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/01.06.securitygroup.png]]
 * Prepare secrets and role
 ** secrets manager
+*** Get the TiDB Cloud connection information
+ #+CAPTION: Secret for TiDB Cloud connection info 01
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.01.png]]
+*** Create the MySQL secret manager
+ #+CAPTION: Secret for TiDB Cloud connection info 02
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.02.png]]
+ #+CAPTION: Secret for TiDB Cloud connection info 03
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.03.png]]
+ #+CAPTION: Secret for TiDB Cloud connection info 04
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.04.png]]
+ #+CAPTION: Secret for TiDB Cloud connection info 05
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.05.png]]
+ #+CAPTION: Secret for TiDB Cloud connection info 06
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.06.png]]
+ #+CAPTION: Secret for TiDB Cloud connection info 07
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.07.png]]
+ #+CAPTION: Secret for TiDB Cloud connection info 08
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.08.png]]
+ #+CAPTION: Secret for TiDB Cloud connection info 09
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.01.secrets.09.png]]
 ** policy
-** role
-* Redshift
-** subnets group
-** redshift
-
-
-* Create TiDB Table to be accessed from redshift
-* Create redshift cluster
-* Create secret in the secrets manager for TiDB Cloud
-* Create policy for TiDB Cloud secret
-  #+BEGIN_SRC
+ #+CAPTION: Policy to access secret 01
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.02.policy.01.png]]
+ #+CAPTION: Policy to access secret 02
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.02.policy.02.png]]
+   #+BEGIN_SRC js
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -49,8 +120,128 @@
     ]
 }
   #+END_SRC
-* Create role to attach to redshift
-* Attach role to redshift
+ #+CAPTION: Policy to access secret 03
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.02.policy.03.png]]
+ #+CAPTION: Policy to access secret 04
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.02.policy.04.png]]
+ #+CAPTION: Policy to access secret 05
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.02.policy.05.png]]
+ #+CAPTION: Policy to access secret 06
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.02.policy.06.png]]
+** role
+ #+CAPTION: Role to access secret 01
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.03.role.01.png]]
+ #+CAPTION: Role to access secret 02
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.03.role.02.png]]
+ #+CAPTION: Role to access secret 03
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.03.role.03.png]]
+ #+CAPTION: Role to access secret 04
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.03.role.04.png]]
+ #+CAPTION: Role to access secret 05
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.03.role.05.png]]
+ #+CAPTION: Role to access secret 06
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.03.role.06.png]]
+ #+CAPTION: Role to access secret 07
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.03.role.07.png]]
+ #+CAPTION: Role to access secret 08
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/02.03.role.08.png]]
+* Redshift
+** subnets group
+ #+CAPTION: Redshift subnet group 01
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.01.subnetgroup.01.png]]
+ #+CAPTION: Redshift subnet group 02
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.01.subnetgroup.02.png]]
+ #+CAPTION: Redshift subnet group 03
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.01.subnetgroup.03.png]]
+** redshift
+ #+CAPTION: Redshift 01
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.01.png]]
+ #+CAPTION: Redshift 02
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.02.png]]
+ #+CAPTION: Redshift 03
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.03.png]]
+ #+CAPTION: Redshift 04
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.04.png]]
+ #+CAPTION: Redshift 05
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.05.png]]
+ #+CAPTION: Redshift 06
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.06.png]]
+ #+CAPTION: Redshift 07
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.07.png]]
+ #+CAPTION: Redshift 08
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.08.png]]
+ #+CAPTION: Redshift 09
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.09.png]]
+ #+CAPTION: Redshift 10
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.10.png]]
+   #+BEGIN_SRC
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AccessSecret",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetResourcePolicy",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:ListSecretVersionIds"
+            ],
+            "Resource": "arn:aws:secretsmanager:ap-northeast-1:xxxxxxxxxxxx:secret:tidbcloud_secret-Nj3mzF"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetRandomPassword",
+                "secretsmanager:ListSecrets"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+  #+END_SRC
+ #+CAPTION: Redshift 11
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.11.png]]
+ #+CAPTION: Redshift 12
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.12.png]]
+ #+CAPTION: Redshift 13
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.13.png]]
+ #+CAPTION: Redshift 14
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.14.png]]
+ #+CAPTION: Redshift 15
+ #+ATTR_HTML: :width 800 :style border:2px solid black;
+ [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.15.png]]
+
 * Create external schema
 #+BEGIN_SRC
 CREATE TABLE `innodb_index_stats` (
