@@ -48,7 +48,7 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 	if err != nil {
 		return err
 	}
-	clusterType := "tisample-aurora"
+	clusterType := "ohmytiup-aurora"
 
 	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().

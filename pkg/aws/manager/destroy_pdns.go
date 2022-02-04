@@ -43,7 +43,7 @@ func (m *Manager) DestroyPDNSService(name string, gOpt operator.Options, destroy
 		return err
 	}
 
-	clusterType := "tisample-pdns"
+	clusterType := "ohmytiup-pdns"
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
 	if err != nil {

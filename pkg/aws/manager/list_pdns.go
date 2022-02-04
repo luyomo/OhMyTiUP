@@ -38,7 +38,7 @@ func (m *Manager) ListPDNSService(clusterName string, opt DeployOptions) error {
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "tisample-pdns")
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-pdns")
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
 	if err != nil {
@@ -47,7 +47,7 @@ func (m *Manager) ListPDNSService(clusterName string, opt DeployOptions) error {
 
 	if strings.ToUpper(clusterName) == "ALL" {
 		tableCluster := [][]string{{"Cluster Name"}}
-		ret, err := task.SearchVPCName(&sexecutor, ctx, "tisample-pdns")
+		ret, err := task.SearchVPCName(&sexecutor, ctx, "ohmytiup-pdns")
 		if err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func (m *Manager) ListPDNSService(clusterName string, opt DeployOptions) error {
 	}
 
 	titleFont := color.New(color.FgRed, color.Bold)
-	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("tisample-tidb2ms"))
+	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("ohmytiup-tidb2ms"))
 	fmt.Printf("Cluster Name :      %s\n\n", titleFont.Sprint(clusterName))
 
 	cyan := color.New(color.FgCyan, color.Bold)

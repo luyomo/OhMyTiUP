@@ -122,7 +122,7 @@ func (m *Manager) TiDB2MSScale(
 	if err != nil {
 		return err
 	}
-	clusterType := "tisample-tidb2ms"
+	clusterType := "ohmytiup-tidb2ms"
 
 	var workstationInfo, clusterInfo task.ClusterInfo
 

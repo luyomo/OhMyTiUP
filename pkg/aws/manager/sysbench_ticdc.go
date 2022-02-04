@@ -43,7 +43,7 @@ func (m *Manager) SysbenchTiCDC(name string, gOpt operator.Options) error {
 		return err
 	}
 
-	clusterType := "tisample-tidb2ms"
+	clusterType := "ohmytiup-tidb2ms"
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func (m *Manager) PrepareSysbenchTiCDC(name string, gOpt operator.Options, scrip
 		return err
 	}
 
-	clusterType := "tisample-tidb2ms"
+	clusterType := "ohmytiup-tidb2ms"
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
 	if err != nil {
 		return err

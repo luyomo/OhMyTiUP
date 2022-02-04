@@ -46,7 +46,7 @@ func (m *Manager) ListCluster(clusterName string, opt DeployOptions) error {
 	//    List(globalOptions.User, inst.GetHost()).
 	//    BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 	insList := task.List{User: opt.User}
-	insList.Execute(ctxt.New(context.Background(), 1), clusterName, "tisample-tidb")
+	insList.Execute(ctxt.New(context.Background(), 1), clusterName, "ohmytiup-tidb")
 	//fmt.Printf("The list is <%#v>", insList)
 
 	clusterTable := [][]string{

@@ -266,7 +266,7 @@ func (m *Manager) Deploy(
 	t := builder.Build()
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", "tisample-tidb")
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
 
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {

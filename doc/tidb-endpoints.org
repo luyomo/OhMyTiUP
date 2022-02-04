@@ -1,0 +1,77 @@
+#+TITLE: TiDB Service in AWS
+* Structure
+* TiDB Cluster setup
+Please refer to another page to setup the TiDB Cluster on aws
+* TiDB Endpoints service
+  Setup the Endpoints service(PrivateLink) for TiDB Cluster on aws. Two prerequisites are as below:
+  + TiDB Cluster Setup
+  + Setup NLB before TiDB Cluster
+  + Domain provider for verification
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.01.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.02.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.03.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.04.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.05.png]]
+* Domain name verification
+** Create TXT record in the domain provider
+   Create TXT record in the domain provider using the **domain verification name** and **domain verification value** from the endpoints service. Without the domain verification,
+ the consumer is not able to enable the private dns name.
+#+CAPTION: Domain name verification - google domain(example) 01
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.06.png]]
+#+CAPTION: Domain name verification - google domain(example) 02
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.07.png]]
+** Domain verification
+   After the TXT record preparation, AWS endpoint service will send request to verify the domain. Also you can request explicitly according to the below GUI. 
+#+CAPTION: Domain name verification - google domain(example) 03
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.08.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.09.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.10.png]]
+
+* TiDB Endpoint in the consumer side
+** Confirm VPC configuration to add the endpoint
+   Make sure the VPC to add the endpoint has enabled the **DNS hostnames** and **DNS resolution** configuration.
+   
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.11.png]]
+** Create endpoint in the VPC
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.12.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.13.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.14.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.15.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.16.png]]
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.17.png]]
+
+* Veriy confirmation
+#+CAPTION: tidb endpoints service creatione
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/tidb-endpoints/tidb-service.18.png]]

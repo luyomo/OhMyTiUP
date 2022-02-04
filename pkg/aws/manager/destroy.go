@@ -51,7 +51,7 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 		return err
 	}
 
-	clusterType := "tisample-tidb"
+	clusterType := "ohmytiup-tidb"
 	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().
 		DestroyEC(&sexecutor, "test").

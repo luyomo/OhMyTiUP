@@ -169,9 +169,15 @@ func (c *PrepareSysbenchTiCDC) Execute(ctx context.Context) error {
 	c.scriptParam.MSPort = dbInstance.Endpoint.Port
 	c.scriptParam.MSDB = "cdc_test"
 	c.scriptParam.MSUser = dbInstance.MasterUsername
-	c.scriptParam.MSUser = "1234Abcd"
+	c.scriptParam.MSPass = "1234Abcd"
 
-	command := fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, c.scriptParam.TiDBHost, c.scriptParam.TiDBPort, c.scriptParam.TiDBUser, c.scriptParam.TiDBDB)
+	// Create database in the TiDB
+	var command string
+	if c.scriptParam.TiDBPass == "" {
+		command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, c.scriptParam.TiDBHost, c.scriptParam.TiDBPort, c.scriptParam.TiDBUser, c.scriptParam.TiDBDB)
+	} else {
+		command = fmt.Sprintf(`mysql -h %s -P %d -u %s -p%s -e 'create database if not exists %s'`, c.scriptParam.TiDBHost, c.scriptParam.TiDBPort, c.scriptParam.TiDBUser, c.scriptParam.TiDBPass, c.scriptParam.TiDBDB)
+	}
 	stdout, _, err := (*workstation).Execute(ctx, command, true)
 	if err != nil {
 		fmt.Printf("The command is <%s> \n\n\n", command)

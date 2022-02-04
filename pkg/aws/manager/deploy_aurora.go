@@ -253,7 +253,7 @@ func (m *Manager) AuroraDeploy(
 	t := builder.Build()
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", "tisample-aurora")
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora")
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.

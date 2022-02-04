@@ -1,0 +1,100 @@
+# Resources:
+#   vpc
+#   subnet
+#   route table
+#   security group
+#   endpoint -> point to secrets
+#   internet gateway -> True/False
+#
+#
+#   secrets
+# Input:
+#   host/port/user/password -> secrets 
+#
+#  aws resource
+#   1. Create VPC/subnets/route table/end point/security group
+#   2. Create secret/policy/role
+#   3. Create redshift
+#  vpc peering
+#   1. Invite vpc from TiDB Cloud (vpc id/cidr)
+#   2. Accept from vpc peering from client side
+#   3. Add route to TiDB Cloud in the route table with vpc peering
+#
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+     The template is used to deploy redshift with TiDB Cloud secrets
+Parameters:
+  ProjectName:
+    Description: Project name for Demo
+    Type: String
+  ComponentName:
+    Description: Component name of Demo
+    Type: String
+  Host:
+    Description: TiDB Cloud Host
+    Type: String
+  Port:
+    Description: TiDB Cloud Port
+    Type: String
+    Default: 4000
+  User:
+    Description: TiDB Cloud username
+    Type: String
+    Default: root
+  Password:
+    Description: TiDB Cloud password
+    Type: String
+  DBName:
+    Description: TiDB Cloud db name
+    Type: String
+Resources:
+  theSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Ref ProjectName
+      Description: This secret has a hardcoded password in SecretString for TiDB Cloud
+      SecretString: !Sub '{"username":"${User}","password":"${Password}","engine":"mysql","host":"${Host}","port":"${Port}","dbname":"${DBName}"}'
+      Tags:
+        - Key: Cluster
+          Value: !Sub 'ohmytiup-${ProjectName}'
+        - Key: Type
+          Value: !Sub '${ComponentName}'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}'
+  theRole: 
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service:
+                - redshift.amazonaws.com
+      Path: "/"
+  thePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${AWS::StackName}'
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AccessSecret
+            Effect: Allow
+            Action: 
+              - secretsmanager:GetResourcePolicy
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+              - secretsmanager:ListSecretVersionIds
+            Resource:
+              - !Ref theSecret
+          - Sid: VisualEditor1
+            Effect: Allow
+            Action:
+              - secretsmanager:GetRandomPassword
+              - secretsmanager:ListSecrets
+            Resource: "*"
+      Roles:
+        - !Ref theRole

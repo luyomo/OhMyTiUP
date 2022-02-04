@@ -260,7 +260,7 @@ func (m *Manager) TiDB2AuroraDeploy(
 	t := builder.Build()
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", "tisample-tidb2aurora")
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2aurora")
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.

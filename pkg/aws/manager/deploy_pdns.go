@@ -123,7 +123,7 @@ func (m *Manager) PDNSDeploy(
 	if err != nil {
 		return err
 	}
-	clusterType := "tisample-pdns"
+	clusterType := "ohmytiup-pdns"
 
 	var workstationInfo, clusterInfo task.ClusterInfo
 

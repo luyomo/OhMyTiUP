@@ -30,7 +30,7 @@ import (
 // ListCluster list the clusters.
 func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error {
 	insList := task.ListTiDB2Aurora{User: opt.User}
-	insList.Execute(ctxt.New(context.Background(), 1), clusterName, "tisample-aurora", "aurora")
+	insList.Execute(ctxt.New(context.Background(), 1), clusterName, "ohmytiup-aurora", "aurora")
 	//fmt.Printf("The list is <%#v>", insList)
 
 	clusterTable := [][]string{

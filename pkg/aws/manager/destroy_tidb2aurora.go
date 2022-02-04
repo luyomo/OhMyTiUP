@@ -50,7 +50,7 @@ func (m *Manager) DestroyTiDB2AuroraCluster(name string, gOpt operator.Options, 
 	}
 
 	fmt.Printf("The messaage here is ********************** \n\n\n")
-	clusterType := "tisample-tidb2aurora"
+	clusterType := "ohmytiup-tidb2aurora"
 
 	//	var clusterInfo task.ClusterInfo
 	t := task.NewBuilder().

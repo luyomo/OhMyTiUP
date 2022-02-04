@@ -1,0 +1,26 @@
+#global:
+#  user: pi
+#  db_host: localhost
+workstation:
+  cidr: 172.81.0.0/16
+  instance_type: m5.8xlarge
+  keyname: jay.pingcap
+  keyfile: /home/pi/.ssh/jaypingcap.pem
+  username: admin
+  imageid: ami-0ac97798ccf296e02
+aurora:
+  cidr: 172.83.0.0/16
+  instance_type: db.m5.8xlarge
+  db_parameter_family_group: aurora-mysql5.7
+sqlserver:
+  cidr: 172.85.0.0/16
+  instance_type: db.m5d.large
+  engine: sqlserver-se
+  engine_version: 15.00.4073.23.v1
+  disk_size: 100
+  db_master_user: master
+  db_master_user_pass: 1234Abcd
+  db_parameter_family_group: sqlserver-se-15.0
+dms:
+  cidr: 172.86.0.0/16
+  instance_type: m5.2xlarge

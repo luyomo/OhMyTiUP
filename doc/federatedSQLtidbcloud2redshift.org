@@ -15,7 +15,7 @@
  #+CAPTION: VPC Peering to TiDB Cloud 03
  #+ATTR_HTML: :width 800 :style border:2px solid black;
  [[./png/federatedSQLtidbcloud2redshift/01.02.tidbcloud.vpcpeering.03.png]]
-*** Go to [[https://ap-northeast-1.console.aws.amazon.com/vpc/home?region=ap-northeast-1#PeeringConnections:][vpc peering]] to accept the invitation
+*** Go to b[[https://ap-northeast-1.console.aws.amazon.com/vpc/home?region=ap-northeast-1#PeeringConnections:][vpc peering]] to accept the invitation
  #+CAPTION: VPC Peering to TiDB Cloud 04
  #+ATTR_HTML: :width 800 :style border:2px solid black;
  [[./png/federatedSQLtidbcloud2redshift/01.02.tidbcloud.vpcpeering.04.png]]
@@ -200,31 +200,11 @@
  #+ATTR_HTML: :width 800 :style border:2px solid black;
  [[./png/federatedSQLtidbcloud2redshift/03.02.redshift.10.png]]
    #+BEGIN_SRC
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "AccessSecret",
-            "Effect": "Allow",
-            "Action": [
-                "secretsmanager:GetResourcePolicy",
-                "secretsmanager:GetSecretValue",
-                "secretsmanager:DescribeSecret",
-                "secretsmanager:ListSecretVersionIds"
-            ],
-            "Resource": "arn:aws:secretsmanager:ap-northeast-1:xxxxxxxxxxxx:secret:tidbcloud_secret-Nj3mzF"
-        },
-        {
-            "Sid": "VisualEditor1",
-            "Effect": "Allow",
-            "Action": [
-                "secretsmanager:GetRandomPassword",
-                "secretsmanager:ListSecrets"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
+ CREATE EXTERNAL SCHEMA tidbcloud_schema
+ FROM MYSQL
+ DATABASE 'test' URI 'private-tidb.3072164e.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com' PORT 4000
+ IAM_ROLE 'arn:aws:iam::385595570414:role/tidbcloud-access-role'
+ SECRET_ARN 'arn:aws:secretsmanager:ap-northeast-1:385595570414:secret:tidbcloud-conninfo-DrM3Zm';
   #+END_SRC
  #+CAPTION: Redshift 11
  #+ATTR_HTML: :width 800 :style border:2px solid black;

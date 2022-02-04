@@ -123,7 +123,7 @@ func (m *Manager) TiDB2MSDeploy(
 	if err != nil {
 		return err
 	}
-	clusterType := "tisample-tidb2ms"
+	clusterType := "ohmytiup-tidb2ms"
 
 	var workstationInfo, clusterInfo, auroraInfo, msInfo, dmsInfo task.ClusterInfo
 
@@ -177,6 +177,8 @@ func (m *Manager) TiDB2MSDeploy(
 		return err
 	}
 
+	//	fmt.Printf("The data is <%d>\n\n\n", cntEC2Nodes)
+	//	return nil
 	var t5 *task.StepDisplay
 	if cntEC2Nodes > 0 {
 		t5 = task.NewBuilder().
@@ -192,7 +194,7 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
 			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
-			//			CreateTiDBNLB(&sexecutor, "tidb", &clusterInfo).
+			//CreateTiDBNLB(&sexecutor, "tidb", &clusterInfo).
 			//MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
 			DeployTiCDC(&sexecutor, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
 			BuildAsStep(fmt.Sprintf("  - Prepare DMS servicer and additional network resources %s:%d", globalOptions.Host, 22))

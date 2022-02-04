@@ -37,7 +37,7 @@ func (m *Manager) ListTiDB2MSCluster(clusterName string, opt DeployOptions) erro
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "tisample-tidb2ms")
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2ms")
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
 	if err != nil {
@@ -94,7 +94,7 @@ func (m *Manager) ListTiDB2MSCluster(clusterName string, opt DeployOptions) erro
 	}
 
 	titleFont := color.New(color.FgRed, color.Bold)
-	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("tisample-tidb2ms"))
+	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("ohmytiup-tidb2ms"))
 	fmt.Printf("Cluster Name :      %s\n\n", titleFont.Sprint(clusterName))
 
 	cyan := color.New(color.FgCyan, color.Bold)

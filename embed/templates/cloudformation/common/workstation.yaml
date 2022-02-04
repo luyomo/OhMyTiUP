@@ -55,7 +55,9 @@ Resources:
       VpcId:
         Ref: workstationVPC
       CidrBlock: !Select [ 11, !Cidr [ !Ref VpcCidr, 12, 8  ]  ]
-      AvailabilityZone: "ap-northeast-1c"
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
       Tags:
         - Key: Cluster
           Value: ohmytiup-tidb2aurora
