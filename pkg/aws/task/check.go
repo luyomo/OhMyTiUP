@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/ctxt"
 )
 
 // the check types

@@ -391,7 +391,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		return err
 	}
 	for _, reservation := range reservations.Reservations {
-		for _, _ = range reservation.Instances {
+		for range reservation.Instances {
 			return nil
 		}
 	}

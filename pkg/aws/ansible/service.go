@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/pingcap/errors"
 )

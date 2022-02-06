@@ -187,6 +187,7 @@ func (env *Environment) downloadComponent(component string, version utils.Versio
 // SelectInstalledVersion selects the installed versions and the latest release version
 // will be chosen if there is an empty version
 func (env *Environment) SelectInstalledVersion(component string, ver utils.Version) (utils.Version, error) {
+    fmt.Printf("SelectInstalledVersion: The version is <%s> \n", utils.NightlyVersionAlias)
 	if ver == utils.NightlyVersionAlias {
 		var err error
 		if ver, _, err = env.v1Repo.LatestNightlyVersion(component); err != nil {
@@ -194,10 +195,12 @@ func (env *Environment) SelectInstalledVersion(component string, ver utils.Versi
 		}
 	}
 
+    fmt.Printf("SelectInstalledVersion: Starting to check version \n")
 	installed, err := env.Profile().InstalledVersions(component)
 	if err != nil {
 		return ver, err
 	}
+    fmt.Printf("SelectInstalledVersion: installed version <%#v> \n", installed)
 
 	versions := []string{}
 	for _, v := range installed {
@@ -253,6 +256,9 @@ func (env *Environment) SelectInstalledVersion(component string, ver utils.Versi
 
 // DownloadComponentIfMissing downloads the specific version of a component if it is missing
 func (env *Environment) DownloadComponentIfMissing(component string, ver utils.Version) (utils.Version, error) {
+    fmt.Printf("---------------------\n")
+    fmt.Printf("The component is <%s> \n", component)
+    fmt.Printf("The version is <%s> \n", ver)
 	var err error
 	if ver.String() == utils.NightlyVersionAlias {
 		if ver, _, err = env.v1Repo.LatestNightlyVersion(component); err != nil {
@@ -263,6 +269,7 @@ func (env *Environment) DownloadComponentIfMissing(component string, ver utils.V
 	// Use the latest version if user doesn't specify a specific version and
 	// download the latest version if the specific component doesn't be installed
 
+    fmt.Printf("04 Deciding the version \n")
 	// Check whether the specific version exist in local
 	ver, err = env.SelectInstalledVersion(component, ver)
 	needDownload := errors.Cause(err) == ErrInstallFirst
@@ -270,6 +277,7 @@ func (env *Environment) DownloadComponentIfMissing(component string, ver utils.V
 		return "", err
 	}
 
+    fmt.Printf("05 Deciding the version \n")
 	if needDownload {
 		fmt.Printf("The component `%s` version %s is not installed; downloading from repository.\n", component, ver.String())
 		err := env.downloadComponent(component, ver, false)
@@ -279,6 +287,7 @@ func (env *Environment) DownloadComponentIfMissing(component string, ver utils.V
 	}
 
 	if ver.IsEmpty() {
+        fmt.Printf("06 Deciding the version \n")
 		return env.SelectInstalledVersion(component, ver)
 	}
 

@@ -26,7 +26,6 @@ import (
 	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
-	//	"io/ioutil"
 )
 
 type DeployPDNS struct {

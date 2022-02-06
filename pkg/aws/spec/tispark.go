@@ -24,11 +24,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/luyomo/tisample/pkg/checkpoint"
-	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/template/config"
 	"github.com/luyomo/tisample/pkg/aws/template/scripts"
 	system "github.com/luyomo/tisample/pkg/aws/template/systemd"
+	"github.com/luyomo/tisample/pkg/checkpoint"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/pingcap/errors"
 	"go.uber.org/zap"

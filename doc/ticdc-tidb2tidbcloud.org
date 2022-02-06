@@ -1,0 +1,491 @@
+* TiDB Cloud Preparation
+* EKS Cluster Preparation
+** workstation setup
+*** Create by stack
+    Please refer to [[https://s3.ap-northeast-1.amazonaws.com/tidb.cloudformation.template/common/workstation.yaml][workstation cloudformation template]] to create the workstation.
+#+CAPTION: workstation preparation 01
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/ticdc-tidb2tidbcloud/01.workstation.01.png]]
+#+CAPTION: workstation preparation 02
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/ticdc-tidb2tidbcloud/01.workstation.02.png]]
+#+CAPTION: workstation preparation 03
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/ticdc-tidb2tidbcloud/01.workstation.03.png]]
+*** AWS config
+    Login to the workstation and setup the aws cli (Please refer to [[https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html][AWS Configuration Basis]] for setup).
+*** eksctl and kubectl installation
+    Please refer to [[https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html][Getting started with Amazon EKS -eksctl]] to install the eksctl and kubectl in the workstation.
+    #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/kubectl
+admin@ip-172-81-11-52:~$ chmod 755 kubectl
+admin@ip-172-81-11-52:~$ sudo mv kubectl /usr/local/bin/
+admin@ip-172-81-11-52:~$ kubectl version --short --client
+Client Version: v1.21.2-13+d2965f0db10712
+admin@ip-172-81-11-52:~$ curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+admin@ip-172-81-11-52:~$ sudo mv /tmp/eksctl /usr/local/bin/
+admin@ip-172-81-11-52:~$ eksctl version
+0.82.0
+    #+END_SRC
+*** helm installation
+    Please refer to [[https://helm.sh/docs/intro/install/][Helm installation]]
+    #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+admin@ip-172-81-11-52:~$ chmod 700 get_helm.sh
+admin@ip-172-81-11-52:~$ ./get_helm.sh
+bash: warning: setlocale: LC_ALL: cannot change locale (ja_JP.UTF-8)
+Downloading https://get.helm.sh/helm-v3.8.0-linux-amd64.tar.gz
+Verifying checksum... Done.
+Preparing to install helm into /usr/local/bin
+helm installed into /usr/local/bin/helm
+admin@ip-172-81-11-52:~$ helm version 
+version.BuildInfo{Version:"v3.8.0", GitCommit:"d14138609b01886f544b2025f5000351c9eb092e", GitTreeState:"clean", GoVersion:"go1.17.5"}
+    #+END_SRC
+*** aws-ami-authenticator
+    Please refer to [[https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html][aws-iam-authenticator]]
+    #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/aws-iam-authenticator
+admin@ip-172-81-11-52:~$ chmod +x ./aws-iam-authenticator
+admin@ip-172-81-11-52:~$ sudo mv aws-iam-authenticator /usr/local/bin/
+admin@ip-172-81-11-52:~$ aws-iam-authenticator version   
+{"Version":"v0.5.0","Commit":"1cfe2a90f68381eacd7b6dcfa2bf689e76eb8b4b"}
+    #+END_SRC
+** EKS setup
+   Please refer to [[https://docs.pingcap.com/tidb-in-kubernetes/stable/deploy-on-aws-eks][deploy-on-aws-eks]]
+   #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ more eks.cluster.yaml
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: ctwcdc
+  region: ap-northeast-1
+
+nodeGroups:
+  - name: admin
+    desiredCapacity: 1
+    privateNetworking: true
+    labels:
+      dedicated: admin
+
+  - name: tidb-1a
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: tidb
+    taints:
+      dedicated: tidb:NoSchedule
+  - name: tidb-1d
+    desiredCapacity: 0
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1d"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: tidb
+    taints:
+      dedicated: tidb:NoSchedule
+  - name: tidb-1c
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1c"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: tidb
+    taints:
+      dedicated: tidb:NoSchedule
+
+  - name: pd-1a
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a"]
+    instanceType: c5.xlarge
+    labels:
+      dedicated: pd
+    taints:
+      dedicated: pd:NoSchedule
+  - name: pd-1d
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1d"]
+    instanceType: c5.xlarge
+    labels:
+      dedicated: pd
+    taints:
+      dedicated: pd:NoSchedule
+  - name: pd-1c
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1c"]
+    instanceType: c5.xlarge
+    labels:
+      dedicated: pd
+    taints:
+      dedicated: pd:NoSchedule
+
+  - name: tikv-1a
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a"]
+    instanceType: r5b.2xlarge
+    labels:
+      dedicated: tikv
+    taints:
+      dedicated: tikv:NoSchedule
+  - name: tikv-1d
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1d"]
+    instanceType: r5b.2xlarge
+    labels:
+      dedicated: tikv
+    taints:
+      dedicated: tikv:NoSchedule
+  - name: tikv-1c
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1c"]
+    instanceType: r5b.2xlarge
+    labels:
+      dedicated: tikv
+    taints:
+      dedicated: tikv:NoSchedule
+admin@ip-172-81-11-52:~$ eksctl create cluster -f eks.cluster.yaml
+2022-02-06 11:59:25   eksctl version 0.82.0
+... ...
+2022-02-06 12:17:37   saved kubeconfig as "/home/admin/.kube/config"
+2022-02-06 12:17:37   no tasks
+2022-02-06 12:17:37   all EKS cluster resources for "ctwcdc" have been created
+... ...
+2022-02-06 12:24:52   kubectl command should work with "/home/admin/.kube/config", try 'kubectl get nodes'
+2022-02-06 12:24:52   EKS cluster "ctwcdc" in "ap-northeast-1" region is ready
+admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster ctwcdc
+CLUSTER NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
+ctwcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
+ctwcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+ctwcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+ctwcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+   #+END_SRC
+
+** TiDB Cluster operator installation
+   Please refer to [[https://docs.pingcap.com/tidb-in-kubernetes/stable/get-started#step-2-deploy-tidb-operator][Deploy TiDB Operator]]
+   #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ kubectl apply -f https://raw.githubusercontent.com/pingcap/tidb-operator/v1.2.4/manifests/crd.yaml
+Warning: apiextensions.k8s.io/v1beta1 CustomResourceDefinition is deprecated in v1.16+, unavailable in v1.22+; use apiextensions.k8s.io/v1 CustomResourceDefinition
+customresourcedefinition.apiextensions.k8s.io/tidbclusters.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/dmclusters.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/backups.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/restores.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/backupschedules.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbmonitors.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbinitializers.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbclusterautoscalers.pingcap.com created
+admin@ip-172-81-11-52:~$ helm repo add pingcap https://charts.pingcap.org/
+"pingcap" has been added to your repositories
+admin@ip-172-81-11-52:~$ kubectl create namespace tidb-admin
+namespace/tidb-admin created
+admin@ip-172-81-11-52:~$ helm install --namespace tidb-admin tidb-operator pingcap/tidb-operator --version v1.2.6
+NAME: tidb-operator
+LAST DEPLOYED: Sun Feb  6 12:32:57 2022
+NAMESPACE: tidb-admin
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Make sure tidb-operator components are running:
+
+    kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
+
+admin@ip-172-81-11-52:~$ kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
+NAME                                       READY   STATUS    RESTARTS   AGE
+tidb-controller-manager-56b57bf6c5-hmtbm   1/1     Running   0          34s
+tidb-scheduler-7f8cc67d78-pq5c4            2/2     Running   0          34s
+   #+END_SRC
+** TiDB Cluster setup
+   Please refer to [[https://docs.pingcap.com/tidb-in-kubernetes/stable/deploy-on-aws-eks][deploy-on-aws-eks]]
+   #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ kubectl create namespace tidb-cluster
+namespace/tidb-cluster created
+admin@ip-172-81-11-52:~$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/aws/tidb-cluster.yaml && \
+> curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/aws/tidb-monitor.yaml
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  3004  100  3004    0     0  13779      0 --:--:-- --:--:-- --:--:-- 13716
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1639  100  1639    0     0   7552      0 --:--:-- --:--:-- --:--:--  7552
+admin@ip-172-81-11-52:~$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster 
+tidbcluster.pingcap.com/basic created
+admin@ip-172-81-11-52:~$ kubectl apply -f tidb-monitor.yaml -n tidb-cluster
+tidbmonitor.pingcap.com/basic created
+admin@ip-172-81-11-52:~$ kubectl get pods -n tidb-cluster 
+NAME                               READY   STATUS    RESTARTS   AGE
+basic-discovery-6fb89f458c-8x6cg   1/1     Running   0          2m30s
+basic-monitor-0                    3/3     Running   0          2m6s
+basic-pd-0                         1/1     Running   0          2m30s
+basic-pd-1                         1/1     Running   0          2m30s
+basic-pd-2                         1/1     Running   0          2m29s
+basic-tidb-0                       2/2     Running   0          44s
+basic-tidb-1                       2/2     Running   0          44s
+basic-tikv-0                       1/1     Running   0          87s
+basic-tikv-1                       1/1     Running   0          87s
+basic-tikv-2                       1/1     Running   0          87s
+admin@ip-172-81-11-52:~$ kubectl get service -n tidb-cluster 
+NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP                                                                          PORT(S)                          AGE
+basic-discovery          ClusterIP      10.100.166.42   <none>                                                                               10261/TCP,10262/TCP              2m57s
+basic-grafana            LoadBalancer   10.100.91.214   ac456684a300244be8e8c4d19e228d52-ddbfb659f9296b3c.elb.ap-northeast-1.amazonaws.com   3000:31601/TCP                   2m34s
+basic-monitor-reloader   NodePort       10.100.123.67   <none>                                                                               9089:32115/TCP                   2m34s
+basic-pd                 ClusterIP      10.100.226.81   <none>                                                                               2379/TCP                         2m57s
+basic-pd-peer            ClusterIP      None            <none>                                                                               2380/TCP                         2m57s
+basic-prometheus         NodePort       10.100.166.52   <none>                                                                               9090:30872/TCP                   2m34s
+basic-tidb               LoadBalancer   10.100.195.98   ac8985bb5178c4b898d9fc8024d30a8d-baf9ea7b93667dc7.elb.ap-northeast-1.amazonaws.com   4000:31174/TCP,10080:30152/TCP   71s
+basic-tidb-peer          ClusterIP      None            <none>                                                                               10080/TCP                        71s
+basic-tikv-peer          ClusterIP      None            <none>                                                                               20160/TCP                        114s
+
+   #+END_SRC
+** Setup connection peer and test connectivity
+
+*** Setup vpc peering between TiDB and workstation
+**** Setup the route rule in the TiDB and workstation
+   #+CAPTION: TiDB Cloud VPC Peering setup
+   #+ATTR_HTML: :width 800 :style border:2px solid black;
+   [[./png/ticdc-tidb2tidbcloud/02.vpcpeering.01.png]]
+   
+   #+CAPTION: Route rule on the EKS TiDB
+   #+ATTR_HTML: :width 800 :style border:2px solid black;
+   [[./png/ticdc-tidb2tidbcloud/02.vpcpeering.02.png]]
+*** Setup vpc peering between TiDB Cloud and TiDB
+**** Setup the route rule in the TiDB
+   #+CAPTION: Route rule on the workstation
+   #+ATTR_HTML: :width 800 :style border:2px solid black;
+   [[./png/ticdc-tidb2tidbcloud/02.vpcpeering.03.png]]
+*** Test the contivity between workstation and TiDB
+#+BEGIN_SRC
+admin@ip-172-81-11-52:~$ kubectl get service -n tidb-cluster 
+NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP                                                                          PORT(S)                          AGE
+basic-discovery          ClusterIP      10.100.166.42   <none>                                                                               10261/TCP,10262/TCP              26m
+basic-grafana            LoadBalancer   10.100.91.214   ac456684a300244be8e8c4d19e228d52-ddbfb659f9296b3c.elb.ap-northeast-1.amazonaws.com   3000:31601/TCP                   26m
+basic-monitor-reloader   NodePort       10.100.123.67   <none>                                                                               9089:32115/TCP                   26m
+basic-pd                 ClusterIP      10.100.226.81   <none>                                                                               2379/TCP                         26m
+basic-pd-peer            ClusterIP      None            <none>                                                                               2380/TCP                         26m
+basic-prometheus         NodePort       10.100.166.52   <none>                                                                               9090:30872/TCP                   26m
+basic-tidb               LoadBalancer   10.100.195.98   ac8985bb5178c4b898d9fc8024d30a8d-baf9ea7b93667dc7.elb.ap-northeast-1.amazonaws.com   4000:31174/TCP,10080:30152/TCP   24m
+basic-tidb-peer          ClusterIP      None            <none>                                                                               10080/TCP                        24m
+basic-tikv-peer          ClusterIP      None            <none>                                                                               20160/TCP                        25m
+
+admin@ip-172-81-11-52:~$ mysql -h ac8985bb5178c4b898d9fc8024d30a8d-baf9ea7b93667dc7.elb.ap-northeast-1.amazonaws.com -u root -P 4000
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 307
+Server version: 5.7.25-TiDB-v5.3.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 5.7 compatible
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [(none)]> 
+
+#+END_SRC
+* TiCDC Setup
+** EKS TiCDC node group addition
+   #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ more eks.cluster.cdc.yaml
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: ctwcdc
+  region: ap-northeast-1
+
+nodeGroups:
+  - name: ticdc-1a
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: ticdc
+    taints:
+      dedicated: ticdc:NoSchedule
+  - name: ticdc-1d
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1d"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: ticdc
+    taints:
+      dedicated: ticdc:NoSchedule
+  - name: ticdc-1c
+    desiredCapacity: 1
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1c"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: ticdc
+    taints:
+      dedicated: ticdc:NoSchedule
+
+admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster ctwcdc
+CLUSTER NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
+ctwcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
+ctwcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+ctwcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+ctwcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+
+admin@ip-172-81-11-52:~$ eksctl create nodegroup --config-file ./eks.cluster.cdc.yaml
+... ...
+2022-02-06 13:24:42   checking security group configuration for all nodegroups
+2022-02-06 13:24:42   all nodegroups have up-to-date cloudformation templates
+admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster ctwcdc
+CLUSTER NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
+ctwcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
+ctwcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+ctwcdc  ticdc-1a        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  ticdc-1c        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  ticdc-1d        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
+ctwcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+ctwcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+ctwcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+admin@ip-172-81-11-52:~$ more tidb-cluster.yaml
+... ...
+  ticdc:
+    baseImage: pingcap/ticdc
+    maxFailoverCount: 0
+    replicas: 3
+    requests:
+      storage: "20Gi"
+    config: {}
+    nodeSelector:
+      dedicated: ticdc
+    tolerations:
+    - effect: NoSchedule
+      key: dedicated
+      operator: Equal
+      value: ticdc
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - ticdc
+          topologyKey: kubernetes.io/hostname
+admin@ip-172-81-11-52:~$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster 
+tidbcluster.pingcap.com/basic configured
+admin@ip-172-81-11-52:~$ kubectl get pods -n tidb-cluster 
+NAME                               READY   STATUS    RESTARTS   AGE
+basic-discovery-6fb89f458c-8x6cg   1/1     Running   0          55m
+basic-monitor-0                    3/3     Running   0          55m
+basic-pd-0                         1/1     Running   0          55m
+basic-pd-1                         1/1     Running   0          55m
+basic-pd-2                         1/1     Running   0          55m
+basic-ticdc-0                      1/1     Running   0          19s
+basic-ticdc-1                      1/1     Running   0          19s
+basic-ticdc-2                      1/1     Running   0          19s
+basic-tidb-0                       2/2     Running   0          54m
+basic-tidb-1                       2/2     Running   0          54m
+basic-tikv-0                       1/1     Running   0          54m
+basic-tikv-1                       1/1     Running   0          54m
+basic-tikv-2                       1/1     Running   0          54m
+
+   #+END_SRC
+** VPC peering setup between TiDB Cloud and TiDB
+#+BEGIN_SRC
+admin@ip-172-81-11-52:~$ kubectl exec -it basic-ticdc-0 -n tidb-cluster -- sh 
+/ # /cdc cli changefeed create --pd=http://basic-pd:2379 --sink-uri="mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000" --changefeed-id="ctwcdc-task"
+Create changefeed successfully!
+ID: ctwcdc-task
+Info: {"sink-uri":"mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000","opts":{"_changefeed_id":"sink-verify"},"create-time":"2022-02-06T13:33:14.267749062Z","start-ts":431005209518407682,"target-ts":0,"admin-job-type":0,"sort-engine":"unified","sort-dir":"","config":{"case-sensitive":true,"enable-old-value":true,"force-replicate":false,"check-gc-safe-point":true,"filter":{"rules":["*.*"],"ignore-txn-start-ts":null},"mounter":{"worker-num":16},"sink":{"dispatchers":null,"protocol":"default"},"cyclic-replication":{"enable":false,"replica-id":0,"filter-replica-ids":null,"id-buckets":0,"sync-ddl":false},"scheduler":{"type":"table-number","polling-time":-1},"consistent":{"level":"none","max-log-size":64,"flush-interval":1000,"storage":""}},"state":"normal","history":null,"error":null,"sync-point-enabled":false,"sync-point-interval":600000000000,"creator-version":"v5.3.0"}
+/ # /cdc cli changefeed list --pd=http://basic-pd:2379
+[
+  {
+    "id": "ctwcdc-task",
+    "summary": {
+      "state": "normal",
+      "tso": 431005212913172482,
+      "checkpoint": "2022-02-06 13:33:27.170",
+      "error": null
+    }
+  }
+]
+/ # 
+
+#+END_SRC
+** Check data sync
+   #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ mysql -h ac8985bb5178c4b898d9fc8024d30a8d-baf9ea7b93667dc7.elb.ap-northeast-1.amazonaws.com -u root -P 4000 
+Welcome to the MariaDB monitor.  Commands end with ; or \g.   
+Your MySQL connection id is 709
+Server version: 5.7.25-TiDB-v5.3.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 5.7 compatible
+                                                   
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.                                                                                                                              
+                                                   
+MySQL [(none)]> use test;
+Database changed                                                                                                                                                                                            
+MySQL [test]> show databases;       
++--------------------+
+| Database           |                                                                                                                                                                                      
++--------------------+              
+| INFORMATION_SCHEMA |
+| METRICS_SCHEMA     |
+| PERFORMANCE_SCHEMA |
+| mysql              |
+| test               |
++--------------------+
+5 rows in set (0.004 sec)
+
+MySQL [test]> use test;
+Database changed
+MySQL [test]> create table test01(col01 int primary key, col02 int);
+Query OK, 0 rows affected (0.553 sec)
+
+MySQL [test]> insert into test01 values(1,1);
+Query OK, 1 row affected (0.010 sec)
+
+MySQL [test]> insert into test01 values(2,2);
+Query OK, 1 row affected (0.007 sec)
+
+MySQL [test]> insert into test01 values(3,3);
+Query OK, 1 row affected (0.008 sec)
+
+
+MySQL [test]> exit
+Bye
+
+root@172.30.88.51:4000=> show tables;
+ Tables_in_test
+----------------
+ test01
+(1 row)
+
+ti:root@172.30.88.51:4000=> select * from test01;
+ col01 | col02
+-------+-------
+ 1     | 1
+ 2     | 2
+ 3     | 3
+(3 rows)
+
+ti:root@172.30.88.51:4000=>
+   #+END_SRC
+

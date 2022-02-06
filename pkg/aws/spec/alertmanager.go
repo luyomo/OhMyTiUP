@@ -20,9 +20,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/template/config"
 	"github.com/luyomo/tisample/pkg/aws/template/scripts"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/meta"
 )
 

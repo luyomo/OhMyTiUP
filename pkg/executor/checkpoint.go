@@ -19,8 +19,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/checkpoint"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
 )
 

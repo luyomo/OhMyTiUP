@@ -65,14 +65,6 @@ cluster:
 	@# Target: build the tiup-cluster component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tiup-cluster ./components/cluster
 
-candle:
-	@# Target: build the tisample-candle component
-	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-candle ./components/candle
-
-workstation:
-	@# Target: build the tisample-workstation component
-	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/tisample-workstation ./components/workstation
-
 aws:
 	@# Target: build the tisample-workstation component
 	$(GOBUILD) -ldflags '$(LDFLAGS)' -o bin/aws ./components/aws

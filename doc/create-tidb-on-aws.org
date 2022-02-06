@@ -1,0 +1,142 @@
+#+OPTIONS: ^:nil
+
+#+title: TiDB Cluster preparation on AWS
+
+* yaml file preparation
+** Config modal
+
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | template file           | pd instance | TiDB instance | TiKV       | TiCDC      | DM       |
+   |-------------------------+-------------+---------------+------------+------------+----------|
+   | aws-tidb-low.yaml       | t2.micro    | t2.medium     | t2.medium  |            |          |
+   | aws-tidb-medium.yaml    | m5.2xlarge  | m5.2xlarge    | m5.2xlarge | m5.2xlarge | t2.micro |
+
+   #+BEGIN_SRC
+more embed/templates/config/aws-tidb-low.yaml 
+aws_topo_configs:
+  general:
+    imageid: ami-0ac97798ccf296e02            # Image ID for TiDB cluster's EC2 node
+    keyname: ssh.user.key                     # key name to login from workstation to EC2 nodes 
+    cidr: 172.83.0.0/16                       # VPC cidr
+    instance_type: t2.medium                  # default instance type for EC2 nodes
+    tidb_version: v5.2.0                      # TiDB version to deploy
+  pd:
+    instance_type: t2.micro                   # PD instance type
+    count: 3                                  # Number of PD nodes to generate
+  tidb:
+    instance_type: t2.medium                  # TiDB instance type
+    count: 2                                  # Number of TiDB nodes to generate
+  tikv:
+    instance_type: t2.medium                  # TiKV instance type
+    count: 3                                  # Number of TiKV nodes to generate
+  #+END_SRC
+* Setup aws configuration
+* Deploy TiDB Cloud
+** Deploy the tidb cluster using ohmytiup
+  #+BEGIN_SRC
+pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms deploy tidb-cluster embed/templates/config/aws-tidb-low.yaml 
+Please confirm your topology:
+AWS Region:      Tokyo
+Cluster type:    tidb
+Cluster name:    tidb-cluster
+Cluster version: v5.1.0
+User Name:       admin
+Key Name:        jay
+
+Component    # of nodes  Instance Type  Image Name             CIDR           User
+---------    ----------  -------------  ----------             ----           ----
+Workstation  1           m5.2xlarge     ami-0ac97798ccf296e02  172.82.0.0/16  admin
+TiDB         2           t2.medium      ami-0ac97798ccf296e02  172.83.0.0/16  master
+PD           3           t2.micro       ami-0ac97798ccf296e02  172.83.0.0/16  master
+TiKV         3           t2.medium      ami-0ac97798ccf296e02  172.83.0.0/16  master
+Attention:
+    1. If the topology is not what you expected, check your yaml file.
+    2. Please confirm there is no port/directory conflicts in same host.
+Do you want to continue? [y/N]: (default=N) y
++ Deploying all the sub components for tidb2ms solution service
+  - Preparing workstation ... Echo: Creating VPC
+  - Preparing workstation ... Done
+tidb : Creating TiKV Nodes ... ... ... Done
++ Deploying all the sub components for tidb2ms solution service
+  - Preparing workstation ... Done
+  - Preparing tidb servers ... Done
++ Deploying tidb2ms solution service ... ...
+  - Prepare DMS servicer and additional network resources :22 ... Echo: Deploying TiCDC
++ Deploying tidb2ms solution service ... ...
+  - Prepare DMS servicer and additional network resources :22 ... Done
+
+Verbose debug logs has been written to /home/pi/.tiup/logs/aws-nodes-debug-2022-02-04-18-36-44.log.
+  #+END_SRC
+
+** Display all the aws resources
+#+BEGIN_SRC
+pi@c1s11:~/workspace/tisample $ ./bin/aws tidb2ms list tidb-cluster                                                                                                                                [17/4586]
++ Listing aws resources                     
+  - Listing VPC ... Done                        
+  - Listing Subnets ... Done                    
+  - Listing Route Tables ... Done
+  - Listing Security Groups ... Done                                                                  
+  - Listing Transit gateway  ... Done
+  - Listing Transit gateway vpc attachment ... Done                                                                                                                                                         
+  - Listing EC2 ... Done                                                                                                                                                                                    
+  - Listing Load Balancer  ... Done                                                                                                                                                                         
+Cluster  Type:      ohmytiup-tidb2ms                                                                                                                                                                        
+Cluster Name :      tidb-cluster                                                                                                                                                                            
+                                                                                                                                                                                                            
+Resource Type:      VPC                                                                                                                                                                                     
+Component Name  VPC ID                 CIDR           Status                                                                                                                                                
+--------------  ------                 ----           ------                                                                                                                                                
+tidb            vpc-065f6659d0221a1be  172.83.0.0/16  available                                                                                                                                             
+workstation     vpc-00138e0c3134410bc  172.82.0.0/16  available                                                                                                                                             
+                                                   
+Resource Type:      Subnet
+Component Name  Zone             Subnet ID                 CIDR            State      VPC ID
+--------------  ----             ---------                 ----            -----      ------
+tidb            ap-northeast-1a  subnet-090ab7f6413618ec8  172.83.1.0/24   available  vpc-065f6659d0221a1be
+tidb            ap-northeast-1c  subnet-0a9dbb88fea67dc92  172.83.2.0/24   available  vpc-065f6659d0221a1be
+tidb            ap-northeast-1d  subnet-083d46a61e881c85c  172.83.3.0/24   available  vpc-065f6659d0221a1be
+workstation     ap-northeast-1a  subnet-07a057f719337ba79  172.82.11.0/24  available  vpc-00138e0c3134410bc
+
+Resource Type:      Route Table
+Component Name  Route Table ID         DestinationCidrBlock  TransitGatewayId       GatewayId              State   Origin
+--------------  --------------         --------------------  ----------------       ---------              -----   ------
+workstation     rtb-0942381456f234df7  172.82.0.0/16                                local                  active  CreateRouteTable
+workstation     rtb-0942381456f234df7  172.83.0.0/16         tgw-0c40822fba7750824                         active  CreateRoute
+workstation     rtb-0942381456f234df7  0.0.0.0/0                                    igw-0e52e8f6749a448ad  active  CreateRoute
+tidb            rtb-02937b3c9dd7a6015  172.82.0.0/16         tgw-0c40822fba7750824                         active  CreateRoute
+tidb            rtb-02937b3c9dd7a6015  172.83.0.0/16                                local                  active  CreateRouteTable
+
+Resource Type:      Security Group
+Component Name  Ip Protocol  Source Ip Range  From Port  To Port
+--------------  -----------  ---------------  ---------  -------
+tidb            tcp          0.0.0.0/0        8300       8300
+tidb            tcp          0.0.0.0/0        1433       1433
+tidb            tcp          0.0.0.0/0        20180      20180
+tidb            tcp          172.83.0.0/16    0          65535
+tidb            tcp          0.0.0.0/0        22         22
+tidb            tcp          0.0.0.0/0        4000       4000
+tidb            tcp          0.0.0.0/0        2379       2379
+tidb            tcp          0.0.0.0/0        20160      20160
+tidb            tcp          0.0.0.0/0        3306       3306
+tidb            tcp          0.0.0.0/0        2380       2380
+tidb            icmp         172.83.0.0/16    -1         -1
+tidb            tcp          0.0.0.0/0        10080      10080
+workstation     tcp          0.0.0.0/0        80         80
+workstation     tcp          172.82.0.0/16    0          65535
+workstation     tcp          0.0.0.0/0        22         22
+workstation     icmp         172.82.0.0/16    -1         -1
+
+Load Balancer:      tidb-cluster-de4075043cc2a36a.elb.ap-northeast-1.amazonaws.com
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP    Public IP       Image ID
+--------------  -----------------  -----    -----------          -------------  -----------    ---------       --------
+pd              tidb               running  i-00ce776812da18b6f  t2.micro       172.83.2.240                   ami-0ac97798ccf296e02
+pd              tidb               running  i-0b09269fb6bce0eb7  t2.micro       172.83.3.86                    ami-0ac97798ccf296e02
+pd              tidb               running  i-081c021d342543109  t2.micro       172.83.1.127                   ami-0ac97798ccf296e02
+tidb            tidb               running  i-081c783906959a6d4  t2.medium      172.83.1.136                   ami-0ac97798ccf296e02
+tidb            tidb               running  i-0df0f593a4dacc575  t2.medium      172.83.2.57                    ami-0ac97798ccf296e02
+tikv            tidb               running  i-0466d1f9e62d7a879  t2.medium      172.83.2.143                   ami-0ac97798ccf296e02
+tikv            tidb               running  i-01b639f72916068d1  t2.medium      172.83.1.225                   ami-0ac97798ccf296e02
+tikv            tidb               running  i-074dbcd5c5adc111e  t2.medium      172.83.3.176                   ami-0ac97798ccf296e02
+workstation     workstation        running  i-06ad2b46e9f4a1e70  m5.2xlarge     172.82.11.107  54.238.148.230  ami-0ac97798ccf296e02
+#+END_SRC

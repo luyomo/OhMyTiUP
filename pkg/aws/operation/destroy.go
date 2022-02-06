@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"github.com/luyomo/tisample/pkg/aws/api"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/aws/module"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/proxy"
 	"github.com/luyomo/tisample/pkg/set"

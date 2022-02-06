@@ -16,20 +16,20 @@ package task
 import (
 	"context"
 	"fmt"
-    //"regexp"
+	//"regexp"
 
-    //"strings"
+	//"strings"
 	//"github.com/luyomo/tisample/pkg/ctxt"
 	//"github.com/luyomo/tisample/pkg/executor"
 	//"github.com/pingcap/errors"
-    //"github.com/luyomo/tisample/pkg/logger/log"
+	//"github.com/luyomo/tisample/pkg/logger/log"
 
-     //"golang.org/x/oauth2/google"
-     //"google.golang.org/grpc/metadata"
-     "google.golang.org/api/iterator"
-     "google.golang.org/api/option"
-     compute "cloud.google.com/go/compute/apiv1"
-     computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
+	//"golang.org/x/oauth2/google"
+	//"google.golang.org/grpc/metadata"
+	compute "cloud.google.com/go/compute/apiv1"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
+	computepb "google.golang.org/genproto/googleapis/cloud/compute/v1"
 )
 
 // Mkdir is used to create directory on the target host
@@ -40,7 +40,7 @@ type Deploy struct {
 
 // Execute implements the Task interface
 func (r *Deploy) Execute(ctx context.Context) error {
-    //fmt.Printf("****** ****** The user is <%s> \n\n\n", r.user)
+	//fmt.Printf("****** ****** The user is <%s> \n\n\n", r.user)
 	//local, testErr := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: r.user})
 	//if testErr != nil {
 	//	return errors.Trace(testErr)
@@ -48,25 +48,25 @@ func (r *Deploy) Execute(ctx context.Context) error {
 	//testctx := ctxt.New(context.Background(), 0)
 	////testA, testB, testErr := local.Execute(testctx, "/opt/google-cloud-sdk/bin/gcloud compute instances create instance-1 --machine-type=n1-standard-1 --zone=asia-northeast3-b --preemptible --no-restart-on-failure --maintenance-policy=terminate", false)
 	//testA, testB, testErr := local.Execute(testctx, "/opt/google-cloud-sdk/bin/gcloud compute networks list", false)
-    //fmt.Println(string(testB))
-    //re := regexp.MustCompile(`\r?\n`)
-    //testStrA := string(testA)
-    //testStrA = re.ReplaceAllString(testStrA, " ") 
-    //log.Infof("This is the test messge to log file")
-    //fmt.Printf("***** ***** < %s > \n\n\n", testStrA)
+	//fmt.Println(string(testB))
+	//re := regexp.MustCompile(`\r?\n`)
+	//testStrA := string(testA)
+	//testStrA = re.ReplaceAllString(testStrA, " ")
+	//log.Infof("This is the test messge to log file")
+	//fmt.Printf("***** ***** < %s > \n\n\n", testStrA)
 
 	//// gcloud compute instances create instance-1 --machine-type=n1-standard-1 --zone=asia-northeast3-b --preemptible --no-restart-on-failure --maintenance-policy=terminate
 
-    gcloudctx := context.Background()
+	gcloudctx := context.Background()
 
-    c, err := compute.NewZonesRESTClient(gcloudctx, option.WithCredentialsFile("/etc/gcp/sales-demo.json"))
+	c, err := compute.NewZonesRESTClient(gcloudctx, option.WithCredentialsFile("/etc/gcp/sales-demo.json"))
 	if err != nil {
 		// TODO: Handle error.
 	}
 	defer c.Close()
 
 	zoneReq := &computepb.ListZonesRequest{
-        Project: "sales-demo-321300",
+		Project: "sales-demo-321300",
 		// TODO: Fill request struct fields.
 		// See https://pkg.go.dev/google.golang.org/genproto/googleapis/cloud/compute/v1#ListZonesRequest.
 	}
@@ -80,39 +80,39 @@ func (r *Deploy) Execute(ctx context.Context) error {
 			// TODO: Handle error.
 		}
 		// TODO: Use resp.
-        fmt.Printf("The zone is <%#v>\n\n\n", *resp )
-        fmt.Printf("The Region is <%#v>\n\n\n", *(*resp).Region )
-        fmt.Printf("The kind is <%#v>\n\n\n", *(*resp).Region )
-        if *(*resp).Region == "asia-northeast1" {
-            fmt.Printf("The zone is <%s>\n\n\n", *(*resp).Name )
-        }
+		fmt.Printf("The zone is <%#v>\n\n\n", *resp)
+		fmt.Printf("The Region is <%#v>\n\n\n", *(*resp).Region)
+		fmt.Printf("The kind is <%#v>\n\n\n", *(*resp).Region)
+		if *(*resp).Region == "asia-northeast1" {
+			fmt.Printf("The zone is <%s>\n\n\n", *(*resp).Name)
+		}
 	}
 
-    instancesClient, err := compute.NewInstancesRESTClient(gcloudctx, option.WithCredentialsFile("/etc/gcp/sales-demo.json"))
-    if err != nil {
-        fmt.Printf("NewInstancesRESTClient: %v", err)
-        return nil
-    }
-    defer instancesClient.Close()
+	instancesClient, err := compute.NewInstancesRESTClient(gcloudctx, option.WithCredentialsFile("/etc/gcp/sales-demo.json"))
+	if err != nil {
+		fmt.Printf("NewInstancesRESTClient: %v", err)
+		return nil
+	}
+	defer instancesClient.Close()
 
-    req := &computepb.ListInstancesRequest{
-        Project: "sales-demo-321300",
-        Zone:    "asia-northeast1-a",
-    }
+	req := &computepb.ListInstancesRequest{
+		Project: "sales-demo-321300",
+		Zone:    "asia-northeast1-a",
+	}
 
-    it := instancesClient.List(ctx, req)
-    fmt.Printf("Instances found in zone %s:\n\n\n", "asia-northeast1-a")
-    for {
-        instance, err := it.Next()
-        if err == iterator.Done {
-            break
-        }
-        if err != nil {
-            fmt.Println(err)
-            return nil
-        }
-        fmt.Printf("- %s %s\n", *instance.Name, *instance.MachineType)
-    }
+	it := instancesClient.List(ctx, req)
+	fmt.Printf("Instances found in zone %s:\n\n\n", "asia-northeast1-a")
+	for {
+		instance, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			fmt.Println(err)
+			return nil
+		}
+		fmt.Printf("- %s %s\n", *instance.Name, *instance.MachineType)
+	}
 
 	return nil
 }

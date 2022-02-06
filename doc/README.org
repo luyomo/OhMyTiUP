@@ -19,4 +19,5 @@
  | [[./tidb2aurora.org][TiDB Cloud To Aurora]]                      | TiDB Cloud -> TiCDC -> Aurora                            |        |
  | [[./tidb2aurora_cloudformation.org][TiDB Cloud To Aurora(cloudformation)]]      | TiDB Cloud -> TiCDC -> Aurora(cloudformation deployment) |        |
  | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]            | Redshift --federated query--> TiDB Cloud                 |        |
+ | [[./ticdc-tidb2tidbcloud.org][TiDB-on-eks ticdc to TiDB Cloud]]           | Sync data from TiDB-on-EKS(v4.0.8) to TiDB Cloud(5.2.0)  |        |
 

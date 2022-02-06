@@ -20,9 +20,9 @@ import (
 	"net"
 	"path/filepath"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/utils"
 	"github.com/pingcap/errors"

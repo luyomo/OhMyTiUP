@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/luyomo/tisample/pkg/aws/api"
-	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/aws/template/scripts"
+	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	//"github.com/luyomo/tisample/pkg/utils"
