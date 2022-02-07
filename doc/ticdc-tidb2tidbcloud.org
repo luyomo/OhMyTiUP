@@ -57,7 +57,7 @@ admin@ip-172-81-11-52:~$ more eks.cluster.yaml
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 metadata:
-  name: ctwcdc
+  name: tidb2cloudcdc
   region: ap-northeast-1
 
 nodeGroups:
@@ -155,22 +155,22 @@ admin@ip-172-81-11-52:~$ eksctl create cluster -f eks.cluster.yaml
 ... ...
 2022-02-06 12:17:37   saved kubeconfig as "/home/admin/.kube/config"
 2022-02-06 12:17:37   no tasks
-2022-02-06 12:17:37   all EKS cluster resources for "ctwcdc" have been created
+2022-02-06 12:17:37   all EKS cluster resources for "tidb2cloudcdc" have been created
 ... ...
 2022-02-06 12:24:52   kubectl command should work with "/home/admin/.kube/config", try 'kubectl get nodes'
-2022-02-06 12:24:52   EKS cluster "ctwcdc" in "ap-northeast-1" region is ready
-admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster ctwcdc
-CLUSTER NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
-ctwcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
-ctwcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-ctwcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-ctwcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+2022-02-06 12:24:52   EKS cluster "tidb2cloudcdc" in "ap-northeast-1" region is ready
+admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster tidb2cloudcdc
+CLUSTER        NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
+tidb2cloudcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
    #+END_SRC
 
 ** TiDB Cluster operator installation
@@ -298,7 +298,7 @@ admin@ip-172-81-11-52:~$ more eks.cluster.cdc.yaml
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 metadata:
-  name: ctwcdc
+  name: tidb2cloudcdc
   region: ap-northeast-1
 
 nodeGroups:
@@ -330,38 +330,38 @@ nodeGroups:
     taints:
       dedicated: ticdc:NoSchedule
 
-admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster ctwcdc
-CLUSTER NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
-ctwcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
-ctwcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-ctwcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-ctwcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster tidb2cloudcdc
+CLUSTER        NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
+tidb2cloudcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
 
 admin@ip-172-81-11-52:~$ eksctl create nodegroup --config-file ./eks.cluster.cdc.yaml
 ... ...
 2022-02-06 13:24:42   checking security group configuration for all nodegroups
 2022-02-06 13:24:42   all nodegroups have up-to-date cloudformation templates
-admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster ctwcdc
-CLUSTER NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
-ctwcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
-ctwcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-ctwcdc  ticdc-1a        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  ticdc-1c        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  ticdc-1d        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
-ctwcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-ctwcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-ctwcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster tidb2cloudcdc
+CLUSTER        NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
+tidb2cloudcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
+tidb2cloudcdc  ticdc-1a        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  ticdc-1c        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  ticdc-1d        CREATE_COMPLETE 2022-02-06T13:18:28Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+tidb2cloudcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
 admin@ip-172-81-11-52:~$ more tidb-cluster.yaml
 ... ...
   ticdc:
@@ -410,14 +410,14 @@ basic-tikv-2                       1/1     Running   0          54m
 ** VPC peering setup between TiDB Cloud and TiDB
 #+BEGIN_SRC
 admin@ip-172-81-11-52:~$ kubectl exec -it basic-ticdc-0 -n tidb-cluster -- sh 
-/ # /cdc cli changefeed create --pd=http://basic-pd:2379 --sink-uri="mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000" --changefeed-id="ctwcdc-task"
+/ # /cdc cli changefeed create --pd=http://basic-pd:2379 --sink-uri="mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000" --changefeed-id="tidb2cloudcdc-task"
 Create changefeed successfully!
-ID: ctwcdc-task
+ID: tidb2cloudcdc-task
 Info: {"sink-uri":"mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000","opts":{"_changefeed_id":"sink-verify"},"create-time":"2022-02-06T13:33:14.267749062Z","start-ts":431005209518407682,"target-ts":0,"admin-job-type":0,"sort-engine":"unified","sort-dir":"","config":{"case-sensitive":true,"enable-old-value":true,"force-replicate":false,"check-gc-safe-point":true,"filter":{"rules":["*.*"],"ignore-txn-start-ts":null},"mounter":{"worker-num":16},"sink":{"dispatchers":null,"protocol":"default"},"cyclic-replication":{"enable":false,"replica-id":0,"filter-replica-ids":null,"id-buckets":0,"sync-ddl":false},"scheduler":{"type":"table-number","polling-time":-1},"consistent":{"level":"none","max-log-size":64,"flush-interval":1000,"storage":""}},"state":"normal","history":null,"error":null,"sync-point-enabled":false,"sync-point-interval":600000000000,"creator-version":"v5.3.0"}
 / # /cdc cli changefeed list --pd=http://basic-pd:2379
 [
   {
-    "id": "ctwcdc-task",
+    "id": "tidb2cloudcdc-task",
     "summary": {
       "state": "normal",
       "tso": 431005212913172482,
