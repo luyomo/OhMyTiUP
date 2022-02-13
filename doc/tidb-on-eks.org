@@ -1,0 +1,63 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
+* Architecture
+  #+CAPTION: Architure
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/tidb-on-eks/architecture.png]]
+* Migration flow
+** Prepartion for migration
+*** TiDB-on-EKS deployment
+    For PoC phase, the TiDB-on-EKS is required to be deployed in advanced. If you use this approach for production migration or exsiting cluster, please skip this step.
+    As for how to deploy TiDB-on-EKS, please refer to below link.
+*** Migration preparation
+    To migrate the data from TiDB-on-EKS, two things have to be done in advanced. First, according to the data volume, the parameter tikv_gc_life_time has be been adjusted.
+    Second, take the TSO before data export for TiCDC replication's start point.
+    The internal flow is 
+    [[https://docs.pingcap.com/tidb/v3.1/garbage-collection-configuration][tikv_gc_life_time]] is the time limit during which data is retained for each GC. TiKV use MVCC for data consistency. In the GC, the expired data is reclaimed from memory.
+    If changes from taken TSO has been reclaimed from memory, TiCDC cloud not start the changefeed from that TSO. That's the reason we have to make sure the changes from
+    that TSO must be kept until it is synced to downstream server.
+    Second, before the data export, the TSO must be got from which point the data will be streamed to downstream without data loss. The data between taken TSO and data export
+    will be replicated two times.
+** Data export to S3 from source TiDB
+    The data migration is divided into two phase. Fisrt is the initial data migration, second is the incremental data migration.
+    The initial data migration is the one when the snapshot is taken and copy all the snapshot data from source DB to destination DB.
+** Data import to TiDB Cloud from S3
+** Setup TiCDC to replicate data to TiDB Cloud
+** Swap replication between source and destination
+* Others
+
+  The user have to go through a data migration process if they have a plan to move to TiDB Cloud(full managed) from TiDB on premise. The common approach is moving the current data to TiDB Cloud after
+  stopping the application to keep the data consistency. But it will impact the business because it will have to be brought the system offline first. Here I would like to introduce
+  a migration approach to reduce the business impact to minimum as it only takes several minutes to complete the application switch to TiDB Cloud even though it involves TB level data volume.
+
+  The whole migration flow is as below:
+  + Take the TSO(Like MySQL's GTID) - The position of the transaction
+  + Data export to AWS S3
+  + Data import to TiDB Cloud
+  + TiCDC replication from TiDB-on-EKS to TiDB Cloud from the TSO point
+  + Swap replication from TiDB Cloud to TiDB-on-EKS
+
+  To achieve minutes-level downtime migration, the key component is TiCDC, similar oracle's godengate. TiCDC is one Change Data Capture from TiDB and stream the changes to downstream DB. It
+  use the TiKV's TSO to specify the start point and keep all the transaction sequences from upstream. From the TiKV node, once it receives one request with TSO, it scans those RocksDB's files which
+  have data after that TSO. That's the reason why we have to make sure no data after that TSO is reclaimed.
+
+  
+The whole migration process is divided into 5 phases as below:
+
+
+    The whole data migration is divided to three phase. First is initial data copy from source TiDB to destination TiDB. Second is incremental replication from source to destination.
+    Finally, stop the replication from source to destination and start the reverse replication from desination to source.
+    The initial data copy is divided to data export and data import. Before data export, the TSO needs to recorded and 
+    
+Some preparations have to be completed before migration. For PoC test, the TiDB-on-EKS has to been deployed. I prepared another blog to guide you how to create the TiDB-on-EKS very quickly.
+If you have one existing cluster, please skip the deployment. Once you have the cluster, according to the data volume, the parameter tikv-gc-life-time needs to be adjusted. If the data volume is high,
+it will takes time to complete the export and import. During this phase, the database is kept being updated. TiKV use MVCC to keep the data consistency and reclaim the history data after the gc life time.
+. Because the incremental replication of TiCDC is after the initial data copy. If the data changes after the export is reclaimed before TiCDC starts, the whole process crashes. So thee tikv_gc_life_time
+has to been set to make sure no data is reclaimed before TiCDC start and catchup the changes.
+
+After that adjust the tikv-gc-life-time to add the gc time. Then take
+the TSO with which TiCDC will start to incremental replication later.  As the next step 
+  For PoC phase, the TiDB-on-EKS is required to be deployed in advanced. If you use this approach for production migration or exsiting cluster, please skip this step.
+    As for how to deploy TiDB-on-EKS, please refer to below link.
+
+  

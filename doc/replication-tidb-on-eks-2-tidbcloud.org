@@ -1,0 +1,355 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
+#+TITLE: Data moving through S3
+* Architecture
+  This post is to introduce the process how to move data from TiDB-on-EKS to TiDB Cloud through S3. The whole flow includes 2 steps:
+  + Export data to S3 from source db using [[https://docs.pingcap.com/tidb/stable/dumpling-overview][dumpling]]
+  + Import data to TiDB Cloud from S3
+  + Compare data between source DB and destination DB.
+  In order to do the data comparison after the migration, please make sure there is one workstation server to access both source TiDB(EKS) and destination TiDB(TiDB Cloud). Please refer to [[./tidb-on-eks.deployment.org][TiDB-on-EKS deployment]]
+  #+CAPTION: Architure
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/tidb-on-eks/architecture.datamoving.png]]
+* Create S3 bucket to store the data
+** Get account info from TiDB Cloud
+   TiDB Cloud needs permission to access client's S3 bucket for data import. In this step, fetch the TiDB cloud's account id and [[https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user_externalid.html][external id]] to be used for permission grant.
+#+CAPTION: Get the account info from TiDB Cloud 01
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/01.tidbcloud.account.01.png]]
+
+#+CAPTION: Get the account info from TiDB Cloud 02
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/01.tidbcloud.account.02.png]]
+
+** Create s3 bucket with role and policy
+   From the customer's account, do the below two operations:
+   + Create S3 bucket/folder to store the data
+   + Create role and policy to grant permission to TiDB Cloud
+   Please follow the [[https://docs.pingcap.com/tidbcloud/public-preview/migrate-from-amazon-s3-or-gcs?_ga=2.199647019.44108033.1642640267-1710695035.1621412524#step-2-configure-amazon-s3-access][official websit]] for the manual setup. In this post, [[https://s3.ap-northeast-1.amazonaws.com/tidb.cloudformation.template/migration/s3-bucket.yaml][one cloudformation template]] is used to simplify the process and make sure your account has cloudformation and IAM permissions. It will takes 5 minutes to complete all the setup.
+#+CAPTION: Create bucket with policy and role 01
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.01.png]]
+
+#+CAPTION: Create bucket with policy and role 02
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.02.png]]
+
+#+CAPTION: Create bucket with policy and role 03
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.03.png]]
+
+#+CAPTION: Create bucket with policy and role 04
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.04.png]]
+
+#+CAPTION: Create bucket with policy and role 05
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.05.png]]
+
+#+CAPTION: Create bucket with policy and role 06
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.06.png]]
+
+#+CAPTION: Create bucket with policy and role 07
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.07.png]]
+
+#+CAPTION: Create bucket with policy and role 08
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.08.png]]
+
+#+CAPTION: Create bucket with policy and role 09
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.09.png]]
+
+#+CAPTION: Create bucket with policy and role 10
+#+ATTR_HTML: :width 800 :style border:2px solid black;
+[[./png/replication-tidb-on-eks-2-tidbcloud/02.bucket.10.png]]
+* Dumpling data to S3
+  Here assumed that you have one TiDB-on-EKS to be exported the data. Before starting the dumpling, there three setup to be done in advanced.
+  + Install the binary - Please find the latest version from official website if required. The 5.3.0 is used for test.
+  + Setup the aws cli - Please refer to [[https://docs.aws.amazon.com/streams/latest/dev/setup-awscli.html][aws config]].
+  + Source TiDB connection info
+    #+ATTR_HTML: :border 1 :rules all :frame border
+    | Name                      | Value                                                                              |
+    |---------------------------+------------------------------------------------------------------------------------|
+    | Host                      | ae6c7ecfe42b34d7b9414bbff4db3f50-6cdc6893e8dd5a0a.elb.ap-northeast-1.amazonaws.com |
+    | Port                      | 4000                                                                               |
+    | User                      | root                                                                               |
+    | Password                  | 1234Abcd                                                                           |
+    | Bucket Name               | tidbdata                                                                           |
+    | Folder name in the bucket | /data                                                                              |
+  #+BEGIN_SRC
+admin@ip-172-81-11-30:~$ wget https://download.pingcap.org/tidb-toolkit-v5.3.0-linux-amd64.tar.gz
+admin@ip-172-81-11-30:~$ tar xvf tidb-toolkit-v5.3.0-linux-amd64.tar.gz
+admin@ip-172-81-11-30:~$ sudo mv tidb-toolkit-v5.3.0-linux-amd64/bin/* /usr/local/bin/
+admin@ip-172-81-11-30:~$ dumpling -u root -P 4000 -p 1234Abcd -h ae6c7ecfe42b34d7b9414bbff4db3f50-6cdc6893e8dd5a0a.elb.ap-northeast-1.amazonaws.com --filetype sql -t 8 -o "s3://tidbdata/data" --s3.region "ap-northeast-1"
+Release version: v5.3.0
+Git commit hash: 292cbe6c9da0f53a262332d7711dd6ba96567411
+Git branch:      heads/refs/tags/v5.3.0
+Build timestamp: 2021-06-24 07:09:21Z
+Go version:      go version go1.16.4 linux/amd64
+... ...
+[2022/02/08 07:57:31.049 +00:00] [INFO] [main.go:81] ["dump data successfully, dumpling will exit now"]
+  #+END_SRC
+
+  #+CAPTION: Dumpling example screenshot
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/replication-tidb-on-eks-2-tidbcloud/03.dataexport.png]]
+  
+* Import data to TiDB Cloud from S3
+  Once all the data has been exported to S3, it's time to start the import process. TiDB Cloud provide one GUI to import data from S3 very simply. Please do it as the example to import. Because the DDL is also included in the export, please make sure to clean all the objects in the TiDB Cloud.
+  #+CAPTION: Import data to TiDB Cloud 01
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/replication-tidb-on-eks-2-tidbcloud/04.dataimport.01.png]]
+
+  #+CAPTION: Import data to TiDB Cloud 02
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/replication-tidb-on-eks-2-tidbcloud/04.dataimport.02.png]]
+
+  #+CAPTION: Import data to TiDB Cloud 03
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/replication-tidb-on-eks-2-tidbcloud/04.dataimport.03.png]]
+
+  #+CAPTION: Import data to TiDB Cloud 04
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/replication-tidb-on-eks-2-tidbcloud/04.dataimport.04.png]]
+
+  #+CAPTION: Import data to TiDB Cloud 05
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/replication-tidb-on-eks-2-tidbcloud/04.dataimport.05.png]]
+** Data comparison
+   If the migration is from TiDB to TiDB, we are able to compare the data when the source TiDB is kept updated. [[https://docs.pingcap.com/tidb/stable/sync-diff-inspector-overview][sync-diff-inspector]] PingCap developed use TSO to compare two snapshots.In order to compare two snapshot, take the TSO before migration.
+*** Get TSO from source and destination TiDB
+    + Source TiDB's TSO
+      #+BEGIN_SRC
+MySQL [test]> show master status ;
++-------------+--------------------+--------------+------------------+-------------------+
+| File        | Position           | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+--------------------+--------------+------------------+-------------------+
+| tidb-binlog | 431164362242392065 |              |                  |                   |
++-------------+--------------------+--------------+------------------+-------------------+
+1 row in set (0.003 sec)
+      #+END_SRC
+    + Destination TiDB's TSO
+      #+BEGIN_SRC
+MySQL [test]> show master status ;
++-------------+--------------------+--------------+------------------+-------------------+
+| File        | Position           | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+--------------------+--------------+------------------+-------------------+
+| tidb-binlog | 431164690092523521 |              |                  |                   |
++-------------+--------------------+--------------+------------------+-------------------+
+1 row in set (0.003 sec)
+      #+END_SRC
+** Data comparison
+   #+BEGIN_SRC
+admin@ip-172-81-11-125: more diff.toml
+check-thread-count = 4
+export-fix-sql = true
+check-struct-only = false
+
+######################### Datasource config #########################
+[data-sources]
+[data-sources.mysql1] # mysql1 is the only custom ID for the database instance. It is used for the following `task.source-instances/task.target-instance` configuration.
+    host = "private-tidb.54eedca1.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com"
+    port = 4000
+    user = "root"
+    password = "1234Abcd"
+    snapshot = "431164362242392065"
+
+[data-sources.tidb0]
+    host = "afb8b1dd59a7a405e9dafa1a7e1e62c7-7b084415e5ef9330.elb.ap-northeast-1.amazonaws.com"
+    port = 4000
+    user = "root"
+    password = "1234Abcd"
+    snapshot = "431164362242392065""
+
+
+######################### task config #########################
+# Configures the tables of the target database that need to be compared.
+[task]
+    output-dir = "./output"
+    source-instances = ["mysql1"]
+    target-instance = "tidb0"
+    target-check-tables = ["test.*"]
+
+admin@ip-172-81-11-125:~$ sync_diff_inspector --config=./diff.toml 
+{"level":"warn","ts":"2022-02-13T13:33:08.892Z","caller":"clientv3/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"endpoint://client-b95277bd-07f2-4875-b008-1b21b5669b56/db-pd-2.db-pd-peer.tidb1379661944596064065.svc:2379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: all SubConns are in TransientFailure, latest connection error: connection error: desc = \"transport: Error while dialing dial tcp: lookup db-pd-2.db-pd-peer.tidb1379661944596064065.svc on 172.81.0.2:53: no such host\""}
+{"level":"warn","ts":"2022-02-13T13:33:19.010Z","caller":"clientv3/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"endpoint://client-7321305c-02c6-4984-a3b6-d6a8526b6373/basic-pd-1.basic-pd-peer.tidb-cluster.svc:2379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: all SubConns are in TransientFailure, latest connection error: connection error: desc = \"transport: Error while dialing dial tcp: lookup basic-pd-2.basic-pd-peer.tidb-cluster.svc on 172.81.0.2:53: no such host\""}
+A total of 2 tables need to be compared
+
+Comparing the table structure of ``test`.`ontime`` ... equivalent
+Comparing the table structure of ``test`.`test03`` ... equivalent
+Comparing the table data of ``test`.`test03`` ... equivalent
+Comparing the table data of ``test`.`ontime`` ... equivalent
+_____________________________________________________________________________
+Progress [============================================================>] 100% 0/0
+A total of 2 table have been compared and all are equal.
+You can view the comparision details through './output/sync_diff.log'
+   #+END_SRC
+* Performance test
+
+** Table preparation in TiDB-on-EKS   
+   #+BEGIN_SRC sql
+CREATE TABLE `ontime` (
+   id bigint primary key auto_random, 
+  `Year` year(4) DEFAULT NULL,
+  `Quarter` tinyint(4) DEFAULT NULL,
+  `Month` tinyint(4) DEFAULT NULL,
+  `DayofMonth` tinyint(4) DEFAULT NULL,
+  `DayOfWeek` tinyint(4) DEFAULT NULL,
+  `FlightDate` date DEFAULT NULL,
+  `UniqueCarrier` char(7) DEFAULT NULL,
+  `AirlineID` int(11) DEFAULT NULL,
+  `Carrier` char(2) DEFAULT NULL,
+  `TailNum` varchar(50) DEFAULT NULL,
+  `FlightNum` varchar(10) DEFAULT NULL,
+  `OriginAirportID` int(11) DEFAULT NULL,
+  `OriginAirportSeqID` int(11) DEFAULT NULL,
+  `OriginCityMarketID` int(11) DEFAULT NULL,
+  `Origin` char(5) DEFAULT NULL,
+  `OriginCityName` varchar(100) DEFAULT NULL,
+  `OriginState` char(2) DEFAULT NULL,
+  `OriginStateFips` varchar(10) DEFAULT NULL,
+  `OriginStateName` varchar(100) DEFAULT NULL,
+  `OriginWac` int(11) DEFAULT NULL,
+  `DestAirportID` int(11) DEFAULT NULL,
+  `DestAirportSeqID` int(11) DEFAULT NULL,
+  `DestCityMarketID` int(11) DEFAULT NULL,
+  `Dest` char(5) DEFAULT NULL,
+  `DestCityName` varchar(100) DEFAULT NULL,
+  `DestState` char(2) DEFAULT NULL,
+  `DestStateFips` varchar(10) DEFAULT NULL,
+  `DestStateName` varchar(100) DEFAULT NULL,
+  `DestWac` int(11) DEFAULT NULL,
+  `CRSDepTime` int(11) DEFAULT NULL,
+  `DepTime` int(11) DEFAULT NULL,
+  `DepDelay` int(11) DEFAULT NULL,
+  `DepDelayMinutes` int(11) DEFAULT NULL,
+  `DepDel15` int(11) DEFAULT NULL,
+  `DepartureDelayGroups` int(11) DEFAULT NULL,
+  `DepTimeBlk` varchar(20) DEFAULT NULL,
+  `TaxiOut` int(11) DEFAULT NULL,
+  `WheelsOff` int(11) DEFAULT NULL,
+  `WheelsOn` int(11) DEFAULT NULL,
+  `TaxiIn` int(11) DEFAULT NULL,
+  `CRSArrTime` int(11) DEFAULT NULL,
+  `ArrTime` int(11) DEFAULT NULL,
+  `ArrDelay` int(11) DEFAULT NULL,
+  `ArrDelayMinutes` int(11) DEFAULT NULL,
+  `ArrDel15` int(11) DEFAULT NULL,
+  `ArrivalDelayGroups` int(11) DEFAULT NULL,
+  `ArrTimeBlk` varchar(20) DEFAULT NULL,
+  `Cancelled` tinyint(4) DEFAULT NULL,
+  `CancellationCode` char(1) DEFAULT NULL,
+  `Diverted` tinyint(4) DEFAULT NULL,
+  `CRSElapsedTime` int(11) DEFAULT NULL,
+  `ActualElapsedTime` int(11) DEFAULT NULL,
+  `AirTime` int(11) DEFAULT NULL,
+  `Flights` int(11) DEFAULT NULL,
+  `Distance` int(11) DEFAULT NULL,
+  `DistanceGroup` tinyint(4) DEFAULT NULL,
+  `CarrierDelay` int(11) DEFAULT NULL,
+  `WeatherDelay` int(11) DEFAULT NULL,
+  `NASDelay` int(11) DEFAULT NULL,
+  `SecurityDelay` int(11) DEFAULT NULL,
+  `LateAircraftDelay` int(11) DEFAULT NULL,
+  `FirstDepTime` varchar(10) DEFAULT NULL,
+  `TotalAddGTime` varchar(10) DEFAULT NULL,
+  `LongestAddGTime` varchar(10) DEFAULT NULL,
+  `DivAirportLandings` varchar(10) DEFAULT NULL,
+  `DivReachedDest` varchar(10) DEFAULT NULL,
+  `DivActualElapsedTime` varchar(10) DEFAULT NULL,
+  `DivArrDelay` varchar(10) DEFAULT NULL,
+  `DivDistance` varchar(10) DEFAULT NULL,
+  `Div1Airport` varchar(10) DEFAULT NULL,
+  `Div1AirportID` int(11) DEFAULT NULL,
+  `Div1AirportSeqID` int(11) DEFAULT NULL,
+  `Div1WheelsOn` varchar(10) DEFAULT NULL,
+  `Div1TotalGTime` varchar(10) DEFAULT NULL,
+  `Div1LongestGTime` varchar(10) DEFAULT NULL,
+  `Div1WheelsOff` varchar(10) DEFAULT NULL,
+  `Div1TailNum` varchar(10) DEFAULT NULL,
+  `Div2Airport` varchar(10) DEFAULT NULL,
+  `Div2AirportID` int(11) DEFAULT NULL,
+  `Div2AirportSeqID` int(11) DEFAULT NULL,
+  `Div2WheelsOn` varchar(10) DEFAULT NULL,
+  `Div2TotalGTime` varchar(10) DEFAULT NULL,
+  `Div2LongestGTime` varchar(10) DEFAULT NULL,
+  `Div2WheelsOff` varchar(10) DEFAULT NULL,
+  `Div2TailNum` varchar(10) DEFAULT NULL,
+  `Div3Airport` varchar(10) DEFAULT NULL,
+  `Div3AirportID` int(11) DEFAULT NULL,
+  `Div3AirportSeqID` int(11) DEFAULT NULL,
+  `Div3WheelsOn` varchar(10) DEFAULT NULL,
+  `Div3TotalGTime` varchar(10) DEFAULT NULL,
+  `Div3LongestGTime` varchar(10) DEFAULT NULL,
+  `Div3WheelsOff` varchar(10) DEFAULT NULL,
+  `Div3TailNum` varchar(10) DEFAULT NULL,
+  `Div4Airport` varchar(10) DEFAULT NULL,
+  `Div4AirportID` int(11) DEFAULT NULL,
+  `Div4AirportSeqID` int(11) DEFAULT NULL,
+  `Div4WheelsOn` varchar(10) DEFAULT NULL,
+  `Div4TotalGTime` varchar(10) DEFAULT NULL,
+  `Div4LongestGTime` varchar(10) DEFAULT NULL,
+  `Div4WheelsOff` varchar(10) DEFAULT NULL,
+  `Div4TailNum` varchar(10) DEFAULT NULL,
+  `Div5Airport` varchar(10) DEFAULT NULL,
+  `Div5AirportID` int(11) DEFAULT NULL,
+  `Div5AirportSeqID` int(11) DEFAULT NULL,
+  `Div5WheelsOn` varchar(10) DEFAULT NULL,
+  `Div5TotalGTime` varchar(10) DEFAULT NULL,
+  `Div5LongestGTime` varchar(10) DEFAULT NULL,
+  `Div5WheelsOff` varchar(10) DEFAULT NULL,
+  `Div5TailNum` varchar(10) DEFAULT NULL,
+  `timestamp_tidb` timestamp default current_timestamp
+) DEFAULT CHARSET=latin1 ;
+   #+END_SRC
+** Insert data to TiDB-on-EKS
+   #+BEGIN_SRC
+MySQL [(none)]> set global tidb_dml_batch_size = 5000;
+Query OK, 0 rows affected (0.041 sec)
+   #+END_SRC
+
+   #+BEGIN_SRC shell
+#!/bin/bash
+ 
+usage="$(basename "$0") start_year start_month end_year end_month -- Import the data from ontime between start_year/start_month and end_year/end_month"
+if [ $# -ne 4  ]; then
+    echo $usage
+    exit 1
+fi
+start_year=$1
+start_month=$2
+end_year=$3
+end_month=$4
+
+
+echo "${start_year} ${end_year} ${start_month} ${end_month}"
+echo "-- seq ${start_year} ${end_year}"
+for s in `seq ${start_year} ${end_year}`
+do
+  for m in `seq ${start_month} ${end_month}`
+  do
+          echo "-----------"
+    wget https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip --no-check-certificate
+    unzip On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip
+    mv "On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_${s}_${m}.csv" "${s}_${m}.csv";
+    rm -f readme.html
+
+    mysql -h a8c5c5968e1ab43b28e1be822e40cc9b-dbaf5e28623f5ca8.elb.ap-northeast-1.amazonaws.com -P 4000 -u root -p1234Abcd test -e "LOAD DATA LOCAL INFILE '$(pwd)/${s}_${m}.csv' INTO TABLE ontime FIELDS      TERMINATED BY ',' ENCLOSED BY '\"' LINES TERMINATED BY '\n' (Year, Quarter, Month, DayofMonth, DayOfWeek, FlightDate, UniqueCarrier, AirlineID, Carrier, TailNum, FlightNum, OriginAirportID,               OriginAirportSeqID, OriginCityMarketID, Origin, OriginCityName, OriginState, OriginStateFips, OriginStateName, OriginWac, DestAirportID, DestAirportSeqID, DestCityMarketID, Dest, DestCityName,            DestState, DestStateFips, DestStateName, DestWac, CRSDepTime, DepTime, DepDelay, DepDelayMinutes, DepDel15, DepartureDelayGroups, DepTimeBlk, TaxiOut, WheelsOff, WheelsOn, TaxiIn, CRSArrTime, ArrTime,    ArrDelay, ArrDelayMinutes, ArrDel15, ArrivalDelayGroups, ArrTimeBlk, Cancelled, CancellationCode, Diverted, CRSElapsedTime, ActualElapsedTime, AirTime, Flights, Distance, DistanceGroup, CarrierDelay,     WeatherDelay, NASDelay, SecurityDelay, LateAircraftDelay, FirstDepTime, TotalAddGTime, LongestAddGTime, DivAirportLandings, DivReachedDest, DivActualElapsedTime, DivArrDelay, DivDistance, Div1Airport,    Div1AirportID, Div1AirportSeqID, Div1WheelsOn, Div1TotalGTime, Div1LongestGTime, Div1WheelsOff, Div1TailNum, Div2Airport, Div2AirportID, Div2AirportSeqID, Div2WheelsOn, Div2TotalGTime, Div2LongestGTime,  Div2WheelsOff, Div2TailNum, Div3Airport, Div3AirportID, Div3AirportSeqID, Div3WheelsOn, Div3TotalGTime, Div3LongestGTime, Div3WheelsOff, Div3TailNum, Div4Airport, Div4AirportID, Div4AirportSeqID,         Div4WheelsOn, Div4TotalGTime, Div4LongestGTime, Div4WheelsOff, Div5Airport, Div5AirportID, Div5AirportSeqID, Div5WheelsOn, Div5TotalGTime, Div5LongestGTime, Div5WheelsOff, Div5TailNum )"
+    rm On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip
+    rm "${s}_${m}.csv"
+  done
+done
+   #+END_SRC
+   #+START_SRC
+$./import_data.sh 2018 1 2018 1
+   #+END_SRC
+** Service spec
+** Test Result
+          | Data Size | Export Time | Import Time | Num of records | DB Size | Export Rate | Import Rate |
+          |-----------+-------------+-------------+----------------+---------+-------------+-------------|
+          | 264MB     | 26s         | 64s         | 570k           |         | 10MB/s      | 4M/s        |
+          | 3.5GB     | 3min 57s    | 4min 29s    | 7m             | 4.6GB   | 15MB/s      | 13MB/s      |
+          | 31GB      | 32 min      | 36min 19s   |                |         | 17MB/s      |             |

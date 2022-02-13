@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+     The template to create the bucket
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - 
+        Label: 
+          default: "Meta Configuration"
+        Parameters: 
+          - BucketName
+          - Region
+      - 
+        Label: 
+          default: "Account Configuration"
+        Parameters: 
+          - AccountID
+          - ExternalID
+Parameters:
+  BucketName:
+    Description: BucketName to be created
+    Default: tidbdata
+    Type: String
+  Region:
+    Description: The region for S3
+    Type: String
+    Default: ap-northeast-1
+    AllowedValues:
+    - ap-northeast-1
+  AccountID:
+    Type: String
+    Description: Account id to be allowed to access
+  ExternalID:
+    Type: String
+    Description: External ID to be allowed to access
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName:
+        Ref: BucketName
+  theRole: 
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AccountID}:root'
+            Condition:
+              StringEquals:
+                "sts:ExternalId":
+                  Ref: ExternalID
+      Path: "/"
+  thePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${AWS::StackName}'
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "s3:GetObject"
+              - "s3:GetObjectVersion"
+            Effect: Allow
+            Resource: !Join ['/', [!GetAtt S3Bucket.Arn, 'data/*']]
+          - Action:
+              - "s3:ListBucket"
+              - "s3:GetBucketLocation"
+            Effect: Allow
+            Resource: 
+              Fn::GetAtt:
+                - S3Bucket
+                - Arn
+      Roles:
+        - !Ref theRole
+Outputs:
+  BucketFolder:
+    Description: The S3 bucket and folder name
+    Value: !Ref BucketName
+  RoleArn:
+    Description: The role ARN
+    Value: !GetAtt theRole.Arn

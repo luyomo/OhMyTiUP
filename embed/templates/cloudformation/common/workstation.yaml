@@ -1,6 +1,19 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
      The template is used to deploy one workstation
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - 
+        Label:
+          default: "Meta Configuration"
+        Parameters:
+          - InstanceType
+          - DiskSize
+          - IAM
+          - VpcCidr
+          - AllowCidr
+          - username
 Parameters:
   InstanceType:
     Description: Workstation instance type
@@ -23,6 +36,16 @@ Parameters:
     - c6g.12xlarge
     - c6g.16xlarge
     ConstraintDescription: must be a valid ec2 instance type
+  DiskSize:
+    Type: Number
+    Default: 20
+    Description: Workstation disk size
+  IAM:
+    Type: String
+    Default: ami-0ac97798ccf296e02
+    AllowedValues:
+    - ami-0ac97798ccf296e02 # Tokyo
+    - ami-0c7ea5497c02abcaf #west-2
   VpcCidr:
     Type: String
     Default: 172.81.0.0/16
@@ -131,8 +154,10 @@ Resources:
   workstationInstance: 
     Type: AWS::EC2::Instance
     Properties: 
-      ImageId: ami-0ac97798ccf296e02
-      KeyName: jay.pingcap
+      ImageId:
+        Ref: IAM
+      KeyName: 
+        Ref: username
       InstanceType:
         Ref: InstanceType
       BlockDeviceMappings: 
@@ -141,7 +166,7 @@ Resources:
           VolumeType: io1
           Iops: 200
           DeleteOnTermination: false
-          VolumeSize: 20
+          VolumeSize: !Ref DiskSize
       - DeviceName: /dev/sdk
         NoDevice: {}
       NetworkInterfaces: 
@@ -158,3 +183,19 @@ Resources:
           Value: workstation
         - Key: Name
           Value: !Sub '${AWS::StackName}'
+Outputs:
+  WorkstationIP:
+    Description: The workstation IP
+    Value: !GetAtt workstationInstance.PublicIp
+  Region:
+    Description: Workstation region
+    Value: !Sub '${AWS::Region}'
+  AccountId:
+    Description: Account Id
+    Value: !Sub '${AWS::AccountId}'
+  VpcId:
+    Description: VPC ID
+    Value: !Ref workstationVPC
+  VpcCidr:
+    Description: VPC CIDR
+    Value: !Ref VpcCidr

@@ -16,7 +16,7 @@
     Login to the workstation and setup the aws cli (Please refer to [[https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html][AWS Configuration Basis]] for setup).
 *** eksctl and kubectl installation
     Please refer to [[https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html][Getting started with Amazon EKS -eksctl]] to install the eksctl and kubectl in the workstation.
-    #+BEGIN_SRC
+    #+BEGIN_SRC shell
 admin@ip-172-81-11-52:~$ curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/kubectl
 admin@ip-172-81-11-52:~$ chmod 755 kubectl
 admin@ip-172-81-11-52:~$ sudo mv kubectl /usr/local/bin/
@@ -212,11 +212,11 @@ tidb-scheduler-7f8cc67d78-pq5c4            2/2     Running   0          34s
    #+BEGIN_SRC
 admin@ip-172-81-11-52:~$ kubectl create namespace tidb-cluster
 namespace/tidb-cluster created
-admin@ip-172-81-11-52:~$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/aws/tidb-cluster.yaml && \
-> curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/aws/tidb-monitor.yaml
+admin@ip-172-81-11-52:~$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/aws/tidb-cluster.yaml
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100  3004  100  3004    0     0  13779      0 --:--:-- --:--:-- --:--:-- 13716
+admin@ip-172-81-11-52:~$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/aws/tidb-monitor.yaml
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100  1639  100  1639    0     0   7552      0 --:--:-- --:--:-- --:--:--  7552
@@ -362,6 +362,10 @@ tidb2cloudcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0        
 tidb2cloudcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
 tidb2cloudcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
 tidb2cloudcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
+#+END_SRC
+*** Deploy TiCDC without filters
+**** Added TiCDC pods to K8S cluster
+#+BEGIN_SRC
 admin@ip-172-81-11-52:~$ more tidb-cluster.yaml
 ... ...
   ticdc:
@@ -407,13 +411,14 @@ basic-tikv-1                       1/1     Running   0          54m
 basic-tikv-2                       1/1     Running   0          54m
 
    #+END_SRC
-** VPC peering setup between TiDB Cloud and TiDB
+**** Create changefeed to sync data after vpc peering
 #+BEGIN_SRC
 admin@ip-172-81-11-52:~$ kubectl exec -it basic-ticdc-0 -n tidb-cluster -- sh 
 / # /cdc cli changefeed create --pd=http://basic-pd:2379 --sink-uri="mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000" --changefeed-id="tidb2cloudcdc-task"
 Create changefeed successfully!
 ID: tidb2cloudcdc-task
 Info: {"sink-uri":"mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000","opts":{"_changefeed_id":"sink-verify"},"create-time":"2022-02-06T13:33:14.267749062Z","start-ts":431005209518407682,"target-ts":0,"admin-job-type":0,"sort-engine":"unified","sort-dir":"","config":{"case-sensitive":true,"enable-old-value":true,"force-replicate":false,"check-gc-safe-point":true,"filter":{"rules":["*.*"],"ignore-txn-start-ts":null},"mounter":{"worker-num":16},"sink":{"dispatchers":null,"protocol":"default"},"cyclic-replication":{"enable":false,"replica-id":0,"filter-replica-ids":null,"id-buckets":0,"sync-ddl":false},"scheduler":{"type":"table-number","polling-time":-1},"consistent":{"level":"none","max-log-size":64,"flush-interval":1000,"storage":""}},"state":"normal","history":null,"error":null,"sync-point-enabled":false,"sync-point-interval":600000000000,"creator-version":"v5.3.0"}
+
 / # /cdc cli changefeed list --pd=http://basic-pd:2379
 [
   {
@@ -429,7 +434,7 @@ Info: {"sink-uri":"mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-north
 / # 
 
 #+END_SRC
-** Check data sync
+**** Check data sync
    #+BEGIN_SRC
 admin@ip-172-81-11-52:~$ mysql -h ac8985bb5178c4b898d9fc8024d30a8d-baf9ea7b93667dc7.elb.ap-northeast-1.amazonaws.com -u root -P 4000 
 Welcome to the MariaDB monitor.  Commands end with ; or \g.   
@@ -472,6 +477,7 @@ Query OK, 1 row affected (0.008 sec)
 MySQL [test]> exit
 Bye
 
+
 root@172.30.88.51:4000=> show tables;
  Tables_in_test
 ----------------
@@ -488,4 +494,124 @@ ti:root@172.30.88.51:4000=> select * from test01;
 
 ti:root@172.30.88.51:4000=>
    #+END_SRC
+*** Deploy TiCDC with filters
+#+BEGIN_SRC
+admin@ip-172-81-11-52:~$ more config.toml
+case-sensitive = true
 
+enable-old-value = true
+
+[filter]
+ignore-txn-start-ts = [1, 2]
+
+rules = ['*.*', '!test.test1*']
+
+[mounter]
+worker-num = 16
+
+[sink]
+protocol = "default"
+admin@ip-172-81-11-52:~$ kubectl create configmap ticdc-config --from-file=config.toml -n tidb-cluster 
+configmap/ticdc-config created
+admin@ip-172-81-11-52:~$ kubectl get configmap ticdc-config -n tidb-cluster -o yaml 
+apiVersion: v1
+data:
+  config.toml: |
+    case-sensitive = true
+
+    enable-old-value = true
+
+    [filter]
+    ignore-txn-start-ts = [1, 2]
+
+    rules = ['*.*', '!test.test1*']
+
+    [mounter]
+    worker-num = 16
+
+    [sink]
+    protocol = "default"
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2022-02-07T12:28:39Z"
+  name: ticdc-config
+  namespace: tidb-cluster
+  resourceVersion: "166501"
+  uid: 21081ac0-1cd5-4b70-a2f7-a0b7226f69d6
+
+admin@ip-172-81-11-52:~$ more tidb-cluster.yaml
+  ... ...
+  ticdc:
+    baseImage: pingcap/ticdc
+    maxFailoverCount: 0
+    replicas: 3
+    requests:
+      storage: "20Gi"
+    config: {}
+    nodeSelector:
+      dedicated: ticdc
+    tolerations:
+    - effect: NoSchedule
+      key: dedicated
+      operator: Equal
+      value: ticdc
+    additionalVolumes:
+    - name: ticdc-config
+      configMap:
+        name: ticdc-config
+    additionalVolumeMounts:
+    - mountPath: /etc/ticdc
+      name: ticdc-config
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - ticdc
+          topologyKey: kubernetes.io/hostname
+admin@ip-172-81-11-52:~$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster 
+tidbcluster.pingcap.com/basic configured
+admin@ip-172-81-11-52:~$ kubectl get pods -n tidb-cluster 
+NAME                               READY   STATUS    RESTARTS   AGE
+basic-discovery-6fb89f458c-8x6cg   1/1     Running   0          55m
+basic-monitor-0                    3/3     Running   0          55m
+basic-pd-0                         1/1     Running   0          55m
+basic-pd-1                         1/1     Running   0          55m
+basic-pd-2                         1/1     Running   0          55m
+basic-ticdc-0                      1/1     Running   0          19s
+basic-ticdc-1                      1/1     Running   0          19s
+basic-ticdc-2                      1/1     Running   0          19s
+basic-tidb-0                       2/2     Running   0          54m
+basic-tidb-1                       2/2     Running   0          54m
+basic-tikv-0                       1/1     Running   0          54m
+basic-tikv-1                       1/1     Running   0          54m
+basic-tikv-2                       1/1     Running   0          54m
+
+   #+END_SRC
+
+**** Create changefeed to sync data after vpc peering
+#+BEGIN_SRC
+admin@ip-172-81-11-52:~$ kubectl exec -it basic-ticdc-0 -n tidb-cluster -- sh 
+/ # /cdc cli changefeed create --pd=http://basic-pd:2379 --sink-uri="mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000" --changefeed-id="tidb2cloudcdc-task" --config /etc/ticdc/config.toml
+Create changefeed successfully!
+ID: tidb2cloudcdc-task
+Info: {"sink-uri":"mysql://root:1234Abcd@private-tidb.643bc545.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000","opts":{"_changefeed_id":"sink-verify"},"create-time":"2022-02-06T13:33:14.267749062Z","start-ts":431005209518407682,"target-ts":0,"admin-job-type":0,"sort-engine":"unified","sort-dir":"","config":{"case-sensitive":true,"enable-old-value":true,"force-replicate":false,"check-gc-safe-point":true,"filter":{"rules":["*.*"],"ignore-txn-start-ts":null},"mounter":{"worker-num":16},"sink":{"dispatchers":null,"protocol":"default"},"cyclic-replication":{"enable":false,"replica-id":0,"filter-replica-ids":null,"id-buckets":0,"sync-ddl":false},"scheduler":{"type":"table-number","polling-time":-1},"consistent":{"level":"none","max-log-size":64,"flush-interval":1000,"storage":""}},"state":"normal","history":null,"error":null,"sync-point-enabled":false,"sync-point-interval":600000000000,"creator-version":"v5.3.0"}
+
+/ # /cdc cli changefeed list --pd=http://basic-pd:2379
+[
+  {
+    "id": "tidb2cloudcdc-task",
+    "summary": {
+      "state": "normal",
+      "tso": 431005212913172482,
+      "checkpoint": "2022-02-06 13:33:27.170",
+      "error": null
+    }
+  }
+]
+/ # 
+
+#+END_SRC
