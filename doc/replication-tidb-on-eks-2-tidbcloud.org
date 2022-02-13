@@ -83,7 +83,7 @@
 admin@ip-172-81-11-30:~$ wget https://download.pingcap.org/tidb-toolkit-v5.3.0-linux-amd64.tar.gz
 admin@ip-172-81-11-30:~$ tar xvf tidb-toolkit-v5.3.0-linux-amd64.tar.gz
 admin@ip-172-81-11-30:~$ sudo mv tidb-toolkit-v5.3.0-linux-amd64/bin/* /usr/local/bin/
-admin@ip-172-81-11-30:~$ dumpling -u root -P 4000 -p 1234Abcd -h ae6c7ecfe42b34d7b9414bbff4db3f50-6cdc6893e8dd5a0a.elb.ap-northeast-1.amazonaws.com --filetype sql -t 8 -o "s3://tidbdata/data" --s3.region "ap-northeast-1"
+admin@ip-172-81-11-30:~$ dumpling -u root -P 4000 -p 1234Abcd -h ae6c7ecfe42b34d7b9414bbff4db3f50-6cdc6893e8dd5a0a.elb.ap-northeast-1.amazonaws.com --filetype sql -t 8 -F 256m -o "s3://tidbdata/data" --s3.region "ap-northeast-1"
 Release version: v5.3.0
 Git commit hash: 292cbe6c9da0f53a262332d7711dd6ba96567411
 Git branch:      heads/refs/tags/v5.3.0
