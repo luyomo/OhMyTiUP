@@ -1,3 +1,8 @@
+* Architecture
+  
+  #+CAPTION: Architure
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/architecture.aurora.png]]
 * Aurora Setup
 ** VPC
    Go to the below link [[https://ap-northeast-1.console.aws.amazon.com/vpc/home?region=ap-northeast-1#vpcs:]]

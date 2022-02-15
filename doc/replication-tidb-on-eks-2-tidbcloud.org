@@ -347,9 +347,17 @@ done
 $./import_data.sh 2018 1 2018 1
    #+END_SRC
 ** Service spec
-** Test Result
+** Test Result (default parameter)
           | Data Size | Export Time | Import Time | Num of records | DB Size | Export Rate | Import Rate |
           |-----------+-------------+-------------+----------------+---------+-------------+-------------|
           | 264MB     | 26s         | 64s         | 570k           |         | 10MB/s      | 4M/s        |
           | 3.5GB     | 3min 57s    | 4min 29s    | 7m             | 4.6GB   | 15MB/s      | 13MB/s      |
           | 31GB      | 32 min      | 36min 19s   |                |         | 17MB/s      |             |
+
+** Test Result with 31G data
+  | scenario | tidb_build_stats_concurrency | tidb_distsql_scan_concurrency | tidb_index_serial_scan_concurrency | Execution time  |
+  |----------+------------------------------+-------------------------------+------------------------------------+-----------------|
+  | default  |                            4 |                            15 |                                  1 | 58min 22second  |
+  | case 01  |                            8 |                            30 |                                 10 | 7min 35second   |
+  | case 02  |                           16 |                            30 |                                 10 | Force canceled0 |
+  |          |                              |                               |                                    | 0               |

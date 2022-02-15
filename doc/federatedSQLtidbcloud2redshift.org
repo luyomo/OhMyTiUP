@@ -1,3 +1,7 @@
+* Architure
+  #+CAPTION: Architure
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/architure.redshift.wrapper.png]]
 * Prepare basic aws resource
 ** VPC
  #+CAPTION: VPC resource

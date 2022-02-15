@@ -1,4 +1,7 @@
 * Architect
+  #+CAPTION: Architure
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/architecture.aurora.copy.png]]
 * Copy data from TiDB 2 Aurora through S3 - Manually
 ** Create the s3 bucket for data copy
    #+CAPTION: Create the s3 bucket for data copy 01

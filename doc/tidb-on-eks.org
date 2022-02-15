@@ -5,6 +5,9 @@
   #+ATTR_HTML: :width 800 :style border:2px solid black;
   [[./png/tidb-on-eks/architecture.png]]
 * Migration flow
+  + [[./tidb-on-eks.deployment.org][tidb-on-eks deployment]]
+  + [[./replication-tidb-on-eks-2-tidbcloud.org][Data migration]]
+  + [[./ticdc-tidb2tidbcloud.org][Data replication]]
 ** Prepartion for migration
 *** TiDB-on-EKS deployment
     For PoC phase, the TiDB-on-EKS is required to be deployed in advanced. If you use this approach for production migration or exsiting cluster, please skip this step.
