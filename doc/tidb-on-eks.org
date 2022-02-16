@@ -10,17 +10,51 @@
   + [[./ticdc-tidb2tidbcloud.org][Data replication]]
 ** Prepartion for migration
 *** TiDB-on-EKS deployment
-    For PoC phase, the TiDB-on-EKS is required to be deployed in advanced. If you use this approach for production migration or exsiting cluster, please skip this step.
-    As for how to deploy TiDB-on-EKS, please refer to below link.
+    For PoC phase, the TiDB-on-EKS is required to be deployed in advanced. If you have environment or exsiting cluster to test, please skip [[./tidb-on-eks.deployment.org][TiDB-on-EKS deployment]]
 *** Migration preparation
-    To migrate the data from TiDB-on-EKS, two things have to be done in advanced. First, according to the data volume, the parameter tikv_gc_life_time has be been adjusted.
-    Second, take the TSO before data export for TiCDC replication's start point.
-    The internal flow is 
-    [[https://docs.pingcap.com/tidb/v3.1/garbage-collection-configuration][tikv_gc_life_time]] is the time limit during which data is retained for each GC. TiKV use MVCC for data consistency. In the GC, the expired data is reclaimed from memory.
-    If changes from taken TSO has been reclaimed from memory, TiCDC cloud not start the changefeed from that TSO. That's the reason we have to make sure the changes from
-    that TSO must be kept until it is synced to downstream server.
-    Second, before the data export, the TSO must be got from which point the data will be streamed to downstream without data loss. The data between taken TSO and data export
-    will be replicated two times.
+    To migrate the data from TiDB-on-EKS, two things have to be done in advanced.
+    + First, according to the data volume, the parameter tikv_gc_life_time has be been adjusted.
+
+      #+BEGIN_SRC
+MySQL [test]> select * from mysql.tidb where variable_name = 'tikv_gc_life_time';
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| VARIABLE_NAME     | VARIABLE_VALUE | COMMENT                                                                                |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| tikv_gc_life_time | 10m0s          | All versions within life time will not be collected by GC, at least 10m, in Go format. |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+1 row in set (0.004 sec)
+MySQL [test]> begin;
+Query OK, 0 rows affected (0.002 sec)
+
+MySQL [test]> update mysql.tidb set VARIABLE_VALUE = '720h' where VARIABLE_NAME = 'tikv_gc_life_time';
+Query OK, 1 row affected (0.006 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+MySQL [test]> select * from mysql.tidb where variable_name = 'tikv_gc_life_time';
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| VARIABLE_NAME     | VARIABLE_VALUE | COMMENT                                                                                |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| tikv_gc_life_time | 720h           | All versions within life time will not be collected by GC, at least 10m, in Go format. |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+1 row in set (0.002 sec)
+
+MySQL [test]> commit;
+Query OK, 0 rows affected (0.007 sec)
+
+      #+END_SRC
+      The internal flow is [[https://docs.pingcap.com/tidb/v3.1/garbage-collection-configuration][tikv_gc_life_time]] is the time limit during which data is retained for each GC. TiKV use MVCC for data consistency. In the GC, the expired data is reclaimed from memory.
+      If changes from taken TSO has been reclaimed from memory, TiCDC cloud not start the changefeed from that TSO. That's the reason we have to make sure the changes from that TSO must be kept until it is synced to downstream server.
+    + Second, take the TSO before data export for TiCDC replication's start point.
+      #+BEGIN_SRC
+MySQL [test]> show master status ;
++-------------+--------------------+--------------+------------------+-------------------+
+| File        | Position           | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+--------------------+--------------+------------------+-------------------+
+| tidb-binlog | 431229100883705857 |              |                  |                   |
++-------------+--------------------+--------------+------------------+-------------------+
+1 row in set (0.003 sec)
+      #+END_SRC
+      Second, before the data export, the TSO must be taken from which point the data will be streamed to downstream without data loss. The data between taken TSO and data export will be replicated two times.
 ** Data export to S3 from source TiDB
     The data migration is divided into two phase. Fisrt is the initial data migration, second is the incremental data migration.
     The initial data migration is the one when the snapshot is taken and copy all the snapshot data from source DB to destination DB.
