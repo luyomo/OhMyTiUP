@@ -60,6 +60,35 @@ MySQL [test]> show master status ;
     The initial data migration is the one when the snapshot is taken and copy all the snapshot data from source DB to destination DB.
 ** Data import to TiDB Cloud from S3
 ** Setup TiCDC to replicate data to TiDB Cloud
+*** Rollback the tikv_gc_life_time
+    #+BEGIN_SRC
+MySQL [(none)]> select * from mysql.tidb where variable_name = 'tikv_gc_life_time';
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| VARIABLE_NAME     | VARIABLE_VALUE | COMMENT                                                                                |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| tikv_gc_life_time | 720h           | All versions within life time will not be collected by GC, at least 10m, in Go format. |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+1 row in set (0.006 sec)
+
+MySQL [(none)]> begin;
+Query OK, 0 rows affected (0.002 sec)
+
+MySQL [(none)]> update mysql.tidb set variable_value = '10m0s' where variable_name = 'tikv_gc_life_time';
+Query OK, 1 row affected (0.007 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+MySQL [(none)]> select * from mysql.tidb where variable_name = 'tikv_gc_life_time';
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| VARIABLE_NAME     | VARIABLE_VALUE | COMMENT                                                                                |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| tikv_gc_life_time | 10m0s          | All versions within life time will not be collected by GC, at least 10m, in Go format. |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+1 row in set (0.001 sec)
+
+MySQL [(none)]> commit;
+Query OK, 0 rows affected (0.008 sec)
+
+    #+END_SRC
 ** Swap replication between source and destination
 * Others
 
