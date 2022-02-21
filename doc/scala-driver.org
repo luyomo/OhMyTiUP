@@ -34,8 +34,8 @@ import java.sql.DriverManager
 import java.sql.Connection
 
 /**
- * A Scala JDBC connection example by Alvin Alexander,
- * https://alvinalexander.com
+ * A Scala JDBC connection example by jay
+ * https://github.com/luyomo/OhMyTiUP
  */
 object ScalaJdbcConnectSelect {
 
