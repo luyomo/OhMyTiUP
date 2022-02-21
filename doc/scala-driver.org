@@ -1,0 +1,177 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
+#+TITLE: mysql-connector-java_8.0.25-1debian10_all.deb connection issue
+* JAVA 8 install
+  Please follow the below procedure to install JAVA8
+  https://www.codegrepper.com/code-examples/shell/debian+openjdk+8
+
+* SCALA install
+#+BEGIN_SRC
+$curl -s "https://get.sdkman.io" | bash
+$sdk install scala 2.12.15
+$more Hello.scala
+object Hello {
+    def main(args: Array[String]) = {
+        println("Hello, world")
+    }
+}
+$scala Hello.scala
+Hello, world
+#+END_SRC
+
+** Download connect/j
+   Download the library from https://downloads.mysql.com/archives/c-j/
+   #+BEGIN_SRC
+$sudo dpkg -i /tmp/mysql-connector-java_8.0.25-1debian10_all.deb
+$ locate mysql-connector-java-8.0.25.jar
+/usr/share/java/mysql-connector-java-8.0.25.jar
+   #+END_SRC
+
+* Test connectivity
+  #+BEGIN_SRC
+$more TiDBConnect.scala 
+import java.sql.DriverManager
+import java.sql.Connection
+
+/**
+ * A Scala JDBC connection example by Alvin Alexander,
+ * https://alvinalexander.com
+ */
+object ScalaJdbcConnectSelect {
+
+  def main(args: Array[String]) {
+    // connect to the database named "mysql" on the localhost
+    val driver = "com.mysql.cj.jdbc.Driver"
+
+    // Local TiDB cluster(v5.4.0) -> No error
+    val url = "jdbc:mysql://a782d3087bb3b4251a7334607dde2517-54e778ca803cb5c5.elb.ap-northeast-1.amazonaws.com:4000/mysql"
+    val username = "root"
+    val password = ""
+
+    // TiDB Cloud cluster(v5.2.1) -> Error
+    //val url = "jdbc:mysql://private-tidb.4b4ce6e.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000/mysql"
+    //val username = "root"
+    //val password = "1234Abcd"
+
+    // there's probably a better way to do this
+    var connection:Connection = null
+
+    try {
+      // make the connection
+      Class.forName(driver)
+      connection = DriverManager.getConnection(url, username, password)
+
+      // create the statement, and run the select query
+      val statement = connection.createStatement()
+      val resultSet = statement.executeQuery("SELECT host, user FROM user")
+      while ( resultSet.next() ) {
+        val host = resultSet.getString("host")
+        val user = resultSet.getString("user")
+        println("host, user = " + host + ", " + user)
+      }
+    } catch {
+      case e : Throwable => e.printStackTrace
+    }
+    connection.close()
+  }
+
+}
+  #+END_SRC
+*** Run against V5.4.0
+    #+BEGIN_SRC
+$ scala -classpath "/usr/share/java/mysql-connector-java-8.0.25.jar" TiDBConnect.scala 
+host, user = %, root
+    #+END_SRC
+*** Run against v5.2.1(Cloud)
+    #+BEGIN_SRC
+$ scala -classpath "/usr/share/java/mysql-connector-java-8.0.25.jar" TiDBConnect.scala 
+com.mysql.cj.jdbc.exceptions.CommunicationsException: Communications link failure
+                                                                                                      
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+        at com.mysql.cj.jdbc.exceptions.SQLError.createCommunicationsException(SQLError.java:174)                                                                                                           
+        at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:64)
+        at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:833)
+        at com.mysql.cj.jdbc.ConnectionImpl.<init>(ConnectionImpl.java:453)
+        at com.mysql.cj.jdbc.ConnectionImpl.getInstance(ConnectionImpl.java:246)
+        at com.mysql.cj.jdbc.NonRegisteringDriver.connect(NonRegisteringDriver.java:198)
+        at java.sql.DriverManager.getConnection(DriverManager.java:664)
+        at java.sql.DriverManager.getConnection(DriverManager.java:247)                 
+        at Main$.main(TiDBConnect.scala:26)                                                           
+        at Main.main(TiDBConnect.scala)                                                               
+        at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)                                                                                                                                      
+        at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)        
+        at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        at java.lang.reflect.Method.invoke(Method.java:498)        
+        at scala.reflect.internal.util.RichClassLoader$.$anonfun$run$extension$1(ScalaClassLoader.scala:101)
+        at scala.reflect.internal.util.RichClassLoader$.run$extension(ScalaClassLoader.scala:36)
+        at scala.tools.nsc.CommonRunner.run(ObjectRunner.scala:29)         
+        at scala.tools.nsc.CommonRunner.run$(ObjectRunner.scala:27)        
+        at scala.tools.nsc.ObjectRunner$.run(ObjectRunner.scala:46)        
+        at scala.tools.nsc.CommonRunner.runAndCatch(ObjectRunner.scala:36)          
+        at scala.tools.nsc.CommonRunner.runAndCatch$(ObjectRunner.scala:35)                 
+        at scala.tools.nsc.ObjectRunner$.runAndCatch(ObjectRunner.scala:46)                  
+        at scala.tools.nsc.ScriptRunner.runCompiled(ScriptRunner.scala:180)
+        at scala.tools.nsc.ScriptRunner.$anonfun$runScript$1(ScriptRunner.scala:199)
+        at scala.tools.nsc.ScriptRunner.$anonfun$runScript$1$adapted(ScriptRunner.scala:199)
+        at scala.tools.nsc.ScriptRunner.$anonfun$withCompiledScript$2(ScriptRunner.scala:166)
+        at scala.tools.nsc.ScriptRunner.runScript(ScriptRunner.scala:134)        
+        at scala.tools.nsc.ScriptRunner.runScriptAndCatch(ScriptRunner.scala:210)
+        at scala.tools.nsc.MainGenericRunner.runTarget$1(MainGenericRunner.scala:77)
+        at scala.tools.nsc.MainGenericRunner.run$1(MainGenericRunner.scala:92)
+        at scala.tools.nsc.MainGenericRunner.process(MainGenericRunner.scala:103)
+        at scala.tools.nsc.MainGenericRunner$.main(MainGenericRunner.scala:108)
+        at scala.tools.nsc.MainGenericRunner.main(MainGenericRunner.scala)
+Caused by: com.mysql.cj.exceptions.CJCommunicationsException: Communications link failure
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+        at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+        at sun.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+        at sun.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+        at java.lang.reflect.Constructor.newInstance(Constructor.java:423)
+        at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:61)
+        at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:105)
+        at com.mysql.cj.exceptions.ExceptionFactory.createException(ExceptionFactory.java:151)
+        at com.mysql.cj.exceptions.ExceptionFactory.createCommunicationsException(ExceptionFactory.java:167)
+        at com.mysql.cj.protocol.a.NativeProtocol.negotiateSSLConnection(NativeProtocol.java:342)
+        at com.mysql.cj.protocol.a.NativeAuthenticationProvider.connect(NativeAuthenticationProvider.java:203)
+        at com.mysql.cj.protocol.a.NativeProtocol.connect(NativeProtocol.java:1353)
+        at com.mysql.cj.NativeSession.connect(NativeSession.java:157)
+        at com.mysql.cj.jdbc.ConnectionImpl.connectOneTryOnly(ConnectionImpl.java:953)
+        at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:823)
+        ... 30 more
+Caused by: javax.net.ssl.SSLHandshakeException: No appropriate protocol (protocol is disabled or cipher suites are inappropriate)
+        at sun.security.ssl.HandshakeContext.<init>(HandshakeContext.java:171)
+        at sun.security.ssl.ClientHandshakeContext.<init>(ClientHandshakeContext.java:98)
+        at sun.security.ssl.TransportContext.kickstart(TransportContext.java:220)
+        at sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:428)
+        at com.mysql.cj.protocol.ExportControlled.performTlsHandshake(ExportControlled.java:317)
+        at com.mysql.cj.protocol.StandardSocketFactory.performTlsHandshake(StandardSocketFactory.java:188)
+        at com.mysql.cj.protocol.a.NativeSocketConnection.performTlsHandshake(NativeSocketConnection.java:97)
+        at com.mysql.cj.protocol.a.NativeProtocol.negotiateSSLConnection(NativeProtocol.java:333)
+        ... 35 more
+java.lang.NullPointerException
+        at Main$.main(TiDBConnect.scala:39)
+        at Main.main(TiDBConnect.scala)
+        at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+        at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+        at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        at java.lang.reflect.Method.invoke(Method.java:498)
+        at scala.reflect.internal.util.RichClassLoader$.$anonfun$run$extension$1(ScalaClassLoader.scala:101)
+        at scala.reflect.internal.util.RichClassLoader$.run$extension(ScalaClassLoader.scala:36)
+        at scala.tools.nsc.CommonRunner.run(ObjectRunner.scala:29)
+        at scala.tools.nsc.CommonRunner.run$(ObjectRunner.scala:27)
+        at scala.tools.nsc.ObjectRunner$.run(ObjectRunner.scala:46)
+        at scala.tools.nsc.CommonRunner.runAndCatch(ObjectRunner.scala:36)
+        at scala.tools.nsc.CommonRunner.runAndCatch$(ObjectRunner.scala:35)
+        at scala.tools.nsc.ObjectRunner$.runAndCatch(ObjectRunner.scala:46)
+        at scala.tools.nsc.ScriptRunner.runCompiled(ScriptRunner.scala:180)
+        at scala.tools.nsc.ScriptRunner.$anonfun$runScript$1(ScriptRunner.scala:199)
+        at scala.tools.nsc.ScriptRunner.$anonfun$runScript$1$adapted(ScriptRunner.scala:199)
+        at scala.tools.nsc.ScriptRunner.$anonfun$withCompiledScript$2(ScriptRunner.scala:166)
+        at scala.tools.nsc.ScriptRunner.runScript(ScriptRunner.scala:134)
+        at scala.tools.nsc.ScriptRunner.runScriptAndCatch(ScriptRunner.scala:210)
+        at scala.tools.nsc.MainGenericRunner.runTarget$1(MainGenericRunner.scala:77)
+        at scala.tools.nsc.MainGenericRunner.run$1(MainGenericRunner.scala:92)
+        at scala.tools.nsc.MainGenericRunner.process(MainGenericRunner.scala:103)
+        at scala.tools.nsc.MainGenericRunner$.main(MainGenericRunner.scala:108)
+        at scala.tools.nsc.MainGenericRunner.main(MainGenericRunner.scala)
+    #+END_SRC
