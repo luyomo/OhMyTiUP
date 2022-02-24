@@ -2,6 +2,14 @@
   #+CAPTION: Architure
   #+ATTR_HTML: :width 800 :style border:2px solid black;
   [[./png/architecture.aurora.copy.png]]
+
+  + Create S3 bucket to store dump data
+  + Export data from TiDB Cloud to S3 bucket
+  + Setup for S3 access from aurora
+    - Create S3 policy and role for aurora access
+    - Attach role to Aurora
+    - Create S3 endpoint in the Aurora's VPC
+  + Load data to Aurora from S3
 * Copy data from TiDB 2 Aurora through S3 - Manually
 ** Create the s3 bucket for data copy
    #+CAPTION: Create the s3 bucket for data copy 01
@@ -121,7 +129,7 @@
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
    [[./png/copyDataTiDB2AuroraS3/06.cluster.param.03.png]]   
-** Create endpoint for aurora
+** Create S3 endpoint for aurora
    #+CAPTION: Create endpoint for aurora 01
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px

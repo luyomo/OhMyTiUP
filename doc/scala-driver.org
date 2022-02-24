@@ -175,3 +175,9 @@ java.lang.NullPointerException
         at scala.tools.nsc.MainGenericRunner$.main(MainGenericRunner.scala:108)
         at scala.tools.nsc.MainGenericRunner.main(MainGenericRunner.scala)
     #+END_SRC
+*** Resolve the convitity issue
+
+    #+BEGIN_SRC
+    val url = "jdbc:mysql://private-tidb.4b4ce6e.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000/mysql"
+->  val url = "jdbc:mysql://private-tidb.4b4ce6e.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com:4000/mysql?enabledTLSProtocols=TLSv1.2"
+    #+END_SRC
