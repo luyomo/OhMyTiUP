@@ -24,4 +24,28 @@
  | Data Migration from Aurora(S3) to TiDB Cloud                      |                                                          |        |
  | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]                                    | Redshift --federated query--> TiDB Cloud                 |        |
  | Grant S3 bucket/folder permission to TiDB Cloud account           |                                                          |        |
+ | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]] |                                                          |        |
+ | Setup TiDB Cloud VPC peering                                      |                                                          |        |
 
+
+
+
+
+* Roadmap
+** Common
+*** Aurora Setup
+*** TiDB Cloud VPC Peering Setup
+** Migration from Aurora to TiDB Cloud
+*** Data migration from Aurora to TiDB Cloud(S3)
+*** Data replication from Aurora to TiDB Cloud(DM)
+*** Data replication from TiDB Cloud to Aurora(TiCDC)
+*** Whole migration flow
+*** Data migration from TiDB Cloud to Aurora(S3)    
+** Migration from TiDB-on-EKS to TiDB Cloud
+*** Data migration from TiDB-on-EKS to TiDB Cloud(S3)
+*** Data replication from TiDB-on-EKS to TiDB Cloud(TiCDC)
+*** Data replication from TiDB Cloud to TiDB-on-EKS(TiCDC)
+*** Whole migration flow
+** Monitoring API
+*** API to prometheus
+*** Monitoring data sync to Datadog

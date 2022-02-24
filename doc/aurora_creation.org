@@ -1,0 +1,61 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
+* Architecture
+  #+CAPTION: Aurora Architecture
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/architecture.aurora.png]]
+    
+  To build one aurora instance from zero, the following AWS resources are required build manually if required. To make the process more simpler, all the resources preparation are consolidated through cloudformation template. Feel free to customize the [[https://s3.ap-northeast-1.amazonaws.com/tidb.cloudformation.template/aurora/aurora.yaml][template]]
+  + vpc
+  + subnet
+  + route table
+  + security group
+  + db subnet group
+  + db cluster parameter
+  + db instance parameter
+  + db cluster
+  + db instance
+
+  Two ways are provided to build the aurora instance. The direct one is to make the instance through cloudformation's template. The another one is under preparation usng OhMyTiUP(Todo).
+* Aurora instance preparation
+** Cloudformation preparation
+  Please find the [[https://s3.ap-northeast-1.amazonaws.com/tidb.cloudformation.template/aurora/aurora.yaml][template]] to start the stack preparation. There are several points to share.
+  + Two subnets are created in the stack, one for Master and another for Slave.
+  + In the security group, the port 3306 is open to all. If you use it for sensitive database, please restrict access for security reason. Here is only for PoC.
+  + The binlog_format is configured as ROW in the cluster parameter in order to enable the replication feature from Aurora to external DB. In the future, it will be used to replicate data from Aurora to TiDB Cloud.
+  #+CAPTION: Aurora Setup
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.01.png]]
+
+  #+CAPTION: Aurora Setup
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.02.png]]
+
+  #+CAPTION: Aurora Setup
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.03.png]]
+
+  #+CAPTION: Aurora Setup
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.04.png]]
+
+  #+CAPTION: Aurora Setup
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.05.png]]
+
+  #+CAPTION: Aurora Setup
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.06.png]]
+
+  #+CAPTION: Aurora Setup
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.07.png]]
+** Instance confirmation
+   It takes about 20-30 minutes to complete the AURORA instance setup. Here it's okay to take a rest or switch other task context.
+  #+CAPTION: Aurora Confirmation
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.08.png]]
+  #+CAPTION: Aurora Confirmation
+  #+ATTR_HTML: :width 800 :style border:2px solid black;
+  [[./png/aurora/aurora.cf.09.png]]
+  
