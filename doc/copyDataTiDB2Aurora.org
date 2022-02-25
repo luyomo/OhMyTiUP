@@ -10,6 +10,7 @@
     - Attach role to Aurora
     - Create S3 endpoint in the Aurora's VPC
   + Load data to Aurora from S3
+
 * Copy data from TiDB 2 Aurora through S3 - Manually
 ** Create the s3 bucket for data copy
    #+CAPTION: Create the s3 bucket for data copy 01
@@ -40,7 +41,54 @@
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
    [[./png/copyDataTiDB2AuroraS3/01.s3.bucket.07.png]]
+** Setup VPC peering between TiDB Cloud and workstation
+   Please refer to [[https://docs.pingcap.com/tidbcloud/public-preview/set-up-vpc-peering-connections][VPC Peering setup]]
 ** Export data to s3 bucket
+   #+BEGIN_SRC
+$ wget https://download.pingcap.org/tidb-toolkit-v5.4.0-linux-amd64.tar.gz
+$ tar xvf tidb-toolkit-v5.4.0-linux-amd64.tar.gz
+$ export PATH=$(pwd)/tidb-toolkit-v5.4.0-linux-amd64/bin:$PATH
+$ mysql --connect-timeout 15 -u root -h private-tidb.d5d823e2.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -P 4000 -p
+MySQL [(none)]>select * from mysql.tidb where VARIABLE_NAME = 'tikv_gc_life_time';
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| VARIABLE_NAME     | VARIABLE_VALUE | COMMENT                                                                                |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| tikv_gc_life_time | 10m0s          | All versions within life time will not be collected by GC, at least 10m, in Go format. |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+1 row in set (0.008 sec)
+MySQL [(none)]> update mysql.tidb set VARIABLE_VALUE = '720h' where VARIABLE_NAME = 'tikv_gc_life_time';
+Query OK, 1 row affected (0.015 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
+
+MySQL [(none)]> select * from mysql.tidb where VARIABLE_NAME = 'tikv_gc_life_time';
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| VARIABLE_NAME     | VARIABLE_VALUE | COMMENT                                                                                |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+| tikv_gc_life_time | 720h           | All versions within life time will not be collected by GC, at least 10m, in Go format. |
++-------------------+----------------+----------------------------------------------------------------------------------------+
+1 row in set (0.009 sec)
+MySQL [(none)]> exit
+Bye
+$ dumpling -u root -P 4000 -h private-tidb.d5d823e2.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -p1234Abcd --filetype csv -o "s3://tidb2aurora/dumpling/" --s3.region "ap-northeast-1"
+Release version: v5.4.0
+Git commit hash: 55f3b24c1c9f506bd652ef1d162283541e428872
+Git branch:      heads/refs/tags/v5.4.0
+Build timestamp: 2022-01-25 08:36:27Z
+Go version:      go version go1.16.4 linux/amd64
+
+[2022/02/24 10:37:13.594 +00:00] [INFO] [versions.go:55] ["Welcome to dumpling"] ["Release Version"=v5.4.0] ["Git Commit Hash"=55f3b24c1c9f506bd652ef1d162283541e428872] ["Git Branch"=heads/refs/tags/v5.4.0] ["Build timestamp"="2022-01-25 08:36:27"] ["Go Version"="go version go1.16.4 linux/amd64"]
+[2022/02/24 10:37:13.616 +00:00] [INFO] [version.go:360] ["detect server version"] [type=TiDB] [version=5.2.1-20211206]
+{"level":"warn","ts":"2022-02-24T10:37:23.692Z","caller":"clientv3/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"endpoint://client-24cbf762-c88a-4aff-84db-37b34015bc8a/db-pd-2.db-pd-peer.tidb1379661944597894068.svc:2379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: all SubConns are in TransientFailure, latest connection error: connection error: desc = \"transport: Error while dialing dial tcp: lookup db-pd-2.db-pd-peer.tidb1379661944597894068.svc on 172.81.0.2:53: no such host\""}
+[2022/02/24 10:37:23.693 +00:00] [INFO] [dump.go:1304] ["meet error while check whether fetched pd addr and TiDB belong to one cluster. This won't affect dump process"] [error="context deadline exceeded"] [pdAddrs="[db-pd-2.db-pd-peer.tidb1379661944597894068.svc:2379,db-pd-0.db-pd-peer.tidb1379661944597894068.svc:2379,db-pd-1.db-pd-peer.tidb1379661944597894068.svc:2379]"]
+[2022/02/24 10:37:23.697 +00:00] [WARN] [dump.go:1358] ["If the amount of data to dump is large, criteria: (data more than 60GB or dumped time more than 10 minutes)\nyou'd better adjust the tikv_gc_life_time to avoid export failure due to TiDB GC during the dump process.\nBefore dumping: run sql `update mysql.tidb set VARIABLE_VALUE = '720h' where VARIABLE_NAME = 'tikv_gc_life_time';` in tidb.\nAfter dumping: run sql `update mysql.tidb set VARIABLE_VALUE = '10m' where VARIABLE_NAME = 'tikv_gc_life_time';` in tidb.\n"]
+[2022/02/24 10:37:23.707 +00:00] [INFO] [dump.go:103] ["begin to run Dump"] [conf="{\"s3\":{\"endpoint\":\"\",\"region\":\"ap-northeast-1\",\"storage-class\":\"\",\"sse\":\"\",\"sse-kms-key-id\":\"\",\"acl\":\"\",\"access-key\":\"\",\"secret-access-key\":\"\",\"provider\":\"\",\"force-path-style\":true,\"use-accelerate-endpoint\":false},\"gcs\":{\"endpoint\":\"\",\"storage-class\":\"\",\"predefined-acl\":\"\",\"credentials-file\":\"\"},\"azblob\":{\"endpoint\":\"\",\"account-name\":\"\",\"account-key\":\"\",\"access-tier\":\"\"},\"AllowCleartextPasswords\":false,\"SortByPk\":true,\"NoViews\":true,\"NoHeader\":false,\"NoSchemas\":false,\"NoData\":false,\"CompleteInsert\":false,\"TransactionalConsistency\":true,\"EscapeBackslash\":true,\"DumpEmptyDatabase\":true,\"PosAfterConnect\":false,\"CompressType\":0,\"Host\":\"private-tidb.d5d823e2.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com\",\"Port\":4000,\"Threads\":4,\"User\":\"root\",\"Security\":{\"CAPath\":\"\",\"CertPath\":\"\",\"KeyPath\":\"\"},\"LogLevel\":\"info\",\"LogFile\":\"\",\"LogFormat\":\"text\",\"OutputDirPath\":\"s3://tidb2aurora/dumpling/\",\"StatusAddr\":\":8281\",\"Snapshot\":\"431410130106974209\",\"Consistency\":\"snapshot\",\"CsvNullValue\":\"\\\\N\",\"SQL\":\"\",\"CsvSeparator\":\",\",\"CsvDelimiter\":\"\\\"\",\"Databases\":[],\"Where\":\"\",\"FileType\":\"csv\",\"ServerInfo\":{\"ServerType\":3,\"ServerVersion\":\"5.2.1-20211206\",\"HasTiKV\":true},\"Rows\":0,\"ReadTimeout\":900000000000,\"TiDBMemQuotaQuery\":0,\"FileSize\":0,\"StatementSize\":1000000,\"SessionParams\":{\"tidb_snapshot\":\"431410130106974209\"},\"Tables\":null,\"CollationCompatible\":\"loose\"}"]
+[2022/02/24 10:39:23.864 +00:00] [INFO] [status.go:31] [progress] [tables="0/1 (0.0%)"] ["finished rows"=3966170] ["estimate total rows"=69176519] ["finished size"=1.882GB] ["average speed(MiB/s)"=14.953314002507303]
+... ...
+[2022/02/24 11:09:23.864 +00:00] [INFO] [status.go:31] [progress] [tables="0/1 (0.0%)"] ["finished rows"=66057447] ["estimate total rows"=69176519] ["finished size"=31.88GB] ["average speed(MiB/s)"=15.661992612008559]
+[2022/02/24 11:10:58.499 +00:00] [INFO] [collector.go:237] ["backup success summary"] [total-ranges=3] [ranges-succeed=3] [ranges-failed=0] [total-take=33m34.635763682s] [total-kv-size=33.39GB] [average-speed=16.57MB/s] [total-rows=69176519]
+[2022/02/24 11:10:58.680 +00:00] [INFO] [main.go:80] ["dump data successfully, dumpling will exit now"]
+   #+END_SRC
+   
    #+CAPTION: Export data to s3 bucket 01
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
@@ -58,6 +106,27 @@
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
    [[./png/copyDataTiDB2AuroraS3/03.policy.02.png]]
+   #+BEGIN_SRC
+   {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "S3:GetObject",
+                "S3:ListBucket",
+                "S3:GetObjectVersion"
+            ],
+            "Resource": [
+                "arn:aws:s3:::tidb2aurora",
+                "arn:aws:s3:::tidb2aurora/dumpling/*"
+            ]
+        }
+     ]
+   }
+   #+END_SRC
+
    #+CAPTION: Create s3 policy 03
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
@@ -147,6 +216,18 @@
    #+attr_latex: :width 800px
    [[./png/copyDataTiDB2AuroraS3/07.rds.endpoint.04.png]]   
 ** Try data import
+#+BEGIN_SRC
+MySQL [test]> load data from s3 's3://tidb2aurora/dumpling/test.ontime.000000000.csv' into table ontime FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 lines;
+Query OK, 69176519 rows affected (50 min 18.441 sec)
+Records: 69176519  Deleted: 0  Skipped: 0  Warnings: 0
+MySQL [test]> select count(*) from ontime; 
++----------+
+| count(*) |
++----------+
+| 69176519 |
++----------+
+1 row in set (33.711 sec)
+#+END_SRC
    #+CAPTION: Try data import 
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
@@ -155,6 +236,63 @@
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
    [[./png/copyDataTiDB2AuroraS3/08.import.from.s3.02.png]]
+** Data comparison
+#+BEGIN_SRC
+$more diff.toml
+check-thread-count = 8
+export-fix-sql = true
+check-struct-only = false
+[data-sources]
+[data-sources.mysql1] # mysql1 is the only custom ID for the database instance. It is used for the following `task.source-instances/task.target-instance` configuration.
+    host = 'arsfaf89hfam1n.ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com'
+    port = 3306
+    user = 'master'
+    password = '1234Abcd'
+
+[data-sources.tidb0]
+    host = 'private-tidb.d5d823e2.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com'
+    port = 4000
+    user = 'root'
+    password = '1234Abcd'
+[task]
+    output-dir = "./output"
+    source-instances = ["mysql1"]
+    target-instance = "tidb0"
+    target-check-tables = ["test.*"]
+
+$ time sync_diff_inspector --config diff.toml
+{"level":"warn","ts":"2022-02-25T02:01:44.536Z","caller":"clientv3/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"endpoint://client-057ae630-a0e9-41d3-afa3-7c6a656068d3/db-pd-1.db-pd-peer.tidb1379661944597954066.svc:2379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: all SubConns are in TransientFailure, latest connection error: connection error: desc = \"transport: Error while dialing dial tcp: lookup db-pd-2.db-pd-peer.tidb1379661944597954066.svc on 172.81.0.2:53: no such host\""}
+A total of 1 tables need to be compared
+
+Comparing the table structure of ``test`.`ontime`` ... equivalent
+Comparing the table data of ``test`.`ontime`` ... equivalent
+_____________________________________________________________________________
+Progress [============================================================>] 100% 0/0
+A total of 1 table have been compared and all are equal.
+You can view the comparision details through './output/sync_diff.log'
+
+real    4m23.111s
+user    0m1.717s
+sys     0m0.590s
+
+$ more sync_diff.log
+.. ...
+[2022/02/25 02:10:44.492 +00:00] [INFO] [mysql_shard.go:349] ["will increase connection configurations for DB of instance"] ["connection limit"=3]
+[2022/02/25 02:10:44.492 +00:00] [INFO] [source.go:312] ["table match check passed!!"]
+[2022/02/25 02:10:44.494 +00:00] [INFO] [tidb.go:195] ["find router for tidb source"]
+[2022/02/25 02:10:44.498 +00:00] [INFO] [source.go:312] ["table match check passed!!"]
+[2022/02/25 02:10:44.502 +00:00] [INFO] [diff.go:361] ["The downstream is TiDB. pick it as work source first"]
+#+END_SRC
+
+The instance is t2.2xlarge
+File size: 31GB
+       | # of threads | Execution time |
+       |--------------+----------------|
+       |            2 | 13m14.989s     |
+       |            8 | 4m23.111s      |
+       |           16 | 3m38.637s      |
+       |           32 | 3m36.344       |
+
 * Copy data from TiDB 2 Aurora through S3 - CloudFormation
 * Copy data from TiDB 2 Aurora through S3 - OhMyTiUP
   #+html: <p align="center" style="border:1px solid black;"><img src="./png/copyDataTiDB2AuroraS3/08.import.from.s3.02.png" /></p>

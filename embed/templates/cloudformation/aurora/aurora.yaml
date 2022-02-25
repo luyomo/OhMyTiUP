@@ -1,6 +1,17 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
      The template is used to deploy aurora-mysql. 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - 
+        Label:
+          default: "Meta Configuration"
+        Parameters:
+          - InstanceType
+          - VpcCidr
+          - username
+          - password
 Parameters:
   InstanceType:
     Description: RDS instance type
