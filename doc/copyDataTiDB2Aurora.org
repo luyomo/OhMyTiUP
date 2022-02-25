@@ -1,15 +1,25 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
 * Architect
   #+CAPTION: Architure
   #+ATTR_HTML: :width 800 :style border:2px solid black;
   [[./png/architecture.aurora.copy.png]]
 
+  This is about the approach how to migrate the data from TiDB Cloud to Aurora with S3 simply. The whole process is almost same to common one. Please find the data flow as the above graph. Here I list some differences as usual migration approach.
+  + [[https://docs.pingcap.com/tidb/stable/dumpling-overview][dumpling]] is used to export data from TiDB Cloud to S3 directly
+  + [[https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Integrating.LoadFromS3.html][Load data to aurora from S3]]
+  + [[https://docs.pingcap.com/tidb/stable/sync-diff-inspector-overview][sync-diff-inspector]] is used to compare the data between TiDB Cloud and Aurora after migration.
+  The whole process is as below:
   + Create S3 bucket to store dump data
-  + Export data from TiDB Cloud to S3 bucket
+  + Export data from TiDB Cloud to S3 bucket with dumpling(50 minutes)
   + Setup for S3 access from aurora
     - Create S3 policy and role for aurora access
     - Attach role to Aurora
     - Create S3 endpoint in the Aurora's VPC
-  + Load data to Aurora from S3
+  + Load data to Aurora from S3(32 minutes)
+  + Data comparison between TiDB Cloud and Aurora(4 minutes)
+  The taken minutes is only for your reference with one 31GB test table.
+  Before going to procedure, please make sure the timezone between TiDB Cloud and Aurora is same. Otherwise it will fail in the data comparison phase.
 
 * Copy data from TiDB 2 Aurora through S3 - Manually
 ** Create the s3 bucket for data copy
@@ -44,6 +54,13 @@
 ** Setup VPC peering between TiDB Cloud and workstation
    Please refer to [[https://docs.pingcap.com/tidbcloud/public-preview/set-up-vpc-peering-connections][VPC Peering setup]]
 ** Export data to s3 bucket
+*** Export table to one file
+    + Download tool binary(Latest version: v5.4.0)
+    + Unzip the binary and set the search path
+    + Update the [[https://docs.pingcap.com/tidb/stable/garbage-collection-configuration][tikv_gc_life_time]] to avoid the GC during the data export. Generally it's safe to update it to 720h before data export. Please make sure set back the value after data export, which might degrade TiDB cluster's performance.
+    + Set the AWS key to allow the dumpling command to push the data to S3
+    + Run the dumpling command to extract the data to S3.
+    + Set back the tikv_gc_life_time value
    #+BEGIN_SRC
 $ wget https://download.pingcap.org/tidb-toolkit-v5.4.0-linux-amd64.tar.gz
 $ tar xvf tidb-toolkit-v5.4.0-linux-amd64.tar.gz
@@ -69,6 +86,8 @@ MySQL [(none)]> select * from mysql.tidb where VARIABLE_NAME = 'tikv_gc_life_tim
 1 row in set (0.009 sec)
 MySQL [(none)]> exit
 Bye
+$ export AWS_ACCESS_KEY_ID=xxxxxxxxxxxxx
+$ export AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxx
 $ dumpling -u root -P 4000 -h private-tidb.d5d823e2.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -p1234Abcd --filetype csv -o "s3://tidb2aurora/dumpling/" --s3.region "ap-northeast-1"
 Release version: v5.4.0
 Git commit hash: 55f3b24c1c9f506bd652ef1d162283541e428872
@@ -87,8 +106,11 @@ Go version:      go version go1.16.4 linux/amd64
 [2022/02/24 11:09:23.864 +00:00] [INFO] [status.go:31] [progress] [tables="0/1 (0.0%)"] ["finished rows"=66057447] ["estimate total rows"=69176519] ["finished size"=31.88GB] ["average speed(MiB/s)"=15.661992612008559]
 [2022/02/24 11:10:58.499 +00:00] [INFO] [collector.go:237] ["backup success summary"] [total-ranges=3] [ranges-succeed=3] [ranges-failed=0] [total-take=33m34.635763682s] [total-kv-size=33.39GB] [average-speed=16.57MB/s] [total-rows=69176519]
 [2022/02/24 11:10:58.680 +00:00] [INFO] [main.go:80] ["dump data successfully, dumpling will exit now"]
+MySQL [(none)]> update mysql.tidb set VARIABLE_VALUE = '10m0s' where VARIABLE_NAME = 'tikv_gc_life_time';
+Query OK, 1 row affected (0.015 sec)
+Rows matched: 1  Changed: 1  Warnings: 0
    #+END_SRC
-   
+
    #+CAPTION: Export data to s3 bucket 01
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
@@ -97,6 +119,22 @@ Go version:      go version go1.16.4 linux/amd64
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
    [[./png/copyDataTiDB2AuroraS3/02.data.export.s3.02.png]]
+
+*** Split the table file at 256MB size
+   #+BEGIN_SRC
+$ dumpling -u root -P 4000 -h private-tidb.16d4b193.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -p1234Abcd --filetype csv -F 256MiB -t 16 -o "s3://tidb2aurora/dumpling/" --s3.region "ap-northeast-1"
+Release version: v5.4.0                                                                                                                                                                                     Git commit hash: 55f3b24c1c9f506bd652ef1d162283541e428872
+Git branch:      heads/refs/tags/v5.4.0                                                                                                                                                                     
+Build timestamp: 2022-01-25 08:36:27Z
+Go version:      go version go1.16.4 linux/amd64
+                                                   
+[2022/02/25 03:13:16.522 +00:00] [INFO] [versions.go:55] ["Welcome to dumpling"] ["Release Version"=v5.4.0] ["Git Commit Hash"=55f3b24c1c9f506bd652ef1d162283541e428872] ["Git Branch"=heads/refs/tags/v5.4.0] ["Build timestamp"="2022-01-25 08:36:27"] ["Go Version"="go version go1.16.4 linux/amd64"]
+[2022/02/25 03:13:16.544 +00:00] [INFO] [version.go:360] ["detect server version"] [type=TiDB] [version=5.2.1-20211206]
+... ...
+[2022/02/25 03:45:54.600 +00:00] [INFO] [collector.go:237] ["backup success summary"] [total-ranges=3] [ranges-succeed=3] [ranges-failed=0] [total-take=32m27.501133792s] [total-rows=69176519] [total-kv-size=33.39GB] [average-speed=17.15MB/s]
+[2022/02/25 03:45:54.820 +00:00] [INFO] [main.go:80] ["dump data successfully, dumpling will exit now"]
+   #+END_SRC
+   
 ** Create s3 policy
    #+CAPTION: Create s3 policy 01
    #+attr_html: :width 800px :style border:2px solid black;
@@ -143,62 +181,9 @@ Go version:      go version go1.16.4 linux/amd64
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
    [[./png/copyDataTiDB2AuroraS3/03.policy.06.png]]
-** Create s3 role attached to Aurora
-   #+CAPTION: Create s3 role attached to Aurora 01
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/04.role.01.png]]
-   #+CAPTION: Create s3 role attached to Aurora 02
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/04.role.02.png]]
-   #+CAPTION: Create s3 role attached to Aurora 03
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/04.role.03.png]]
-   #+CAPTION: Create s3 role attached to Aurora 04
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/04.role.04.png]]
-   #+CAPTION: Create s3 role attached to Aurora 05
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/04.role.05.png]]
-   #+CAPTION: Create s3 role attached to Aurora 06
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/04.role.06.png]]
-   #+CAPTION: Create s3 role attached to Aurora 07
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/04.role.07.png]]
-** Attache s3 role to Aurora
-   #+CAPTION: Attache s3 role to Aurora 01
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/05.rds.role.01.png]]
-   #+CAPTION: Attache s3 role to Aurora 02
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/05.rds.role.02.png]]
-   #+CAPTION: Attache s3 role to Aurora 03
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/05.rds.role.03.png]]   
-** Update db cluster parameter for s3
-   #+CAPTION: Update db cluster parameter for s3 01
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.01.png]]
-   #+CAPTION: Update db cluster parameter for s3 02
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.02.png]]
-   #+CAPTION: Update db cluster parameter for s3 03
-   #+attr_html: :width 800px :style border:2px solid black;
-   #+attr_latex: :width 800px
-   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.03.png]]   
-** Create S3 endpoint for aurora
+** Allow aurora to access S3 storage
+   In order to allow AURORA to access S3 storage, first need to open S3 to AURORA. If the DB is deployed in the private subnets, we have to create the endpoint in the AURORA's VPC. Second, create the role/policy to grant the permission to AURORA.  Once these two steps are completed, we can start the data import.
+*** Create S3 endpoint for aurora
    #+CAPTION: Create endpoint for aurora 01
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
@@ -215,6 +200,62 @@ Go version:      go version go1.16.4 linux/amd64
    #+attr_html: :width 800px :style border:2px solid black;
    #+attr_latex: :width 800px
    [[./png/copyDataTiDB2AuroraS3/07.rds.endpoint.04.png]]   
+*** Create s3 role attach to Aurora
+   #+CAPTION: Create s3 role attach to Aurora 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.01.png]]
+   #+CAPTION: Create s3 role attach to Aurora 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.02.png]]
+   #+CAPTION: Create s3 role attach to Aurora 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.03.png]]
+   #+CAPTION: Create s3 role attach to Aurora 04
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.04.png]]
+   #+CAPTION: Create s3 role attach to Aurora 05
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.05.png]]
+   #+CAPTION: Create s3 role attach to Aurora 06
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.06.png]]
+   #+CAPTION: Create s3 role attach to Aurora 07
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/04.role.07.png]]
+*** Attach s3 role to Aurora
+   #+CAPTION: Attache s3 role to Aurora 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/05.rds.role.01.png]]
+   #+CAPTION: Attache s3 role to Aurora 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/05.rds.role.02.png]]
+   #+CAPTION: Attache s3 role to Aurora 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/05.rds.role.03.png]]   
+*** Update db cluster parameter for s3
+   #+CAPTION: Update db cluster parameter for s3 01
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.01.png]]
+   #+CAPTION: Update db cluster parameter for s3 02
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.02.png]]
+   #+CAPTION: Update db cluster parameter for s3 03
+   #+attr_html: :width 800px :style border:2px solid black;
+   #+attr_latex: :width 800px
+   [[./png/copyDataTiDB2AuroraS3/06.cluster.param.03.png]]   
+
 ** Try data import
 #+BEGIN_SRC
 MySQL [test]> load data from s3 's3://tidb2aurora/dumpling/test.ontime.000000000.csv' into table ontime FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 lines;
@@ -275,7 +316,7 @@ real    4m23.111s
 user    0m1.717s
 sys     0m0.590s
 
-$ more sync_diff.log
+$ more output/sync_diff.log
 .. ...
 [2022/02/25 02:10:44.492 +00:00] [INFO] [mysql_shard.go:349] ["will increase connection configurations for DB of instance"] ["connection limit"=3]
 [2022/02/25 02:10:44.492 +00:00] [INFO] [source.go:312] ["table match check passed!!"]
@@ -284,15 +325,15 @@ $ more sync_diff.log
 [2022/02/25 02:10:44.502 +00:00] [INFO] [diff.go:361] ["The downstream is TiDB. pick it as work source first"]
 #+END_SRC
 
-The instance is t2.2xlarge
-File size: 31GB
-       | # of threads | Execution time |
-       |--------------+----------------|
-       |            2 | 13m14.989s     |
-       |            8 | 4m23.111s      |
-       |           16 | 3m38.637s      |
-       |           32 | 3m36.344       |
+*** Performance test
+    EC2 instance(workstation): t2.2xlarge
+    Table's csv file size: 31GB
 
-* Copy data from TiDB 2 Aurora through S3 - CloudFormation
-* Copy data from TiDB 2 Aurora through S3 - OhMyTiUP
-  #+html: <p align="center" style="border:1px solid black;"><img src="./png/copyDataTiDB2AuroraS3/08.import.from.s3.02.png" /></p>
+    #+ATTR_HTML: :border 2 :rules all :frame border
+    | # of threads | Execution time |
+    |--------------+----------------|
+    |            2 | 13m14.989s     |
+    |            8 | 4m23.111s      |
+    |           16 | 3m38.637s      |
+    |           32 | 3m36.344       |
+
