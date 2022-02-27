@@ -1,67 +1,12 @@
 #+OPTIONS: \n:t
 #+OPTIONS: ^:nil
 * Description
-  Sysbench has long been established as the de factco standard when it comes to bechmark MySQL performance. [[https://docs.pingcap.com/tidb/stable/benchmark-tidb-using-sysbench][TiDB]] also replys sysbench as benchmark since it is compatible to MySQL. But sometimes user wants to do the benchmark for their own business logic. This is to give one example how to use custom scripts to do the benchmark.
-  + Process flow description
+  Sysbench has long been established as the de factco standard when it comes to bechmark MySQL performance. [[https://docs.pingcap.com/tidb/stable/benchmark-tidb-using-sysbench][TiDB]] also relys on sysbench as benchmark since it is compatible to MySQL. But sometimes user wants to do the benchmark for their own business logic. This is to give one example how to use custom scripts to do the benchmark.
   + Run sysbench custom script    
+  + Process flow description
   + Table design
-* Process flow
-** prepare
-   + Table creation
-   + Master data preparaion(client_table, security_table)
-  Four tables are created in the prepare phase and 100 rows are generated for client_table and security_table as the master data. If you have the same table name, please make sure it's cleaned up in advanced.
-   + Order table
-   + Trade table
-   + Security table
-   + Client table
-** cleanup
-   Table cleanup
-** Insert
-*** Order insert
-   + Generate the client id within 100 
-   + Generate the security id within 100
-   + Insert one row to order_table with generated data
-*** Trade insert
-   + Trade table is about 1/100th of the order table to simulate the trading business. So in the head of the trade insert, generate one random value between 1 and 100 and only proceed the data insert when the generated number is 50(No reason to determine this value).
-   + After that, generate one order id between 1 and max order id with which the order quantity and traded quantity are fetched. If the traded quantity is same as order quantity, exit this process.
-   + Generate the quantity to trade from the remaining quantity(order quantity - traded quantity).
-   + Insert row into trade table with the generated quantity.
-** Select
-   + Order select
-     #+BEGIN_SRC sql
-           select order_id
-           , t3.name as security_name
-           , t2.name as client_name
-           , t1.price
-           , t1.quantity
-           , case when t1.buy_sell_flag = 0 then 'buy' else 'sell' end as buy_sell
-           from order_table t1
-     inner join client_table t2
-             on t1.client_id = t2.id
-            and t1.order_id = ?
-     inner join security_table t3
-             on t1.security_id = t3.id
-     #+END_SRC
-   + Trade select
-     #+BEGIN_SRC sql
-          select t4.order_id
-               , t1.trade_id
-               , t3.name as security_name
-               , t2.name as client_name
-               , t1.price
-               , t1.quantity
-               , case when t1.buy_sell_flag = 0 then 'buy' else 'sell' end as buy_sell
-            from trade_table t1
-      inner join client_table t2
-              on t1.client_id = t2.id
-             and trade_id = ?
-      inner join security_table t3
-              on t1.security_id = t3.id
-      inner join order_table t4
-              on t1.order_id = t4.order_id
-      #+END_SRC
-
 * Run custom sysbench script
+  Before we go to the detail of the custom script, first go through the whole process how to use the custom script to do the benchmark. I give the example to use the script for benchmark.
 ** Preparation
 *** sysbench install
    #+BEGIN_SRC
@@ -167,6 +112,64 @@ Cleaning the table trade_table
 Cleaning the table client_table 
 Cleaning the table security_table 
     #+END_SRC
+* Process flow
+** prepare command
+   In the prepare command of sysbench, two below processes was proceeded.
+   + Table creation
+   + Master data preparaion(client_table, security_table)
+  Four tables are created and 100 rows are generated for client_table and security_table as the master data. If you have the same table name, please make sure it's cleaned up in advanced.
+   + Order table
+   + Trade table
+   + Security table
+   + Client table
+** run command
+*** Insert
+**** Order insert
+   + Generate the client id within 100 
+   + Generate the security id within 100
+   + Insert one row to order_table with generated data
+**** Trade insert
+   + Trade table is about 1/100th of the order table to simulate the trading business. So in the head of the trade insert, generate one random value between 1 and 100 and only proceed the data insert when the generated number is 50(No reason to determine this value).
+   + After that, generate one order id between 1 and max order id with which the order quantity and traded quantity are fetched. If the traded quantity is same as order quantity, exit this process.
+   + Generate the quantity to trade from the remaining quantity(order quantity - traded quantity).
+   + Insert row into trade table with the generated quantity.
+*** Select
+   + Order select
+     #+BEGIN_SRC sql
+           select order_id
+           , t3.name as security_name
+           , t2.name as client_name
+           , t1.price
+           , t1.quantity
+           , case when t1.buy_sell_flag = 0 then 'buy' else 'sell' end as buy_sell
+           from order_table t1
+     inner join client_table t2
+             on t1.client_id = t2.id
+            and t1.order_id = ?
+     inner join security_table t3
+             on t1.security_id = t3.id
+     #+END_SRC
+   + Trade select
+     #+BEGIN_SRC sql
+          select t4.order_id
+               , t1.trade_id
+               , t3.name as security_name
+               , t2.name as client_name
+               , t1.price
+               , t1.quantity
+               , case when t1.buy_sell_flag = 0 then 'buy' else 'sell' end as buy_sell
+            from trade_table t1
+      inner join client_table t2
+              on t1.client_id = t2.id
+             and trade_id = ?
+      inner join security_table t3
+              on t1.security_id = t3.id
+      inner join order_table t4
+              on t1.order_id = t4.order_id
+      #+END_SRC
+** cleanup command
+   Table cleanup
+
 * Table Layout
 ** order_table
    #+ATTR_HTML: :border 3 :rules all :frame border
