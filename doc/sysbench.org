@@ -1,0 +1,255 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
+* Description
+  Sysbench has long been established as the de factco standard when it comes to bechmark MySQL performance. [[https://docs.pingcap.com/tidb/stable/benchmark-tidb-using-sysbench][TiDB]] also replys sysbench as benchmark since it is compatible to MySQL. But sometimes user wants to do the benchmark for their own business logic. This is to give one example how to use custom scripts to do the benchmark.
+  + Process flow description
+  + Run sysbench custom script    
+  + Table design
+* Process flow
+** prepare
+   + Table creation
+   + Master data preparaion(client_table, security_table)
+  Four tables are created in the prepare phase and 100 rows are generated for client_table and security_table as the master data. If you have the same table name, please make sure it's cleaned up in advanced.
+   + Order table
+   + Trade table
+   + Security table
+   + Client table
+** cleanup
+   Table cleanup
+** Insert
+*** Order insert
+   + Generate the client id within 100 
+   + Generate the security id within 100
+   + Insert one row to order_table with generated data
+*** Trade insert
+   + Trade table is about 1/100th of the order table to simulate the trading business. So in the head of the trade insert, generate one random value between 1 and 100 and only proceed the data insert when the generated number is 50(No reason to determine this value).
+   + After that, generate one order id between 1 and max order id with which the order quantity and traded quantity are fetched. If the traded quantity is same as order quantity, exit this process.
+   + Generate the quantity to trade from the remaining quantity(order quantity - traded quantity).
+   + Insert row into trade table with the generated quantity.
+** Select
+   + Order select
+     #+BEGIN_SRC sql
+           select order_id
+           , t3.name as security_name
+           , t2.name as client_name
+           , t1.price
+           , t1.quantity
+           , case when t1.buy_sell_flag = 0 then 'buy' else 'sell' end as buy_sell
+           from order_table t1
+     inner join client_table t2
+             on t1.client_id = t2.id
+            and t1.order_id = ?
+     inner join security_table t3
+             on t1.security_id = t3.id
+     #+END_SRC
+   + Trade select
+     #+BEGIN_SRC sql
+          select t4.order_id
+               , t1.trade_id
+               , t3.name as security_name
+               , t2.name as client_name
+               , t1.price
+               , t1.quantity
+               , case when t1.buy_sell_flag = 0 then 'buy' else 'sell' end as buy_sell
+            from trade_table t1
+      inner join client_table t2
+              on t1.client_id = t2.id
+             and trade_id = ?
+      inner join security_table t3
+              on t1.security_id = t3.id
+      inner join order_table t4
+              on t1.order_id = t4.order_id
+      #+END_SRC
+
+* Run custom sysbench script
+** Preparation
+*** sysbench install
+   #+BEGIN_SRC
+$ curl -s https://packagecloud.io/install/repositories/akopytov/sysbench/script.deb.sh | sudo bash
+$ sysbench --version 
+sysbench 1.0.20
+   #+END_SRC
+*** Copy the custom script
+   #+BEGIN_SRC
+$ git clone https://github.com/luyomo/OhMyTiUP.git
+$ sudo cp OhMyTiUP/doc/resources/sysbench_trade.lua /usr/share/sysbench/
+   #+END_SRC
+** Run the custom sysbench
+*** Tables and master data preparation
+    #+BEGIN_SRC
+$ sysbench sysbench_trade --db-driver=mysql --mysql-host=ar1vati2b8cjio3.ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com --mysql-db=test --mysql-user=master --mysql-password=1234Abcd prepare
+sysbench 1.0.20 (using bundled LuaJIT 2.1.0-beta2)
+
+Creating table order_table
+Creating table trade_table
+Creating table client_table
+Creating table security_table
+$ mysql -h ar1vati2b8cjio3.ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com -u master -P 3306 -p1234Abcd test  #testmysql
+MySQL [test]> show tables;
++----------------+
+| Tables_in_test |
++----------------+
+| client_table   |
+| order_table    |
+| security_table |
+| trade_table    |
++----------------+
+4 rows in set (0.035 sec)
+MySQL [test]> select count(*) from client_table;
++----------+
+| count(*) |
++----------+
+|      100 |
++----------+
+1 row in set (0.001 sec)
+
+MySQL [test]> select count(*) from security_table;
++----------+
+| count(*) |
++----------+
+|      100 |
++----------+
+1 row in set (0.001 sec)
+    #+END_SRC
+*** Run custom sysbench
+    #+BEGIN_SRC
+$ sysbench sysbench_trade --threads=2 --report-interval=10 --time=50 --db-driver=mysql --mysql-host=ar1vati2b8cjio3.ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com --mysql-db=test --mysql-user=master --mysql-password=1234Abcd run
+sysbench 1.0.20 (using bundled LuaJIT 2.1.0-beta2)
+
+Running the test with following options:
+Number of threads: 2
+Report intermediate results every 10 second(s)
+Initializing random number generator from current time
+
+
+Initializing worker threads...
+
+Threads started!
+
+[ 10s ] thds: 2 tps: 277.04 qps: 1954.86 (r/w/o: 1119.75/280.84/554.27) lat (ms,95%): 9.06 err/s: 0.00 reconn/s: 0.00
+[ 20s ] thds: 2 tps: 280.01 qps: 1967.74 (r/w/o: 1125.73/282.01/560.01) lat (ms,95%): 8.90 err/s: 0.00 reconn/s: 0.00
+[ 30s ] thds: 2 tps: 280.00 qps: 1966.70 (r/w/o: 1125.10/281.60/560.00) lat (ms,95%): 9.06 err/s: 0.00 reconn/s: 0.00
+[ 40s ] thds: 2 tps: 262.60 qps: 1846.19 (r/w/o: 1056.40/264.60/525.20) lat (ms,95%): 10.27 err/s: 0.00 reconn/s: 0.00
+[ 50s ] thds: 2 tps: 262.60 qps: 1847.40 (r/w/o: 1057.30/264.90/525.20) lat (ms,95%): 9.91 err/s: 0.00 reconn/s: 0.00
+SQL statistics:
+    queries performed:
+        read:                            54845
+        write:                           13740
+        other:                           27250
+        total:                           95835
+    transactions:                        13625  (272.48 per sec.)
+    queries:                             95835  (1916.54 per sec.)
+    ignored errors:                      0      (0.00 per sec.)
+    reconnects:                          0      (0.00 per sec.)
+
+General statistics:
+    total time:                          50.0023s
+    total number of events:              13625
+
+Latency (ms):
+         min:                                    4.67
+         avg:                                    7.34
+         max:                                   34.40
+         95th percentile:                        9.22
+         sum:                                99951.85
+
+Threads fairness:
+    events (avg/stddev):           6812.5000/6.50
+    execution time (avg/stddev):   49.9759/0.00
+    #+END_SRC
+*** Tables cleanup
+    #+BEGIN_SRC
+$ sysbench sysbench_trade --db-driver=mysql --mysql-host=ar1vati2b8cjio3.ckcbeq0sbqxz.ap-northeast-1.rds.amazonaws.com --mysql-db=test --mysql-user=master --mysql-password=1234Abcd cleanup
+sysbench 1.0.20 (using bundled LuaJIT 2.1.0-beta2)
+
+Cleaning the table order_table 
+Cleaning the table trade_table 
+Cleaning the table client_table 
+Cleaning the table security_table 
+    #+END_SRC
+* Table Layout
+** order_table
+   #+ATTR_HTML: :border 3 :rules all :frame border
+   | Column Name   | Type           |
+   |---------------+----------------|
+   | order_id      | auto_increment |
+   | security_id   | int            |
+   | price         | decimal(10)    |
+   | buy_sell_flag | boolean        |
+   | quantity      | bigint         |
+   | client_id     | bigint         |
+
+   #+BEGIN_SRC sql
+     CREATE TABLE if not exists order_table (
+            order_id int primary key auto_increment,
+            security_id int not null,
+            price decimal(20, 8) not null,
+            buy_sell_flag boolean not null,
+            quantity bigint not null,
+            client_id int not null,
+            create_timestamp timestamp default current_timestamp,
+            create_user varchar(128),
+            update_timestamp timestamp default current_timestamp,            
+            update_user varchar(128) 
+            )
+   #+END_SRC
+
+** trade_table
+   #+ATTR_HTML: :border 3 :rules all :frame border
+   | Column Name   | Type           |
+   |---------------+----------------|
+   | trade_id      | auto_increment |
+   | order_id      | bigint         |
+   | security_id   | bigint         |
+   | price         | bigint         |
+   | quantity      | bigint         |
+   | buy_sell_flag | boolean        |
+
+   #+BEGIN_SRC sql
+     CREATE TABLE if not exists trade_table (
+            trade_id int primary key auto_increment,
+            order_id int not null,
+            security_id int not null,
+            price decimal(20, 8) not null,
+            buy_sell_flag boolean not null,
+            quantity bigint not null,
+            client_id int not null,
+            create_timestamp timestamp default current_timestamp,
+            create_user varchar(128),
+            update_timestamp timestamp default current_timestamp,
+            update_user varchar(128) 
+            )
+   #+END_SRC
+
+** client_table
+   #+ATTR_HTML: :border 3 :rules all :frame border
+   | Column_name | Type         |
+   |-------------+--------------|
+   | id          | bigint       |
+   | name        | varchar(128) |
+   | margin_type | boolean      |
+   #+BEGIN_SRC sql
+       CREATE TABLE if not exists client_table(
+       id int primary key auto_increment,
+       name varchar(128) not null,
+       margin_type boolean default false
+     )
+   #+END_SRC
+
+** security_table
+   #+ATTR_HTML: :border 3 :rules all :frame border
+   | Column_name | Type         |
+   |-------------+--------------|
+   | id          | bigint       |
+   | name        | varchar(128) |
+   | margin      | boolean      |
+   #+BEGIN_SRC sql
+       CREATE TABLE if not exists security_table(
+       id int primary key auto_increment,
+       name varchar(128) not null,
+       margin_type boolean default false
+     )
+   #+END_SRC
+
+* Reference
+  https://www.percona.com/blog/2019/04/25/creating-custom-sysbench-scripts/

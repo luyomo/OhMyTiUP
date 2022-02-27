@@ -35,6 +35,9 @@ function event()
   -- Order select
   execute_select_order()
 
+  -- Trade select
+  execute_select_trade()
+
   -- Like above, if transactions are disabled,
   -- do not execute COMMIT
   if not sysbench.opt.skip_trx then
@@ -74,6 +77,36 @@ function execute_select_order()
              on t1.security_id = t3.id
       ]], math.random(maxId) ))
 
+end
+
+function execute_select_trade()
+
+  rs = con:query("select max(order_id) as max_id from trade_table")
+  for i = 1, rs.nrows do
+    maxId = unpack(rs:fetch_row(), 1, rs.nfields)
+  end
+  if maxId == nil then
+     return
+  end 
+
+--  print(string.format("The max id is <%d>", maxId))
+  rs = con:query(string.format([[
+    select t4.order_id
+         , t1.trade_id
+         , t3.name as security_name
+         , t2.name as client_name
+         , t1.price
+         , t1.quantity
+         , case when t1.buy_sell_flag = 0 then 'buy' else 'sell' end as buy_sell
+      from trade_table t1
+inner join client_table t2
+        on t1.client_id = t2.id
+       and trade_id = %d
+inner join security_table t3
+        on t1.security_id = t3.id
+inner join order_table t4
+        on t1.order_id = t4.order_id
+      ]], math.random(maxId) ))
 end
 
 function execute_insert_order()
