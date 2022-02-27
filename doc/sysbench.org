@@ -6,7 +6,7 @@
   + Process flow description
   + Table design
 * Run custom sysbench script
-  Before we go to the detail of the custom script, first go through the whole process how to use the custom script to do the benchmark. I give the example to use the script for benchmark.
+  Before we go to the detail of the custom script, first go through the whole process how to use the custom script to do the benchmark. I give the example to use the script for benchmark. Please find the [[./resources/sysbench_trade.lua][example source code]]
 ** Preparation
 *** sysbench install
    #+BEGIN_SRC
