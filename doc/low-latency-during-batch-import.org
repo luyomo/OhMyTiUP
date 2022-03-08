@@ -1,0 +1,131 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
+#+TITLE: High insert latency when the data is imported
+
+* Problem description
+  It takes about 30ms to complete one row data insert if there is no heavy process in the DB side. But when there are heavy batch processes running in the DB instance, the simple insert's latency might be impacted. This test shows the latency impact from batch processes.
+  The whole test secnario flow is as below:
+  + Start one loop process to insert 1 row every 3 seconds to similate the online query
+  + Start the batch data copy. Three batch insert size will be tested to see the difference.
+    [[./png/architecture-low-latency-druing-batch-import.png]]
+#+BEGIN_COMMENT
+  #+BEGIN_SRC plantuml :file ./png/architecture-low-latency-druing-batch-import.png
+participant InsertWork
+participant Main
+Main -> InsertWork
+activate InsertWork #FFBBBB
+InsertWork -> InsertWork: Insert one row every 3 seconds\r Online insert simulation
+Main -> BatchDataCopy: Batch Insert every \r(100,000/50,000/10,000) rows
+activate BatchDataCopy #DarkSalmon
+BatchDataCopy -> BatchDataCopy: Keep inserting
+BatchDataCopy -> Main
+deactivate BatchDataCopy
+Main -> InsertWork: Stop the insert process
+deactivate InsertWork
+  #+END_SRC
+#+END_COMMENT
+
+* Test
+** Table create preparation
+   #+BEGIN_SRC sql
+     MySQL [test]> create table test01(col01 int primary key, col02 int not null, col03 varchar(128) );                                                                                                          
+     Query OK, 0 rows affected (0.556 sec)
+     MySQL [test]> create table ontime01 like ontime; 
+     Query OK, 0 rows affected (0.205 sec)
+   #+END_SRC
+** Script preparation
+   + Batch data copy
+     #+BEGIN_SRC shell
+$ more 01.import.batch.sh 
+#!/bin/bash
+
+date
+for i in {1..50}
+do
+  mysql --connect-timeout 15 -u root -h private-tidb.6d2de4af.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -P 4000 -p1234Abcd test -e " insert into ontime01( Year, Quarter, Month, DayofMonth, DayOfWeek, F
+lightDate, UniqueCarrier, AirlineID, Carrier, TailNum, FlightNum, OriginAirportID, OriginAirportSeqID, OriginCityMarketID, Origin, OriginCityName, OriginState, OriginStateFips, OriginStateName, OriginWac,
+ DestAirportID, DestAirportSeqID, DestCityMarketID, Dest, DestCityName, DestState, DestStateFips, DestStateName, DestWac, CRSDepTime, DepTime, DepDelay, DepDelayMinutes, DepDel15, DepartureDelayGroups, De
+pTimeBlk, TaxiOut, WheelsOff, WheelsOn, TaxiIn, CRSArrTime, ArrTime, ArrDelay, ArrDelayMinutes, ArrDel15, ArrivalDelayGroups, ArrTimeBlk, Cancelled, CancellationCode, Diverted, CRSElapsedTime, ActualElaps
+edTime, AirTime, Flights, Distance, DistanceGroup, CarrierDelay, WeatherDelay, NASDelay, SecurityDelay, LateAircraftDelay, FirstDepTime, TotalAddGTime, LongestAddGTime, DivAirportLandings, DivReachedDest,
+ DivActualElapsedTime, DivArrDelay, DivDistance, Div1Airport, Div1AirportID, Div1AirportSeqID, Div1WheelsOn, Div1TotalGTime, Div1LongestGTime, Div1WheelsOff, Div1TailNum, Div2Airport, Div2AirportID, Div2A
+irportSeqID, Div2WheelsOn, Div2TotalGTime, Div2LongestGTime, Div2WheelsOff, Div2TailNum, Div3Airport, Div3AirportID, Div3AirportSeqID, Div3WheelsOn, Div3TotalGTime, Div3LongestGTime, Div3WheelsOff, Div3Ta
+ilNum, Div4Airport, Div4AirportID, Div4AirportSeqID, Div4WheelsOn, Div4TotalGTime, Div4LongestGTime, Div4WheelsOff, Div4TailNum, Div5Airport, Div5AirportID, Div5AirportSeqID, Div5WheelsOn, Div5TotalGTime,
+ Div5LongestGTime, Div5WheelsOff, Div5TailNum, timestamp_tidb ) select Year, Quarter, Month, DayofMonth, DayOfWeek, FlightDate, UniqueCarrier, AirlineID, Carrier, TailNum, FlightNum, OriginAirportID, Orig
+inAirportSeqID, OriginCityMarketID, Origin, OriginCityName, OriginState, OriginStateFips, OriginStateName, OriginWac, DestAirportID, DestAirportSeqID, DestCityMarketID, Dest, DestCityName, DestState, Dest
+StateFips, DestStateName, DestWac, CRSDepTime, DepTime, DepDelay, DepDelayMinutes, DepDel15, DepartureDelayGroups, DepTimeBlk, TaxiOut, WheelsOff, WheelsOn, TaxiIn, CRSArrTime, ArrTime, ArrDelay, ArrDelay
+Minutes, ArrDel15, ArrivalDelayGroups, ArrTimeBlk, Cancelled, CancellationCode, Diverted, CRSElapsedTime, ActualElapsedTime, AirTime, Flights, Distance, DistanceGroup, CarrierDelay, WeatherDelay, NASDelay
+, SecurityDelay, LateAircraftDelay, FirstDepTime, TotalAddGTime, LongestAddGTime, DivAirportLandings, DivReachedDest, DivActualElapsedTime, DivArrDelay, DivDistance, Div1Airport, Div1AirportID, Div1Airpor
+tSeqID, Div1WheelsOn, Div1TotalGTime, Div1LongestGTime, Div1WheelsOff, Div1TailNum, Div2Airport, Div2AirportID, Div2AirportSeqID, Div2WheelsOn, Div2TotalGTime, Div2LongestGTime, Div2WheelsOff, Div2TailNum
+, Div3Airport, Div3AirportID, Div3AirportSeqID, Div3WheelsOn, Div3TotalGTime, Div3LongestGTime, Div3WheelsOff, Div3TailNum, Div4Airport, Div4AirportID, Div4AirportSeqID, Div4WheelsOn, Div4TotalGTime, Div4
+LongestGTime, Div4WheelsOff, Div4TailNum, Div5Airport, Div5AirportID, Div5AirportSeqID, Div5WheelsOn, Div5TotalGTime, Div5LongestGTime, Div5WheelsOff, Div5TailNum, timestamp_tidb from ontime limit 100000"
+done
+date
+     #+END_SRC
+   + One row insertion
+     #+BEGIN_SRC shell
+$ more 02.data.insert.sh 
+#!/bin/bash
+
+time mysql -u root -h private-tidb.6d2de4af.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -P 4000 -p1234Abcd test -e "delete from test01 "
+for i in {1..10000}
+do
+    sleep 3
+    time mysql -u root -h private-tidb.6d2de4af.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -P 4000 -p1234Abcd test -e "insert into test01 values($i,1,'This is the test message ')" 1>> ./check.log
+done
+
+     #+END_SRC
+** Test result
+*** Without any batch process
+No slow queries
+
+*** Insert 5 millions volume data every 100,000 rows
+   + Batch data copy Execution time: 06:39
+   + Slow query - one row insert
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     | No | Execution Time |
+     |----+----------------|
+     |  1 | 31.554s        |
+     |  2 | 31.554s        |
+     |  3 | 1.485          |
+     |  4 | 1.065          |
+     |  5 | 1.014          |
+   + Execution period
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     |       | Timestamp |
+     |-------+-----------|
+     | start |  10:32:12 |
+     | end   |  10:38:51 |
+*** Insert 5 millions volume data every 50,000 rows
+   + Batch data copy Execution time: 05:35
+   + Slow query - one row insert
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     | No | Execution time |
+     |----+----------------|
+     |  1 | 0.231s         |
+     |  2 | 0.153s         |
+     |  3 | 0.142s         |
+     |  4 | 0.120s         |
+   + Execution period
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     |       | Timestamp |
+     |-------+-----------|
+     | start |  11:00:09 |
+     | end   |  11:05:44 |
+
+** Insert 5 million volume data every 10,000 rows
+   + Batch data copy Execution time: 05:11
+   + Slow query - one row insert
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     | No | Execution time |
+     |----+----------------|
+     |  1 | 0.154s         |
+     |  2 | 0.148s         |
+   + Execution period
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     |       | Timestamp |
+     |-------+-----------|
+     | start |  12:45:33 |
+     | end   |  12:50:44 |
+
+** Apply log duration per server
+   [[./png/low-insert-latency-when-data-import.graph.png]]
