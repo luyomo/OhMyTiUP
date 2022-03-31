@@ -117,7 +117,7 @@ $tiup bench tpch --sf=10 prepare -H 10.146.15.206 -P 4000 -U root -D test_tiflas
 
 
 $ tiup bench tpch --sf=1 run --queries=22 -H 10.146.0.61 -P 4000 -U root -D test
-
+0
 
 alter table customer set tiflash replica 2;
 alter table lineitem set tiflash replica 2;
@@ -160,6 +160,7 @@ alter table supplier set tiflash replica 0;
  #+BEGIN_SRC
 ./bin/aws template
 #+END_SRC
+
 
 
 

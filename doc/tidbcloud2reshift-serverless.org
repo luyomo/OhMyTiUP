@@ -1,0 +1,247 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
+* Description
+  [[./png/TiDBCloud2Redshift.png]]
+  As one general approach, in order to copy data from TiDB Cloud to redshift, one EC2 instance has to be setup on which the binary is needed to be installed. To save this long process, one solution is to use lambda(serverless) to skip the EC2. This article is to explain how to copy the data from TiDB Cloud to Redshift with lambda and S3.
+* Use lambda for data copy from TiDB Cloud to REDSHIFT
+  + Bucket preparation
+    The S3 bucket is used to keep the source code, binary and exported data. The lambda source code download the dumpling binary to export data from TiDB Cloud. Keep the dumpling binary in the S3 is to contol the source code size. To deploy the python lambda and layer, push them to S3 bucket fisrt, from that it is deployed to lambda. Lastly, the data is exported to S3 from TiDB Cloud without disk planning.
+    #+BEGIN_SRC
+$ aws s3api create-bucket --bucket tidbcloudredshift --create-bucket-configuration LocationConstraint=ap-northeast-1 --region ap-northeast-1
+{
+    "Location": "http://tidbcloudredshift.s3.amazonaws.com/"
+}
+
+$ aws s3api put-object --bucket tidbcloudredshift --key data/
+{
+    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\""
+}
+
+$ aws s3api put-object --bucket tidbcloudredshift --key source_code/
+{
+    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\""
+}
+$ aws s3api put-object --bucket tidbcloudredshift --key lib/
+{
+    "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\""
+}
+    #+END_SRC
+  + Push tidb tool
+    #+BEGIN_SRC
+$ wget https://download.pingcap.org/tidb-toolkit-v5.4.0-linux-amd64.tar.gz
+$ tar xvf tidb-toolkit-v5.4.0-linux-amd64.tar.gz 
+tidb-toolkit-v5.4.0-linux-amd64/
+tidb-toolkit-v5.4.0-linux-amd64/bin/
+tidb-toolkit-v5.4.0-linux-amd64/bin/br
+tidb-toolkit-v5.4.0-linux-amd64/bin/tidb-lightning
+tidb-toolkit-v5.4.0-linux-amd64/bin/mydumper
+tidb-toolkit-v5.4.0-linux-amd64/bin/sync_diff_inspector
+tidb-toolkit-v5.4.0-linux-amd64/bin/pd-tso-bench
+tidb-toolkit-v5.4.0-linux-amd64/bin/tidb-lightning-ctl
+tidb-toolkit-v5.4.0-linux-amd64/bin/dumpling
+$ aws s3 sync ./tidb-toolkit-v5.4.0-linux-amd64 s3://tidbcloudredshift/lib/
+    #+END_SRC
+  + Create policy
+    The policy allows the lambda and redshift to access the S3 bucket for data export and data import. It is shared by lambda and redshift role.
+    #+BEGIN_SRC
+$ more policy4redshift.json 
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": "arn:aws:s3:::tidbcloudredshift/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::tidbcloudredshift"
+        }
+    ]
+}
+$ aws iam create-policy --policy-name policy4tidbcloudredshift --policy-document file://policy4redshift.json 
+{
+    "Policy": {
+        "PolicyName": "policy4tidbcloudredshift",
+        "PolicyId": "ANPAVTR2JPDXDMAII3MFL",
+        "Arn": "arn:aws:iam::385595570414:policy/policy4tidbcloudredshift",
+        "Path": "/",
+        "DefaultVersionId": "v1",
+        "AttachmentCount": 0,
+        "PermissionsBoundaryUsageCount": 0,
+        "IsAttachable": true,
+        "CreateDate": "2022-03-29T08:32:56Z",
+        "UpdateDate": "2022-03-29T08:32:56Z"
+    }
+}
+    #+END_SRC
+  + Create role for lambda
+    #+BEGIN_SRC
+$ aws iam create-role --role-name role4lambda --assume-role-policy-document '{"Version": "2012-10-17","Statement": [{ "Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"}, "Action": "sts:AssumeRole"}]}'
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "role4lambda",
+        "RoleId": "AROAVTR2JPDXFKAUWLSOG",
+        "Arn": "arn:aws:iam::385595570414:role/role4lambda",
+        "CreateDate": "2022-03-29T08:45:18Z",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+
+$ aws iam attach-role-policy --role-name role4lambda --policy-arn arn:aws:iam::385595570414:policy/policy4tidbcloudredshift
+$ aws iam attach-role-policy --role-name role4lambda --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+    #+END_SRC
+  + Create role for redshift access to S3
+    This role is created to be attached to redshift to allow redshift to access the data in the S3 for data import. For the detail how and why we set this role, please refere to []
+    #+BEGIN_SRC
+$ aws iam create-role --role-name role4redshift --assume-role-policy-document '{"Version": "2012-10-17","Statement": [{ "Effect": "Allow", "Principal": {"Service": "redshift.amazonaws.com"}, "Action": "sts:AssumeRole"}]}'
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "role4redshift",
+        "RoleId": "AROAVTR2JPDXJ2OJNYUCW",
+        "Arn": "arn:aws:iam::385595570414:role/role4redshift",
+        "CreateDate": "2022-03-29T08:50:51Z",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "redshift.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+$ aws iam attach-role-policy --role-name role4redshift --policy-arn arn:aws:iam::385595570414:policy/policy4tidbcloudredshift
+    #+END_SRC
+  + Create endpoints on both lambda's VPC and redshift's VPC
+    Because both TiDB Cloud and redshift are deployed in the private subnets, the lambda and redshift does not have access to S3 directly. In order to access the S3 in the private subnets, the S3 endpoint services have to be created.
+  + Lambda layer attachment
+    #+BEGIN_SRC
+$ mkdir python
+$ pip3 install sqlalchemy -t $(pwd)/python/
+$ pip3 install pymysql -t $(pwd)/python/
+$ git clone https://github.com/jkehler/awslambda-psycopg2.git
+$ cp -r awslambda-psycopg2/psycopg2-3.7 python/psycopg2
+$ zip -r lambda-layer.zip ./python
+$ aws s3 cp ./lambda-layer.zip s3://tidbcloudredshift/source_code/
+upload: ./lambda-layer.zip to s3://tidbcloudredshift/source_code/lambda-layer.zip
+$ aws lambda publish-layer-version --layer-name tidbcloud2redshift --description "Demo for data copy"  \
+  --license-info "MIT" --content S3Bucket=tidbcloudredshift,S3Key=source_code/lambda-layer.zip \
+  --compatible-runtimes python3.7
+{
+    "Content": {
+        "Location": "https://awslambda-ap-ne-1-layers.s3.ap-northeast-1.amazonaws.com/snapshots/385595570414/tidbcloud2redshift-958f2e8d-53d0-4722-9737-e4a9edd6a674?versionId=W57vsp20MKdW8MejKVHykksPEpkxDO44&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEEkaDmFwLW5vcnRoZWFzdC0xIkcwRQIhAO6zltoC9VofqaFlDRdq2QpRfrJrn%2Fvi7DdiByQ0vdwcAiAFDV%2FlNox%2FnSjrzydw%2Bq3nqWf10%2Bv2w0Zphg8yjEISOSqNBAjS%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAIaDDkxOTk4MDkyNTEzOSIMhxx72Qz4YEpc9N%2BaKuEDOL%2BklVMeLO1n%2FhnrH2Xk3%2B3Or4%2B0c8r5gGpJ1Rpe%2F4GkivCM5en%2FFioVOqUmHc%2FjoWb91VHW8kQ%2B1go3itPD9lIBSVm2XJLh0d5bBrz7RlNiCKjP1o9jPqhk1d2MHUJXqvRpft1K1Y8J1Bt2bpLqTMXIUwwex09%2FQTHSWfuHe3H5hX8NB7eA%2FSIGQNntLAmj7MybQze0HvUtp5q2R%2B3Erx407HvA7wr9fKAHWSCd3IKr%2FyrX8knE7nXjF3O45LbdqfBQAh6qzT%2FIk3QeesvWTo3CrUMgM7EoFuYmrQFLFg47woA6lWU%2Fou92x0fflvDlJTzR72OBQ2Kl9EFsLhcx97Q8QOZh1rPDbKGV1pgMSG%2BjVZdDioq5zoMjCSmFnZU3xItHSg0MJU9uJE%2F355UdoQUuHAi8liWkA0eSQWU3eQh84m2bkQqQbmSrPsXezgpFo7%2BHW72nVDiWnoyfQcPYAQjWVZ2BXa7hihA4akSAipSIYJNFOidHfnFJbW20m73JNWEn66HvE52YtvNogSVF1ZS4uij%2F4S5%2FK9lzfpfni1NHF56Iopwllca4Gwv8GQCRVYp8Xc%2FX7ibKDDzvnM31pXdfhiXKX2ZALbEk1LKFKB3beV86ZU%2F6zPrDL1hfwiL0qjCbk4uSBjqlAVfjPv42OGqZnmK35ECbjWSZWSgKtpmXuHzbrXX2u7JCC9ZOQxMv4f%2Bwh05gH8r9pAGbuhQNj2C6rAsHNAKX1opJeCvEg3Bc4wcWaJf5BstyRzAnt1BqXFKY%2BSmAcyivZCZwUeOQF5gjanyTTx5LoimTIV3g2hOEViM58%2B8%2BH4p0pS0LLhhHbxou17gBCkrbLwPHS%2FlihwavavHTjc6LnT4bO%2FscpQ%3D%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20220329T092924Z&X-Amz-SignedHeaders=host&X-Amz-Expires=600&X-Amz-Credential=ASIA5MMZC4DJWRDV4A5R%2F20220329%2Fap-northeast-1%2Fs3%2Faws4_request&X-Amz-Signature=a5ae033801bd95ff2d8880b77fca90c59bfde76077050f5996b270fd0532404e",
+        "CodeSha256": "2uospbQd7xxeINucUnw0gxUVpA7thXGhNcARwM4+w0E=",
+        "CodeSize": 4550209
+    },
+    "LayerArn": "arn:aws:lambda:ap-northeast-1:385595570414:layer:tidbcloud2redshift",
+    "LayerVersionArn": "arn:aws:lambda:ap-northeast-1:385595570414:layer:tidbcloud2redshift:1",
+    "Description": "Demo for data copy",
+    "CreatedDate": "2022-03-29T09:29:28.787+0000",
+    "Version": 1,
+    "CompatibleRuntimes": [
+        "python3.7"
+    ],
+    "LicenseInfo": "MIT"
+}
+
+    #+END_SRC
+  + Redshift setup
+    Make sure attache the role role4redshift to redshift cluster
+  + Lambda function
+    copy the source file [[./resources/lambda-data-copy-from-tidbcloud-2-redshift/main.py][python source code]] to lambda/main.py and make the zip file as below
+    #+BEGIN_SRC
+admin@ip-172-81-11-88:~$ cd lambda/
+admin@ip-172-81-11-88:~/lambda$ zip -q -r lambda.zip * 
+admin@ip-172-81-11-88:~/lambda$ ls
+lambda.zip  main.py
+admin@ip-172-81-11-88:~/lambda$ aws lambda create-function \
+     --function-name tidb2redshift \
+     --runtime python3.7 \
+     --zip-file fileb://lambda.zip \
+     --handler main.lambda_handler \
+     --vpc-config SubnetIds=subnet-065c16a37ad39cda4,SecurityGroupIds=sg-02a5af8d81b32cd8e \
+     --layers "arn:aws:lambda:ap-northeast-1:385595570414:layer:tidbcloud2redshift:1" \
+     --environment Variables="{BUCKET_NAME=tidbcloudredshift,RD_HOST='tidbcloud2redshift.c0etc6q3cp6v.ap-northeast-1.redshift.amazonaws.com',RD_NAME=dev,RD_PASS=1234Abcd,RD_PORT=5439,RD_USER=awsuser,REDSHIFT_ROLE='arn:aws:iam::385595570414:role/role4redshift',S3_DATA_FOLDER=data,S3_LIB_FOLDER='lib/bin',S3_REGION='ap-northeast-1',TiDB_HOST=172.30.91.140,TiDB_PASS=1234Abcd,TiDB_PORT=4000,TiDB_USER=root}" \
+     --role arn:aws:iam::385595570414:role/role4lambda
+
+{                                                                                                                                                                                                   [6/4619]
+    "FunctionName": "tidb2redshift",
+    "FunctionArn": "arn:aws:lambda:ap-northeast-1:385595570414:function:tidb2redshift",    
+    "Runtime": "python3.7",    
+    "Role": "arn:aws:iam::385595570414:role/role4lambda",
+    "Handler": "main.lambda_handler",
+    "CodeSize": 1372,
+    "Description": "",                       
+    "Timeout": 3,
+    "MemorySize": 128,
+    "LastModified": "2022-03-31T04:00:46.197+0000", 
+    "CodeSha256": "GRHC8bm8z7f7jlwG1kUFk7TMzYZWDqymySmpsJn3xNA=",
+    "Version": "$LATEST",
+    "VpcConfig": {
+        "SubnetIds": [
+            "subnet-065c16a37ad39cda4"
+        ],
+        "SecurityGroupIds": [
+            "sg-02a5af8d81b32cd8e"
+        ],
+        "VpcId": "vpc-08b59bfa6398897a2"
+    },
+    "Environment": {
+        "Variables": {
+            "TiDB_HOST": "172.30.91.140",
+            "S3_REGION": "ap-northeast-1",
+            "RD_PORT": "5439",
+            "TiDB_PASS": "1234Abcd",
+            "TiDB_USER": "root",
+            "REDSHIFT_ROLE": "arn:aws:iam::385595570414:role/role4redshift",
+            "RD_HOST": "tidbcloud2redshift.c0etc6q3cp6v.ap-northeast-1.redshift.amazonaws.com",
+            "S3_DATA_FOLDER": "data",
+            "RD_USER": "awsuser",
+            "RD_PASS": "1234Abcd",
+            "TiDB_PORT": "4000",
+            "S3_LIB_FOLDER": "lib/bin",
+            "BUCKET_NAME": "tidbcloudredshift",
+            "RD_NAME": "dev"
+        }
+    },
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    },
+    "RevisionId": "6896e2d3-7aad-4964-88b3-a42a2ff25f68",
+    "Layers": [
+        {
+            "Arn": "arn:aws:lambda:ap-northeast-1:385595570414:layer:tidbcloud2redshift:1",
+            "CodeSize": 4550209
+        }
+    ]
+}
+    #+END_SRC
+  + Extend the timeout of the lambda to 1 minute
+    Extend the timeout for lambda to 1 minute from 3 seconds. According to the data volume, the timeout needs to be adjusted. The Script will not create the test table automatically. Please create the same table on the TiDB Cloud and redshift.
+  + event setup to call data sync

@@ -13,23 +13,32 @@
 ** TiDB Cloud on aws solution
  #+CAPTION: Index of all topics on aws
  #+ATTR_HTML: :border 2 :rules all :frame border
- | Link                                                              | Comment                                                  | Source |
- |-------------------------------------------------------------------+----------------------------------------------------------+--------|
- | [[./copyDataTiDB2Aurora.org][Data Migration from TiDB Cloud To Aurora MySQL]]                    | data copy from TiDB Cloud to Aurora through S3           |        |
- | [[./tidb2aurora.org][Incremental Replication from TiDB Cloud To Aurora]]                 | TiDB Cloud -> TiCDC -> Aurora                            |        |
- | [[./tidb2aurora_cloudformation.org][Incremental Replication from TiDB Cloud To Aurora(cloudformation)]] | TiDB Cloud -> TiCDC -> Aurora(cloudformation deployment) |        |
- | [[./tidb-on-eks.org][Migration from TiDB-on-EKS to TiDB Cloud]]                          |                                                          |        |
- | Data Migration from TiDB Cloud to TiDB-on-eks(S3)                 |                                                          |        |
- | Data Migration from TiDB Cloud to Aurora(S3)                      |                                                          |        |
- | Data Migration from Aurora(S3) to TiDB Cloud                      |                                                          |        |
- | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]                                    | Redshift --federated query--> TiDB Cloud                 |        |
- | Grant S3 bucket/folder permission to TiDB Cloud account           |                                                          |        |
- | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                          |        |
- | Setup TiDB Cloud VPC peering                                      |                                                          |        |
+ | Link                                                              | Comment                                                                                                           | Source |
+ |-------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+--------|
+ | [[./copyDataTiDB2Aurora.org][Data Migration from TiDB Cloud To Aurora MySQL]]                    | data copy from TiDB Cloud to Aurora through S3                                                                    |        |
+ | [[./tidb2aurora.org][Incremental Replication from TiDB Cloud To Aurora]]                 | TiDB Cloud -> TiCDC -> Aurora                                                                                     |        |
+ | [[./tidb2aurora_cloudformation.org][Incremental Replication from TiDB Cloud To Aurora(cloudformation)]] | TiDB Cloud -> TiCDC -> Aurora(cloudformation deployment)                                                          |        |
+ | [[./tidb-on-eks.org][Migration from TiDB-on-EKS to TiDB Cloud]]                          |                                                                                                                   |        |
+ | Data Migration from TiDB Cloud to TiDB-on-eks(S3)                 |                                                                                                                   |        |
+ | Data Migration from TiDB Cloud to Aurora(S3)                      |                                                                                                                   |        |
+ | Data Migration from Aurora(S3) to TiDB Cloud                      |                                                                                                                   |        |
+ | [[./tidb-on-eks.deployment.org][TiDB Deployment on EKS]]                                            |                                                                                                                   |        |
+ | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]                                    | Redshift --federated query--> TiDB Cloud(Not supported any more since redshift only allow the access to RDS by CA |        |
+ | [[./tidbcloud2reshift-serverless.org][Serverless data migration from TiDBCloud To Redshift]]              | Use lambda function to migrate the data from TiDBCloud to redshift                                                |        |
+ | Grant S3 bucket/folder permission to TiDB Cloud account           |                                                                                                                   |        |
+ | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                                                                                   |        |
+ | Setup TiDB Cloud VPC peering                                      |                                                                                                                   |        |
 
 
+** Troubleshooting
+   
 
-
+    #+CAPTION: Index of all topics on aws
+ #+ATTR_HTML: :border 2 :rules all :frame border
+ | Link                                   | Comment                                           | Source |
+ |----------------------------------------+---------------------------------------------------+--------|
+ | [[./low-latency-during-batch-import.org][Low latency during heavy batch]]         | Simple insert latency increase during large batch |        |
+ | [[./scala-driver.org][connection failure for jdbc connection]] | Connection failure (connect/j) to TiDB Cloud      |        |
 
 * Roadmap
 ** Common
