@@ -39,6 +39,7 @@
  |----------------------------------------+---------------------------------------------------+--------|
  | [[./low-latency-during-batch-import.org][Low latency during heavy batch]]         | Simple insert latency increase during large batch |        |
  | [[./scala-driver.org][connection failure for jdbc connection]] | Connection failure (connect/j) to TiDB Cloud      |        |
+ | [[./prometheus2datadog.org][Prometheus datadog integration]]]        | Integrate prometheus to datadog                   |        |
 
 * Roadmap
 ** Common
