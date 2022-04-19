@@ -1,0 +1,114 @@
+* Architecture
+  [[./png/datadog/datadog.architure.png]]
+* Procedure
+** Check the TiDB info
+   [[./png/datadog/datadog.01.png]]
+** Datadog agent installation
+   [[./png/datadog/datadog.02.png]]
+   Go to the below link to follow the instructions to install the datadog agent.[[https://app.datadoghq.com/account/settings#agent][datadog agent installation]]
+#+BEGIN_SRC
+$ DD_AGENT_MAJOR_VERSION=7 DD_API_KEY=dddddddddddddddddddddddddd DD_SITE="datadoghq.com" bash -c "$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script.sh)"
+
+... ... 
+ Adding your API key to the Datadog Agent configuration: /etc/datadog-agent/datadog.yaml
+
+
+ * Setting SITE in the Datadog Agent configuration: /etc/datadog-agent/datadog.yaml
+
+/usr/bin/systemctl
+ * Starting the Datadog Agent...
+
+
+
+Your Datadog Agent is running and functioning properly. It will continue
+to run in the background and submit metrics to Datadog.
+
+If you ever want to stop the Datadog Agent, run:
+
+    sudo systemctl stop datadog-agent
+
+And to run it again run:
+
+    sudo systemctl start datadog-agent
+
+#+END_SRC
+
+** Copy the openmetrics conf file
+#+BEGIN_SRC
+$ sudo cp /etc/datadog-agent/conf.d/openmetrics.d/conf.yaml.example /etc/datadog-agent/conf.d/openmetrics.d/conf.yaml
+$ sudo tail /etc/datadog-agent/conf.d/openmetrics.d/conf.yaml
+... ...
+
+  -
+    openmetrics_endpoint: http://172.83.1.212:10080/metrics
+    namespace: "grafanatest.tidb.01"
+    metrics:
+      - tidb_*
+#+END_SRC
+*** Restart the service
+#+BEGIN_SRC
+$ sudo service datadog-agent restart
+$ sudo service datadog-agent status
+ * datadog-agent.service - Datadog Agent
+  Loaded: loaded (/lib/systemd/system/datadog-agent.service; enabled; vendor preset: enabled)
+  Active: active (running) since Mon 2022-04-18 22:08:43 UTC; 4s ago
+Main PID: 9942 (agent)
+  Tasks: 13 (limit: 4915)
+  Memory: 69.9M
+  CGroup: /system.slice/datadog-agent.service
+     9942 /opt/datadog-agent/bin/agent/agent run -p /opt/datadog-agent/run/agent.pid
+#+END_SRC
+*** Check the status
+#+BEGIN_SRC
+$ sudo -u dd-agent -- datadog-agent check openmetrics
+=== Series ===                                                                                                                                                          [148/4822]
+[                                           
+  {                                                                                                                                                                               
+    "metric": "grafanatest.tidb.01.tidb_server_prepared_stmts",
+... ...
+=== Service Checks ===
+[
+  {
+    "check": "grafanatest.tidb.01.openmetrics.health",
+    "host_name": "i-0b6105bb98d9d170d",
+    "timestamp": 1650320491,
+    "status": 0,
+    "message": "",
+    "tags": [
+      "endpoint:http://172.83.1.212:10080/metrics"
+    ]
+  }
+]
+=========
+Collector
+=========
+
+  Running Checks
+  ==============
+    
+    openmetrics (2.0.0)
+    -------------------
+      Instance ID: openmetrics:grafanatest.tidb.01:87f9b765e3598fa9 [WARNING]
+      Configuration Source: file:/etc/datadog-agent/conf.d/openmetrics.d/conf.yaml
+      Total Runs: 1
+      Metric Samples: Last Run: 2,000, Total: 2,000
+      Events: Last Run: 0, Total: 0
+      Service Checks: Last Run: 1, Total: 1
+      Average Execution Time : 138ms
+      Last Execution Date : 2022-04-18 22:21:31 UTC (1650320491000)
+      Last Successful Execution Date : 2022-04-18 22:21:31 UTC (1650320491000)
+      
+      Warning: Check openmetrics exceeded limit of 2000 metrics, ignoring next ones
+        
+
+Check has run only once, if some metrics are missing you can try again with --check-rate to see any other metric if available.
+
+#+END_SRC
+
+*** Check the metrics on the DATADOG dashboard
+    [[./png/datadog/datadog.03.png]]
+    [[./png/datadog/datadog.04.png]]
+
+
+* NOTE
+  https://docs.datadoghq.com/ja/agent/basic_agent_usage/deb/?tab=agentv6v7
