@@ -1,0 +1,236 @@
+#+OPTIONS: \n:t
+* OhMyTiup
+  TiUP is one great deployment tool for TiDB. Once all the servers are available, it's very easy to deploy TiDB cluster with one config file. But how about installing the TiDB on the aws cloud.
+  Before installing the TiDB on the aws, we need to prepare all the EC2 resource in advance. Please check the following resources to create.
+  + VPC
+  + subnets
+  + route table
+  + security group
+  + Internet gateway
+  + EC2 nodes
+  It's really one boring process to prepare all the resouces. And after that, the config file has to been prepared with all the IPs. To reduce all these works. The OhMyTiIP is prepared to install TiDB on the AWS with one command.
+
+* TiDB Creation
+** Config file preparation
+   Config the file according the requirement.
+   #+BEGIN_SRC
+$cp embed/examples/aws/aws-nodes-tidb.yaml /tmp/aws-nodes-tidb.yaml
+$more /tmp/aws-nodes-tidb-.yaml
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-0ac97798ccf296e02
+    region: ap-northeast-1
+    name: tisamplenodes
+    keyname: jay.pingcap
+    keyfile: /home/tidb/.ssh/key-name.pem
+    cidr: 172.83.0.0/16
+    instance_type: m5.2xlarge
+    tidb_version: v5.3.1
+  pd:
+    instance_type: m5.2xlarge
+    count: 3
+  tidb:
+    instance_type: m5.2xlarge
+    count: 2
+  tikv:
+    instance_type: m5.2xlarge
+    count: 3
+  dm:
+    instance_type: m5.2xlarge
+    count: 2
+  ticdc:
+    instance_type: t2.micro
+    count: 1
+   #+END_SRC
+
+** Create the EC2 nodes and TiDB cluster
+   #+BEGIN_SRC
+$./bin/aws tidb2ms deploy demo-tidb /tmp/aws-nodes-tidb.yaml
+./bin/aws tidb2ms deploy demo-tidb /tmp/aws-nodes-tidb.yaml
+Please confirm your topology:                                                            
+AWS Region:      Tokyo                                                                   
+Cluster type:    tidb                                                                    
+Cluster name:    demo-tidb        
+Cluster version: v5.1.0            
+User Name:       admin                                                                   
+Key Name:        jay                                                                     
+                                                                                         
+Component    # of nodes  Instance Type  Image Name             CIDR           User
+---------    ----------  -------------  ----------             ----           ----
+Workstation  1           m5.2xlarge     ami-0ac97798ccf296e02  172.82.0.0/16  admin
+TiDB         2           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+PD           3           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+TiKV         3           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+TiCDC        1           t2.micro       ami-0ac97798ccf296e02  172.83.0.0/16  master                                                                                              
+DM           2           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+Attention:
+    1. If the topology is not what you expected, check your yaml file.
+    2. Please confirm there is no port/directory conflicts in same host.
+Do you want to continue? [y/N]: (default=N) y
+... ...
++ Deploying tidb2ms solution service ... ...
+  - Prepare DMS servicer and additional network resources :22 ... Done
+
+Verbose debug logs has been written to /home/pi/.tiup/logs/aws-nodes-debug-2022-04-20-15-11-12.log.
+   #+END_SRC
+
+** List all the resources
+   #+BEGIN_SRC
+./bin/aws tidb2ms list demo-tidb                                                                                                                [39/4554]
++ Listing aws resources                                                                  
+  - Listing VPC ... Done                                                                 
+  - Listing Subnets ... Done                                                             
+  - Listing Route Tables ... Done                                                        
+  - Listing Security Groups ... Done                                                     
+  - Listing Transit gateway  ... Done                                                    
+  - Listing Transit gateway vpc attachment ... Done           
+  - Listing EC2 ... Done                                                                 
+  - Listing Load Balancer  ... Done                                                      
+Cluster  Type:      ohmytiup-tidb2ms                                                     
+Cluster Name :      demo-tidb                                                            
+                                                                                         
+Resource Type:      VPC                                                                  
+Component Name  VPC ID                 CIDR           Status
+--------------  ------                 ----           ------
+tidb            vpc-03c9e8c8ebd6dc379  172.83.0.0/16  available
+workstation     vpc-08b3f64b0e2da3ab5  172.82.0.0/16  available
+                                                                                         
+Resource Type:      Subnet                                                               
+Component Name  Zone             Subnet ID                 CIDR            State      VPC ID
+--------------  ----             ---------                 ----            -----      ------
+tidb            ap-northeast-1a  subnet-0925eb6bc96a0f078  172.83.1.0/24   available  vpc-03c9e8c8ebd6dc379
+tidb            ap-northeast-1c  subnet-04276e4efe84f4013  172.83.2.0/24   available  vpc-03c9e8c8ebd6dc379
+tidb            ap-northeast-1d  subnet-0f599a88fca8c9650  172.83.3.0/24   available  vpc-03c9e8c8ebd6dc379
+workstation     ap-northeast-1a  subnet-04d8a1197b487e759  172.82.11.0/24  available  vpc-08b3f64b0e2da3ab5
+                                                                                                                                                                                  
+Resource Type:      Route Table                                                                                                                                                   
+Component Name  Route Table ID         DestinationCidrBlock  TransitGatewayId       GatewayId              State   Origin         
+--------------  --------------         --------------------  ----------------       ---------              -----   ------         
+tidb            rtb-0e0c8962f43524767  172.82.0.0/16         tgw-056ec95c3166c9f67                         active  CreateRoute    
+tidb            rtb-0e0c8962f43524767  172.83.0.0/16                                local                  active  CreateRouteTable
+workstation     rtb-0242b9748b3bea5af  172.82.0.0/16                                local                  active  CreateRouteTable
+workstation     rtb-0242b9748b3bea5af  172.83.0.0/16         tgw-056ec95c3166c9f67                         active  CreateRoute    
+workstation     rtb-0242b9748b3bea5af  0.0.0.0/0                                    igw-0074cec5f85d57962  active  CreateRoute    
+Resource Type:      Security Group                                                                                                                                        [3/4554]
+Component Name  Ip Protocol  Source Ip Range  From Port  To Port                                                                                                                  
+--------------  -----------  ---------------  ---------  -------                                                                                                                  
+tidb            tcp          0.0.0.0/0        8300       8300                                                                                                                     
+tidb            tcp          0.0.0.0/0        1433       1433
+tidb            tcp          172.83.0.0/16    0          65535
+tidb            tcp          0.0.0.0/0        20180      20180
+tidb            tcp          0.0.0.0/0        22         22
+tidb            tcp          0.0.0.0/0        4000       4000
+tidb            tcp          0.0.0.0/0        2379       2379
+tidb            tcp          0.0.0.0/0        20160      20160
+tidb            tcp          0.0.0.0/0        2380       2380
+tidb            tcp          0.0.0.0/0        3306       3306
+tidb            icmp         172.83.0.0/16    -1         -1
+tidb            tcp          0.0.0.0/0        10080      10080
+workstation     tcp          0.0.0.0/0        80         80
+workstation     tcp          172.82.0.0/16    0          65535
+workstation     tcp          0.0.0.0/0        22         22
+workstation     icmp         172.82.0.0/16    -1         -1
+
+Resource Type:      Transit Gateway
+Resource ID  :      tgw-056ec95c3166c9f67    State: available 
+Component Name  VPC ID                 State 
+--------------  ------                 ----- 
+tidb            vpc-03c9e8c8ebd6dc379  available
+workstation     vpc-08b3f64b0e2da3ab5  available
+
+Load Balancer:      demo-tidb-ae2c828cb0134970.elb.ap-northeast-1.amazonaws.com
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP    Public IP     Image ID
+--------------  -----------------  -----    -----------          -------------  -----------    ---------     --------
+dm              tidb               running  i-01ef16b9ebe410043  m5.2xlarge     172.83.1.37                  ami-0ac97798ccf296e02
+dm              tidb               running  i-0ced85fb0c06e60ec  m5.2xlarge     172.83.2.103                 ami-0ac97798ccf296e02
+pd              tidb               running  i-0f5ee16db90cce04e  m5.2xlarge     172.83.2.172                 ami-0ac97798ccf296e02
+pd              tidb               running  i-08e507cbb0fd85ebf  m5.2xlarge     172.83.1.157                 ami-0ac97798ccf296e02
+pd              tidb               running  i-013225724b2655a10  m5.2xlarge     172.83.3.156                 ami-0ac97798ccf296e02
+ticdc           tidb               running  i-0fb6bef838ca64432  t2.micro       172.83.1.35                  ami-0ac97798ccf296e02
+tidb            tidb               running  i-0992197c8e9d669ef  m5.2xlarge     172.83.1.143                 ami-0ac97798ccf296e02
+tidb            tidb               running  i-0c9cc763185e541be  m5.2xlarge     172.83.2.32                  ami-0ac97798ccf296e02
+tikv            tidb               running  i-08af52d0661210d53  m5.2xlarge     172.83.2.73                  ami-0ac97798ccf296e02
+tikv            tidb               running  i-0b44220adde5b57ef  m5.2xlarge     172.83.1.171                 ami-0ac97798ccf296e02
+tikv            tidb               running  i-011d223f561f8aa99  m5.2xlarge     172.83.3.44                  ami-0ac97798ccf296e02
+workstation     workstation        running  i-028ac3ecd2f25bd78  m5.2xlarge     172.82.11.207  54.250.52.93  ami-0ac97798ccf296e02
+
+   #+END_SRC
+
+** Login the workstation to check tidb cluster
+   #+BEGIN_SRC
+$ ssh -i '~/.ssh/jaypingcap.pem' admin@54.250.52.93
+$ tiup cluster list 
+tiup is checking updates for component cluster ...
+Starting component `cluster`: /home/admin/.tiup/components/cluster/v1.9.4/tiup-cluster /home/admin/.tiup/components/cluster/v1.9.4/tiup-cluster list
+Name       User   Version  Path                                                  PrivateKey
+----       ----   -------  ----                                                  ----------
+demo-tidb  admin  v5.3.1   /home/admin/.tiup/storage/cluster/clusters/demo-tidb  /home/admin/.tiup/storage/cluster/clusters/demo-tidb/ssh/id_rsa
+$ tiup cluster display demo-tidb 
+tiup is checking updates for component cluster ...
+Starting component `cluster`: /home/admin/.tiup/components/cluster/v1.9.4/tiup-cluster /home/admin/.tiup/components/cluster/v1.9.4/tiup-cluster display demo-tidb
+Cluster type:       tidb
+Cluster name:       demo-tidb
+Cluster version:    v5.3.1
+Deploy user:        admin
+SSH type:           builtin
+Dashboard URL:      http://172.83.1.157:2379/dashboard
+ID                  Role  Host          Ports        OS/Arch       Status  Data Dir                               Deploy Dir
+--                  ----  ----          -----        -------       ------  --------                               ----------
+172.83.1.157:2379   pd    172.83.1.157  2379/2380    linux/x86_64  Up|UI   /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.2.172:2379   pd    172.83.2.172  2379/2380    linux/x86_64  Up      /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.3.156:2379   pd    172.83.3.156  2379/2380    linux/x86_64  Up|L    /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.1.143:4000   tidb  172.83.1.143  4000/10080   linux/x86_64  Up      -                                      /home/admin/tidb/tidb-deploy/tidb-4000
+172.83.2.32:4000    tidb  172.83.2.32   4000/10080   linux/x86_64  Up      -                                      /home/admin/tidb/tidb-deploy/tidb-4000
+172.83.1.171:20160  tikv  172.83.1.171  20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+172.83.2.73:20160   tikv  172.83.2.73   20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+172.83.3.44:20160   tikv  172.83.3.44   20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+Total nodes: 8
+
+   #+END_SRC
+
+** Login the TiDB
+   #+BEGIN_SRC
+$ $ mysql -h demo-tidb-ae2c828cb0134970.elb.ap-northeast-1.amazonaws.com -u root -P 4000   
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 801
+Server version: 5.7.25-TiDB-v5.3.1 TiDB Server (Apache License 2.0) Community Edition, MySQL 5.7 compatible
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [(none)]> show databases;
++--------------------+
+| Database           |
++--------------------+
+| INFORMATION_SCHEMA |
+| METRICS_SCHEMA     |
+| PERFORMANCE_SCHEMA |
+| mysql              |
+| test               |
++--------------------+
+5 rows in set (0.003 sec)
+   #+END_SRC
+
+* TiDB Destroy
+  #+BEGIN_SRC
+$./bin/aws tidb2ms destroy demo-tidb
+... ...
++ Destroying all the componets
+  - Destroying EC2 nodes cluster demo-tidb  ... Done
+  - Destroying aurora db cluster demo-tidb  ... Done
+  - Destroying sqlserver cluster demo-tidb  ... Done
+  - Destroying workstation cluster demo-tidb  ... Done
+  - Destroying cloudformation demo-tidb  ... Done
+
+  #+END_SRC
+
+
+* Alternatives
+There are alternatives to achive the similar objectives.
+  + cloudform
+  + EKS
+  + ansible(etc)
+All these other tools help to achieve similar objectives. Will show the cloudform and EKS demo in the future. As for the ansible, I do not like it very well. One command is really good idea.

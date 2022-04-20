@@ -1,0 +1,530 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2022-04-20 水 16:24 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>&lrm;</title>
+<meta name="generator" content="Org mode" />
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: auto;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline; margin-top: 14px;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .equation-container {
+    display: table;
+    text-align: center;
+    width: 100%;
+  }
+  .equation {
+    vertical-align: middle;
+  }
+  .equation-label {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+  }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+<script type="text/javascript">
+// @license magnet:?xt=urn:btih:1f739d935676111cfff4b4693e3816e664797050&amp;dn=gpl-3.0.txt GPL-v3-or-Later
+<!--/*--><![CDATA[/*><!--*/
+     function CodeHighlightOn(elem, id)
+     {
+       var target = document.getElementById(id);
+       if(null != target) {
+         elem.classList.add("code-highlighted");
+         target.classList.add("code-highlighted");
+       }
+     }
+     function CodeHighlightOff(elem, id)
+     {
+       var target = document.getElementById(id);
+       if(null != target) {
+         elem.classList.remove("code-highlighted");
+         target.classList.remove("code-highlighted");
+       }
+     }
+    /*]]>*///-->
+// @license-end
+</script>
+</head>
+<body>
+<div id="content">
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#org8a382fb">1. OhMyTiup</a></li>
+<li><a href="#orgc121512">2. TiDB Creation</a>
+<ul>
+<li><a href="#org3385143">2.1. Config file preparation</a></li>
+<li><a href="#org49b1be4">2.2. Create the EC2 nodes and TiDB cluster</a></li>
+<li><a href="#org448bb2c">2.3. List all the resources</a></li>
+<li><a href="#orgf795bde">2.4. Login the workstation to check tidb cluster</a></li>
+<li><a href="#orgdfe3cbf">2.5. Login the TiDB</a></li>
+</ul>
+</li>
+<li><a href="#orgaaad967">3. TiDB Destroy</a></li>
+<li><a href="#org4664b5e">4. Alternatives</a></li>
+</ul>
+</div>
+</div>
+<div id="outline-container-org8a382fb" class="outline-2">
+<h2 id="org8a382fb"><span class="section-number-2">1.</span> OhMyTiup</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+TiUP is one great deployment tool for TiDB. Once all the servers are available, it's very easy to deploy TiDB cluster with one config file. But how about installing the TiDB on the aws cloud.<br />
+Before installing the TiDB on the aws, we need to prepare all the EC2 resource in advance. Please check the following resources to create.<br />
+</p>
+<ul class="org-ul">
+<li>VPC<br /></li>
+<li>subnets<br /></li>
+<li>route table<br /></li>
+<li>security group<br /></li>
+<li>Internet gateway<br /></li>
+<li>EC2 nodes<br /></li>
+</ul>
+<p>
+It's really one boring process to prepare all the resouces. And after that, the config file has to been prepared with all the IPs. To reduce all these works. The OhMyTiIP is prepared to install TiDB on the AWS with one command.<br />
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgc121512" class="outline-2">
+<h2 id="orgc121512"><span class="section-number-2">2.</span> TiDB Creation</h2>
+<div class="outline-text-2" id="text-2">
+</div>
+<div id="outline-container-org3385143" class="outline-3">
+<h3 id="org3385143"><span class="section-number-3">2.1.</span> Config file preparation</h3>
+<div class="outline-text-3" id="text-2-1">
+<p>
+Config the file according the requirement.<br />
+</p>
+<pre class="example">
+$cp embed/examples/aws/aws-nodes-tidb.yaml /tmp/aws-nodes-tidb.yaml
+$more /tmp/aws-nodes-tidb-.yaml
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-0ac97798ccf296e02
+    region: ap-northeast-1
+    name: tisamplenodes
+    keyname: jay.pingcap
+    keyfile: /home/tidb/.ssh/key-name.pem
+    cidr: 172.83.0.0/16
+    instance_type: m5.2xlarge
+    tidb_version: v5.3.1
+  pd:
+    instance_type: m5.2xlarge
+    count: 3
+  tidb:
+    instance_type: m5.2xlarge
+    count: 2
+  tikv:
+    instance_type: m5.2xlarge
+    count: 3
+  dm:
+    instance_type: m5.2xlarge
+    count: 2
+  ticdc:
+    instance_type: t2.micro
+    count: 1
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org49b1be4" class="outline-3">
+<h3 id="org49b1be4"><span class="section-number-3">2.2.</span> Create the EC2 nodes and TiDB cluster</h3>
+<div class="outline-text-3" id="text-2-2">
+<pre class="example">
+$./bin/aws tidb2ms deploy demo-tidb /tmp/aws-nodes-tidb.yaml
+./bin/aws tidb2ms deploy demo-tidb /tmp/aws-nodes-tidb.yaml
+Please confirm your topology:                                                            
+AWS Region:      Tokyo                                                                   
+Cluster type:    tidb                                                                    
+Cluster name:    demo-tidb        
+Cluster version: v5.1.0            
+User Name:       admin                                                                   
+Key Name:        jay                                                                     
+
+Component    # of nodes  Instance Type  Image Name             CIDR           User
+---------    ----------  -------------  ----------             ----           ----
+Workstation  1           m5.2xlarge     ami-0ac97798ccf296e02  172.82.0.0/16  admin
+TiDB         2           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+PD           3           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+TiKV         3           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+TiCDC        1           t2.micro       ami-0ac97798ccf296e02  172.83.0.0/16  master                                                                                              
+DM           2           m5.2xlarge     ami-0ac97798ccf296e02  172.83.0.0/16  master
+Attention:
+    1. If the topology is not what you expected, check your yaml file.
+    2. Please confirm there is no port/directory conflicts in same host.
+Do you want to continue? [y/N]: (default=N) y
+... ...
++ Deploying tidb2ms solution service ... ...
+  - Prepare DMS servicer and additional network resources :22 ... Done
+
+Verbose debug logs has been written to /home/pi/.tiup/logs/aws-nodes-debug-2022-04-20-15-11-12.log.
+</pre>
+</div>
+</div>
+
+<div id="outline-container-org448bb2c" class="outline-3">
+<h3 id="org448bb2c"><span class="section-number-3">2.3.</span> List all the resources</h3>
+<div class="outline-text-3" id="text-2-3">
+<pre class="example">
+./bin/aws tidb2ms list demo-tidb                                                                                                                [39/4554]
++ Listing aws resources                                                                  
+  - Listing VPC ... Done                                                                 
+  - Listing Subnets ... Done                                                             
+  - Listing Route Tables ... Done                                                        
+  - Listing Security Groups ... Done                                                     
+  - Listing Transit gateway  ... Done                                                    
+  - Listing Transit gateway vpc attachment ... Done           
+  - Listing EC2 ... Done                                                                 
+  - Listing Load Balancer  ... Done                                                      
+Cluster  Type:      ohmytiup-tidb2ms                                                     
+Cluster Name :      demo-tidb                                                            
+
+Resource Type:      VPC                                                                  
+Component Name  VPC ID                 CIDR           Status
+--------------  ------                 ----           ------
+tidb            vpc-03c9e8c8ebd6dc379  172.83.0.0/16  available
+workstation     vpc-08b3f64b0e2da3ab5  172.82.0.0/16  available
+
+Resource Type:      Subnet                                                               
+Component Name  Zone             Subnet ID                 CIDR            State      VPC ID
+--------------  ----             ---------                 ----            -----      ------
+tidb            ap-northeast-1a  subnet-0925eb6bc96a0f078  172.83.1.0/24   available  vpc-03c9e8c8ebd6dc379
+tidb            ap-northeast-1c  subnet-04276e4efe84f4013  172.83.2.0/24   available  vpc-03c9e8c8ebd6dc379
+tidb            ap-northeast-1d  subnet-0f599a88fca8c9650  172.83.3.0/24   available  vpc-03c9e8c8ebd6dc379
+workstation     ap-northeast-1a  subnet-04d8a1197b487e759  172.82.11.0/24  available  vpc-08b3f64b0e2da3ab5
+
+Resource Type:      Route Table                                                                                                                                                   
+Component Name  Route Table ID         DestinationCidrBlock  TransitGatewayId       GatewayId              State   Origin         
+--------------  --------------         --------------------  ----------------       ---------              -----   ------         
+tidb            rtb-0e0c8962f43524767  172.82.0.0/16         tgw-056ec95c3166c9f67                         active  CreateRoute    
+tidb            rtb-0e0c8962f43524767  172.83.0.0/16                                local                  active  CreateRouteTable
+workstation     rtb-0242b9748b3bea5af  172.82.0.0/16                                local                  active  CreateRouteTable
+workstation     rtb-0242b9748b3bea5af  172.83.0.0/16         tgw-056ec95c3166c9f67                         active  CreateRoute    
+workstation     rtb-0242b9748b3bea5af  0.0.0.0/0                                    igw-0074cec5f85d57962  active  CreateRoute    
+Resource Type:      Security Group                                                                                                                                        [3/4554]
+Component Name  Ip Protocol  Source Ip Range  From Port  To Port                                                                                                                  
+--------------  -----------  ---------------  ---------  -------                                                                                                                  
+tidb            tcp          0.0.0.0/0        8300       8300                                                                                                                     
+tidb            tcp          0.0.0.0/0        1433       1433
+tidb            tcp          172.83.0.0/16    0          65535
+tidb            tcp          0.0.0.0/0        20180      20180
+tidb            tcp          0.0.0.0/0        22         22
+tidb            tcp          0.0.0.0/0        4000       4000
+tidb            tcp          0.0.0.0/0        2379       2379
+tidb            tcp          0.0.0.0/0        20160      20160
+tidb            tcp          0.0.0.0/0        2380       2380
+tidb            tcp          0.0.0.0/0        3306       3306
+tidb            icmp         172.83.0.0/16    -1         -1
+tidb            tcp          0.0.0.0/0        10080      10080
+workstation     tcp          0.0.0.0/0        80         80
+workstation     tcp          172.82.0.0/16    0          65535
+workstation     tcp          0.0.0.0/0        22         22
+workstation     icmp         172.82.0.0/16    -1         -1
+
+Resource Type:      Transit Gateway
+Resource ID  :      tgw-056ec95c3166c9f67    State: available 
+Component Name  VPC ID                 State 
+--------------  ------                 ----- 
+tidb            vpc-03c9e8c8ebd6dc379  available
+workstation     vpc-08b3f64b0e2da3ab5  available
+
+Load Balancer:      demo-tidb-ae2c828cb0134970.elb.ap-northeast-1.amazonaws.com
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP    Public IP     Image ID
+--------------  -----------------  -----    -----------          -------------  -----------    ---------     --------
+dm              tidb               running  i-01ef16b9ebe410043  m5.2xlarge     172.83.1.37                  ami-0ac97798ccf296e02
+dm              tidb               running  i-0ced85fb0c06e60ec  m5.2xlarge     172.83.2.103                 ami-0ac97798ccf296e02
+pd              tidb               running  i-0f5ee16db90cce04e  m5.2xlarge     172.83.2.172                 ami-0ac97798ccf296e02
+pd              tidb               running  i-08e507cbb0fd85ebf  m5.2xlarge     172.83.1.157                 ami-0ac97798ccf296e02
+pd              tidb               running  i-013225724b2655a10  m5.2xlarge     172.83.3.156                 ami-0ac97798ccf296e02
+ticdc           tidb               running  i-0fb6bef838ca64432  t2.micro       172.83.1.35                  ami-0ac97798ccf296e02
+tidb            tidb               running  i-0992197c8e9d669ef  m5.2xlarge     172.83.1.143                 ami-0ac97798ccf296e02
+tidb            tidb               running  i-0c9cc763185e541be  m5.2xlarge     172.83.2.32                  ami-0ac97798ccf296e02
+tikv            tidb               running  i-08af52d0661210d53  m5.2xlarge     172.83.2.73                  ami-0ac97798ccf296e02
+tikv            tidb               running  i-0b44220adde5b57ef  m5.2xlarge     172.83.1.171                 ami-0ac97798ccf296e02
+tikv            tidb               running  i-011d223f561f8aa99  m5.2xlarge     172.83.3.44                  ami-0ac97798ccf296e02
+workstation     workstation        running  i-028ac3ecd2f25bd78  m5.2xlarge     172.82.11.207  54.250.52.93  ami-0ac97798ccf296e02
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-orgf795bde" class="outline-3">
+<h3 id="orgf795bde"><span class="section-number-3">2.4.</span> Login the workstation to check tidb cluster</h3>
+<div class="outline-text-3" id="text-2-4">
+<pre class="example">
+$ ssh -i '~/.ssh/jaypingcap.pem' admin@54.250.52.93
+$ tiup cluster list 
+tiup is checking updates for component cluster ...
+Starting component `cluster`: /home/admin/.tiup/components/cluster/v1.9.4/tiup-cluster /home/admin/.tiup/components/cluster/v1.9.4/tiup-cluster list
+Name       User   Version  Path                                                  PrivateKey
+----       ----   -------  ----                                                  ----------
+demo-tidb  admin  v5.3.1   /home/admin/.tiup/storage/cluster/clusters/demo-tidb  /home/admin/.tiup/storage/cluster/clusters/demo-tidb/ssh/id_rsa
+$ tiup cluster display demo-tidb 
+tiup is checking updates for component cluster ...
+Starting component `cluster`: /home/admin/.tiup/components/cluster/v1.9.4/tiup-cluster /home/admin/.tiup/components/cluster/v1.9.4/tiup-cluster display demo-tidb
+Cluster type:       tidb
+Cluster name:       demo-tidb
+Cluster version:    v5.3.1
+Deploy user:        admin
+SSH type:           builtin
+Dashboard URL:      http://172.83.1.157:2379/dashboard
+ID                  Role  Host          Ports        OS/Arch       Status  Data Dir                               Deploy Dir
+--                  ----  ----          -----        -------       ------  --------                               ----------
+172.83.1.157:2379   pd    172.83.1.157  2379/2380    linux/x86_64  Up|UI   /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.2.172:2379   pd    172.83.2.172  2379/2380    linux/x86_64  Up      /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.3.156:2379   pd    172.83.3.156  2379/2380    linux/x86_64  Up|L    /home/admin/tidb/tidb-data/pd-2379     /home/admin/tidb/tidb-deploy/pd-2379
+172.83.1.143:4000   tidb  172.83.1.143  4000/10080   linux/x86_64  Up      -                                      /home/admin/tidb/tidb-deploy/tidb-4000
+172.83.2.32:4000    tidb  172.83.2.32   4000/10080   linux/x86_64  Up      -                                      /home/admin/tidb/tidb-deploy/tidb-4000
+172.83.1.171:20160  tikv  172.83.1.171  20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+172.83.2.73:20160   tikv  172.83.2.73   20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+172.83.3.44:20160   tikv  172.83.3.44   20160/20180  linux/x86_64  Up      /home/admin/tidb/tidb-data/tikv-20160  /home/admin/tidb/tidb-deploy/tikv-20160
+Total nodes: 8
+
+</pre>
+</div>
+</div>
+
+<div id="outline-container-orgdfe3cbf" class="outline-3">
+<h3 id="orgdfe3cbf"><span class="section-number-3">2.5.</span> Login the TiDB</h3>
+<div class="outline-text-3" id="text-2-5">
+<pre class="example">
+$ $ mysql -h demo-tidb-ae2c828cb0134970.elb.ap-northeast-1.amazonaws.com -u root -P 4000   
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 801
+Server version: 5.7.25-TiDB-v5.3.1 TiDB Server (Apache License 2.0) Community Edition, MySQL 5.7 compatible
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [(none)]&gt; show databases;
++--------------------+
+| Database           |
++--------------------+
+| INFORMATION_SCHEMA |
+| METRICS_SCHEMA     |
+| PERFORMANCE_SCHEMA |
+| mysql              |
+| test               |
++--------------------+
+5 rows in set (0.003 sec)
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgaaad967" class="outline-2">
+<h2 id="orgaaad967"><span class="section-number-2">3.</span> TiDB Destroy</h2>
+<div class="outline-text-2" id="text-3">
+<pre class="example">
+$./bin/aws tidb2ms destroy demo-tidb
+... ...
++ Destroying all the componets
+  - Destroying EC2 nodes cluster demo-tidb  ... Done
+  - Destroying aurora db cluster demo-tidb  ... Done
+  - Destroying sqlserver cluster demo-tidb  ... Done
+  - Destroying workstation cluster demo-tidb  ... Done
+  - Destroying cloudformation demo-tidb  ... Done
+
+</pre>
+</div>
+</div>
+
+
+<div id="outline-container-org4664b5e" class="outline-2">
+<h2 id="org4664b5e"><span class="section-number-2">4.</span> Alternatives</h2>
+<div class="outline-text-2" id="text-4">
+<p>
+There are alternatives to achive the similar objectives.<br />
+</p>
+<ul class="org-ul">
+<li>cloudform<br /></li>
+<li>EKS<br /></li>
+<li>ansible(etc)<br /></li>
+</ul>
+<p>
+All these other tools help to achieve similar objectives. Will show the cloudform and EKS demo in the future. As for the ansible, I do not like it very well. One command is really good idea.<br />
+</p>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="date">Created: 2022-04-20 水 16:24</p>
+<p class="validation"><a href="https://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

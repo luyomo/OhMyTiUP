@@ -7,6 +7,7 @@ aws_topo_configs:
     keyname: keyname
     cidr: 172.83.0.0/16
     instance_type: t2.micro
+    tidb_version: v5.3.1
   pd:
     instance_type: t2.micro
     count: 3
