@@ -1,0 +1,17 @@
+#+OPTIONS: ^:nil
+* Setup the prometheus to fetch the metrics from TiDB Cloud
+  Setup one prometheus and config the API to sync metrics to prometheus
+* Setup newrelic
+Go to [[https://one.newrelic.com/nr1-core/prometheus-remote-write-integration/home][Prometheus remote write setup launcher in New Relic One]] to setup the remote write.
+** Generate one newrelic url
+   [[./png/newrelic/newrelic.01.png]]
+   [[./png/newrelic/newrelic.02.png]]
+** Copy the remote_write to prometheus config file
+   [[./png/newrelic/newrelic.03.png]]
+** Restart the service
+   [[./png/newrelic/newrelic.04.png]]
+** Check the data sync from prometheus to newrelic
+   [[./png/newrelic/newrelic.05.png]]
+** Explore the synced metric in the newrelic.
+   [[./png/newrelic/newrelic.06.png]]   
+   [[./png/newrelic/newrelic.07.png]]
