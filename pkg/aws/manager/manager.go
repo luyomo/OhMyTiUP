@@ -119,6 +119,15 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 		if spec.AwsTopoConfigs.DM.Count > 0 {
 			clusterTable = append(clusterTable, []string{"DM", strconv.Itoa(spec.AwsTopoConfigs.DM.Count), spec.AwsTopoConfigs.DM.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
+
+		if spec.AwsTopoConfigs.Pump.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Pump", strconv.Itoa(spec.AwsTopoConfigs.Pump.Count), spec.AwsTopoConfigs.Pump.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsTopoConfigs.Drainer.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Drainer", strconv.Itoa(spec.AwsTopoConfigs.Drainer.Count), spec.AwsTopoConfigs.Drainer.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
+
 		if spec.AwsAuroraConfigs.InstanceType != "" {
 			clusterTable = append(clusterTable, []string{"Aurora", "1", spec.AwsAuroraConfigs.InstanceType, "-", spec.AwsAuroraConfigs.CIDR, "master"})
 		}

@@ -17,14 +17,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	//	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
-	//	"os"
-	//"path"
-	//	"text/template"
 	"time"
 )
 

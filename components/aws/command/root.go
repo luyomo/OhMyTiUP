@@ -200,6 +200,7 @@ func init() {
 		newTiDB2AuroraCmd(),
 		newAuroraCmd(),
 		newTiDB2MSCmd(),
+        newTiDB2OraCmd(),
 		newAcceptTiDBCloudPeering(),
 		newPDNS(),
 	)

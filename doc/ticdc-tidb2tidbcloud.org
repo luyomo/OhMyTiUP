@@ -80,6 +80,25 @@ tidb2cloudcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1        
 tidb2cloudcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
 tidb2cloudcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
 #+END_SRC
+#+BEGIN_SRC
+admin@ip-172-81-11-52:~$ more eks.cluster.cdc.yaml
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: tidb2cloudcdc
+  region: ap-northeast-1
+
+nodeGroups:
+  - name: ticdc
+    desiredCapacity: 3
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: ticdc
+    taints:
+      dedicated: ticdc:NoSchedule
+#+END_SRC
 *** Deploy TiCDC without filters
 **** Added TiCDC pods to K8S cluster
 #+BEGIN_SRC

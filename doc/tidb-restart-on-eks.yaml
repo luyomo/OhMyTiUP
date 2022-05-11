@@ -1,0 +1,715 @@
+* Test flow
+** TiDB Install on EKS
+*** Create volume
+*** Create eks cluster using below config file
+#+BEGIN_SRC
+$more eks.cluster.yaml
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: tidboneks
+  region: ap-northeast-1
+
+managedNodeGroups:
+  - name: admin
+    desiredCapacity: 1
+    privateNetworking: true
+    labels:
+      dedicated: admin
+
+  - name: tidb
+    desiredCapacity: 3
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: tidb
+
+  - name: pd
+    desiredCapacity: 3
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+    instanceType: c5.xlarge
+    labels:
+      dedicated: pd
+
+  - name: tikv
+    desiredCapacity: 3
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+    instanceType: r5b.2xlarge
+    labels:
+      dedicated: tikv
+$ eksctl create cluster -f eks.cluster.yaml
+ 2022-03-17 04:56:35 [*]  eksctl version 0.85.0
+ 2022-03-17 04:56:35 [*]  using region ap-northeast-1                                       
+ 2022-03-17 04:56:35 [*]  setting availability zones to [ap-northeast-1d ap-northeast-1a ap-northeast-1c]
+ 2022-03-17 04:56:35 [*]  subnets for ap-northeast-1d - public:192.168.0.0/19 private:192.168.96.0/19
+ 2022-03-17 04:56:35 [*]  subnets for ap-northeast-1a - public:192.168.32.0/19 private:192.168.128.0/19 
+ 2022-03-17 04:56:35 [*]  subnets for ap-northeast-1c - public:192.168.64.0/19 private:192.168.160.0/19 
+ 2022-03-17 04:56:35 [*]  nodegroup "admin" will use "" [AmazonLinux2/1.21]                 
+ 2022-03-17 04:56:35 [*]  nodegroup "tidb" will use "" [AmazonLinux2/1.21]                   
+ 2022-03-17 04:56:35 [*]  nodegroup "pd" will use "" [AmazonLinux2/1.21]                     
+ 2022-03-17 04:56:35 [*]  nodegroup "tikv" will use "" [AmazonLinux2/1.21]                  
+ 2022-03-17 04:56:35 []  using Kubernetes version 1.21
+ 2022-03-17 04:56:35 [*]  creating EKS cluster "tidboneks" in "ap-northeast-1" region with managed nodes
+ 2022-03-17 04:56:35 [*]  4 nodegroups (admin, pd, tidb, tikv) were included (based on the include/exclude rules)
+ 2022-03-17 04:56:35 [*]  will create a CloudFormation stack for cluster itself and 0 nodegroup stack(s)
+ 2022-03-17 04:56:35 [*]  will create a CloudFormation stack for cluster itself and 4 managed nodegroup stack(s)
+ 2022-03-17 04:56:35 [*]  if you encounter any issues, check CloudFormation console or try 'eksctl utils describe-stacks --region=ap-northeast-1 --cluster=tidboneks'
+ 2022-03-17 04:56:35 [*]  Kubernetes API endpoint access will use default of {publicAccess=true, privateAccess=false} for cluster "tidboneks" in "ap-northeast-1"
+ 2022-03-17 04:56:35 [*]  CloudWatch logging will not be enabled for cluster "tidboneks" in "ap-northeast-1"
+ 2022-03-17 04:56:35 [*]  you can enable it with 'eksctl utils update-cluster-logging --enable-types={SPECIFY-YOUR-LOG-TYPES-HERE (e.g. all)} --region=ap-northeast-1 --cluster=tidboneks'
+ 2022-03-17 04:56:35 [*]  
+ 2 sequential tasks: { create cluster control plane "tidboneks", 
+     2 sequential sub-tasks: { 
+         wait for control plane to become ready,
+         4 parallel sub-tasks: { 
+             create managed nodegroup "admin",
+             create managed nodegroup "tidb",
+             create managed nodegroup "pd",
+             create managed nodegroup "tikv",
+         },
+     } 
+ }
+ 2022-03-17 04:56:35 [*]  building cluster stack "eksctl-tidboneks-cluster"
+ 2022-03-17 04:56:35 [*]  deploying stack "eksctl-tidboneks-cluster"
+... ...
+ 2022-03-17 05:15:16 [*]  kubectl command should work with "/home/admin/.kube/config", try 'kubectl get nodes'
+ 2022-03-17 05:15:16 [*]  EKS cluster "tidboneks" in "ap-northeast-1" region is ready
+
+$ eksctl get nodegroup --cluster tidboneks
+2022-03-17 06:54:51 [*]  eksctl version 0.85.0
+2022-03-17 06:54:51 [*]  using region ap-northeast-1
+CLUSTER         NODEGROUP       STATUS  CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID        ASG NAME                                        TYPE
+tidboneks       admin           ACTIVE  2022-03-17T05:12:26Z    1               1               1                       m5.large        AL2_x86_64      eks-admin-32bfcb25-480f-afac-d689-29d8b48f3dcf  managed
+tidboneks       pd              ACTIVE  2022-03-17T05:12:25Z    3               3               3                       c5.xlarge       AL2_x86_64      eks-pd-02bfcb25-4610-c82f-6582-2bd476ff4142     managed
+tidboneks       tidb            ACTIVE  2022-03-17T05:12:15Z    3               3               3                       c5.2xlarge      AL2_x86_64      eks-tidb-a8bfcb25-3086-d412-0063-e70149174a8d   managed
+tidboneks       tikv            ACTIVE  2022-03-17T05:12:27Z    3               3               3                       r5b.2xlarge     AL2_x86_64      eks-tikv-b8bfcb25-48d2-7b3f-7659-8f11ba807cb8   managed
+
+
+#+END_SRC
+*** Create TiDB operator
+#+BEGIN_SRC
+$ kubectl apply -f https://raw.githubusercontent.com/pingcap/tidb-operator/v1.2.7/manifests/crd.yaml
+Warning: apiextensions.k8s.io/v1beta1 CustomResourceDefinition is deprecated in v1.16+, unavailable in v1.22+; use apiextensions.k8s.io/v1 CustomResourceDefinition
+customresourcedefinition.apiextensions.k8s.io/tidbclusters.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/dmclusters.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/backups.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/restores.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/backupschedules.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbmonitors.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbinitializers.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbclusterautoscalers.pingcap.com created
+
+$ helm repo add pingcap https://charts.pingcap.org/
+"pingcap" has been added to your repositories
+$ kubectl create namespace tidb-admin
+namespace/tidb-admin created
+
+$ helm install --namespace tidb-admin tidb-operator pingcap/tidb-operator --version v1.2.7
+NAME: tidb-operator
+LAST DEPLOYED: Thu Mar 17 06:08:09 2022
+NAMESPACE: tidb-admin
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Make sure tidb-operator components are running:
+
+    kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
+$ kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
+NAME                                       READY   STATUS    RESTARTS   AGE
+tidb-controller-manager-577bcb64f6-8qvnx   1/1     Running   0          3m27s
+tidb-scheduler-668d6848d9-7pwth            2/2     Running   0          3m28s
+#+END_SRC
+*** Create PV and PVC
+#+BEGIN_SRC
+$kubectl create namespace tidb-cluster
+namespace/tidb-cluster created
+$more pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k8stest-tikv-01
+  labels:
+    topology.kubernetes.io/region: ap-northeast-1
+    topology.kubernetes.io/zone: ap-northeast-1a
+spec:
+  accessModes:
+  - ReadWriteOnce
+  awsElasticBlockStore:
+    fsType: ext4
+    volumeID: aws://ap-northeast-1a/vol-02f8c26b4b3aef30d
+  capacity:
+    storage: 20Gi
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k8stest-tikv-02
+  labels:
+    topology.kubernetes.io/region: ap-northeast-1
+    topology.kubernetes.io/zone: ap-northeast-1c
+spec:
+  accessModes:
+  - ReadWriteOnce
+  awsElasticBlockStore:
+    fsType: ext4
+    volumeID: aws://ap-northeast-1c/vol-05efa676302b7b526
+  capacity:
+    storage: 20Gi
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k8stest-tikv-03
+  labels:
+    topology.kubernetes.io/region: ap-northeast-1
+    topology.kubernetes.io/zone: ap-northeast-1d
+spec:
+  accessModes:
+  - ReadWriteOnce
+  awsElasticBlockStore:
+    fsType: ext4
+    volumeID: aws://ap-northeast-1d/vol-06c9a3652af27746d
+  capacity:
+    storage: 20Gi
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k8stest-pd-01
+  labels:
+    topology.kubernetes.io/region: ap-northeast-1
+    topology.kubernetes.io/zone: ap-northeast-1a
+spec:
+  accessModes:
+  - ReadWriteOnce
+  awsElasticBlockStore:
+    fsType: ext4
+    volumeID: aws://ap-northeast-1a/vol-094a5ebe0d6268d01
+  capacity:
+    storage: 20Gi
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k8stest-pd-02
+  labels:
+    topology.kubernetes.io/region: ap-northeast-1
+    topology.kubernetes.io/zone: ap-northeast-1c
+spec:
+  accessModes:
+  - ReadWriteOnce
+  awsElasticBlockStore:
+    fsType: ext4
+    volumeID: aws://ap-northeast-1c/vol-00bcd8e111626fa04
+  capacity:
+    storage: 20Gi
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k8stest-pd-03
+  labels:
+    topology.kubernetes.io/region: ap-northeast-1
+    topology.kubernetes.io/zone: ap-northeast-1d
+spec:
+  accessModes:
+  - ReadWriteOnce
+  awsElasticBlockStore:
+    fsType: ext4
+    volumeID: aws://ap-northeast-1d/vol-060c1845a50ff71d8
+  capacity:
+    storage: 20Gi
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+
+$ kubectl create -f pv.yaml 
+persistentvolume/k8stest-tikv-01 created
+persistentvolume/k8stest-tikv-02 created
+persistentvolume/k8stest-tikv-03 created
+persistentvolume/k8stest-pd-01 created
+persistentvolume/k8stest-pd-02 created
+persistentvolume/k8stest-pd-03 created
+
+$ kubectl get pv 
+NAME              CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   REASON   AGE
+k8stest-pd-01     20Gi       RWO            Retain           Available           gp2-retain              63s
+k8stest-pd-02     20Gi       RWO            Retain           Available           gp2-retain              63s
+k8stest-pd-03     20Gi       RWO            Retain           Available           gp2-retain              63s
+k8stest-tikv-01   20Gi       RWO            Retain           Available           gp2-retain              63s
+k8stest-tikv-02   20Gi       RWO            Retain           Available           gp2-retain              63s
+k8stest-tikv-03   20Gi       RWO            Retain           Available           gp2-retain              63s
+
+#+END_SRC
+
+*** Create PVC
+#+BEGIN_SRC
+$ more pvc.yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: tidb
+  name: tikv-basic-tikv-0
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+  volumeName: k8stest-tikv-01
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: tidb
+  name: tikv-basic-tikv-1
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+  volumeName: k8stest-tikv-02
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: tidb
+  name: tikv-basic-tikv-2
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+  volumeName: k8stest-tikv-03
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: tidb
+  name: pd-basic-pd-0
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+  volumeName: k8stest-pd-01
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: tidb
+  name: pd-basic-pd-1
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+  volumeName: k8stest-pd-02
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: tidb
+  name: pd-basic-pd-2
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2-retain
+  volumeMode: Filesystem
+  volumeName: k8stest-pd-03
+$ kubectl get pvc -n tidb-cluster 
+No resources found in tidb-cluster namespace.
+$ kubectl create -f pvc.yaml -n tidb-cluster 
+persistentvolumeclaim/tikv-basic-tikv-0 created
+persistentvolumeclaim/tikv-basic-tikv-1 created
+persistentvolumeclaim/tikv-basic-tikv-2 created
+persistentvolumeclaim/pd-basic-pd-0 created
+persistentvolumeclaim/pd-basic-pd-1 created
+persistentvolumeclaim/pd-basic-pd-2 created
+$ kubectl get pvc -n tidb-cluster 
+NAME                STATUS   VOLUME            CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+pd-basic-pd-0       Bound    k8stest-pd-01     20Gi       RWO            gp2-retain     33s
+pd-basic-pd-1       Bound    k8stest-pd-02     20Gi       RWO            gp2-retain     33s
+pd-basic-pd-2       Bound    k8stest-pd-03     20Gi       RWO            gp2-retain     33s
+tikv-basic-tikv-0   Bound    k8stest-tikv-01   20Gi       RWO            gp2-retain     33s
+tikv-basic-tikv-1   Bound    k8stest-tikv-02   20Gi       RWO            gp2-retain     33s
+tikv-basic-tikv-2   Bound    k8stest-tikv-03   20Gi       RWO            gp2-retain     33s
+#+END_SRC
+*** Create TiDB cluster
+#+BEGIN_SRC
+apiVersion: pingcap.com/v1alpha1
+kind: TidbCluster
+metadata:
+  name: basic
+spec:
+  version: v5.4.0
+  timezone: UTC
+  configUpdateStrategy: RollingUpdate
+  pvReclaimPolicy: Retain
+  schedulerName: default-scheduler
+  topologySpreadConstraints:
+  - topologyKey: topology.kubernetes.io/zone
+  enableDynamicConfiguration: true
+  helper:
+    image: busybox:1.34.1
+  pd:
+    baseImage: pingcap/pd
+    maxFailoverCount: 0
+    replicas: 3
+    requests:
+      storage: "10Gi"
+    config: |
+      [dashboard]
+        internal-proxy = true
+      [replication]
+        location-labels = ["topology.kubernetes.io/zone", "kubernetes.io/hostname"]
+        max-replicas = 3
+    nodeSelector:
+      dedicated: pd
+    tolerations:
+    - effect: NoSchedule
+      key: dedicated
+      operator: Equal
+      value: pd
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - pd
+          topologyKey: kubernetes.io/hostname
+  tikv:
+    baseImage: pingcap/tikv
+    maxFailoverCount: 0
+    replicas: 3
+    requests:
+      storage: "20Gi"
+    config: {}
+    nodeSelector:
+      dedicated: tikv
+    tolerations:
+    - effect: NoSchedule
+      key: dedicated
+      operator: Equal
+      value: tikv
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - tikv
+          topologyKey: kubernetes.io/hostname
+  tidb:
+    baseImage: pingcap/tidb
+    maxFailoverCount: 0
+    replicas: 2
+    service:
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: 'true'
+        service.beta.kubernetes.io/aws-load-balancer-type: nlb
+        service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+        service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+      exposeStatus: true
+      externalTrafficPolicy: Local
+      type: LoadBalancer
+    config: |
+      [performance]
+        tcp-keep-alive = true
+    annotations:
+      tidb.pingcap.com/sysctl-init: "true"
+    podSecurityContext:
+      sysctls:
+      - name: net.ipv4.tcp_keepalive_time
+        value: "300"
+      - name: net.ipv4.tcp_keepalive_intvl
+        value: "75"
+      - name: net.core.somaxconn
+        value: "32768"
+    separateSlowLog: true
+    nodeSelector:
+      dedicated: tidb
+    tolerations:
+    - effect: NoSchedule
+      key: dedicated
+      operator: Equal
+      value: tidb
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - tidb
+          topologyKey: kubernetes.io/hostname
+$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster
+tidbcluster.pingcap.com/basic created
+$ kubectl get pods -n tidb-cluster 
+NAME                              READY   STATUS    RESTARTS   AGE
+basic-discovery-b6fd5f898-sdf2r   1/1     Running   0          113s
+basic-pd-0                        1/1     Running   1          113s
+basic-pd-1                        1/1     Running   0          113s
+basic-pd-2                        1/1     Running   0          113s
+basic-tidb-0                      1/2     Running   0          16s
+basic-tidb-1                      1/2     Running   0          16s
+basic-tikv-0                      1/1     Running   0          70s
+basic-tikv-1                      1/1     Running   0          70s
+basic-tikv-2                      1/1     Running   0          70s
+$ kubectl get service -n tidb-cluster 
+NAME              TYPE           CLUSTER-IP       EXTERNAL-IP                                                                          PORT(S)                          AGE
+basic-discovery   ClusterIP      10.100.244.200   <none>                                                                               10261/TCP,10262/TCP              2m25s
+basic-pd          ClusterIP      10.100.200.228   <none>                                                                               2379/TCP                         2m25s
+basic-pd-peer     ClusterIP      None             <none>                                                                               2380/TCP                         2m25s
+basic-tidb        LoadBalancer   10.100.40.136    a10f596ba66ca4fff93f38fadb1424b3-c6fece5083dc9420.elb.ap-northeast-1.amazonaws.com   4000:30217/TCP,10080:31562/TCP   48s
+basic-tidb-peer   ClusterIP      None             <none>                                                                               10080/TCP                        48s
+basic-tikv-peer   ClusterIP      None             <none>                                                                               20160/TCP                        102s
+$ # Here set the vpc peering between workstatkion and TiDB Cluster
+$ mysql -h a10f596ba66ca4fff93f38fadb1424b3-c6fece5083dc9420.elb.ap-northeast-1.amazonaws.com -u root -P 4000 test 
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 93
+Server version: 5.7.25-TiDB-v5.4.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 5.7 compatible
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [test]> create table test01(col01 int primary key, col02 varchar(128));
+Query OK, 0 rows affected (0.134 sec)
+
+MySQL [test]> insert into test01 values(1, 'This is the test for pause/resume feature');
+Query OK, 1 row affected (0.015 sec)
+
+MySQL [test]> select * from test01;
++-------+-------------------------------------------+
+| col01 | col02                                     |
++-------+-------------------------------------------+
+|     1 | This is the test for pause/resume feature |
++-------+-------------------------------------------+
+1 row in set (0.008 sec)
+
+#+END_SRC
+** TiDB Pause/Resume
+   Repeat the same process except for volume creation
+** Scale out
+*** TiDB NODE
+    + Scale out nodegroup
+      #+BEGIN_SRC
+$ eksctl get nodegroup --cluster tidboneks
+...
+tidboneks       tidb            ACTIVE  2022-03-17T05:12:15Z    2               2               2                       c5.2xlarge      AL2_x86_64      eks-tidb-a8bfcb25-3086-d412-0063-e70149174a8d      managed
+...
+$ kubectl get nodes --selector=dedicated=tidb
+NAME                                                 STATUS   ROLES    AGE     VERSION
+ip-192-168-119-175.ap-northeast-1.compute.internal   Ready    <none>   75m     v1.21.5-eks-9017834
+ip-192-168-128-234.ap-northeast-1.compute.internal   Ready    <none>   4h37m   v1.21.5-eks-9017834
+$ eksctl scale nodegroup --cluster=tidboneks --nodes=3 --name=tidb --nodes-min=3 --nodes-max=3
+ 2022-03-17 10:02:40 [*]  eksctl version 0.85.0
+ 2022-03-17 10:02:40 [*]  using region ap-northeast-1
+ 2022-03-17 10:02:40 [*]  scaling nodegroup "tidb" in cluster tidboneks
+ 2022-03-17 10:02:41 [*]  waiting for scaling of nodegroup "tidb" to complete
+ 2022-03-17 10:03:00 [*]  waiting for scaling of nodegroup "tidb" to complete
+ 2022-03-17 10:03:00 [*]  nodegroup successfully scaled
+$ eksctl get nodegroup --cluster tidboneks
+...
+tidboneks       tidb            ACTIVE  2022-03-17T05:12:15Z    3               3               3                       c5.2xlarge      AL2_x86_64      eks-tidb-a8bfcb25-3086-d412-0063-e70149174a8d      managed
+...
+$ kubectl get nodes --selector=dedicated=tidb
+NAME                                                 STATUS   ROLES    AGE     VERSION
+ip-192-168-119-175.ap-northeast-1.compute.internal   Ready    <none>   90m     v1.21.5-eks-9017834
+ip-192-168-128-234.ap-northeast-1.compute.internal   Ready    <none>   4h52m   v1.21.5-eks-9017834
+ip-192-168-189-97.ap-northeast-1.compute.internal    Ready    <none>   2m57s   v1.21.5-eks-9017834
+$ kubectl get pods -n tidb-cluster -o wide 
+NAME                              READY   STATUS    RESTARTS   AGE     IP                NODE                                                 NOMINATED NODE   READINESS GATES
+basic-discovery-b6fd5f898-xr4fx   1/1     Running   0          25m     192.168.117.43    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>
+basic-pd-0                        1/1     Running   1          3h32m   192.168.159.68    ip-192-168-143-114.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-1                        1/1     Running   0          3h32m   192.168.168.14    ip-192-168-179-223.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-2                        1/1     Running   0          3h32m   192.168.120.1     ip-192-168-103-90.ap-northeast-1.compute.internal    <none>           <none>
+basic-tidb-0                      2/2     Running   0          25m     192.168.115.248   ip-192-168-119-175.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-1                      2/2     Running   0          3h31m   192.168.151.74    ip-192-168-128-234.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-0                      1/1     Running   0          121m    192.168.131.177   ip-192-168-144-222.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-1                      1/1     Running   0          118m    192.168.163.241   ip-192-168-189-75.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-2                      1/1     Running   0          116m    192.168.103.10    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>
+$ kubectl patch -n tidb-cluster tc basic --type merge --patch '{"spec":{"tidb":{"replicas":3}}}'
+tidbcluster.pingcap.com/basic patched
+$ kubectl get pods -n tidb-cluster
+NAME                              READY   STATUS    RESTARTS   AGE     IP                NODE                                                 NOMINATED NODE   READINESS GATES
+basic-discovery-b6fd5f898-xr4fx   1/1     Running   0          25m     192.168.117.43    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>
+basic-pd-0                        1/1     Running   1          3h32m   192.168.159.68    ip-192-168-143-114.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-1                        1/1     Running   0          3h32m   192.168.168.14    ip-192-168-179-223.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-2                        1/1     Running   0          3h32m   192.168.120.1     ip-192-168-103-90.ap-northeast-1.compute.internal    <none>           <none>
+basic-tidb-0                      2/2     Running   0          25m     192.168.115.248   ip-192-168-119-175.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-1                      2/2     Running   0          3h31m   192.168.151.74    ip-192-168-128-234.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-2                      2/2     Running   0          7m8s    192.168.186.219   ip-192-168-189-97.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-0                      1/1     Running   0          121m    192.168.131.177   ip-192-168-144-222.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-1                      1/1     Running   0          118m    192.168.163.241   ip-192-168-189-75.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-2                      1/1     Running   0          116m    192.168.103.10    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>
+      #+END_SRC
+    + Scale out TiDB node
+*** TiKV NODE
+#+BEGIN_SRC
+$ eksctl get nodegroup --cluster tidboneks
+2022-03-17 10:23:34 [*]  eksctl version 0.85.0
+2022-03-17 10:23:34 [*]  using region ap-northeast-1
+CLUSTER         NODEGROUP       STATUS  CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID        ASG NAME                                            TYPE
+... ...
+tidboneks       tikv            ACTIVE  2022-03-17T07:48:31Z    3               3               3                       r5.2xlarge      AL2_x86_64      eks-new-tikv-42bfcb6c-b9b4-8841-31ee-e3c79a795b69   managed
+... ...
+$ kubectl get nodes --selector=dedicated=tikv
+NAME                                                 STATUS   ROLES    AGE    VERSION
+ip-192-168-101-83.ap-northeast-1.compute.internal    Ready    <none>   156m   v1.21.5-eks-9017834
+ip-192-168-144-222.ap-northeast-1.compute.internal   Ready    <none>   156m   v1.21.5-eks-9017834
+ip-192-168-189-75.ap-northeast-1.compute.internal    Ready    <none>   157m   v1.21.5-eks-9017834
+$ eksctl scale nodegroup --cluster=tidboneks --nodes=6 --name=new-tikv --nodes-min=6 --nodes-max=6
+2022-03-17 10:29:04 [*]  eksctl version 0.85.0
+2022-03-17 10:29:04 [*]  using region ap-northeast-1
+2022-03-17 10:29:04 [*]  scaling nodegroup "new-tikv" in cluster tidboneks
+2022-03-17 10:29:05 [*]  waiting for scaling of nodegroup "new-tikv" to complete
+2022-03-17 10:29:22 [*]  waiting for scaling of nodegroup "new-tikv" to complete
+2022-03-17 10:29:22 [*]  nodegroup successfully scaled
+$ eksctl get nodegroup --cluster tidboneks
+ 2022-03-17 10:29:50 [*]  eksctl version 0.85.0
+ 2022-03-17 10:29:50 [*]  using region ap-northeast-1
+CLUSTER         NODEGROUP       STATUS  CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID        ASG NAME                                            TYPE
+tidboneks       admin           ACTIVE  2022-03-17T05:12:26Z    1               1               1                       m5.large        AL2_x86_64      eks-admin-32bfcb25-480f-afac-d689-29d8b48f3dcf      managed
+tidboneks       new-tikv        ACTIVE  2022-03-17T07:48:31Z    6               6               6                       r5.2xlarge      AL2_x86_64      eks-new-tikv-42bfcb6c-b9b4-8841-31ee-e3c79a795b69   managed
+tidboneks       pd              ACTIVE  2022-03-17T05:12:25Z    3               3               3                       c5.xlarge       AL2_x86_64      eks-pd-02bfcb25-4610-c82f-6582-2bd476ff4142         managed
+tidboneks       tidb            ACTIVE  2022-03-17T05:12:15Z    3               3               3                       c5.2xlarge      AL2_x86_64      eks-tidb-a8bfcb25-3086-d412-0063-e70149174a8d       managed
+$ kubectl get nodes --selector=dedicated=tikv
+NAME                                                 STATUS   ROLES    AGE     VERSION
+ip-192-168-101-83.ap-northeast-1.compute.internal    Ready    <none>   162m    v1.21.5-eks-9017834
+ip-192-168-127-166.ap-northeast-1.compute.internal   Ready    <none>   2m14s   v1.21.5-eks-9017834
+ip-192-168-131-223.ap-northeast-1.compute.internal   Ready    <none>   2m14s   v1.21.5-eks-9017834
+ip-192-168-144-222.ap-northeast-1.compute.internal   Ready    <none>   162m    v1.21.5-eks-9017834
+ip-192-168-169-118.ap-northeast-1.compute.internal   Ready    <none>   2m14s   v1.21.5-eks-9017834
+ip-192-168-189-75.ap-northeast-1.compute.internal    Ready    <none>   162m    v1.21.5-eks-9017834
+$ kubectl get pods -n tidb-cluster -o wide 
+NAME                              READY   STATUS    RESTARTS   AGE     IP                NODE                                                 NOMINATED NODE   READINESS GATES
+basic-discovery-b6fd5f898-xr4fx   1/1     Running   0          45m     192.168.117.43    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>
+basic-pd-0                        1/1     Running   1          3h52m   192.168.159.68    ip-192-168-143-114.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-1                        1/1     Running   0          3h52m   192.168.168.14    ip-192-168-179-223.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-2                        1/1     Running   0          3h52m   192.168.120.1     ip-192-168-103-90.ap-northeast-1.compute.internal    <none>           <none>
+basic-tidb-0                      2/2     Running   0          44m     192.168.115.248   ip-192-168-119-175.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-1                      2/2     Running   0          3h50m   192.168.151.74    ip-192-168-128-234.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-2                      2/2     Running   0          26m     192.168.186.219   ip-192-168-189-97.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-0                      1/1     Running   0          140m    192.168.131.177   ip-192-168-144-222.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-1                      1/1     Running   0          137m    192.168.163.241   ip-192-168-189-75.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-2                      1/1     Running   0          135m    192.168.103.10    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>
+$ kubectl patch -n tidb-cluster tc basic --type merge --patch '{"spec":{"tikv":{"replicas":6}}}'
+tidbcluster.pingcap.com/basic patched
+$ kubectl get pods -n tidb-cluster -o wide 
+NAME                              READY   STATUS    RESTARTS   AGE     IP                NODE                                                 NOMINATED NODE   READINESS GATES
+basic-discovery-b6fd5f898-xr4fx   1/1     Running   0          47m     192.168.117.43    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>
+basic-pd-0                        1/1     Running   1          3h53m   192.168.159.68    ip-192-168-143-114.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-1                        1/1     Running   0          3h53m   192.168.168.14    ip-192-168-179-223.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-2                        1/1     Running   0          3h53m   192.168.120.1     ip-192-168-103-90.ap-northeast-1.compute.internal    <none>           <none>
+basic-tidb-0                      2/2     Running   0          46m     192.168.115.248   ip-192-168-119-175.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-1                      2/2     Running   0          3h52m   192.168.151.74    ip-192-168-128-234.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-2                      2/2     Running   0          28m     192.168.186.219   ip-192-168-189-97.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-0                      1/1     Running   0          142m    192.168.131.177   ip-192-168-144-222.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-1                      1/1     Running   0          139m    192.168.163.241   ip-192-168-189-75.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-2                      1/1     Running   0          137m    192.168.103.10    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-3                      1/1     Running   0          38s     192.168.126.198   ip-192-168-127-166.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-4                      1/1     Running   0          38s     192.168.162.54    ip-192-168-169-118.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-5                      1/1     Running   0          37s     192.168.146.174   ip-192-168-131-223.ap-northeast-1.compute.internal   <none>           <none>
+#+END_SRC
+Here skip the steps to create the volume manually. The volume is generated automatically. 
+** Scale in
+*** TiDB
+#+BEGIN_SRC
+$ kubectl get pods -n tidb-cluster -o wide                                                                                                
+NAME                              READY   STATUS    RESTARTS   AGE    IP                NODE                                                 NOMINATED NODE   READINESS GATES
+basic-discovery-b6fd5f898-xr4fx   1/1     Running   0          55m    192.168.117.43    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>     
+basic-pd-0                        1/1     Running   1          4h2m   192.168.159.68    ip-192-168-143-114.ap-northeast-1.compute.internal   <none>           <none>     
+basic-pd-1                        1/1     Running   0          4h2m   192.168.168.14    ip-192-168-179-223.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-2                        1/1     Running   0          4h2m   192.168.120.1     ip-192-168-103-90.ap-northeast-1.compute.internal    <none>           <none>              
+basic-tidb-0                      2/2     Running   0          54m    192.168.115.248   ip-192-168-119-175.ap-northeast-1.compute.internal   <none>           <none>     
+basic-tidb-1                      2/2     Running   0          4h     192.168.151.74    ip-192-168-128-234.ap-northeast-1.compute.internal   <none>           <none>     
+basic-tidb-2                      2/2     Running   0          36m    192.168.186.219   ip-192-168-189-97.ap-northeast-1.compute.internal    <none>           <none>     
+basic-tikv-0                      1/1     Running   0          150m   192.168.131.177   ip-192-168-144-222.ap-northeast-1.compute.internal   <none>           <none>     
+basic-tikv-1                      1/1     Running   0          148m   192.168.163.241   ip-192-168-189-75.ap-northeast-1.compute.internal    <none>           <none>     
+basic-tikv-2                      1/1     Running   0          145m   192.168.103.10    ip-192-168-101-83.ap-northeast-1.compute.internal    <none>           <none>     
+basic-tikv-3                      1/1     Running   0          9m1s   192.168.126.198   ip-192-168-127-166.ap-northeast-1.compute.internal   <none>           <none>     
+basic-tikv-4                      1/1     Running   0          9m1s   192.168.162.54    ip-192-168-169-118.ap-northeast-1.compute.internal   <none>           <none>     
+basic-tikv-5                      1/1     Running   0          9m     192.168.146.174   ip-192-168-131-223.ap-northeast-1.compute.internal   <none>           <none>   
+$ kubectl patch -n tidb-cluster tc basic --type merge --patch '{"spec":{"tikv":{"replicas":3}}}'                                          
+tidbcluster.pingcap.com/basic patched
+ $ eksctl get nodegroup --cluster tidboneks
+ 2022-03-17 11:51:14 [*]  eksctl version 0.85.0
+ 2022-03-17 11:51:14 [*]  using region ap-northeast-1
+ CLUSTER         NODEGROUP       STATUS  CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID        ASG NAME                                            TYPE
+ tidboneks       admin           ACTIVE  2022-03-17T05:12:26Z    1               1               1                       m5.large        AL2_x86_64      eks-admin-32bfcb25-480f-afac-d689-29d8b48f3dcf      managed
+ tidboneks       tikv            ACTIVE  2022-03-17T07:48:31Z    6               6               6                       r5.2xlarge      AL2_x86_64      eks-new-tikv-42bfcb6c-b9b4-8841-31ee-e3c79a795b69   managed
+ tidboneks       pd              ACTIVE  2022-03-17T05:12:25Z    3               3               3                       c5.xlarge       AL2_x86_64      eks-pd-02bfcb25-4610-c82f-6582-2bd476ff4142         managed
+ tidboneks       tidb            ACTIVE  2022-03-17T05:12:15Z    3               3               3                       c5.2xlarge      AL2_x86_64      eks-tidb-a8bfcb25-3086-d412-0063-e70149174a8d       managed
+$ eksctl scale nodegroup --cluster=tidboneks --nodes=3 --name=new-tikv --nodes-min=3 --nodes-max=3
+2022-03-17 11:52:47 [*]  eksctl version 0.85.0
+2022-03-17 11:52:47 [*]  using region ap-northeast-1
+2022-03-17 11:52:48 [*]  scaling nodegroup "new-tikv" in cluster tidboneks
+2022-03-17 11:52:49 [*]  waiting for scaling of nodegroup "new-tikv" to complete
+2022-03-17 11:53:05 [*]  waiting for scaling of nodegroup "new-tikv" to complete
+2022-03-17 11:53:05 [*]  nodegroup successfully scaled
+$ kubectl get pods -n tidb-cluster -o wide 
+NAME                              READY   STATUS    RESTARTS   AGE     IP                NODE                                                 NOMINATED NODE   READINESS GATES
+basic-discovery-b6fd5f898-4mj7k   1/1     Running   0          26s     192.168.141.41    ip-192-168-131-223.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-0                        1/1     Running   1          5h11m   192.168.159.68    ip-192-168-143-114.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-1                        1/1     Running   0          5h11m   192.168.168.14    ip-192-168-179-223.ap-northeast-1.compute.internal   <none>           <none>
+basic-pd-2                        1/1     Running   0          5h11m   192.168.120.1     ip-192-168-103-90.ap-northeast-1.compute.internal    <none>           <none>
+basic-tidb-0                      2/2     Running   0          123m    192.168.115.248   ip-192-168-119-175.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-1                      2/2     Running   0          5h9m    192.168.151.74    ip-192-168-128-234.ap-northeast-1.compute.internal   <none>           <none>
+basic-tidb-2                      2/2     Running   0          105m    192.168.186.219   ip-192-168-189-97.ap-northeast-1.compute.internal    <none>           <none>
+basic-tikv-0                      1/1     Running   0          16s     192.168.151.198   ip-192-168-131-223.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-1                      1/1     Running   0          20s     192.168.175.251   ip-192-168-169-118.ap-northeast-1.compute.internal   <none>           <none>
+basic-tikv-2                      1/1     Running   0          24s     192.168.126.198   ip-192-168-127-166.ap-northeast-1.compute.internal   <none>           <none>
+#+END_SRC
+*** TiKV
+** Scale Up/Down   

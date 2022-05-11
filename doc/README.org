@@ -28,6 +28,7 @@
  | Grant S3 bucket/folder permission to TiDB Cloud account           |                                                                                                                   |        |
  | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                                                                                   |        |
  | Setup TiDB Cloud VPC peering                                      |                                                                                                                   |        |
+ | [[./prometheus2newrelic.org][Prometheus to Newrelic metrics]]                                    | Convert the Prometheus metrics to Newrelic                                                                        |        |
 
 
 ** Troubleshooting

@@ -1,0 +1,33 @@
+workstation:
+  imageid: ami-07d02ee1eeb0c996c
+  keyname: jay-us-east-01
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem
+  volumeSize: 100
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c
+    name: tisamplenodes
+    keyname: jay-us-east-01
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem
+    cidr: 172.83.0.0/16
+    #instance_type: m5.2xlarge
+    instance_type: m5.xlarge
+    tidb_version: v6.0.0
+  pd:
+    instance_type: m5.xlarge
+    count: 3
+  tidb:
+    instance_type: m5.xlarge
+    count: 2
+  tikv:
+    instance_type: m5.xlarge
+    count: 3
+  pump:
+    instance_type: m5.xlarge
+    volumeSize: 100
+    count: 2
+  drainer:
+    instance_type: m5.xlarge
+    count: 1
+    volumeSize: 100

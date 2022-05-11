@@ -8,6 +8,11 @@ server_configs:
   cdc:
     per-table-memory-quota: 20971520
 {{ end  }}
+{{ if gt (len .Pump) 0 }}
+  tidb:
+    binlog.enable: true
+    binlog.ignore-error: false
+{{ end  }}
 {{ if gt (len .PD) 0 }}
 pd_servers:
   {{- range .PD }}
@@ -32,6 +37,12 @@ cdc_servers:
   - host: {{. }}
   {{- end }}
 {{ end  }}
+{{ if gt (len .Pump) 0 }}
+pump_servers:
+  {{- range .Pump }}
+  - host: {{. }}
+  {{- end }}
+{{ end }}
 {{ if gt (len .Monitor) 0 }}
 monitoring_servers:
   {{- range .Monitor }}

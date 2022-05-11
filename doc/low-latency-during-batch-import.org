@@ -78,7 +78,7 @@ done
 *** Without any batch process
 No slow queries
 
-*** Insert 5 millions volume data every 100,000 rows
+*** Insert 5 millions volume data every 100,000 rows (apply thread pool : 2)
    + Batch data copy Execution time: 06:39
    + Slow query - one row insert
      #+ATTR_HTML: :border 2 :rules all :frame border
@@ -95,7 +95,7 @@ No slow queries
      |-------+-----------|
      | start |  10:32:12 |
      | end   |  10:38:51 |
-*** Insert 5 millions volume data every 50,000 rows
+*** Insert 5 millions volume data every 50,000 rows (apply thread pool : 2)
    + Batch data copy Execution time: 05:35
    + Slow query - one row insert
      #+ATTR_HTML: :border 2 :rules all :frame border
@@ -112,7 +112,7 @@ No slow queries
      | start |  11:00:09 |
      | end   |  11:05:44 |
 
-** Insert 5 million volume data every 10,000 rows
+*** Insert 5 million volume data every 10,000 rows (apply thread pool : 2)
    + Batch data copy Execution time: 05:11
    + Slow query - one row insert
      #+ATTR_HTML: :border 2 :rules all :frame border
@@ -127,5 +127,69 @@ No slow queries
      | start |  12:45:33 |
      | end   |  12:50:44 |
 
+*** Insert 5 millions volume data every 100,000 rows (apply thread pool : 4)
+    Change the apply thread pool from 2 to 4 to see how much performance is gained.
+   + Batch data copy Execution time: 05:50
+   + Slow query - one row insert
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     | No | Execution time |
+     |----+----------------|
+     |  1 | 1.280s         |
+     |  2 | 0.916s         |
+     |  3 | 0.770s         |
+     |  4 | 0.379s         |
+     |  5 | 0.370s         |
+     |  6 | 0.298s         |
+     |  7 | 0.281s         |
+     |  8 | 0.266s         |
+     |  9 | 0.167s         |
+     | 10 | 0.144s         |
+
+   + Execution period
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     |       | Timestamp |
+     |-------+-----------|
+     | start |  15:43:17 |
+     | end   |  15:49:07 |
+
+*** Insert 5 millions volume data every 50,000 rows (apply thread pool : 4)
+   + Batch data copy Execution time: 05:29
+   + Slow query - one row insert
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     | No | Execution time |
+     |----+----------------|
+     |  1 | 0.139s         |
+     |  2 | 0.128s         |
+
+
+   + Execution period
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     |       | Timestamp |
+     |-------+-----------|
+     | start |  17:42:01 |
+     | end   |  17:47:30 |
+
+*** Insert 5 millions volume data every 10,000 rows (apply thread pool : 4)
+   + Batch data copy Execution time: 05:24
+   + Slow query - one row insert
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     | No | Execution time |
+     |----+----------------|
+     |  1 | 0.054s         |
+
+   + Execution period
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     |       | Timestamp |
+     |-------+-----------|
+     | start |  17:52:27 |
+     | end   |  17:57:51 |
+
+   
+
 ** Apply log duration per server
    [[./png/low-insert-latency-when-data-import.graph.png]]
+
+
+
+
+

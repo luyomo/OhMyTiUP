@@ -1,0 +1,132 @@
+#+OPTIONS: ^:nil
+#+OPTIONS: \n:t
+
+* Store status
+ git@github.com:pingcap/kvproto.git
+ -> pkg/pdpb/pdpb.pb.go
+ -> StoreStats
+    | Column Name        | Meaning                                                                            | Type          |
+    |--------------------+------------------------------------------------------------------------------------+---------------|
+    | StoreId            |                                                                                    | uint64        |
+    | Capacity           | Capacity for the store                                                             | uint64        |
+    | Available          | Capacity for the store                                                             | uint64        |
+    | RegionCount        | Total region count in this store.                                                  | uint32        |
+    | SendingSnapCount   | Current sending snapshot count.                                                    | uint32        |
+    | ReceivingSnapCount | Current receiving snapshot count.                                                  | uint32        |
+    | StartTime          | When the store is started (unix timestamp in seconds).                             | uint32        |
+    | ApplyingSnapCount  | Capacity for the store                                                             | uint32        |
+    | IsBusy             | If the store is busy                                                               | bool          |
+    | UsedSize           | Actually used space by db                                                          | uint64        |
+    | BytesWritten       | Bytes written for the store during this period.                                    | uint64        |
+    | KeysWritten        | Keys written for the store during this period.                                     | uint64        |
+    | BytesRead          | Bytes read for the store during this period.                                       | uint64        |
+    | KeysRead           | Keys read for the store during this period.                                        | uint64        |
+    | Interval           | Actually reported time interval                                                    | TimeInterval  |
+    | CpuUsages          | Threads' CPU usages in the store                                                   | RecordPair    |
+    | ReadIoRates        | Threads' read disk I/O rates in the store                                          | []*RecordPair |
+    | WriteIoRates       | Threads' write disk I/O rates in the store                                         | []*RecordPair |
+    | OpLatencies        | Operations' latencies in the store                                                 | []*RecordPair |
+    | PeerStats          | Hot peer stat in the store                                                         | []*PeerStat   |
+    | QueryStats         | Store query stats                                                                  | *QueryStats   |
+    | SlowScore          | Score that represents the speed of the store, ranges in [1, 100], lower is better. | uint64        |
+    | DamagedRegionsId   | Damaged regions on the store that need to be removed by PD.                        | []uint64              |
+
+** RegionHeartbeatRequest
+   | Column Name       | Meaning                                                                          | type           |
+   |-------------------+----------------------------------------------------------------------------------+----------------|
+   | Header            |                                                                                  |                |
+   | Region            |                                                                                  |                |
+   | Leader            | Leader Peer sending the heartbeat                                                |                |
+   | DownPeers         | Leader considers that these peers are down.                                      | []*PeerStats   |
+   | PendingPeers      | Pending peers are the peers that the leader can't consider as working followers. | []*metapb.Peer |
+   | BytesWritten      | Bytes read/written during this period.                                           | uint64         |
+   | BytesRead         |                                                                                  | uint64         |
+   | KeysWritten       | Keys read/written during this period.                                            | uint64         |
+   | KeysRead          |                                                                                  | uint64         |
+   | ApproximateSize   | Approximate region size.                                                         | uint64         |
+   | Interval          | Actually reported time interval                                                  | *TimeInterval  |
+   | ApproximateKeys   | Approximate number of keys.                                                      | uint64         |
+   | Term              | Term is the term of raft group.                                                  | uint64         |
+   | ReplicationStatus |                                                                                  |                |
+   | QueryStats        |                                                                                  |                |
+   | CpuUsage          | cpu_usage is the CPU time usage of the leader region since the last heartbeat,   | uint64         |
+   |                   | which is calculated by cpu_time_delta/heartbeat_reported_interval.               |                |
+
+*** RegionHeartbeatResponse
+Notice, Pd only allows handling reported epoch >= current pd's.
+ Leader peer reports region status with RegionHeartbeatRequest
+ to pd regularly, pd will determine whether this region
+ should do ChangePeer or not.
+ E,g, max peer number is 3, region A, first only peer 1 in A.
+ 1. Pd region state -> Peers (1), ConfVer (1).
+ 2. Leader peer 1 reports region state to pd, pd finds the peer number is < 3, so first changes its current region state -> Peers (1, 2), ConfVer (1), and returns ChangePeer Adding 2.
+ 3. Leader does ChangePeer, then reports Peers (1, 2), ConfVer (2), pd updates its state -> Peers (1, 2), ConfVer (2).
+ 4. Leader may report old Peers (1), ConfVer (1) to pd before ConfChange finished, pd stills responses ChangePeer Adding 2, of course, we must guarantee the second ChangePeer can't be applied in TiKV.
+     | Column Name    | Meaning                                                                   | Type            |
+     |----------------+---------------------------------------------------------------------------+-----------------|
+     | Header         |                                                                           | *ResponseHeader |
+     | ChangePeer     |                                                                           | *ChangePeer     |
+     | TransferLeader | Pd can return transfer_leader to let TiKV does leader transfer itself.    | *TransferLeader |
+     | RegionId       | ID of the region                                                          | uint64          |
+     | RegionEpoch    |                                                                           |                 |
+     | TargetPeer     | Leader of the region at the moment of the corresponding request was made. | *metapb.Peer    |
+     | Merge          |                                                                           | *Merge          |
+     | SplitRegion    | PD sends split_region to let TiKV split a region into two regions.        | *SplitRegion                |
+
+      Multiple change peer operations atomically.
+      Note: PD can use both ChangePeer and ChangePeerV2 at the same time
+            (not in the same RegionHeartbeatResponse).
+            Now, PD use ChangePeerV2 in following scenarios:
+            1. replacing peers
+            2. demoting voter directly
+
+* Scheduller
+** evict-slow-store-scheduler(pd/server/schedulers/evict_slow_query.go)
+*** Input 
+   The slow scores from store heartbeat is used to determinte this schduler.
+*** Operator to evict leader
+
+  Question:
+  + How to determine the slow scores?
+  + Is the background to introduce this feature? https://github.com/tikv/tikv/issues/10539
+** label-scheduler(pd/server/schedulers/label.go)
+   The label schduler to move the regions out from the down/pending regions and the label region. It it used to excluded the region from specific store
+** grant-hot-region-scheduler (pd/server/schedulers/grant_hot_region.go)
+*** INPUT
+    + statistics.SummaryStoreInfos
+    + cluster.GetStoresLoads
+*** OUTPUT
+    + create grant hot region operator
+** grant-leader-scheduler(pd/server/schedulers/grant_leader.go)
+   Schedule all the leaders of the Regions on store 1 to store 1
+   Move all the Region leaders on store 1 out
+** shuffle-leader-scheduler
+   Randomly exchange the leader on different stores
+** shuffle-region-scheduler
+   - Randomly scheduling the Regions on different stores.
+     + shuffle-leader-scheduler is last way to improve the hot spot because of the random shuffle region schduling.
+     + The regions are picked up randomly to be shuffled by PD.
+     + The performance can not be improved quicly. But after long running, sometimes the performance might be improved a lot.
+
+   - Question:
+     + In which scenario, we should use this way to change the regions.
+
+   - Note
+     + https://www.modb.pro/db/43704
+   
+** shuffle-hot-region-scheduler
+   add a scheduler to shuffle hot regions
+   ShuffleHotRegionScheduler mainly used to test. It will randomly pick a hot peer, and move the peer to a random store, and then transfer the leader to the hot peer.
+** random-merge-scheduler
+   add a scheduler to merge regions randomly
+* How the TSO is issued internally
+  https://asktug.com/t/topic/2026/6
+  Question: If one client ask a batch of TSO, will the sequence be impacted. It is not strictly consisent to the timestamp.
+  https://github.com/tikv/pd/blob/master/client/client.go
+* The mechanism to detect the TiKV node's down
+  + When one TiKV node is down
+  + All the region leader on this node will be transferred to other node
+  + All the new leaders send region heartbeat to PD
+  + All the leaders whose follower are in the down node send region heartbeat to PD
+  + PD get the region hearbeats and send requests to these leaders to add one more peer to meet the number of peers.
+  + 

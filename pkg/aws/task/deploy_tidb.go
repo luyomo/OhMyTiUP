@@ -42,10 +42,12 @@ type TplTiupData struct {
 	TiCDC   []string
 	DM      []string
 	Monitor []string
+	Pump    []string
+	Drainer []string
 }
 
 func (t TplTiupData) String() string {
-	return fmt.Sprintf("PD: %s  |  TiDB: %s  |  TiKV: %s  |  TiCDC: %s  |  DM: %s  |  Monitor:%s", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiKV, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Monitor, ","))
+    return fmt.Sprintf("PD: %s  |  TiDB: %s  |  TiKV: %s  |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s ", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiKV, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","))
 }
 
 // Execute implements the Task interface
@@ -93,10 +95,19 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 					tplData.TiCDC = append(tplData.TiCDC, instance.PrivateIpAddress)
 
 				}
+
 				if tag["Key"] == "Component" && tag["Value"] == "dm" {
 					tplData.DM = append(tplData.DM, instance.PrivateIpAddress)
-
 				}
+
+				if tag["Key"] == "Component" && tag["Value"] == "pump" {
+					tplData.Pump = append(tplData.Pump, instance.PrivateIpAddress)
+				}
+
+				if tag["Key"] == "Component" && tag["Value"] == "drainer" {
+					tplData.Drainer = append(tplData.Drainer, instance.PrivateIpAddress)
+				}
+
 				if tag["Key"] == "Component" && tag["Value"] == "workstation" {
 					tplData.Monitor = append(tplData.Monitor, instance.PrivateIpAddress)
 

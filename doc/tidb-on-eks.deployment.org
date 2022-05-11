@@ -182,6 +182,53 @@ tidb2cloudcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1        
 tidb2cloudcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
    #+END_SRC
 
+   Todo: I am still check what's the difference as the below config
+   Please refer to [[https://docs.amazonaws.cn/autoscaling/ec2/userguide/as-dg.pdf][auto scaling tutorial]]
+   #+BEGIN_SRC
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: tidb2cloudcdc
+  region: ap-northeast-1
+
+nodeGroups:
+  - name: admin
+    desiredCapacity: 1
+    privateNetworking: true
+    labels:
+      dedicated: admin
+
+  - name: tidb
+    desiredCapacity: 3
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: tidb
+    taints:
+      dedicated: tidb:NoSchedule
+
+  - name: pd
+    desiredCapacity: 3
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+    instanceType: c5.xlarge
+    labels:
+      dedicated: pd
+    taints:
+      dedicated: pd:NoSchedule
+
+  - name: tikv
+    desiredCapacity: 3
+    privateNetworking: true
+    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+    instanceType: r5b.2xlarge
+    labels:
+      dedicated: tikv
+    taints:
+      dedicated: tikv:NoSchedule
+   #+END_SRC
+
 ** TiDB Cluster operator installation
    Please refer to [[https://docs.pingcap.com/tidb-in-kubernetes/stable/get-started#step-2-deploy-tidb-operator][Deploy TiDB Operator]]
    #+BEGIN_SRC

@@ -89,7 +89,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 	c.clusterInfo.privateSecurityGroupId = securityGroup.GroupId
 	zap.L().Info("Variable confirmation", zap.String("clusterInfo.privateSecurityGroupId", c.clusterInfo.privateSecurityGroupId))
 
-	for _, port := range []int{22, 1433, 3306, 2379, 2380, 10080, 8300, 4000, 20160, 20180} {
+	for _, port := range []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 10080, 20160, 20180} {
 		command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port %d --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId, port)
 		zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 		stdout, _, err = executor.Execute(ctx, command, false)

@@ -76,22 +76,23 @@ func (m *Manager) TiDB2AuroraDeploy(
 		return err
 	}
 
-	instCnt := 0
-	topo.IterInstance(func(inst spec.Instance) {
-		switch inst.ComponentName() {
-		// monitoring components are only useful when deployed with
-		// core components, we do not support deploying any bare
-		// monitoring system.
-		case spec.ComponentGrafana,
-			spec.ComponentPrometheus,
-			spec.ComponentAlertmanager:
-			return
-		}
-		instCnt++
-	})
-	if instCnt < 1 {
-		return fmt.Errorf("no valid instance found in the input topology, please check your config")
-	}
+    //fmt.Printf("The spec contents are <%#v>\n", topo)
+	//instCnt := 0
+	//topo.IterInstance(func(inst spec.Instance) {
+	//	switch inst.ComponentName() {
+	//	// monitoring components are only useful when deployed with
+	//	// core components, we do not support deploying any bare
+	//	// monitoring system.
+	//	case spec.ComponentGrafana,
+	//		spec.ComponentPrometheus,
+	//		spec.ComponentAlertmanager:
+	//		return
+	//	}
+	//	instCnt++
+	//})
+	//if instCnt < 1 {
+	//	return fmt.Errorf("no valid instance found in the input topology, please check your config")
+	//}
 
 	spec.ExpandRelativeDir(topo)
 

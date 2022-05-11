@@ -1,75 +1,23 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
 * Architecture
   #+CAPTION: Architure
   #+ATTR_HTML: :width 800 :style border:2px solid black;
-  [[./png/architecture.aurora.png]]
-* Aurora Setup
-  Please check the [[s3://tidb.cloudformation.template/aurora/aurora.yaml][cloud formation template]] for below resource
-   #+CAPTION: Aurora Setup by Cloudformation 01
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.stack.01.png]]
-   #+CAPTION: Aurora Setup by Cloudformation 02
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.stack.02.png]]
-   #+CAPTION: Aurora Setup by Cloudformation 03
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.stack.03.png]]
-   #+CAPTION: Aurora Setup by Cloudformation 04
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.stack.04.png]]
-   #+CAPTION: Aurora Setup by Cloudformation 05
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.stack.05.png]]
-   #+CAPTION: Aurora Setup by Cloudformation 06
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.stack.06.png]]
-   #+CAPTION: Aurora Setup by Cloudformation 07
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.stack.07.png]]
-   #+CAPTION: Aurora Setup by Cloudformation 08
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/aurora.stack.08.png]]
+  [[./png/architecture.aurora.copy.png]]
+  This is to introduce the realtime data replication from TiDB Cloud to Aurora with [[https://docs.pingcap.com/tidb/stable/ticdc-overview][TiCDC]].  TiDB Cloud has provided the interface to setup the TiCDC replication. The whole PoC test flow is as below:
+  + Setup workstation(Optional)
+  + Setup Aurora
+  + VPC peering setup(TiDB Cloud <-> Aurora/TiDB Cloud <-> Workstation/Workstation <-> Aurora)
+  + TiCDC setup
+  The workstation is option in the PoC. If we have both TiDB Cloud and Aurora available with access from TiDB Cloud to Aurora, TiCDC is easy to setup.
 * Workstation Setup
-    Please check the [[s3://tidb.cloudformation.template/common/workstation.yaml][cloud formation template]] for below resource
-   #+CAPTION: Workstation Setup by Cloudformation 01
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/ws.stack.01.png]]
-   #+CAPTION: Workstation Setup by Cloudformation 02
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/ws.stack.02.png]]
-   #+CAPTION: Workstation Setup by Cloudformation 03
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/ws.stack.03.png]]
-   #+CAPTION: Workstation Setup by Cloudformation 04
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/ws.stack.04.png]]
-   #+CAPTION: Workstation Setup by Cloudformation 05
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/ws.stack.05.png]]
-   #+CAPTION: Workstation Setup by Cloudformation 06
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/ws.stack.06.png]]
-   #+CAPTION: Workstation Setup by Cloudformation 07
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/ws.stack.07.png]]
-   #+CAPTION: Workstation Setup by Cloudformation 08
-   #+attr_html: :width 800px
-   #+attr_latex: :width 800px
-   [[./png/tidb2aurora/ws.stack.08.png]]
+  Please find the link [[https://s3.ap-northeast-1.amazonaws.com/tidb.cloudformation.template/common/workstation.yaml][cloud formation template]] for workstation Setup
+* Aurora Setup
+  Please find the link for [[./aurora_creation.org][Aurora Installation]]
+* VPC Peering setup
+  + VPC Peering between TiDB Cloud and Aurora (Please refer to [[https://docs.pingcap.com/tidbcloud/public-preview/set-up-vpc-peering-connections][VPC Peering setup]])
+  + VPC Peering bewteen TiDB Cloud and Workstation(Please refer to [[https://docs.pingcap.com/tidbcloud/public-preview/set-up-vpc-peering-connections][VPC Peering setup]]
+  + VPC Peering between Workstation and Aurora
 * Resource confirmation
    #+CAPTION: Resource confirmation after cloudformation 01
    #+attr_html: :width 800px

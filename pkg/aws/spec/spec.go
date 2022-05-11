@@ -138,6 +138,8 @@ type (
 		TiKV    AwsNodeModal          `yaml:"tikv"`
 		DM      AwsNodeModal          `yaml:"dm"`
 		TiCDC   AwsNodeModal          `yaml:"ticdc"`
+		Pump    AwsNodeModal          `yaml:"pump"`
+		Drainer AwsNodeModal          `yaml:"drainer"`
 	}
 
 	AwsWSConfigs struct {

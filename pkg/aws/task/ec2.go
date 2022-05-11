@@ -752,3 +752,132 @@ func (c *DeployWS) Rollback(ctx context.Context) error {
 func (c *DeployWS) String() string {
 	return fmt.Sprintf("Echo: Create CloudFormation ")
 }
+/******************************************************************************/
+
+type CreatePumpNodes struct {
+	pexecutor      *ctxt.Executor
+	awsTopoConfigs *spec.AwsTopoConfigs
+	subClusterType string
+	clusterInfo    *ClusterInfo
+}
+
+// Execute implements the Task interface
+func (c *CreatePumpNodes) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	if c.awsTopoConfigs.Pump.Count == 0 {
+		zap.L().Debug("There is no Pump nodes to be configured")
+		return nil
+	}
+
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=pump\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
+	zap.L().Debug("Command", zap.String("describe-instance", command))
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	if err != nil {
+		return err
+	}
+
+	var reservations Reservations
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+		return err
+	}
+
+	existsNodes := 0
+	for _, reservation := range reservations.Reservations {
+		existsNodes = existsNodes + len(reservation.Instances)
+	}
+
+	for _idx := 0; _idx < c.awsTopoConfigs.Pump.Count; _idx++ {
+		if _idx < existsNodes {
+			continue
+		}
+		deviceStmt := ""
+		if c.awsTopoConfigs.Pump.VolumeSize > 0 {
+			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.Pump.VolumeSize)
+		}
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=pump}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.Pump.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType)
+		zap.L().Debug("Command", zap.String("run-instances", command))
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *CreatePumpNodes) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *CreatePumpNodes) String() string {
+	return fmt.Sprintf("Echo: Deploying Pump Nodes ")
+}
+/******************************************************************************/
+
+type CreateDrainerNodes struct {
+	pexecutor      *ctxt.Executor
+	awsTopoConfigs *spec.AwsTopoConfigs
+	subClusterType string
+	clusterInfo    *ClusterInfo
+}
+
+// Execute implements the Task interface
+func (c *CreateDrainerNodes) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	if c.awsTopoConfigs.Drainer.Count == 0 {
+		zap.L().Debug("There is no drainer nodes to be configured")
+		return nil
+	}
+
+	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=drainer\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
+	zap.L().Debug("Command", zap.String("describe-instance", command))
+	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	if err != nil {
+		return err
+	}
+
+	var reservations Reservations
+	if err = json.Unmarshal(stdout, &reservations); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+		return err
+	}
+
+	//	fmt.Printf("The existed nodes are <%#v> \n\n\n", reservations.Reservations)
+	existsNodes := 0
+	for _, reservation := range reservations.Reservations {
+		existsNodes = existsNodes + len(reservation.Instances)
+	}
+
+	for _idx := 0; _idx < c.awsTopoConfigs.Drainer.Count; _idx++ {
+		if _idx < existsNodes {
+			continue
+		}
+		deviceStmt := ""
+		if c.awsTopoConfigs.Drainer.VolumeSize > 0 {
+			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.Drainer.VolumeSize)
+		}
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=drainer}]\"", c.awsTopoConfigs.General.ImageId, c.awsTopoConfigs.Drainer.InstanceType, c.awsTopoConfigs.General.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType)
+		zap.L().Debug("Command", zap.String("run-instances", command))
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *CreateDrainerNodes) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *CreateDrainerNodes) String() string {
+	return fmt.Sprintf("Echo: Deploying Drainer Nodes ")
+}

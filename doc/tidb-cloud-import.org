@@ -1,11 +1,19 @@
-* Flow
-  + Step 1: It takes about 15-20 minutes to complete.
-  + Step 2:
-    - Create node
-    - Add node into K8S cluster
-    - Create pod for data importing
-    - Data import
-    - Checksum calculation
-  + Step 3: Release resource
+* Todo
+** TiDB binlog pumper drainer oracle
+   + Deploy TiDB using Tiup with two pump and one drainer
+   + Start one oracle RDS
+   + Deploy drainer and pump to sync the data
+** Try cloud dns to open TiKV/PD pod to vpc
+** Newlic consolidation  
+** OpenVPN test
+** PD Testing
+*** Deploy PD/TiKV sepeartely
+*** Prepare test program to run against TiKV
+** TiFlash performance comparison against Clickhouse
+** Matching Engine Setup
+** TiDB TiCDC Kafka avro test
+** TiDB + Flink
+** TiSpark test
+** Cassodora + TiKV demo
 * Notes:
   Bug fix: https://github.com/tidbcloud/infra/pull/1562

@@ -1,0 +1,88 @@
+* TiDB Nodes preparation
+  #+BEGIN_SRC
+$workstation:
+  imageid: ami-07d02ee1eeb0c996c
+  keyname: jay-us-east-01
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c
+    name: tisamplenodes
+    keyname: jay-us-east-01
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem
+    cidr: 172.83.0.0/16
+    instance_type: m5.2xlarge
+    tidb_version: v5.4.0
+  pd:
+    instance_type: m5.2xlarge
+    count: 3
+  tidb:
+    instance_type: m5.2xlarge
+    count: 2
+  tikv:
+    instance_type: m5.2xlarge
+    count: 3
+  ticdc:
+    instance_type: t2.micro
+    count: 1
+
+$ ./bin/aws tidb2ms deploy demo-tidb /tmp/aws-nodes-tidb.yaml
+Please confirm your topology:
+AWS Region:      Tokyo
+Cluster type:    tidb
+Cluster name:    demo-tidb
+Cluster version: v5.1.0
+User Name:       admin
+Key Name:        jay
+
+Component    # of nodes  Instance Type  Image Name             CIDR           User
+---------    ----------  -------------  ----------             ----           ----
+Workstation  1           m5.2xlarge     ami-0ac97798ccf296e02  172.82.0.0/16  admin
+TiDB         2           m5.2xlarge     ami-07d02ee1eeb0c996c  172.83.0.0/16  master
+PD           3           m5.2xlarge     ami-07d02ee1eeb0c996c  172.83.0.0/16  master
+TiKV         3           m5.2xlarge     ami-07d02ee1eeb0c996c  172.83.0.0/16  master
+TiCDC        1           t2.micro       ami-07d02ee1eeb0c996c  172.83.0.0/16  master
+Attention:
+    1. If the topology is not what you expected, check your yaml file.
+    2. Please confirm there is no port/directory conflicts in same host.
+Do you want to continue? [y/N]: (default=N) y
+
+  #+END_SRC
+
+* Oracle Install
+  #+BEGIN_SRC
+$ sqlplus admin/1234Abcd@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(Host=tidbsync.cxmxisy1o2a2.us-east-1.rds.amazonaws.com)(Port=1521))(CONNECT_DATA=(SID=orcl)))
+sqlplus$ create user test  identified by findpt account unlock default tablespace users;
+grant resource,connect to test;
+SQL> alter user test quota unlimited on users;
+  #+END_SRC
+
+
+* Note
+** How to install oracle client
+   https://www.geeksforgeeks.org/how-to-install-sqlplus-on-linux/
+
+** Drainer
+   https://tidb.net/blog/54bba63d
+   https://docs.google.com/document/d/1e6MR0ckSCQPf0eb-untgYaemV08ZHRraUQ4NjJnVZLU/edit
+
+ https://download.pingcap.org/tidb-v6.0.0-linux-amd64.tar.gz
+* DEBUG
+  [2022/05/09 10:05:59.786 +00:00] [ERROR] [binloginfo.go:248] ["write binlog failed"] [binlog_type=Prewrite] [binlog_start_ts=433085666993111041] [binlog_commit_ts=0] [error="write binlog failed, the last error rpc error: code = DeadlineExceeded desc = context deadline exceeded"]
+
+  server_configs:
+  tidb: 
+    binlog.enable: true
+    binlog.ignore-error: false
+
+* Todo
+  + EC2 Nodes generation from OhMyTiUP
+  + Install the TiDB on the nodes including Pump and Drainer
+  + Install the Oracle Client on the Drainer node
+  + Install the Drainer on the Drainer node
+  + Install the Oracle on the AWS
+  + Performance test
+
+* Memo
+If the disk of pump is too small, it cause the disk failure.
