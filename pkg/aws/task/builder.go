@@ -528,71 +528,85 @@ func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType s
 }
 
 func (b *Builder) CreatePDNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreatePDNodes{
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
 		pexecutor:      pexecutor,
-		awsTopoConfigs: awsTopoConfigs,
+        awsTopoConfigs:     &awsTopoConfigs.PD,
+        awsGeneralConfigs:  &awsTopoConfigs.General,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
+        componentName:      "pd",
 	})
 	return b
 }
 
 func (b *Builder) CreateTiDBNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateTiDBNodes{
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
 		pexecutor:      pexecutor,
-		awsTopoConfigs: awsTopoConfigs,
+        awsTopoConfigs:     &awsTopoConfigs.TiDB,
+        awsGeneralConfigs:  &awsTopoConfigs.General,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
+        componentName:      "tidb",
 	})
 	return b
 }
 
 func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateTiKVNodes{
-		pexecutor:      pexecutor,
-		awsTopoConfigs: awsTopoConfigs,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:          pexecutor,
+        awsTopoConfigs:     &awsTopoConfigs.TiKV,
+        awsGeneralConfigs:  &awsTopoConfigs.General,
+		subClusterType:     subClusterType,
+		clusterInfo:        clusterInfo,
+        componentName:      "tikv",
 	})
 	return b
 }
 
 func (b *Builder) CreateDMNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateDMNodes{
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
 		pexecutor:      pexecutor,
-		awsTopoConfigs: awsTopoConfigs,
+        awsTopoConfigs:     &awsTopoConfigs.DM,
+        awsGeneralConfigs:  &awsTopoConfigs.General,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
+        componentName:  "dm",
 	})
 	return b
 }
 
 func (b *Builder) CreateTiCDCNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateTiCDCNodes{
-		pexecutor:      pexecutor,
-		awsTopoConfigs: awsTopoConfigs,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:          pexecutor,
+        awsTopoConfigs:     &awsTopoConfigs.TiCDC,
+        awsGeneralConfigs:  &awsTopoConfigs.General,
+		subClusterType:     subClusterType,
+		clusterInfo:        clusterInfo,
+        componentName:      "ticdc",
 	})
 	return b
 }
 
 func (b *Builder) CreatePumpNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreatePumpNodes{
-		pexecutor:      pexecutor,
-		awsTopoConfigs: awsTopoConfigs,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:          pexecutor,
+        awsTopoConfigs:     &awsTopoConfigs.Pump,
+        awsGeneralConfigs:  &awsTopoConfigs.General,
+		subClusterType:     subClusterType,
+		clusterInfo:        clusterInfo,
+        componentName:      "pump",
 	})
 	return b
 }
 
 func (b *Builder) CreateDrainerNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateDrainerNodes{
-		pexecutor:      pexecutor,
-		awsTopoConfigs: awsTopoConfigs,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:          pexecutor,
+		awsTopoConfigs:     &awsTopoConfigs.Drainer,
+        awsGeneralConfigs:  &awsTopoConfigs.General,
+		subClusterType:     subClusterType,
+		clusterInfo:        clusterInfo,
+        componentName:      "drainer",
 	})
 	return b
 }
