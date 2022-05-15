@@ -77,8 +77,8 @@ SQL> alter user test quota unlimited on users;
     binlog.ignore-error: false
 
 * Todo
-  + EC2 Nodes generation from OhMyTiUP
-  + Install the TiDB on the nodes including Pump and Drainer
+  + EC2 Nodes generation from OhMyTiUP(Done)
+  + Install the TiDB on the nodes including Pump and Drainer(Done
   + Install the Oracle Client on the Drainer node
   + Install the Drainer on the Drainer node
   + Install the Oracle on the AWS
@@ -86,3 +86,4 @@ SQL> alter user test quota unlimited on users;
 
 * Memo
 If the disk of pump is too small, it cause the disk failure.
+

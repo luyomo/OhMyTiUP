@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+     The template is used to deploy rds oracle
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - 
+        Label:
+          default: "Meta Configuration"
+        Parameters:
+          - InstanceType
+          - VpcCidr
+          - DBInsName
+          - VolumeSize
+          - Username
+          - Password
+Parameters:
+  InstanceType:
+    Description: RDS instance type
+    Type: String
+    Default: db.m5.large
+    AllowedValues:
+    - db.m5.large
+    - db.m5.xlarge
+    - db.m5.2xlarge
+    - db.m5.4xlarge
+    - db.r5.large
+    - db.r5.xlarge
+    - db.r5.2xlarge
+    - db.r5.4xlarge
+    - db.r5.8xlarge
+    - db.r5.12xlarge
+    - db.r5.16xlarge
+    - db.r5.24xlarge
+    ConstraintDescription: must be a valid rdb instance type
+  VpcCidr:
+    Type: String
+    Default: 172.89.0.0/16
+    Description: The cidr of RDB
+  VolumeSize:
+    Type: Number
+    Default: 20
+    Description: The disk size of the DB
+  DBInsName:
+    Type: String
+    Description: Oracle instance name
+  Username:
+    Type: String
+    Description: The username for RDB
+  Password:
+    Type: String
+    Description: The password of RDB
+Resources:
+  rdsOracleVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Ref: VpcCidr
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+
+  rdsOracleSubnet01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: rdsOracleVPC
+      CidrBlock: !Select [ 0, !Cidr [ !Ref VpcCidr, 12, 8  ]  ]
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+
+  rdsOracleSubnet02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: rdsOracleVPC
+      CidrBlock: !Select [ 1, !Cidr [ !Ref VpcCidr, 12, 8  ]  ]
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+          
+  rdsOracleRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: rdsOracleVPC
+
+  rdsOracleSubnetRouteTableAssociation01:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: rdsOracleSubnet01
+      RouteTableId:
+        Ref: rdsOracleRT
+  rdsOracleSubnetRouteTableAssociation02:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: rdsOracleSubnet02
+      RouteTableId:
+        Ref: rdsOracleRT
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow DB access from client
+      VpcId:
+        Ref: rdsOracleVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 1521
+        ToPort: 1521
+        CidrIp: 0.0.0.0/0
+
+  rdsOracleDBSubnetGroup: 
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupDescription: description
+      SubnetIds: 
+        - Ref: rdsOracleSubnet01
+        - Ref: rdsOracleSubnet02
+
+  OrclRDSParamGroup:
+    Type: "AWS::RDS::DBParameterGroup"
+    Properties:
+      Family: "oracle-se2-12.1"
+      Description: "Oracle DB Parameter Group"
+      Parameters:
+        compatible: "12.1.0.2"
+
+  rdsOracleDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      VPCSecurityGroups:
+      - Ref: InstanceSecurityGroup
+      AllocatedStorage: !Ref VolumeSize
+      DBInstanceIdentifier: !Ref DBInsName
+      DBSubnetGroupName: 
+        Ref: rdsOracleDBSubnetGroup
+      DBInstanceClass: !Ref InstanceType
+      Engine: oracle-se2
+      EngineVersion: 12.1.0.2.v27
+      Port: 1521
+      LicenseModel: license-included
+      MasterUsername: !Ref Username
+      MasterUserPassword: !Ref Password
+      DBParameterGroupName: 
+        Ref: OrclRDSParamGroup
+    DeletionPolicy: Snapshot

@@ -31,3 +31,8 @@ aws_topo_configs:
     instance_type: m5.xlarge
     count: 1
     volumeSize: 100
+oracle:
+  dbInstanceName: jaytest
+  volumeSize: 20
+  dbUserName: admin
+  dbPassword: 1234Abcd

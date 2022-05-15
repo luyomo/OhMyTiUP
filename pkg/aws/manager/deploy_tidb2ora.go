@@ -55,7 +55,7 @@ func (m *Manager) TiDB2OraDeploy(
 	skipConfirm bool,
 	gOpt operator.Options,
 ) error {
-    // Check whether the name has existed in the cloud
+	// Check whether the name has existed in the cloud
 	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (m *Manager) TiDB2OraDeploy(
 		return err
 	}
 
-    // If the name has exists, return duplicate message
+	// If the name has exists, return duplicate message
 	if exist {
 		// FIXME: When change to use args, the suggestion text need to be updatem.
 		return errDeployNameDuplicate.
@@ -73,7 +73,7 @@ func (m *Manager) TiDB2OraDeploy(
 			WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
 	}
 
-    // Fetch the metadata of the topology
+	// Fetch the metadata of the topology
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
 
@@ -88,12 +88,15 @@ func (m *Manager) TiDB2OraDeploy(
 		base.GlobalOptions.SSHType = sshType
 	}
 
-    if base.AwsTopoConfigs.TiCDC.Count > 0 {
-        log.Warnf("TiCDC nodes config will be skipped")
-    }
-    if base.AwsTopoConfigs.DM.Count > 0 {
-        log.Warnf("DM nodes config will be skipped")
-    }
+	// Skip the TiCDC since it's not the part of this structure
+	if base.AwsTopoConfigs.TiCDC.Count > 0 {
+		log.Warnf("TiCDC nodes config will be skipped")
+	}
+
+	// Skip the DM since it's not the part of this structure
+	if base.AwsTopoConfigs.DM.Count > 0 {
+		log.Warnf("DM nodes config will be skipped")
+	}
 
 	var (
 		sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
@@ -115,13 +118,14 @@ func (m *Manager) TiDB2OraDeploy(
 		return err
 	}
 
-    // Todo: To understand
+	// Todo: To understand
 	if !skipConfirm {
 		if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
 			return err
 		}
 	}
 
+	// Review these info since it's better to put all the meta info into aws
 	if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
 		return errorx.InitializationFailed.
 			Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
@@ -140,6 +144,7 @@ func (m *Manager) TiDB2OraDeploy(
 
 	var workstationInfo, clusterInfo task.ClusterInfo
 
+	// Workstation preparation
 	if base.AwsWSConfigs.InstanceType != "" {
 		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
@@ -150,17 +155,17 @@ func (m *Manager) TiDB2OraDeploy(
 	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.Pump.Count + base.AwsTopoConfigs.Drainer.Count
 	if cntEC2Nodes > 0 {
 		t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-              CreateTransitGateway(&sexecutor).
-              CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-              CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
-              CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
+			CreateTransitGateway(&sexecutor).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 		envInitTasks = append(envInitTasks, t2)
 	}
 
-	if base.AwsCloudFormationConfigs.TemplateBodyFilePath != "" || base.AwsCloudFormationConfigs.TemplateURL != "" {
-		t5 := task.NewBuilder().CreateCloudFormation(&sexecutor, base.AwsCloudFormationConfigs, "", &clusterInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing cloud formation"))
+	if base.AwsOracleConfigs.DBInstanceName != "" {
+		t5 := task.NewBuilder().CreateOracle(&sexecutor, base.AwsOracleConfigs, &clusterInfo).
+			BuildAsStep(fmt.Sprintf("  - Preparing oracle"))
 		envInitTasks = append(envInitTasks, t5)
 	}
 
@@ -188,17 +193,17 @@ func (m *Manager) TiDB2OraDeploy(
 			CreateTransitGateway(&sexecutor).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "oracle").
 			CreateRouteTgw(&sexecutor, "tidb", []string{"aurora"}).
 			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
-			DeployTiCDC(&sexecutor, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
 			BuildAsStep(fmt.Sprintf("  - Prepare TiDB resources %s:%d", globalOptions.Host, 22))
 	}
 
 	tailctx := context.WithValue(context.Background(), "clusterName", name)
 	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
-	builder = task.NewBuilder().
-		ParallelStep("+ Deploying tidb2ora solution service ... ...", false, t5)
+
+	builder = task.NewBuilder().ParallelStep("+ Deploying tidb2ora solution service ... ...", false, t5)
 	t = builder.Build()
 	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
@@ -215,7 +220,6 @@ func (m *Manager) TiDB2OraDeploy(
 	log.Infof("Cluster `%s` deployed successfully, you can start it with command: `%s`", name, hint)
 	return nil
 }
-
 
 // Cluster represents a clsuter
 // ListCluster list the clusters.
@@ -271,6 +275,12 @@ func (m *Manager) ListTiDB2OraCluster(clusterName string, opt DeployOptions) err
 	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 
+	// 009. Oracle
+	tableOracle := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Volume Size", "Engine", "Engine Version", "Instance Type", "Security Group"}}
+	// Version   |   Volume Size  | Instance Type | Admin User  | Security Group  | Subnet Group
+	t9 := task.NewBuilder().ListOracle(&sexecutor, &tableOracle).BuildAsStep(fmt.Sprintf("  - Listing Oracle"))
+	listTasks = append(listTasks, t9)
+
 	// *********************************************************************
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
 
@@ -305,6 +315,9 @@ func (m *Manager) ListTiDB2OraCluster(clusterName string, opt DeployOptions) err
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Oracle"))
+	tui.PrintTable(tableOracle, true)
+
 	return nil
 }
 
@@ -327,12 +340,11 @@ func (m *Manager) DestroyTiDB2OraCluster(name string, gOpt operator.Options, des
 
 	t0 := task.NewBuilder().
 		DestroyTransitGateways(&sexecutor).
-		DestroyDMSService(&sexecutor, "dmsservice").
 		DestroyVpcPeering(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().
-		ParallelStep("+ Destroying tidb2ms solution service ... ...", false, t0)
+		ParallelStep("+ Destroying tidb2ora solution service ... ...", false, t0)
 	t := builder.Build()
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
@@ -346,7 +358,6 @@ func (m *Manager) DestroyTiDB2OraCluster(name string, gOpt operator.Options, des
 
 	var destroyTasks []*task.StepDisplay
 
-	var auroraInfo, msInfo task.ClusterInfo
 	t1 := task.NewBuilder().
 		DestroyEC2Nodes(&sexecutor, "tidb").
 		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
@@ -354,16 +365,10 @@ func (m *Manager) DestroyTiDB2OraCluster(name string, gOpt operator.Options, des
 	destroyTasks = append(destroyTasks, t1)
 
 	t2 := task.NewBuilder().
-		DestroyAurora(&sexecutor, "aurora", &auroraInfo).
-		BuildAsStep(fmt.Sprintf("  - Destroying aurora db cluster %s ", name))
+		DestroyOracle(&sexecutor).
+		BuildAsStep(fmt.Sprintf("  - Destroying oracle db cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t2)
-
-	t3 := task.NewBuilder().
-		DestroySqlServer(&sexecutor, "sqlserver", &msInfo).
-		BuildAsStep(fmt.Sprintf("  - Destroying sqlserver cluster %s ", name))
-
-	destroyTasks = append(destroyTasks, t3)
 
 	t4 := task.NewBuilder().
 		DestroyEC2Nodes(&sexecutor, "workstation").

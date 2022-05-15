@@ -176,6 +176,15 @@ type (
 		InstanceType string `yaml:"instance_type"`
 	}
 
+	AwsOracleConfigs struct {
+		DBInstanceName string `yaml:"dbInstanceName"`
+		InstanceType   string `yaml:"instanceType"`
+		VolumeSize     int    `yaml:"volumeSize"`
+		DBUserName     string `yaml:"dbUserName"`
+		DBPassword     string `yaml:"dbPassword"`
+		CIDR           string `yaml:"cidr"`
+	}
+
 	AwsCloudFormationConfigs struct {
 		Parameters           map[string]string `yaml:"parameters"`
 		TemplateBodyFilePath string            `yaml:"template_body_file_path"`
@@ -190,6 +199,7 @@ type (
 		AwsWSConfigs             AwsWSConfigs             `yaml:"workstation,omitempty"`
 		AwsTopoConfigs           AwsTopoConfigs           `yaml:"aws_topo_configs"`
 		AwsAuroraConfigs         AwsAuroraConfigs         `yaml:"aurora,omitempty"`
+		AwsOracleConfigs         AwsOracleConfigs         `yaml:"oracle,omitempty"`
 		AwsMSConfigs             AwsMSConfigs             `yaml:"sqlserver,omitempty"`
 		AwsDMSConfigs            AwsDMSConfigs            `yaml:"dms,omitempty"`
 		AwsCloudFormationConfigs AwsCloudFormationConfigs `yaml:"aws_cloud_formation_configs"`
@@ -216,6 +226,7 @@ type BaseTopo struct {
 	AwsWSConfigs             *AwsWSConfigs
 	AwsTopoConfigs           *AwsTopoConfigs
 	AwsAuroraConfigs         *AwsAuroraConfigs
+	AwsOracleConfigs         *AwsOracleConfigs
 	AwsMSConfigs             *AwsMSConfigs
 	AwsDMSConfigs            *AwsDMSConfigs
 	AwsCloudFormationConfigs *AwsCloudFormationConfigs
@@ -290,6 +301,7 @@ func (s *Specification) NewPart() Topology {
 		AwsWSConfigs:             s.AwsWSConfigs,
 		AwsTopoConfigs:           s.AwsTopoConfigs,
 		AwsAuroraConfigs:         s.AwsAuroraConfigs,
+		AwsOracleConfigs:         s.AwsOracleConfigs,
 		AwsMSConfigs:             s.AwsMSConfigs,
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
@@ -332,6 +344,7 @@ func (s *Specification) BaseTopo() *BaseTopo {
 		AwsWSConfigs:             &s.AwsWSConfigs,
 		AwsTopoConfigs:           &s.AwsTopoConfigs,
 		AwsAuroraConfigs:         &s.AwsAuroraConfigs,
+		AwsOracleConfigs:         &s.AwsOracleConfigs,
 		AwsMSConfigs:             &s.AwsMSConfigs,
 		AwsDMSConfigs:            &s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: &s.AwsCloudFormationConfigs,
@@ -539,6 +552,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		AwsWSConfigs:             s.AwsWSConfigs,
 		AwsTopoConfigs:           s.AwsTopoConfigs,
 		AwsAuroraConfigs:         s.AwsAuroraConfigs,
+		AwsOracleConfigs:         s.AwsOracleConfigs,
 		AwsMSConfigs:             s.AwsMSConfigs,
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
@@ -580,6 +594,7 @@ var (
 	awsWSConfigsTypeName             = reflect.TypeOf(AwsWSConfigs{}).Name()
 	awsTopoConfigsTypeName           = reflect.TypeOf(AwsTopoConfigs{}).Name()
 	awsAuroraConfigsTypeName         = reflect.TypeOf(AwsAuroraConfigs{}).Name()
+	awsOracleConfigsTypeName         = reflect.TypeOf(AwsOracleConfigs{}).Name()
 	awsMSConfigsTypeName             = reflect.TypeOf(AwsMSConfigs{}).Name()
 	awsDMSConfigsTypeName            = reflect.TypeOf(AwsDMSConfigs{}).Name()
 	awsCloudFormationConfigsTypeName = reflect.TypeOf(AwsCloudFormationConfigs{}).Name()
@@ -588,7 +603,7 @@ var (
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {
