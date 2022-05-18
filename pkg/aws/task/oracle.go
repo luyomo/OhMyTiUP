@@ -17,15 +17,13 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/aws/aws-sdk-go-v2/service/rds"
-	//	rdstype "github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/tisample/pkg/aws/utils"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"io/ioutil"
 )
@@ -44,10 +42,7 @@ func (c *CreateOracle) Execute(ctx context.Context) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 
 	if err != nil {
-		notExistErr := fmt.Sprintf("Stack with id %s does not exist", clusterName)
-		if !strings.Contains(err.Error(), notExistErr) {
-			return err
-		}
+		return err
 	}
 
 	client := cloudformation.NewFromConfig(cfg)
@@ -61,23 +56,7 @@ func (c *CreateOracle) Execute(ctx context.Context) error {
 		if *(stackSummary.StackName) == clusterName && stackSummary.StackStatus != "DELETE_COMPLETE" {
 			return nil
 		}
-		// fmt.Printf("The stacks info here is <%#v> \n\n\n\n", *(stackSummary.StackName))
-		// fmt.Printf("The stacks info here is <%#v> \n\n\n\n", stackSummary.StackStatus)
-		//		fmt.Printf("The stacks info here is <%#v> \n\n\n\n", stackSummary)
-
 	}
-
-	// input := &cloudformation.DescribeStacksInput{StackName: aws.String(clusterName)}
-
-	// stackInfo, err := client.DescribeStacks(context.TODO(), input)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("The data is <%#v> \n", stackInfo)
-
-	// if len((*stackInfo).Stacks) > 0 {
-	// 	return nil
-	// }
 
 	content, _ := ioutil.ReadFile("embed/templates/cloudformation/rds-oracle.yaml")
 	templateBody := string(content)
@@ -204,52 +183,27 @@ type ListOracle struct {
 func (c *ListOracle) Execute(ctx context.Context) error {
 	fmt.Printf("Listing the resources for oracle.   \n\n\n\n")
 	clusterName := ctx.Value("clusterName").(string)
-	//	clusterType := ctx.Value("clusterType").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	oracleInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "oracle")
 	if err != nil {
 		return err
 	}
 
-	client := cloudformation.NewFromConfig(cfg)
-
-	input := &cloudformation.DescribeStackResourceInput{StackName: aws.String(clusterName), LogicalResourceId: aws.String("rdsOracleDB")}
-
-	stackResourceInfo, err := client.DescribeStackResource(context.TODO(), input)
-	if err != nil {
-		notExistErr := fmt.Sprintf("Stack '%s' does not exist", clusterName)
-		if strings.Contains(err.Error(), notExistErr) {
-			return nil
-		}
-		return err
+	for _, oraInsInfo := range *oracleInstanceInfos {
+		*(c.tableOracle) = append(*(c.tableOracle), []string{
+			oraInsInfo.PhysicalResourceId,
+			oraInsInfo.DBName,
+			oraInsInfo.EndPointAddress,
+			strconv.FormatInt(oraInsInfo.DBPort, 10),
+			oraInsInfo.DBUserName,
+			strconv.FormatInt(oraInsInfo.DBSize, 10),
+			oraInsInfo.DBEngine,
+			oraInsInfo.DBEngineVersion,
+			oraInsInfo.DBInstanceClass,
+			oraInsInfo.VpcSecurityGroupId,
+		})
 	}
-
-	rdsclient := rds.NewFromConfig(cfg)
-
-	rdsDescribeInput := &rds.DescribeDBInstancesInput{DBInstanceIdentifier: aws.String(*(stackResourceInfo.StackResourceDetail.PhysicalResourceId))}
-	rdsResourceInfo, err := rdsclient.DescribeDBInstances(context.TODO(), rdsDescribeInput)
-	if err != nil {
-
-		return err
-	}
-
-	if len(rdsResourceInfo.DBInstances) == 0 {
-		return nil
-	}
-
-	*(c.tableOracle) = append(*(c.tableOracle), []string{
-		*(stackResourceInfo.StackResourceDetail.PhysicalResourceId),
-		*(rdsResourceInfo.DBInstances[0].Endpoint.Address),
-		strconv.FormatInt(int64(rdsResourceInfo.DBInstances[0].Endpoint.Port), 10),
-		*(rdsResourceInfo.DBInstances[0].MasterUsername),
-		strconv.FormatInt(int64(rdsResourceInfo.DBInstances[0].AllocatedStorage), 10),
-		*(rdsResourceInfo.DBInstances[0].Engine),
-		*(rdsResourceInfo.DBInstances[0].EngineVersion),
-		*(rdsResourceInfo.DBInstances[0].DBInstanceClass),
-		//		*(rdsResourceInfo.DBInstances[0].DBSubnetGroup.DBSubnetGroupName),
-		*(rdsResourceInfo.DBInstances[0].VpcSecurityGroups[0].VpcSecurityGroupId),
-	})
-
 	return nil
 }
 

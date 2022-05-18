@@ -154,7 +154,8 @@ func (m *Manager) TiDB2OraDeploy(
 
 	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.Pump.Count + base.AwsTopoConfigs.Drainer.Count
 	if cntEC2Nodes > 0 {
-		t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+		t2 := task.NewBuilder().
+			CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 			CreateTransitGateway(&sexecutor).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
@@ -194,9 +195,12 @@ func (m *Manager) TiDB2OraDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "oracle").
-			CreateRouteTgw(&sexecutor, "tidb", []string{"aurora"}).
+			CreateRouteTgw(&sexecutor, "tidb", []string{"oracle"}).
 			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+			InstallOracleClient(&sexecutor, base.AwsWSConfigs).
+			InstallTiDB(&sexecutor, base.AwsWSConfigs).
+			DeployDrainConfig(&sexecutor, base.AwsOracleConfigs, base.AwsWSConfigs, base.DrainerReplicate).
 			BuildAsStep(fmt.Sprintf("  - Prepare TiDB resources %s:%d", globalOptions.Host, 22))
 	}
 
@@ -276,7 +280,7 @@ func (m *Manager) ListTiDB2OraCluster(clusterName string, opt DeployOptions) err
 	listTasks = append(listTasks, t8)
 
 	// 009. Oracle
-	tableOracle := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Volume Size", "Engine", "Engine Version", "Instance Type", "Security Group"}}
+	tableOracle := [][]string{{"Physical Name", "Service Name", "Host Name", "Port", "DB User", "Volume Size", "Engine", "Engine Version", "Instance Type", "Security Group"}}
 	// Version   |   Volume Size  | Instance Type | Admin User  | Security Group  | Subnet Group
 	t9 := task.NewBuilder().ListOracle(&sexecutor, &tableOracle).BuildAsStep(fmt.Sprintf("  - Listing Oracle"))
 	listTasks = append(listTasks, t9)

@@ -31,6 +31,8 @@ aws_topo_configs:
     instance_type: m5.xlarge
     count: 1
     volumeSize: 100
+drainer_replicate:
+  replicate_db: test
 oracle:
   dbInstanceName: jaytest
   volumeSize: 20

@@ -77,12 +77,68 @@ SQL> alter user test quota unlimited on users;
     binlog.ignore-error: false
 
 * Todo
-  + EC2 Nodes generation from OhMyTiUP(Done)
   + Install the TiDB on the nodes including Pump and Drainer(Done
   + Install the Oracle Client on the Drainer node
   + Install the Drainer on the Drainer node
-  + Install the Oracle on the AWS
   + Performance test
+** tidb client install
+#+BEGIN_SRC
+$ sudo apt-get install -y mariadb-server
+$ mysql> use test;
+$ mysql> create table test01(col01 int primary key, col02 int );
+#+END_SRC
+    
+** tidb binary install
+#+BEGIN_SRC
+$ sudo apt-get update -y
+$ wget https://download.pingcap.org/tidb-v6.0.0-linux-amd64.tar.gz
+$ tar xvf tidb-v6.0.0-linux-amd64.tar.gz
+$ scp -r tidb-v6.0.0-linux-amd64 172.83.1.138:/tmp/
+$ ssh 172.83.1.138 'sudo mv /tmp/tidb-v6.0.0-linux-amd64 /opt/'
+#+END_SRC
+
+** SQLPLUS binary install
+#+BEGIN_SRC
+$ wget https://download.oracle.com/otn_software/linux/instantclient/214000/instantclient-basic-linux.x64-21.4.0.0.0dbru.zip
+$ wget https://download.oracle.com/otn_software/linux/instantclient/214000/instantclient-sqlplus-linux.x64-21.4.0.0.0dbru.zip
+$ ssh 172.83.1.138 'sudo mkdir -p /opt/oracle'
+$ sudo apt-get install -y zip
+$ unzip instantclient-basic-linux.x64-21.4.0.0.0dbru.zip
+$ unzip instantclient-sqlplus-linux.x64-21.4.0.0.0dbru.zip
+$ scp -r instantclient_21_4 172.83.1.138:/tmp/
+$ ssh 172.83.1.138 'sudo rm -rf /opt/oracle/instantclient_21_4'
+$ ssh 172.83.1.138 'sudo mv /tmp/instantclient_21_4 /opt/oracle'
+#+END_SRC
+
+** Oracle resource
+#+BEGIN_SRC
+sqlplus> create user test identified by test account unlock default tablespace users;
+sqlplus> grant resource,connect to test;
+sqlplus> alter user test quota unlimited on users;
+sqlplus> create table test.test01(col01 int primary key, col02 int);
+sqlplus> create or replace procedure do_truncate(table_name     in varchar2,
+                                          partition_name in varchar2) as
+begin
+  if partition_name || 'x' = 'x' then
+    execute immediate 'truncate table ' || table_name;
+  else
+    execute immediate 'alter table ' || table_name || ' truncate partition ' || partition_name;
+  end if;
+end;
+/
+
+#+END_SRC
+
+** Set the variable for SQLPLUS
+#+BEGIN_SRC
+export LD_LIBRARY_PATH=/opt/oracle/instantclient_21_4:$LD_LIBRARY_PATH
+export PATH=$LD_LIBRARY_PATH:$PATH
+#+END_SRC
+
+** Set envoronment variable for tidb
+#+BEGIN_SRC
+export PATH=/opt/tidb-v6.0.0-linux-amd64/bin:$PATH
+#+END_SRC
 
 * Memo
 If the disk of pump is too small, it cause the disk failure.

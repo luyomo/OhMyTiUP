@@ -185,6 +185,10 @@ type (
 		CIDR           string `yaml:"cidr"`
 	}
 
+	DrainerReplicate struct {
+		ReplicateDB string `yaml:"replicate_db"`
+	}
+
 	AwsCloudFormationConfigs struct {
 		Parameters           map[string]string `yaml:"parameters"`
 		TemplateBodyFilePath string            `yaml:"template_body_file_path"`
@@ -203,6 +207,7 @@ type (
 		AwsMSConfigs             AwsMSConfigs             `yaml:"sqlserver,omitempty"`
 		AwsDMSConfigs            AwsDMSConfigs            `yaml:"dms,omitempty"`
 		AwsCloudFormationConfigs AwsCloudFormationConfigs `yaml:"aws_cloud_formation_configs"`
+		DrainerReplicate         DrainerReplicate         `yaml:"drainer_replicate,omitempty"`
 		TiDBServers              []*TiDBSpec              `yaml:"tidb_servers"`
 		TiKVServers              []*TiKVSpec              `yaml:"tikv_servers"`
 		TiFlashServers           []*TiFlashSpec           `yaml:"tiflash_servers"`
@@ -230,6 +235,7 @@ type BaseTopo struct {
 	AwsMSConfigs             *AwsMSConfigs
 	AwsDMSConfigs            *AwsDMSConfigs
 	AwsCloudFormationConfigs *AwsCloudFormationConfigs
+	DrainerReplicate         *DrainerReplicate
 	MasterList               []string
 
 	Monitors      []*PrometheusSpec
@@ -305,6 +311,7 @@ func (s *Specification) NewPart() Topology {
 		AwsMSConfigs:             s.AwsMSConfigs,
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
+		DrainerReplicate:         s.DrainerReplicate,
 	}
 }
 
@@ -348,6 +355,7 @@ func (s *Specification) BaseTopo() *BaseTopo {
 		AwsMSConfigs:             &s.AwsMSConfigs,
 		AwsDMSConfigs:            &s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: &s.AwsCloudFormationConfigs,
+		DrainerReplicate:         &s.DrainerReplicate,
 		MasterList:               s.GetPDList(),
 		Monitors:                 s.Monitors,
 		Grafanas:                 s.Grafanas,
@@ -556,6 +564,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		AwsMSConfigs:             s.AwsMSConfigs,
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
+		DrainerReplicate:         s.DrainerReplicate,
 		TiDBServers:              append(s.TiDBServers, spec.TiDBServers...),
 		TiKVServers:              append(s.TiKVServers, spec.TiKVServers...),
 		PDServers:                append(s.PDServers, spec.PDServers...),
@@ -598,12 +607,13 @@ var (
 	awsMSConfigsTypeName             = reflect.TypeOf(AwsMSConfigs{}).Name()
 	awsDMSConfigsTypeName            = reflect.TypeOf(AwsDMSConfigs{}).Name()
 	awsCloudFormationConfigsTypeName = reflect.TypeOf(AwsCloudFormationConfigs{}).Name()
+	drainerReplicate                 = reflect.TypeOf(DrainerReplicate{}).Name()
 )
 
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == drainerReplicate
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {

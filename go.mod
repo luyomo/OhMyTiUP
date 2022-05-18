@@ -22,6 +22,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.3 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.15.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.20.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.43.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/rds v1.21.1 // indirect
 	github.com/blevesearch/bleve v1.0.14
 	github.com/cavaliercoder/grab v1.0.1-0.20201108051000-98a5bfe305ec

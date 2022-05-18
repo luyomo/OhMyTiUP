@@ -529,84 +529,84 @@ func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType s
 
 func (b *Builder) CreatePDNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:      pexecutor,
-        awsTopoConfigs:     &awsTopoConfigs.PD,
-        awsGeneralConfigs:  &awsTopoConfigs.General,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-        componentName:      "pd",
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.PD,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "pd",
 	})
 	return b
 }
 
 func (b *Builder) CreateTiDBNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:      pexecutor,
-        awsTopoConfigs:     &awsTopoConfigs.TiDB,
-        awsGeneralConfigs:  &awsTopoConfigs.General,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-        componentName:      "tidb",
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.TiDB,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "tidb",
 	})
 	return b
 }
 
 func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:          pexecutor,
-        awsTopoConfigs:     &awsTopoConfigs.TiKV,
-        awsGeneralConfigs:  &awsTopoConfigs.General,
-		subClusterType:     subClusterType,
-		clusterInfo:        clusterInfo,
-        componentName:      "tikv",
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.TiKV,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "tikv",
 	})
 	return b
 }
 
 func (b *Builder) CreateDMNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:      pexecutor,
-        awsTopoConfigs:     &awsTopoConfigs.DM,
-        awsGeneralConfigs:  &awsTopoConfigs.General,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-        componentName:  "dm",
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.DM,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "dm",
 	})
 	return b
 }
 
 func (b *Builder) CreateTiCDCNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:          pexecutor,
-        awsTopoConfigs:     &awsTopoConfigs.TiCDC,
-        awsGeneralConfigs:  &awsTopoConfigs.General,
-		subClusterType:     subClusterType,
-		clusterInfo:        clusterInfo,
-        componentName:      "ticdc",
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.TiCDC,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "ticdc",
 	})
 	return b
 }
 
 func (b *Builder) CreatePumpNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:          pexecutor,
-        awsTopoConfigs:     &awsTopoConfigs.Pump,
-        awsGeneralConfigs:  &awsTopoConfigs.General,
-		subClusterType:     subClusterType,
-		clusterInfo:        clusterInfo,
-        componentName:      "pump",
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.Pump,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "pump",
 	})
 	return b
 }
 
 func (b *Builder) CreateDrainerNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:          pexecutor,
-		awsTopoConfigs:     &awsTopoConfigs.Drainer,
-        awsGeneralConfigs:  &awsTopoConfigs.General,
-		subClusterType:     subClusterType,
-		clusterInfo:        clusterInfo,
-        componentName:      "drainer",
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.Drainer,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "drainer",
 	})
 	return b
 }
@@ -1183,6 +1183,40 @@ func (b *Builder) ListEC(pexecutor *ctxt.Executor, tableECs *[][]string) *Builde
 	return b
 }
 
+func (b *Builder) ListOracle(pexecutor *ctxt.Executor, tableOracle *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListOracle{
+		pexecutor:   pexecutor,
+		tableOracle: tableOracle,
+	})
+	return b
+}
+
+func (b *Builder) InstallOracleClient(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs) *Builder {
+	b.tasks = append(b.tasks, &InstallOracleClient{
+		pexecutor:    pexecutor,
+		awsWSConfigs: awsWSConfigs,
+	})
+	return b
+}
+
+func (b *Builder) InstallTiDB(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs) *Builder {
+	b.tasks = append(b.tasks, &InstallTiDB{
+		pexecutor:    pexecutor,
+		awsWSConfigs: awsWSConfigs,
+	})
+	return b
+}
+
+func (b *Builder) DeployDrainConfig(pexecutor *ctxt.Executor, awsOracleConfigs *spec.AwsOracleConfigs, awsWSConfigs *spec.AwsWSConfigs, drainerReplicate *spec.DrainerReplicate) *Builder {
+	b.tasks = append(b.tasks, &DeployDrainConfig{
+		pexecutor:        pexecutor,
+		awsWSConfigs:     awsWSConfigs,
+		awsOracleConfigs: awsOracleConfigs,
+		drainerReplicate: drainerReplicate,
+	})
+	return b
+}
+
 func (b *Builder) ListNLB(pexecutor *ctxt.Executor, subClusterType string, nlb *LoadBalancer) *Builder {
 	b.tasks = append(b.tasks, &ListNLB{
 		pexecutor:      pexecutor,
@@ -1265,6 +1299,22 @@ func (b *Builder) CreateCloudFormation(pexecutor *ctxt.Executor, awsCloudFormati
 
 func (b *Builder) DestroyCloudFormation(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyCloudFormation{
+		pexecutor: pexecutor,
+	})
+	return b
+}
+
+func (b *Builder) CreateOracle(pexecutor *ctxt.Executor, awsOracleConfigs *spec.AwsOracleConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateOracle{
+		pexecutor:        pexecutor,
+		awsOracleConfigs: awsOracleConfigs,
+		clusterInfo:      clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) DestroyOracle(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyOracle{
 		pexecutor: pexecutor,
 	})
 	return b
