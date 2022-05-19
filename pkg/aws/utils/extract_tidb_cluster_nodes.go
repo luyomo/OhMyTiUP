@@ -15,6 +15,7 @@ package utils
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -42,24 +43,29 @@ func ExtractTiDBClusterNodes(name, cluster, clusterType string) (*TiDBClusterNod
 
 	client := ec2.NewFromConfig(cfg)
 
-	var tags []types.Filter
-	tags = append(tags, types.Filter{
+	var filters []types.Filter
+	filters = append(filters, types.Filter{
 		Name:   aws.String("tag:Name"),
 		Values: []string{name},
 	})
 
-	tags = append(tags, types.Filter{
+	filters = append(filters, types.Filter{
 		Name:   aws.String("tag:Cluster"),
 		Values: []string{cluster},
 	})
 
-	tags = append(tags, types.Filter{
+	filters = append(filters, types.Filter{
 		Name:   aws.String("tag:Type"),
 		Values: []string{clusterType},
 	})
 
+	filters = append(filters, types.Filter{
+		Name:   aws.String("instance-state-name"),
+		Values: []string{"running"},
+	})
+
 	ec2DescribeInstancesInput := &ec2.DescribeInstancesInput{
-		Filters: tags,
+		Filters: filters,
 	}
 	ec2Instances, err := client.DescribeInstances(context.TODO(), ec2DescribeInstancesInput)
 	if err != nil {
@@ -68,12 +74,8 @@ func ExtractTiDBClusterNodes(name, cluster, clusterType string) (*TiDBClusterNod
 
 	var retValue TiDBClusterNodes
 
-	//fmt.Printf("The instances are <%#v> \n\n\n", len(ec2Instances.Reservations))
 	for _, reservation := range ec2Instances.Reservations {
-
 		for _, instance := range reservation.Instances {
-			//			fmt.Printf("The reservations are <%#v> \n\n\n", instance)
-
 			for _, tag := range instance.Tags {
 				if *(tag.Key) == "Component" && *(tag.Value) == "pd" {
 					retValue.PD = append(retValue.PD, *(instance.PrivateIpAddress))
@@ -103,9 +105,7 @@ func ExtractTiDBClusterNodes(name, cluster, clusterType string) (*TiDBClusterNod
 				if *(tag.Key) == "Component" && *(tag.Value) == "workstation" {
 					retValue.Monitor = append(retValue.Monitor, *(instance.PrivateIpAddress))
 				}
-				//fmt.Printf("The tags are <%s>:<%s> \n\n\n", *(tag.Key), *(tag.Value))
 			}
-			//fmt.Printf("The tags are <%#v> \n\n\n", *(instance.PrivateIpAddress))
 		}
 	}
 

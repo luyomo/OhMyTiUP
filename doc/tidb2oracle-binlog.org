@@ -1,3 +1,82 @@
+* Architure
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.00.png]]
+ + The pump node is single node. If the node is crushed and lose the disk, have to re-copy all the data and start the incremental sync again.
+ + This solution does not support the DDL change. If there is any DDL change, have to bring the service down.
+ + The pump and drainer has to access the PD to fetch the data. If we deploy the TiDB cluster in the kubernetes. The pump and drainer has to been deployed into the kubernetes as well.
+ + If the drainer is deployed with the TiDB cluster, the sync performance will be impacted a lot since the queries are sent to the downstream oracle server.
+* Deploy TiDB to Oracle (binlog)
+** Check the cluster resource using the below command
+#+BEGIN_SRC
+$./bin/aws tidb2ora list demo-tidb2ora-binlog
+#+END_SRC
+
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.01.png]]
+
+** Prepare the yaml config file
+   Please follow the [[../embed/examples/aws/tidb2ora-binlog.yaml][below example]] to prepare the yaml file with which we deploy all the components.
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.02.png]]
+
+** Deploy required resource
+  + AWS resources
+    - TiDB Cluster EC2 nodes
+    - Drainer node
+    - Oracle RDS
+    - Connect all the through transit gateway
+  + Deploy TiDB Cluster
+  + Deploy Drainer node
+    - Oracle client install
+    - TiDB binary(drainer) install
+    - Drainer config file
+    - Drainer service file
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.03.png]]
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.04.png]]
+** List all the AWS resources
+   + VPC
+   + Subnet
+   + Route table
+   + Security Group
+   + EC2
+   + Oracle instance
+   + Transit gateway
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.05.png]]
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.06.png]]
+** Login the workstation to check the TiDB cluster status
+   The TiDB cluster is deployed in the AWS. Login the workstation to check the TiDB cluster status using [tiup display] command
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.07.png]]
+** Check the drainer service
+   Login to drainer through workstation to check the drainer service.
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.08.png]]
+** Login oracle to check no data in the test01 table
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.09.png]]
+** Login TiDB to insert one record to test01
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.10.png]]
+** Confirm the data's replication
+#+attr_html: :width 1000px
+#+attr_latex: :width 1000px
+[[./png/tidb2ora-binlog/tidb2ora-binlog.11.png]]
+
 * TiDB Nodes preparation
   #+BEGIN_SRC
 $workstation:

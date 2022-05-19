@@ -177,7 +177,7 @@ type (
 	}
 
 	AwsOracleConfigs struct {
-		DBInstanceName string `yaml:"dbInstanceName"`
+		DBInstanceName string `yaml:"dbInstanceName" default:"orcl"`
 		InstanceType   string `yaml:"instanceType"`
 		VolumeSize     int    `yaml:"volumeSize"`
 		DBUserName     string `yaml:"dbUserName"`

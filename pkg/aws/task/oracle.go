@@ -111,13 +111,12 @@ func (c *CreateOracle) Execute(ctx context.Context) error {
 		},
 	}
 
-	result, err := client.CreateStack(context.TODO(), stackInput)
+	_, err = client.CreateStack(context.TODO(), stackInput)
 	if err != nil {
 		fmt.Println("Got an error creating an instance:")
 		fmt.Println(err)
 		return err
 	}
-	fmt.Printf("The data is <%#v> \n", result)
 	return nil
 }
 
@@ -153,13 +152,12 @@ func (c *DestroyOracle) Execute(ctx context.Context) error {
 		StackName: aws.String(clusterName),
 	}
 
-	result, err := client.DeleteStack(context.TODO(), input)
+	_, err = client.DeleteStack(context.TODO(), input)
 	if err != nil {
 		fmt.Println("Got an error creating an instance:")
 		fmt.Println(err)
 		return err
 	}
-	fmt.Printf("The data is <%#v> \n", result)
 	return nil
 }
 

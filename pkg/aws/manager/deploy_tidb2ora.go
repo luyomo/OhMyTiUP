@@ -23,19 +23,16 @@ import (
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
-	//	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
 	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
-	//	"go.uber.org/zap"
-	"os"
-	//"strings"
-	"github.com/luyomo/tisample/pkg/meta"
 	perrs "github.com/pingcap/errors"
+	"os"
 )
 
 // DeployOptions contains the options for scale out.
@@ -160,6 +157,7 @@ func (m *Manager) TiDB2OraDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
 			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
+			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 		envInitTasks = append(envInitTasks, t2)
 	}
@@ -192,11 +190,11 @@ func (m *Manager) TiDB2OraDeploy(
 	if cntEC2Nodes > 0 {
 		t5 = task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+			// CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
+			// CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "oracle").
 			CreateRouteTgw(&sexecutor, "tidb", []string{"oracle"}).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+			// DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
 			InstallOracleClient(&sexecutor, base.AwsWSConfigs).
 			InstallTiDB(&sexecutor, base.AwsWSConfigs).

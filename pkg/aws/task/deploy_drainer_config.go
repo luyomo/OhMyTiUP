@@ -93,8 +93,7 @@ func (c *DeployDrainConfig) Execute(ctx context.Context) error {
 	tplParams.DBPort = (*oracleInstanceInfos)[0].DBPort
 	tplParams.DBUser = (*oracleInstanceInfos)[0].DBUserName
 	tplParams.DBPassword = c.awsOracleConfigs.DBPassword
-	tplParams.DBInstance = "orcl"
-	fmt.Printf("The pd url is <%#v> \n\n\n", tplParams)
+	tplParams.DBInstance = c.awsOracleConfigs.DBInstanceName
 
 	if _, _, err := (*workstation).Execute(ctx, `install -d -m 0755 -o admin -g admin /opt/scripts/etc`, true); err != nil {
 		return err
@@ -133,7 +132,7 @@ func (c *DeployDrainConfig) Execute(ctx context.Context) error {
 
 	for _, drainerIP := range nodes.Drainer {
 		// 6. Copy the drainer config file to drainer server
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh %s "sudo mkdir -p /etc/drainer"`, drainerIP), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "sudo mkdir -p /etc/drainer"`, drainerIP), false); err != nil {
 			return err
 		}
 
@@ -141,7 +140,7 @@ func (c *DeployDrainConfig) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh %s "sudo mv /tmp/drainer_oracle.toml /etc/drainer/drainer_oracle.toml"`, drainerIP), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "sudo mv /tmp/drainer_oracle.toml /etc/drainer/drainer_oracle.toml"`, drainerIP), false); err != nil {
 			return err
 		}
 
@@ -196,7 +195,7 @@ func (c *DeployDrainConfig) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh %s /tmp/install_oracle_resource.sh`, drainerIP), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s /tmp/install_oracle_resource.sh`, drainerIP), false); err != nil {
 			return err
 		}
 
@@ -237,11 +236,11 @@ func (c *DeployDrainConfig) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh %s "sudo mv /tmp/drainer.service /etc/systemd/system/drainer.service"`, drainerIP), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "sudo mv /tmp/drainer.service /etc/systemd/system/drainer.service"`, drainerIP), false); err != nil {
 			return err
 		}
 
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh %s "sudo systemctl start drainer.service"`, drainerIP), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "sudo systemctl start drainer.service"`, drainerIP), false); err != nil {
 			return err
 		}
 	}

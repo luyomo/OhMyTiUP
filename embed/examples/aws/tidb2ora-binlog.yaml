@@ -1,19 +1,17 @@
 workstation:
-  imageid: ami-07d02ee1eeb0c996c
-  keyname: jay-us-east-01
-  keyfile: /home/pi/.ssh/jay-us-east-01.pem
-  volumeSize: 100
+  imageid: ami-07d02ee1eeb0c996c                      # Image ID for workstation
+  keyname: jay-us-east-01                             # SSH key for EC2 node
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem           # Private ssh key to access the workstation
+  volumeSize: 100                                     # PG2 disk size
 aws_topo_configs:
   general:
-    # debian os
-    imageid: ami-07d02ee1eeb0c996c
+    imageid: ami-07d02ee1eeb0c996c                    # Image ID for EC2 nodes(debian)
     name: tisamplenodes
-    keyname: jay-us-east-01
-    keyfile: /home/pi/.ssh/jay-us-east-01.pem
-    cidr: 172.83.0.0/16
-    #instance_type: m5.2xlarge
-    instance_type: m5.xlarge
-    tidb_version: v6.0.0
+    keyname: jay-us-east-01                           # SSH key used for EC2 nodes access
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem         # Private ssh key to access all the EC2 nodes
+    cidr: 172.83.0.0/16                               # VPC CIDR
+    instance_type: m5.xlarge                          # Default instance type
+    tidb_version: v6.0.0                              # TiDB version
   pd:
     instance_type: m5.xlarge
     count: 3
@@ -32,9 +30,9 @@ aws_topo_configs:
     count: 1
     volumeSize: 100
 drainer_replicate:
-  replicate_db: test
+  replicate_db: test                                  # DB to replicate from TiDB to Oracle
 oracle:
-  dbInstanceName: jaytest
-  volumeSize: 20
-  dbUserName: admin
-  dbPassword: 1234Abcd
+  dbInstanceName: demo-tidb2ora-binlog                # Oracle RDS logical name
+  volumeSize: 20                                      # DB Size
+  dbUserName: admin                                   # DB User to access the DB
+  dbPassword: 1234Abcd                                # DB Password

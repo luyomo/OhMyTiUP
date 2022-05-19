@@ -29,12 +29,8 @@ import (
 )
 
 type InstallOracleClient struct {
-	pexecutor *ctxt.Executor
-	//subClusterType string
+	pexecutor    *ctxt.Executor
 	awsWSConfigs *spec.AwsWSConfigs
-	//	awsCloudFormationConfigs *spec.AwsCloudFormationConfigs
-	//	cloudFormationType       string
-	//	clusterInfo              *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -46,7 +42,6 @@ func (c *InstallOracleClient) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The nodes are <%#v> \n\n\n", nodes)
 
 	// 1. Get all the workstation nodes
 	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
