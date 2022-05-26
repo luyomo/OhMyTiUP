@@ -71,7 +71,8 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 
 	var destroyTasks []*task.StepDisplay
 
-	var auroraInfo, msInfo task.ClusterInfo
+	//var auroraInfo, msInfo task.ClusterInfo
+	var msInfo task.ClusterInfo
 	t1 := task.NewBuilder().
 		DestroyEC2Nodes(&sexecutor, "tidb").
 		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
@@ -79,7 +80,7 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 	destroyTasks = append(destroyTasks, t1)
 
 	t2 := task.NewBuilder().
-		DestroyAurora(&sexecutor, "aurora", &auroraInfo).
+		DestroyAurora(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Destroying aurora db cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t2)

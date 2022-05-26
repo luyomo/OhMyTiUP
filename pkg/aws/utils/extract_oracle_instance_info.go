@@ -15,7 +15,6 @@ package utils
 
 import (
 	"context"
-	// "fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -87,16 +86,34 @@ func ExtractInstanceOracleInfo(name, cluster, clusterType string) (*[]OracleInst
 			}
 
 			var oracleInstanceInfo OracleInstanceInfo
-			oracleInstanceInfo.PhysicalResourceId = *(dbInstance.DBInstanceIdentifier)
-			oracleInstanceInfo.EndPointAddress = *(dbInstance.Endpoint.Address)
-			oracleInstanceInfo.DBName = *(dbInstance.DBName)
+			if dbInstance.DBInstanceIdentifier != nil {
+				oracleInstanceInfo.PhysicalResourceId = *(dbInstance.DBInstanceIdentifier)
+			}
+			if dbInstance.Endpoint.Address != nil {
+				oracleInstanceInfo.EndPointAddress = *(dbInstance.Endpoint.Address)
+			}
+
+			if dbInstance.DBName != nil {
+				oracleInstanceInfo.DBName = *(dbInstance.DBName)
+			}
+
 			oracleInstanceInfo.DBPort = int64(dbInstance.Endpoint.Port)
-			oracleInstanceInfo.DBUserName = *(dbInstance.MasterUsername)
+			if dbInstance.MasterUsername != nil {
+				oracleInstanceInfo.DBUserName = *(dbInstance.MasterUsername)
+			}
 			oracleInstanceInfo.DBSize = int64(dbInstance.AllocatedStorage)
-			oracleInstanceInfo.DBEngine = *(dbInstance.Engine)
-			oracleInstanceInfo.DBEngineVersion = *(dbInstance.EngineVersion)
-			oracleInstanceInfo.DBInstanceClass = *(dbInstance.DBInstanceClass)
-			oracleInstanceInfo.VpcSecurityGroupId = *(dbInstance.VpcSecurityGroups[0].VpcSecurityGroupId)
+			if dbInstance.Engine != nil {
+				oracleInstanceInfo.DBEngine = *(dbInstance.Engine)
+			}
+			if dbInstance.EngineVersion != nil {
+				oracleInstanceInfo.DBEngineVersion = *(dbInstance.EngineVersion)
+			}
+			if dbInstance.DBInstanceClass != nil {
+				oracleInstanceInfo.DBInstanceClass = *(dbInstance.DBInstanceClass)
+			}
+			if len(dbInstance.VpcSecurityGroups) > 0 {
+				oracleInstanceInfo.VpcSecurityGroupId = *(dbInstance.VpcSecurityGroups[0].VpcSecurityGroupId)
+			}
 
 			oracleInstanceInfos = append(oracleInstanceInfos, oracleInstanceInfo)
 		}

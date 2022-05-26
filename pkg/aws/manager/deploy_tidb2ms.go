@@ -142,7 +142,7 @@ func (m *Manager) TiDB2MSDeploy(
 	}
 
 	if base.AwsAuroraConfigs.InstanceType != "" {
-		t3 := task.NewBuilder().CreateAurora(&sexecutor, "aurora", base.AwsAuroraConfigs, &auroraInfo).
+		t3 := task.NewBuilder().CreateAurora(&sexecutor, base.AwsAuroraConfigs, &auroraInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora instance"))
 		envInitTasks = append(envInitTasks, t3)
 	}

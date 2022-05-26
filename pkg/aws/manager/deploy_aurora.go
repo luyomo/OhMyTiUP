@@ -28,12 +28,14 @@ import (
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
 	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/set"
+	// "github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
-	"go.uber.org/zap"
-	"os"
-	"strings"
+	perrs "github.com/pingcap/errors"
+	// "go.uber.org/zap"
+	// "os"
+	// "strings"
 )
 
 // DeployOptions contains the options for scale out.
@@ -76,39 +78,11 @@ func (m *Manager) AuroraDeploy(
 		return err
 	}
 
-	instCnt := 0
-	topo.IterInstance(func(inst spec.Instance) {
-		switch inst.ComponentName() {
-		// monitoring components are only useful when deployed with
-		// core components, we do not support deploying any bare
-		// monitoring system.
-		case spec.ComponentGrafana,
-			spec.ComponentPrometheus,
-			spec.ComponentAlertmanager:
-			return
-		}
-		instCnt++
-	})
-	if instCnt < 1 {
-		return fmt.Errorf("no valid instance found in the input topology, please check your config")
-	}
-
 	spec.ExpandRelativeDir(topo)
 
 	base := topo.BaseTopo()
 	if sshType := gOpt.SSHType; sshType != "" {
 		base.GlobalOptions.SSHType = sshType
-	}
-
-	clusterList, err := m.specManager.GetAllClusters()
-	if err != nil {
-		return err
-	}
-	if err := spec.CheckClusterPortConflict(clusterList, name, topo); err != nil {
-		return err
-	}
-	if err := spec.CheckClusterDirConflict(clusterList, name, topo); err != nil {
-		return err
 	}
 
 	var (
@@ -131,18 +105,6 @@ func (m *Manager) AuroraDeploy(
 		return err
 	}
 
-	if !skipConfirm {
-		if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
-			return err
-		}
-	}
-
-	if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
-		return errorx.InitializationFailed.
-			Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
-			WithProperty(tui.SuggestionFromString("Please check file system permissions and try again."))
-	}
-
 	var (
 		envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 		//downloadCompTasks []*task.StepDisplay // tasks which are used to download components
@@ -150,8 +112,8 @@ func (m *Manager) AuroraDeploy(
 	)
 
 	// Initialize environment
-	uniqueHosts := make(map[string]hostInfo) // host -> ssh-port, os, arch
-	noAgentHosts := set.NewStringSet()
+	// uniqueHosts := make(map[string]hostInfo) // host -> ssh-port, os, arch
+	// noAgentHosts := set.NewStringSet()
 	globalOptions := base.GlobalOptions
 
 	// generate CA and client cert for TLS enabled cluster
@@ -173,78 +135,26 @@ func (m *Manager) AuroraDeploy(
 		}
 	}
 
-	var iterErr error // error when itering over instances
-	iterErr = nil
-	topo.IterInstance(func(inst spec.Instance) {
-		if _, found := uniqueHosts[inst.GetHost()]; !found {
-			// check for "imported" parameter, it can not be true when deploying and scaling out
-			// only for tidb now, need to support dm
-			if inst.IsImported() && m.sysName == "tidb" {
-				iterErr = errors.New(
-					"'imported' is set to 'true' for new instance, this is only used " +
-						"for instances imported from tidb-ansible and make no sense when " +
-						"deploying new instances, please delete the line or set it to 'false' for new instances")
-				return // skip the host to avoid issues
-			}
-
-			// add the instance to ignore list if it marks itself as ignore_exporter
-			if inst.IgnoreMonitorAgent() {
-				noAgentHosts.Insert(inst.GetHost())
-			}
-
-			uniqueHosts[inst.GetHost()] = hostInfo{
-				ssh:  inst.GetSSHPort(),
-				os:   inst.OS(),
-				arch: inst.Arch(),
-			}
-			var dirs []string
-			for _, dir := range []string{globalOptions.DeployDir, globalOptions.LogDir} {
-				if dir == "" {
-					continue
-				}
-				dirs = append(dirs, spec.Abs(globalOptions.User, dir))
-			}
-			// the default, relative path of data dir is under deploy dir
-			if strings.HasPrefix(globalOptions.DataDir, "/") {
-				dirs = append(dirs, globalOptions.DataDir)
-			}
-			sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
-			if err != nil {
-				return
-			}
-
-			fmt.Printf("---------------------------\n")
-			zap.L().Debug("This is the test message")
-			fmt.Printf("The debug mode is <%s> \n", zap.InfoLevel)
-
-			var clusterInfo task.ClusterInfo
-			t := task.NewBuilder().
-				CreateVpc(&sexecutor, "aurora", &clusterInfo).
-				CreateRouteTable(&sexecutor, "aurora", true, &clusterInfo).
-				CreateNetwork(&sexecutor, "aurora", true, &clusterInfo).
-				CreateSecurityGroup(&sexecutor, "aurora", true, &clusterInfo).
-				CreateInternetGateway(&sexecutor, "aurora", &clusterInfo).
-				CreateDBSubnetGroup(&sexecutor, "aurora", &clusterInfo).
-				CreateDBClusterParameterGroup(&sexecutor, "aurora", &clusterInfo).
-				CreateDBCluster(&sexecutor, "aurora", &clusterInfo).
-				CreateDBParameterGroup(&sexecutor, "aurora", "", &clusterInfo).
-				CreateDBInstance(&sexecutor, "aurora", &clusterInfo).
-				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
-			envInitTasks = append(envInitTasks, t)
-		}
-	})
-
-	if iterErr != nil {
-		return iterErr
+	var clusterInfo task.ClusterInfo
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	if err != nil {
+		return err
 	}
+	if base.AwsAuroraConfigs.DBParameterFamilyGroup != "" {
+		var workstationInfo task.ClusterInfo
+		t5 := task.NewBuilder().
+			CreateTransitGateway(&sexecutor).
+			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
+			CreateAurora(&sexecutor, base.AwsAuroraConfigs, &clusterInfo).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
+			BuildAsStep(fmt.Sprintf("  - Preparing oracle"))
+		envInitTasks = append(envInitTasks, t5)
+	}
+	fmt.Printf("The prosess reached here ... ... \n\n\n")
 
 	builder := task.NewBuilder().
-		//Step("+ Generate SSH keys",
-		//Step("+ Generate SSH keys *****************************",
-		//	task.NewBuilder().SSHKeyGen(m.specManager.Path(name, "ssh", "id_rsa")).Build()).
 		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
-		//ParallelStep("+ Download TiDB components", false, downloadCompTasks...).
-		//ParallelStep("+ Copy files", false, deployCompTasks...)
 
 	if afterDeploy != nil {
 		afterDeploy(builder, topo)
@@ -266,5 +176,183 @@ func (m *Manager) AuroraDeploy(
 
 	hint := color.New(color.Bold).Sprintf("%s start %s", tui.OsArgs0(), name)
 	log.Infof("Cluster `%s` deployed successfully, you can start it with command: `%s`", name, hint)
+	return nil
+}
+
+// Cluster represents a clsuter
+// ListCluster list the clusters.
+func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error {
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora")
+
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	if err != nil {
+		return err
+	}
+
+	// 001. VPC listing
+	tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
+	t1 := task.NewBuilder().ListVpc(&sexecutor, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
+	listTasks = append(listTasks, t1)
+
+	// 002. subnets
+	tableSubnets := [][]string{{"Component Name", "Zone", "Subnet ID", "CIDR", "State", "VPC ID"}}
+	t2 := task.NewBuilder().ListNetwork(&sexecutor, &tableSubnets).BuildAsStep(fmt.Sprintf("  - Listing Subnets"))
+	listTasks = append(listTasks, t2)
+
+	// 003. subnets
+	tableRouteTables := [][]string{{"Component Name", "Route Table ID", "DestinationCidrBlock", "TransitGatewayId", "GatewayId", "State", "Origin"}}
+	t3 := task.NewBuilder().ListRouteTable(&sexecutor, &tableRouteTables).BuildAsStep(fmt.Sprintf("  - Listing Route Tables"))
+	listTasks = append(listTasks, t3)
+
+	// 004. Security Groups
+	tableSecurityGroups := [][]string{{"Component Name", "Ip Protocol", "Source Ip Range", "From Port", "To Port"}}
+	t4 := task.NewBuilder().ListSecurityGroup(&sexecutor, &tableSecurityGroups).BuildAsStep(fmt.Sprintf("  - Listing Security Groups"))
+	listTasks = append(listTasks, t4)
+
+	// 005. Transit gateway
+	var transitGateway task.TransitGateway
+	t5 := task.NewBuilder().ListTransitGateway(&sexecutor, &transitGateway).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway "))
+	listTasks = append(listTasks, t5)
+
+	// 006. Transit gateway vpc attachment
+	tableTransitGatewayVpcAttachments := [][]string{{"Component Name", "VPC ID", "State"}}
+	t6 := task.NewBuilder().ListTransitGatewayVpcAttachment(&sexecutor, &tableTransitGatewayVpcAttachments).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway vpc attachment"))
+	listTasks = append(listTasks, t6)
+
+	// 007. EC2
+	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Preivate IP", "Public IP", "Image ID"}}
+	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	listTasks = append(listTasks, t7)
+
+	// 008. NLB
+	var nlb task.LoadBalancer
+	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
+	listTasks = append(listTasks, t8)
+
+	// 009. Aurora
+	tableOracle := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
+	// Version   |   Volume Size  | Instance Type | Admin User  | Security Group  | Subnet Group
+	t9 := task.NewBuilder().ListAurora(&sexecutor, &tableOracle).BuildAsStep(fmt.Sprintf("  - Listing Oracle"))
+	listTasks = append(listTasks, t9)
+
+	// *********************************************************************
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	titleFont := color.New(color.FgRed, color.Bold)
+	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("ohmytiup-aurora"))
+	fmt.Printf("Cluster Name :      %s\n\n", titleFont.Sprint(clusterName))
+
+	cyan := color.New(color.FgCyan, color.Bold)
+	fmt.Printf("Resource Type:      %s\n", cyan.Sprint("VPC"))
+	tui.PrintTable(tableVPC, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Subnet"))
+	tui.PrintTable(tableSubnets, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Route Table"))
+	tui.PrintTable(tableRouteTables, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Security Group"))
+	tui.PrintTable(tableSecurityGroups, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Transit Gateway"))
+	fmt.Printf("Resource ID  :      %s    State: %s \n", cyan.Sprint(transitGateway.TransitGatewayId), cyan.Sprint(transitGateway.State))
+	tui.PrintTable(tableTransitGatewayVpcAttachments, true)
+
+	fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(nlb.DNSName))
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
+	tui.PrintTable(tableECs, true)
+
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
+	tui.PrintTable(tableOracle, true)
+
+	return nil
+}
+
+// func (m *Manager) DestroyTiDB2OraCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
+func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
+	_, err := m.meta(name)
+	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
+		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
+		!errors.Is(perrs.Cause(err), spec.ErrMultipleTiSparkMaster) &&
+		!errors.Is(perrs.Cause(err), spec.ErrMultipleTisparkWorker) {
+		return err
+	}
+
+	clusterType := "ohmytiup-tidb2ora"
+
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	if err != nil {
+		return err
+	}
+
+	t0 := task.NewBuilder().
+		DestroyTransitGateways(&sexecutor).
+		DestroyVpcPeering(&sexecutor).
+		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
+
+	builder := task.NewBuilder().
+		ParallelStep("+ Destroying tidb2ora solution service ... ...", false, t0)
+	t := builder.Build()
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
+	var destroyTasks []*task.StepDisplay
+
+	t1 := task.NewBuilder().
+		DestroyEC2Nodes(&sexecutor, "tidb").
+		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
+
+	destroyTasks = append(destroyTasks, t1)
+
+	t2 := task.NewBuilder().
+		DestroyOracle(&sexecutor).
+		BuildAsStep(fmt.Sprintf("  - Destroying oracle db cluster %s ", name))
+
+	destroyTasks = append(destroyTasks, t2)
+
+	t4 := task.NewBuilder().
+		DestroyEC2Nodes(&sexecutor, "workstation").
+		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
+
+	destroyTasks = append(destroyTasks, t4)
+
+	t5 := task.NewBuilder().
+		DestroyCloudFormation(&sexecutor).
+		BuildAsStep(fmt.Sprintf("  - Destroying cloudformation %s ", name))
+
+	destroyTasks = append(destroyTasks, t5)
+
+	builder = task.NewBuilder().
+		ParallelStep("+ Destroying all the componets", false, destroyTasks...)
+
+	t = builder.Build()
+
+	tailctx := context.WithValue(context.Background(), "clusterName", name)
+	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(tailctx, 5)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
 	return nil
 }

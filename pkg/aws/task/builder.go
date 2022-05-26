@@ -1007,19 +1007,6 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	return b
 }
 
-func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, subClusterType string, awsAuroraConfigs *spec.AwsAuroraConfigs, clusterInfo *ClusterInfo) *Builder {
-	clusterInfo.cidr = awsAuroraConfigs.CIDR
-
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", subClusterType), NewBuilder().CreateDBSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Cluster parameter Group ... ...", subClusterType), NewBuilder().CreateDBClusterParameterGroup(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Cluster ... ...", subClusterType), NewBuilder().CreateDBCluster(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", subClusterType), NewBuilder().CreateDBParameterGroup(pexecutor, subClusterType, awsAuroraConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DB Instance ... ...", subClusterType), NewBuilder().CreateDBInstance(pexecutor, subClusterType, clusterInfo).Build())
-
-	return b
-}
-
 func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 
 	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor, subClusterType).Build()).
@@ -1056,18 +1043,6 @@ func (b *Builder) DestroyTransitGateways(pexecutor *ctxt.Executor) *Builder {
 
 	b.Step(fmt.Sprintf("Destroying Transit Gateway VPC Attachment ... ..."), NewBuilder().DestroyTransitGatewayVpcAttachment(pexecutor).Build()).
 		Step(fmt.Sprintf("Destroying Transit Gateway ... ..."), NewBuilder().DestroyTransitGateway(pexecutor).Build())
-
-	return b
-}
-
-func (b *Builder) DestroyAurora(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-
-	b.Step(fmt.Sprintf("%s : Destroying DB Instance ... ...", subClusterType), NewBuilder().DestroyDBInstance(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Cluster ... ...", subClusterType), NewBuilder().DestroyDBCluster(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Paramter Group ... ...", subClusterType), NewBuilder().DestroyDBParameterGroup(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Cluster Parameter Group  ... ...", subClusterType), NewBuilder().DestroyDBClusterParameterGroup(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying DB Subnet Group ... ...", subClusterType), NewBuilder().DestroyDBSubnetGroup(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying Basic Resource ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 
 	return b
 }
@@ -1187,6 +1162,14 @@ func (b *Builder) ListOracle(pexecutor *ctxt.Executor, tableOracle *[][]string) 
 	b.tasks = append(b.tasks, &ListOracle{
 		pexecutor:   pexecutor,
 		tableOracle: tableOracle,
+	})
+	return b
+}
+
+func (b *Builder) ListAurora(pexecutor *ctxt.Executor, tableAurora *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListAurora{
+		pexecutor:   pexecutor,
+		tableAurora: tableAurora,
 	})
 	return b
 }
@@ -1315,6 +1298,22 @@ func (b *Builder) CreateOracle(pexecutor *ctxt.Executor, awsOracleConfigs *spec.
 
 func (b *Builder) DestroyOracle(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyOracle{
+		pexecutor: pexecutor,
+	})
+	return b
+}
+
+func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, awsAuroraConfigs *spec.AwsAuroraConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateAurora{
+		pexecutor:        pexecutor,
+		awsAuroraConfigs: awsAuroraConfigs,
+		clusterInfo:      clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) DestroyAurora(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyAurora{
 		pexecutor: pexecutor,
 	})
 	return b
