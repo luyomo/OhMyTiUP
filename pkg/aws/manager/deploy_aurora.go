@@ -148,7 +148,7 @@ func (m *Manager) AuroraDeploy(
 			CreateAurora(&sexecutor, base.AwsAuroraConfigs, &clusterInfo).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
-			BuildAsStep(fmt.Sprintf("  - Preparing oracle"))
+			BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
 		envInitTasks = append(envInitTasks, t5)
 	}
 	fmt.Printf("The prosess reached here ... ... \n\n\n")
@@ -233,9 +233,8 @@ func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error
 	listTasks = append(listTasks, t8)
 
 	// 009. Aurora
-	tableOracle := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
-	// Version   |   Volume Size  | Instance Type | Admin User  | Security Group  | Subnet Group
-	t9 := task.NewBuilder().ListAurora(&sexecutor, &tableOracle).BuildAsStep(fmt.Sprintf("  - Listing Oracle"))
+	tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
+	t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
 	listTasks = append(listTasks, t9)
 
 	// *********************************************************************
@@ -273,12 +272,11 @@ func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error
 	tui.PrintTable(tableECs, true)
 
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
-	tui.PrintTable(tableOracle, true)
+	tui.PrintTable(tableAurora, true)
 
 	return nil
 }
 
-// func (m *Manager) DestroyTiDB2OraCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
 func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
 	_, err := m.meta(name)
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
@@ -288,7 +286,7 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 		return err
 	}
 
-	clusterType := "ohmytiup-tidb2ora"
+	clusterType := "ohmytiup-aurora"
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
 	if err != nil {
@@ -301,7 +299,7 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().
-		ParallelStep("+ Destroying tidb2ora solution service ... ...", false, t0)
+		ParallelStep("+ Destroying aurora solution service ... ...", false, t0)
 	t := builder.Build()
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
@@ -316,28 +314,16 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 	var destroyTasks []*task.StepDisplay
 
 	t1 := task.NewBuilder().
-		DestroyEC2Nodes(&sexecutor, "tidb").
-		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
+		DestroyAurora(&sexecutor).
+		BuildAsStep(fmt.Sprintf("  - Destroying aurora nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
-
-	t2 := task.NewBuilder().
-		DestroyOracle(&sexecutor).
-		BuildAsStep(fmt.Sprintf("  - Destroying oracle db cluster %s ", name))
-
-	destroyTasks = append(destroyTasks, t2)
 
 	t4 := task.NewBuilder().
 		DestroyEC2Nodes(&sexecutor, "workstation").
 		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t4)
-
-	t5 := task.NewBuilder().
-		DestroyCloudFormation(&sexecutor).
-		BuildAsStep(fmt.Sprintf("  - Destroying cloudformation %s ", name))
-
-	destroyTasks = append(destroyTasks, t5)
 
 	builder = task.NewBuilder().
 		ParallelStep("+ Destroying all the componets", false, destroyTasks...)

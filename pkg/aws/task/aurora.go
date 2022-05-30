@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -117,6 +118,26 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 		fmt.Println(err)
 		return err
 	}
+
+	for cnt := 0; cnt < 60; cnt++ {
+		describeStackInput := &cloudformation.DescribeStacksInput{
+			StackName: aws.String(clusterName),
+		}
+
+		stackInfo, err := client.DescribeStacks(context.TODO(), describeStackInput)
+		if err != nil {
+			fmt.Println("Got an error creating an instance:")
+			fmt.Println(err)
+			return err
+		}
+
+		if (*stackInfo).Stacks[0].StackStatus == "CREATE_COMPLETE" || (*stackInfo).Stacks[0].StackStatus == "CREATE_FAILED" {
+			break
+		}
+
+		time.Sleep(60 * time.Second)
+	}
+
 	return nil
 }
 
@@ -182,21 +203,21 @@ func (c *ListAurora) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	oracleInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "aurora")
+	auroraInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "aurora")
 	if err != nil {
 		return err
 	}
 
-	for _, oraInsInfo := range *oracleInstanceInfos {
+	for _, auroraInsInfo := range *auroraInstanceInfos {
 		*(c.tableAurora) = append(*(c.tableAurora), []string{
-			oraInsInfo.PhysicalResourceId,
-			oraInsInfo.EndPointAddress,
-			strconv.FormatInt(oraInsInfo.DBPort, 10),
-			oraInsInfo.DBUserName,
-			oraInsInfo.DBEngine,
-			oraInsInfo.DBEngineVersion,
-			oraInsInfo.DBInstanceClass,
-			oraInsInfo.VpcSecurityGroupId,
+			auroraInsInfo.PhysicalResourceId,
+			auroraInsInfo.EndPointAddress,
+			strconv.FormatInt(auroraInsInfo.DBPort, 10),
+			auroraInsInfo.DBUserName,
+			auroraInsInfo.DBEngine,
+			auroraInsInfo.DBEngineVersion,
+			auroraInsInfo.DBInstanceClass,
+			auroraInsInfo.VpcSecurityGroupId,
 		})
 	}
 	return nil

@@ -190,11 +190,11 @@ func (m *Manager) TiDB2OraDeploy(
 	if cntEC2Nodes > 0 {
 		t5 = task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
-			// CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			// CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "oracle").
 			CreateRouteTgw(&sexecutor, "tidb", []string{"oracle"}).
-			// DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
 			InstallOracleClient(&sexecutor, base.AwsWSConfigs).
 			InstallTiDB(&sexecutor, base.AwsWSConfigs).
