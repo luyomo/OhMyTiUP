@@ -160,6 +160,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&gOpt.SSHProxyIdentity, "ssh-proxy-identity-file", path.Join(utils.UserHome(), ".ssh", "id_rsa"), "The identity file used to login the proxy host.")
 	rootCmd.PersistentFlags().BoolVar(&gOpt.SSHProxyUsePassword, "ssh-proxy-use-password", false, "Use password to login the proxy host.")
 	rootCmd.PersistentFlags().Uint64Var(&gOpt.SSHProxyTimeout, "ssh-proxy-timeout", 5, "Timeout in seconds to connect the proxy host via SSH, ignored for operations that don't need an SSH connection.")
+	rootCmd.PersistentFlags().StringVar(&gOpt.AWSAccessKeyID, "aws-access-key-id", "", "The access key used to operate against AWS resource")
+	rootCmd.PersistentFlags().StringVar(&gOpt.AWSSecretAccessKey, "aws-secret-access-key", "", "The secret access key used to operate against AWS resource")
+	rootCmd.PersistentFlags().StringVar(&gOpt.AWSRegion, "aws-region", "", "The default aws region ")
+
 	_ = rootCmd.PersistentFlags().MarkHidden("native-ssh")
 	_ = rootCmd.PersistentFlags().MarkHidden("ssh-proxy-host")
 	_ = rootCmd.PersistentFlags().MarkHidden("ssh-proxy-user")
@@ -200,9 +204,10 @@ func init() {
 		newTiDB2AuroraCmd(),
 		newAuroraCmd(),
 		newTiDB2MSCmd(),
-        newTiDB2OraCmd(),
+		newTiDB2OraCmd(),
 		newAcceptTiDBCloudPeering(),
 		newPDNS(),
+		newOssInsightCmd(),
 	)
 }
 

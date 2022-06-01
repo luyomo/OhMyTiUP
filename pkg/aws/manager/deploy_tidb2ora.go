@@ -133,7 +133,7 @@ func (m *Manager) TiDB2OraDeploy(
 
 	globalOptions := base.GlobalOptions
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func (m *Manager) ListTiDB2OraCluster(clusterName string, opt DeployOptions) err
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2ora")
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}
@@ -335,7 +335,7 @@ func (m *Manager) DestroyTiDB2OraCluster(name string, gOpt operator.Options, des
 
 	clusterType := "ohmytiup-tidb2ora"
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}

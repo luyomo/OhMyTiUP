@@ -33,8 +33,9 @@ import (
 // Local execute the command at local host.
 type Local struct {
 	Config *SSHConfig
-	Sudo   bool   // all commands run with this executor will be using sudo
-	Locale string // the locale used when executing the command
+	Sudo   bool     // all commands run with this executor will be using sudo
+	Locale string   // the locale used when executing the command
+	Env    []string // env used to be transferred
 }
 
 var _ ctxt.Executor = &Local{}
@@ -146,4 +147,8 @@ func (l *Local) Transfer(ctx context.Context, src, dst string, download bool, li
 	}
 
 	return err
+}
+
+func (l *Local) TransferTemplate(ctx context.Context, templateFile, dst, fileMode string, config interface{}, sudo bool, limit int) error {
+	return nil
 }

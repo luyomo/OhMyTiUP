@@ -112,7 +112,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: c.awsWSConfigs.UserName, KeyFile: c.clusterInfo.keyFile})
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: c.awsWSConfigs.UserName, KeyFile: c.clusterInfo.keyFile}, []string{})
 	if err != nil {
 		return err
 	}

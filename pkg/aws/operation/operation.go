@@ -50,6 +50,11 @@ type Options struct {
 	SSHProxyUsePassword bool             // use password instead of identity file for ssh proxy connection
 	SSHProxyTimeout     uint64           // timeout in seconds when connecting the proxy host
 
+	// AWS crentials
+	AWSAccessKeyID     string // AWS_ACCESS_KEY_ID for aws cli
+	AWSSecretAccessKey string // AWS_SECRET_ACCESS_KEY for aws cli
+	AWSRegion          string // AWS_REGION
+
 	// What type of things should we cleanup in clean command
 	CleanupData bool // should we cleanup data
 	CleanupLog  bool // should we clenaup log

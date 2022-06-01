@@ -46,7 +46,7 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 		return err
 	}
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}

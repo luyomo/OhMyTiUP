@@ -45,7 +45,7 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 
 	clusterType := "ohmytiup-tidb2ms"
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}

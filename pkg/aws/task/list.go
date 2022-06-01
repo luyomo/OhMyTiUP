@@ -50,7 +50,7 @@ type List struct {
 
 // Execute implements the Task interface
 func (c *List) Execute(ctx context.Context, clusterName, clusterType string) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User})
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User}, []string{})
 
 	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Name,Values=%s\"", clusterName, clusterType), false)
 	if err != nil {

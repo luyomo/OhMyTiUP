@@ -136,7 +136,7 @@ func (m *Manager) AuroraDeploy(
 	}
 
 	var clusterInfo task.ClusterInfo
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}
@@ -145,9 +145,11 @@ func (m *Manager) AuroraDeploy(
 		t5 := task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
 			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
-			CreateAurora(&sexecutor, base.AwsAuroraConfigs, &clusterInfo).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
+			CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs, &clusterInfo).
+			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora"}).
+			CreateRouteTgw(&sexecutor, "aurora", []string{"workstation"}).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
 		envInitTasks = append(envInitTasks, t5)
 	}
@@ -187,7 +189,7 @@ func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora")
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}
@@ -288,7 +290,7 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 
 	clusterType := "ohmytiup-aurora"
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}

@@ -47,6 +47,8 @@ type (
 
 		// Transfer copies files from or to a target
 		Transfer(ctx context.Context, src, dst string, download bool, limit int) error
+
+		TransferTemplate(ctx context.Context, templateFile, dst, fileMode string, config interface{}, sudo bool, limit int) error
 	}
 
 	// ExecutorGetter get the executor by host.

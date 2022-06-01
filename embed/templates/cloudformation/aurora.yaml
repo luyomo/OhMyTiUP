@@ -11,6 +11,7 @@ Metadata:
           - InstanceType
           - VpcCidr
           - PubliclyAccessibleFlag
+          - SingleMode
           - Username
           - Password
 Parameters:
@@ -45,11 +46,22 @@ Parameters:
      AllowedValues:
        - true
        - false
+  SingleMode:
+     Description: Single mode or master-slave mode
+     Type: String
+     Default: true
+     AllowedValues:
+       - true
+       - false
 
 Conditions:
   IsPublic: !Equals
     - !Ref PubliclyAccessibleFlag
     - true
+  IsMasterSlave: !Equals
+    - !Ref SingleMode
+    - false
+  
 
 Resources:
   auroraMySQLVPC:
@@ -187,6 +199,7 @@ Resources:
 
   RDSDBInstance2: 
     Type: AWS::RDS::DBInstance
+    Condition: IsMasterSlave
     Properties: 
       PubliclyAccessible: !Ref PubliclyAccessibleFlag
       DBClusterIdentifier:

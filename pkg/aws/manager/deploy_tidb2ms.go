@@ -119,7 +119,7 @@ func (m *Manager) TiDB2MSDeploy(
 
 	globalOptions := base.GlobalOptions
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (m *Manager) TiDB2MSDeploy(
 	}
 
 	if base.AwsAuroraConfigs.InstanceType != "" {
-		t3 := task.NewBuilder().CreateAurora(&sexecutor, base.AwsAuroraConfigs, &auroraInfo).
+		t3 := task.NewBuilder().CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs, &auroraInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora instance"))
 		envInitTasks = append(envInitTasks, t3)
 	}

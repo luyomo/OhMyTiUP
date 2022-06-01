@@ -111,7 +111,7 @@ func (c *MakeDBObjects) Execute(ctx context.Context) error {
 		}
 	}
 
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile})
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: "admin", KeyFile: c.clusterInfo.keyFile}, []string{})
 	if err != nil {
 		return nil
 	}

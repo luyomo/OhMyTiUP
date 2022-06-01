@@ -485,7 +485,7 @@ func SetClusterSSH(ctx context.Context, topo spec.Topology, deployUser string, s
 				Timeout: time.Second * time.Duration(sshTimeout),
 			}
 
-			e, err := executor.New(sshType, false, cf)
+			e, err := executor.New(sshType, false, cf, []string{})
 			if err != nil {
 				return err
 			}

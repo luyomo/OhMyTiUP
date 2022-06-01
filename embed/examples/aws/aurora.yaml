@@ -1,14 +1,18 @@
 workstation:
   cidr: 172.82.0.0/16
   instance_type: m5.2xlarge
-  keyname: jay.zhang
-  keyfile: /home/pi/.ssh/jay.zhang.west-2.pem
+  #  keyname: jay.zhang
+  keyname: jay-us-east-01
+  #keyfile: /home/pi/.ssh/jay.zhang.west-2.pem
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem
   username: admin
-  imageid: ami-0c7ea5497c02abcaf
+  #imageid: ami-0c7ea5497c02abcaf
+  imageid: ami-07d02ee1eeb0c996c
+  volumeSize: 100
 aurora:
   cidr: 172.84.0.0/16
   instance_type: db.r5.large
   db_parameter_family_group: aurora-mysql5.7
   db_username: admin
   db_password: 1234Abcd
-  public_accessible_flag: true
+  public_accessible_flag: false

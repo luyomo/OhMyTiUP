@@ -416,7 +416,7 @@ func GetWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, cl
 		return nil, err
 	}
 
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile})
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile}, []string{})
 	if err != nil {
 		return nil, err
 	}

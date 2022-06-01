@@ -70,7 +70,7 @@ func (s *RootSSH) Execute(ctx context.Context) error {
 			Timeout:    time.Second * time.Duration(s.proxyTimeout),
 		}
 	}
-	e, err := executor.New(s.sshType, s.user != "root", sc)
+	e, err := executor.New(s.sshType, s.user != "root", sc, []string{})
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (s *UserSSH) Execute(ctx context.Context) error {
 			Timeout:    time.Second * time.Duration(s.proxyTimeout),
 		}
 	}
-	e, err := executor.New(s.sshType, false, sc)
+	e, err := executor.New(s.sshType, false, sc, []string{})
 	if err != nil {
 		return err
 	}

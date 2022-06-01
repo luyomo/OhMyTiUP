@@ -55,7 +55,7 @@ var (
 )
 
 // New create a new Executor
-func New(etype SSHType, sudo bool, c SSHConfig) (ctxt.Executor, error) {
+func New(etype SSHType, sudo bool, c SSHConfig, env []string) (ctxt.Executor, error) {
 	if etype == "" {
 		etype = SSHTypeBuiltin
 	}
@@ -88,6 +88,7 @@ func New(etype SSHType, sudo bool, c SSHConfig) (ctxt.Executor, error) {
 		e := &EasySSHExecutor{
 			Locale: "C",
 			Sudo:   sudo,
+			Env:    env,
 		}
 		e.initialize(c)
 		executor = e
@@ -96,6 +97,7 @@ func New(etype SSHType, sudo bool, c SSHConfig) (ctxt.Executor, error) {
 			Config: &c,
 			Locale: "C",
 			Sudo:   sudo,
+			Env:    env,
 		}
 		if c.Password != "" || (c.KeyFile != "" && c.Passphrase != "") {
 			_, _, e.ConnectionTestResult = e.Execute(context.Background(), connectionTestCommand, false, executeDefaultTimeout)
@@ -109,6 +111,7 @@ func New(etype SSHType, sudo bool, c SSHConfig) (ctxt.Executor, error) {
 			Config: &c,
 			Sudo:   sudo,
 			Locale: "C",
+			Env:    env,
 		}
 		executor = e
 	default:

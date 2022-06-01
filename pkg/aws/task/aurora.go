@@ -15,6 +15,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -32,6 +33,7 @@ import (
 type CreateAurora struct {
 	pexecutor        *ctxt.Executor
 	awsAuroraConfigs *spec.AwsAuroraConfigs
+	awsWSConfigs     *spec.AwsWSConfigs
 	clusterInfo      *ClusterInfo
 }
 
@@ -40,8 +42,14 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	type DBInfo struct {
+		DBHost     string
+		DBPort     int64
+		DBUser     string
+		DBPassword string
+	}
 
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -131,11 +139,63 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if (*stackInfo).Stacks[0].StackStatus == "CREATE_COMPLETE" || (*stackInfo).Stacks[0].StackStatus == "CREATE_FAILED" {
+		if (*stackInfo).Stacks[0].StackStatus == "CREATE_COMPLETE" {
+
 			break
 		}
 
+		if (*stackInfo).Stacks[0].StackStatus == "CREATE_FAILED" {
+			return errors.New("Failed to create stack.")
+		}
+
 		time.Sleep(60 * time.Second)
+	}
+
+	// 1. Get all the workstation nodes
+	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
+	if err != nil {
+		return err
+	}
+
+	auroraInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "aurora")
+	if err != nil {
+		return err
+	}
+
+	var dbInfo DBInfo
+	dbInfo.DBHost = (*auroraInstanceInfos)[0].EndPointAddress
+	dbInfo.DBPort = (*auroraInstanceInfos)[0].DBPort
+	dbInfo.DBUser = (*auroraInstanceInfos)[0].DBUserName
+	dbInfo.DBPassword = c.awsAuroraConfigs.DBPassword
+
+	_, _, err = (*workstation).Execute(ctx, "mkdir /opt/scripts", true)
+	if err != nil {
+		return err
+	}
+
+	err = (*workstation).TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/db-info.yml", "0644", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = (*workstation).TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_mysql_query", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = (*workstation).TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_mysql_from_file", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = (*workstation).Execute(ctx, "apt-get update", true)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = (*workstation).Execute(ctx, "apt-get install -y mariadb-server", true)
+	if err != nil {
+		return err
 	}
 
 	return nil

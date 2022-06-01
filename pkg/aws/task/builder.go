@@ -1303,10 +1303,11 @@ func (b *Builder) DestroyOracle(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
-func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, awsAuroraConfigs *spec.AwsAuroraConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsAuroraConfigs *spec.AwsAuroraConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateAurora{
 		pexecutor:        pexecutor,
 		awsAuroraConfigs: awsAuroraConfigs,
+		awsWSConfigs:     awsWSConfigs,
 		clusterInfo:      clusterInfo,
 	})
 	return b

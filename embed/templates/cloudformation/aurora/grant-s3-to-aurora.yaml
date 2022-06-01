@@ -1,0 +1,6 @@
+# Input: 1. Bucket Name
+#        2. Folder Name
+#        3. AuroraDB ARN(Optional)
+#        4. AuroraDB TagName: ClusterName/Type
+#        5. Export DB Name / Export Tables
+#        6. Import DB Name / Import Tables

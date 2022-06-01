@@ -44,7 +44,7 @@ func parseDirs(user string, ins spec.InstanceSpec, sshTimeout uint64, sshType ex
 		User:    user,
 		KeyFile: SSHKeyPath(), // ansible generated keyfile
 		Timeout: time.Second * time.Duration(sshTimeout),
-	})
+	}, []string{})
 	if err != nil {
 		return nil, err
 	}

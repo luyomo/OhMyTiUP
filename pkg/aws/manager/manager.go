@@ -62,7 +62,7 @@ func NewManager(sysName string, specManager *spec.SpecManager, bindVersion spec.
 }
 
 func (m *Manager) meta(name string) (metadata spec.Metadata, err error) {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()})
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 
 	stdout, _, err := local.Execute(ctxt.New(context.Background(), 1), fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", name), false)
 	if err != nil {

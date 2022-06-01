@@ -22,11 +22,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/appleboy/easyssh-proxy"
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
+	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/localdata"
 	"github.com/luyomo/tisample/pkg/tui"
@@ -68,16 +70,18 @@ type (
 	// EasySSHExecutor implements Executor with EasySSH as transportation layer.
 	EasySSHExecutor struct {
 		Config *easyssh.MakeConfig
-		Locale string // the locale used when executing the command
-		Sudo   bool   // all commands run with this executor will be using sudo
+		Locale string   // the locale used when executing the command
+		Sudo   bool     // all commands run with this executor will be using sudo
+		Env    []string // env used to be transferred
 	}
 
 	// NativeSSHExecutor implements Excutor with native SSH transportation layer.
 	NativeSSHExecutor struct {
 		Config               *SSHConfig
-		Locale               string // the locale used when executing the command
-		Sudo                 bool   // all commands run with this executor will be using sudo
-		ConnectionTestResult error  // test if the connection can be established in initialization phase
+		Locale               string   // the locale used when executing the command
+		Sudo                 bool     // all commands run with this executor will be using sudo
+		Env                  []string // env used to be transferred
+		ConnectionTestResult error    // test if the connection can be established in initialization phase
 	}
 
 	// SSHConfig is the configuration needed to establish SSH connection.
@@ -220,6 +224,10 @@ func (e *EasySSHExecutor) Transfer(ctx context.Context, src, dst string, downloa
 	return ScpDownload(session, client, src, dst, limit)
 }
 
+func (e *EasySSHExecutor) TransferTemplate(ctx context.Context, templateFile, dst, fileMode string, config interface{}, sudo bool, limit int) error {
+	return nil
+}
+
 func (e *NativeSSHExecutor) prompt(def string) string {
 	if prom := os.Getenv(localdata.EnvNameSSHPassPrompt); prom != "" {
 		return prom
@@ -280,7 +288,7 @@ func (e *NativeSSHExecutor) Execute(ctx context.Context, cmd string, sudo bool, 
 	}
 
 	// set a basic PATH in case it's empty on login
-	cmd = fmt.Sprintf("PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin %s", cmd)
+	cmd = fmt.Sprintf("PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin %s %s", strings.Join(e.Env, " "), cmd)
 
 	if e.Locale != "" {
 		cmd = fmt.Sprintf("export LANG=%s; %s", e.Locale, cmd)
@@ -421,4 +429,54 @@ func (e *NativeSSHExecutor) Transfer(ctx context.Context, src, dst string, downl
 	}
 
 	return err
+}
+
+func (e *NativeSSHExecutor) TransferTemplate(ctx context.Context, templateFile, dst, fileMode string, config interface{}, sudo bool, limit int) error {
+	tmpFile := fmt.Sprintf("/tmp/%d", os.Getpid())
+	fdFile, err := os.Create(tmpFile)
+	if err != nil {
+		return err
+	}
+	defer fdFile.Close()
+
+	tpl, err := embed.ReadTemplate(templateFile)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err := template.New("test").Parse(string(tpl))
+	if err != nil {
+		return err
+	}
+
+	if err := tmpl.Execute(fdFile, config); err != nil {
+		return err
+	}
+
+	err = e.Transfer(ctx, tmpFile, tmpFile, false, 0)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = e.Execute(ctx, fmt.Sprintf("chmod %s %s", fileMode, tmpFile), false)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = e.Execute(ctx, fmt.Sprintf("mv %s %s", tmpFile, dst), sudo)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = e.Execute(ctx, fmt.Sprintf("rm -f %s", tmpFile), false)
+	if err != nil {
+		return err
+	}
+
+	err = os.Remove(tmpFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

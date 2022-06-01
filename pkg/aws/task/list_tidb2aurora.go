@@ -31,7 +31,7 @@ type ListTiDB2Aurora struct {
 
 // Execute implements the Task interface
 func (c *ListTiDB2Aurora) Execute(ctx context.Context, clusterName, clusterType, subClusterType string) error {
-	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User})
+	local, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: c.User}, []string{})
 	fmt.Printf("The calling functions are in the executing \n\n\n")
 
 	// 01. VPC
