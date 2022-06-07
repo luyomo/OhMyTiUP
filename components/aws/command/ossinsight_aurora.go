@@ -17,6 +17,7 @@ import (
 	//"context"
 	// "os"
 	"path"
+	"strconv"
 
 	"github.com/luyomo/tisample/pkg/aws/manager"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
@@ -38,6 +39,9 @@ func newOssInsightCmd() *cobra.Command {
 		newOssInsightDeploy(),
 		newListOssInsightCmd(),
 		newDestroyOssInsightCmd(),
+		newOssInsightCountTables(),
+		newOssInsightGithubEventsVolumeAdjust(),
+		newOssInsightTestCase(),
 	)
 	return cmd
 }
@@ -54,9 +58,79 @@ func newOssInsightDeploy() *cobra.Command {
 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
 	}
 	cmd := &cobra.Command{
-		Use:          "deploy <cluster-name>",
+		Use:          "deploy <cluster-name> <num-of-million>",
 		Short:        "Deploy an ossinsight on aurora for demo",
 		Long:         "Deploy an ossinsight on aurora for demo. SSH connection will be used to deploy files, as well as creating system users for running the service.",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
+			if err != nil {
+				return err
+			}
+
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			numOfMillions := 0
+			if numOfMillions, err = strconv.Atoi(args[1]); err != nil {
+				return err
+			}
+
+			return cm.OssInsightDeploy(clusterName, numOfMillions, opt, postDeployHook, skipConfirm, gOpt)
+		},
+	}
+
+	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
+
+	return cmd
+}
+
+func newOssInsightGithubEventsVolumeAdjust() *cobra.Command {
+	opt := manager.OssInsightDeployOptions{
+		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
+	}
+	cmd := &cobra.Command{
+		Use:          "adjust-github-events-volume <cluster-name> <num-of-million>",
+		Short:        "Adjust the data volume to specified number",
+		Long:         "Adjust the data volume to specified number. SSH connection will be used to deploy files, as well as creating system users for running the service.",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
+			if err != nil {
+				return err
+			}
+
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			numOfMillions := 0
+			if numOfMillions, err = strconv.Atoi(args[1]); err != nil {
+				return err
+			}
+
+			return cm.OssInsightAdjustGithubEventsValume(clusterName, numOfMillions, opt, postDeployHook, skipConfirm, gOpt)
+		},
+	}
+
+	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
+
+	return cmd
+}
+
+func newOssInsightCountTables() *cobra.Command {
+	opt := manager.OssInsightDeployOptions{
+		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
+	}
+	cmd := &cobra.Command{
+		Use:          "count <cluster-name>",
+		Short:        "Count all tables",
+		Long:         "Count all the tables in the ossinsight database.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
@@ -69,7 +143,48 @@ func newOssInsightDeploy() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.OssInsightDeploy(clusterName, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.OssInsightCountTables(clusterName, opt, postDeployHook, skipConfirm, gOpt)
+		},
+	}
+
+	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
+
+	return cmd
+}
+
+func newOssInsightTestCase() *cobra.Command {
+	opt := manager.OssInsightDeployOptions{
+		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
+	}
+	cmd := &cobra.Command{
+		Use:   "test <cluster-name> <number-execution> <query-pattern>",
+		Short: "performance test",
+		Long: `Example: test aurotest 10 count
+query-pattern:
+  - count: Count github_events
+  - mouthly_rank: ... ...
+  - dynamicTrends.BarChartRace: ... ...
+  - dynamicTrends.HistoricalRanking ... ...
+  - dynamicTrends.TopTen ... ...
+`,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 3)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+			numExeTime := 0
+			if numExeTime, err = strconv.Atoi(args[1]); err != nil {
+				return err
+			}
+			queryType := args[2]
+
+			return cm.OssInsightTestCase(clusterName, numExeTime, queryType, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 
