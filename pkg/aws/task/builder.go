@@ -21,10 +21,10 @@ import (
 
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	awsutils "github.com/luyomo/tisample/pkg/aws/utils"
+	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
-
-	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/proxy"
 )
@@ -1335,5 +1335,11 @@ func (b *Builder) DeployWS(pexecutor *ctxt.Executor, subClusterType string, awsW
 		awsWSConfigs:   awsWSConfigs,
 		subClusterType: subClusterType,
 	})
+	return b
+}
+
+func (b *Builder) TakeTimer(timer *awsutils.ExecutionTimer, exePhase string) *Builder {
+	timer.Take(exePhase)
+
 	return b
 }

@@ -28,12 +28,14 @@ type CreateVpc struct {
 	pexecutor      *ctxt.Executor
 	subClusterType string
 	clusterInfo    *ClusterInfo
+	exePhase       string
 }
 
 // Execute implements the Task interface
 func (c *CreateVpc) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
+	c.exePhase = "Fetching VPC info"
 
 	vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 	if err == nil {
@@ -46,6 +48,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 		return err
 	}
 
+	c.exePhase = "Creating VPC phase"
 	_, _, err = (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterInfo.cidr, clusterName, clusterType, c.subClusterType), false)
 	if err != nil {
 		zap.L().Error("Failed to create vpc. VPCInfo: ", zap.String("VpcInfo", c.clusterInfo.String()))
@@ -54,6 +57,7 @@ func (c *CreateVpc) Execute(ctx context.Context) error {
 
 	time.Sleep(5 * time.Second)
 
+	c.exePhase = "Checking VPC status"
 	vpcInfo, err = getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 	if err == nil {
 		zap.L().Info("Fetched VPC Info", zap.String("VPC Info", vpcInfo.String()))
@@ -72,7 +76,7 @@ func (c *CreateVpc) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateVpc) String() string {
-	return fmt.Sprintf("Echo: Creating VPC ")
+	return fmt.Sprintf("Echo: [%s] Creating VPC ... ... ", c.exePhase)
 }
 
 /******************************************************************************/

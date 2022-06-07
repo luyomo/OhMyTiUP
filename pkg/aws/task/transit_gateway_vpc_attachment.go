@@ -99,6 +99,25 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachment); err != nil {
 		return err
 	}
+
+	for cnt := 0; cnt < 60; cnt++ {
+		command = fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType, c.subClusterType)
+
+		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
+		if err != nil {
+			return err
+		}
+		var transitGatewayVpcAttachments TransitGatewayVpcAttachments
+		if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
+			return err
+		}
+
+		if len(transitGatewayVpcAttachments.TransitGatewayVpcAttachments) > 0 && (transitGatewayVpcAttachments.TransitGatewayVpcAttachments)[0].State == "available" {
+			break
+		}
+		time.Sleep(1 * time.Minute)
+	}
+
 	return nil
 }
 

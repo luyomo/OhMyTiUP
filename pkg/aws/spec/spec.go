@@ -156,6 +156,8 @@ type (
 		InstanceType           string `yaml:"instance_type"`
 		CIDR                   string `yaml:"cidr"`
 		DBParameterFamilyGroup string `yaml:"db_parameter_family_group"`
+		Engine                 string `yaml:"engine"`
+		EngineVersion          string `yaml:"engine_version"`
 		DBUserName             string `yaml:"db_username"`
 		DBPassword             string `yaml:"db_password"`
 		PubliclyAccessibleFlag bool   `yaml:"public_accessible_flag" default: false`

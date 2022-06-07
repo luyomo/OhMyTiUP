@@ -23,19 +23,16 @@ import (
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
+	awsutils "github.com/luyomo/tisample/pkg/aws/utils"
 	"github.com/luyomo/tisample/pkg/crypto"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	// "github.com/luyomo/tisample/pkg/set"
+	// "github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
-	// "go.uber.org/zap"
-	// "os"
-	// "strings"
 )
 
 // DeployOptions contains the options for scale out.
@@ -58,6 +55,8 @@ func (m *Manager) AuroraDeploy(
 	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
 		return err
 	}
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
 
 	exist, err := m.specManager.Exist(name)
 	if err != nil {
@@ -140,6 +139,7 @@ func (m *Manager) AuroraDeploy(
 	if err != nil {
 		return err
 	}
+	timer.Take("Resource preparation")
 	if base.AwsAuroraConfigs.DBParameterFamilyGroup != "" {
 		var workstationInfo task.ClusterInfo
 		t5 := task.NewBuilder().
@@ -153,7 +153,6 @@ func (m *Manager) AuroraDeploy(
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
 		envInitTasks = append(envInitTasks, t5)
 	}
-	fmt.Printf("The prosess reached here ... ... \n\n\n")
 
 	builder := task.NewBuilder().
 		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
@@ -174,10 +173,7 @@ func (m *Manager) AuroraDeploy(
 		return err
 	}
 	logger.OutputDebugLog("aws-nodes")
-	return nil
-
-	hint := color.New(color.Bold).Sprintf("%s start %s", tui.OsArgs0(), name)
-	log.Infof("Cluster `%s` deployed successfully, you can start it with command: `%s`", name, hint)
+	timer.Print()
 	return nil
 }
 

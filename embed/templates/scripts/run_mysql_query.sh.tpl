@@ -7,4 +7,4 @@ then
 fi
 dbName=$1
 shift
-mysql -h {{.DBHost}} -P {{.DBPort}} -u {{.DBUser}} -p{{.DBPassword}} $dbName -e "$@"
+mysql -s -N -h {{.DBHost}} -P {{.DBPort}} -u {{.DBUser}} -p{{.DBPassword}} $dbName -e "$@"

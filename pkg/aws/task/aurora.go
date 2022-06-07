@@ -93,6 +93,20 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 		})
 	}
 
+	if c.awsAuroraConfigs.Engine != "" {
+		parameters = append(parameters, types.Parameter{
+			ParameterKey:   aws.String("Engine"),
+			ParameterValue: aws.String(c.awsAuroraConfigs.Engine),
+		})
+	}
+
+	if c.awsAuroraConfigs.EngineVersion != "" {
+		parameters = append(parameters, types.Parameter{
+			ParameterKey:   aws.String("EngineVersion"),
+			ParameterValue: aws.String(c.awsAuroraConfigs.EngineVersion),
+		})
+	}
+
 	if c.awsAuroraConfigs.InstanceType != "" {
 		parameters = append(parameters, types.Parameter{
 			ParameterKey:   aws.String("InstanceType"),

@@ -9,10 +9,3 @@ do
   rm /tmp/$file.part_00000
 done
 
-for i in $(seq -f "%05g" 0 0)
-do
-  wget -P /tmp/ https://ossinsight-data.s3.amazonaws.com/parquet/github_events.part_$i
-  /opt/scripts/run_mysql_query ossinsight "LOAD DATA LOCAL INFILE '/tmp/github_events.part_$i' INTO TABLE github_events"
-  rm /tmp/github_events.part_$i
-done
-

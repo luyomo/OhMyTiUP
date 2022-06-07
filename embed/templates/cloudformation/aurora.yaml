@@ -9,6 +9,9 @@ Metadata:
           default: "Meta Configuration"
         Parameters:
           - InstanceType
+          - AuroraFamily
+          - Engine
+          - EngineVersion
           - VpcCidr
           - PubliclyAccessibleFlag
           - SingleMode
@@ -33,6 +36,28 @@ Parameters:
     Type: String
     Default: 172.83.0.0/16
     Description: The cidr of RDB
+  AuroraFamily:
+    Description: Aurora family
+    Type: String
+    Default: aurora-mysql8.0
+    AllowedValues:
+    - aurora-mysql5.7
+    - mysql8.0
+    - aurora-mysql8.0
+    ConstraintDescription: Approriate aurora mysql family
+  Engine:
+    Type: String
+    Default: aurora-mysql
+    AllowedValues:
+      - aurora-mysql
+      - mysql
+  EngineVersion:
+    Type: String
+    Default: 8.0.mysql_aurora.3.02.0
+    AllowedValues:
+      - 5.7.mysql_aurora.2.10.1
+      - 8.0.29
+      - 8.0.mysql_aurora.3.02.0
   Password:
     Type: String
     Description: The password of RDB
@@ -151,7 +176,8 @@ Resources:
     Type: "AWS::RDS::DBClusterParameterGroup"
     Properties: 
       Description: "CloudFormation Sample Aurora Cluster Parameter Group"
-      Family: aurora-mysql5.7
+      Family:
+        Ref: AuroraFamily
       Parameters: 
         time_zone: Asia/Tokyo
         binlog_format: ROW
@@ -160,7 +186,8 @@ Resources:
     Type: 'AWS::RDS::DBParameterGroup'
     Properties:
       Description: CloudFormation Sample Aurora Parameter Group
-      Family: aurora-mysql5.7
+      Family: 
+        Ref: AuroraFamily
       Parameters:
         sql_mode: IGNORE_SPACE
         max_allowed_packet: 1024
@@ -175,8 +202,10 @@ Resources:
         Ref: RDSDBClusterParameterGroup
       DBSubnetGroupName: 
         Ref: auroraMySQLDBSubnetGroup
-      Engine: aurora-mysql
-      EngineVersion: 5.7.mysql_aurora.2.10.1
+      Engine: 
+        Ref: Engine
+      EngineVersion: 
+        Ref: EngineVersion
       VpcSecurityGroupIds:
         - Ref: InstanceSecurityGroup
       MasterUserPassword: 
