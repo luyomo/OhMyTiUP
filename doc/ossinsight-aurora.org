@@ -1,46 +1,77 @@
-* Todo
-  + Start the aurora instance
-  + Export the data to S3(parquet)
-    #+BEGIN_SRC
-select * from users INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/sers';
-select * from ar_internal_metadata  INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/ar_internal_metadata';
-select * from blacklist_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/blacklist_repos';
-select * from blacklist_users INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/blacklist_users';
-select * from cn_orgs INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/cn_orgs';
-select * from cn_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/cn_repos';
-select * from collection_items INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/collection_items';
-select * from collections INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/collections';
-select * from css_framework_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/css_framework_repos';
-select * from db_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/db_repos';
-select * from gh INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/gh';
-select * from github_events INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/github_events';
-select * from import_logs INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/import_logs';
-select * from js_framework_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/js_framework_repos';
-select * from new_github_events INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/new_github_events';
-select * from nocode_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/nocode_repos';
-select * from osdb_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/osdb_repos';
-select * from programming_language_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/programming_language_repos';
-select * from schema_migrations INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/schema_migrations';
-select * from static_site_generator_repos INTO OUTFILE S3 's3-us-east-1://ossinsight-data/parquet/static_site_generator_repos';
-    #+END_SRC
-  + Data import
-    #+BEGIN_SRC
-load data from s3 's3-us-east-1://ossinsight-data/parquet/github_events.part_00000' into table github_events;
-    #+END_SRC
-  + Use one command to change it
-  + Deploy new aurora to keep all the data
-    - Use cloudformation template to deploy the instance
-    - Run query to create the database and tables
-    - Run query to import data from S3 to tables
-    - Show all the tables and rows
-    - Show all the queries against the table to get the summary
-      + First time to query against the database
-      + Run ten times against the DB and calculate the average time and hennsachi
+* Flow
 
-* Data import
-  #+BEGIN_SRC
-MySQL [gharchive_dev]> load data from s3 's3-us-east-1://ossinsight-data/parquet/github_events.part_00000' into table github_events; 
-
-Query OK, 36141004 rows affected (2 hours 28 min 22.239 sec)
-Records: 36141004  Deleted: 0  Skipped: 0  Warnings: 0
+  [[./png/ossinsight-on-aurora.png]]
+  #+BEGIN_COMMENT
+  #+BEGIN_SRC plantuml :file ./png/ossinsight-on-aurora.png
+partition Preparation #LightSkyBlue {
+(*) --> "Aurora Deployment"
+ --> "OSS Insight DDL Generation"
+ --> "Example Data Import"
+}
+partition "Performance Test" #CCCCEE {
+--> "Performance test(first round)"
+"Performance test(first round)" --> "Import more data"
+"Import more data" --> "Performance test(second round)"
+}
+"Performance test(second round)" --> "Resource removal"
+"Resource removal" --> (*)
   #+END_SRC
+  #+END_COMMENT
+
+* OSSINSIGHT Data deployment in Aurora
+** Aurora deployment
+
+*** Please check the [[./embed/examples/aws/aurora.yaml][config file]]. According to your requirement, please change the configuration like instance type.
+   [[./png/ossinsight/003.png]]
+*** Run the command to deploy the aurora
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws aurora deploy ossinsighttest ./embed/examples/aws/aurora.yaml
+   #+END_SRC
+   [[./png/ossinsight/004.png]]
+*** List generated aws resources
+    #+BEGIN_SRC
+OhMyTiUP$./bin/aws aurora list ossinsighttest
+    #+END_SRC
+    [[./png/ossinsight/005.png]]
+** OSS Insight objects preparation
+*** DB Objects generation
+    + DB
+    + Table
+    + Example Data
+    #+BEGIN_SRC
+OhMyTiUP$./bin/aws ossinsight deploy ossinsighttest 1 --ssh-user admin --identity-file /home/pi/.ssh/user-key.pem --aws-access-key-id XXXXXXXXXXXXXX --aws-secret-access-key YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
+    #+END_SRC
+   [[./png/ossinsight/006.png]]
+*** Run the command to count all the tables
+    #+BEGIN_SRC
+OhMyTiUP$./bin/aws ossinsight count ossinsighttest --ssh-user admin --identity-file /home/pi/.ssh/user-key.pem
+    #+END_SRC
+   [[./png/ossinsight/007.png]]
+*** Run test cases
+**** Count test case
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws ossinsight test ossinsighttest 10 count --ssh-user admin --identity-file /home/pi/.ssh/user-key.pem
+   #+END_SRC
+   [[./png/ossinsight/008.png]]
+**** mounthly rank test case
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws ossinsight test ossinsighttest 10 count --ssh-user admin --identity-file /home/pi/.ssh/user-key.pem
+   #+END_SRC
+   [[./png/ossinsight/009.png]]
+*** Import more example data
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws ossinsight adjust-github-events-volume ossinsighttest 5 --ssh-user admin --identity-file /home/pi/.ssh/user-key.pem
+   #+END_SRC
+   [[./png/ossinsight/010.png]]
+**** Count test case
+   [[./png/ossinsight/011.png]]
+**** mounthly rank test case
+   [[./png/ossinsight/012.png]]
+** Remove AWS resource
+*** Remove AWS resource
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws aurora destroy ossinsighttest
+   #+END_SRC
+   [[./png/ossinsight/013.png]]
+*** Confirm resource cleaness
+   [[./png/ossinsight/014.png]]
