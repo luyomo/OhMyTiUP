@@ -1,0 +1,109 @@
+* Architure
+* Flow
+** Source DB confirmation
+*** Postgres install
+*** Check the postgres wal_level parameter
+  #+BEGIN_SRC
+$ psql -h masterdb.cxmxisy1o2a2.us-east-1.rds.amazonaws.com -p 5432 -U kafkauser postgres
+postgres=>show wal_level;
+ wal_level 
+-----------
+ logical
+
+  #+END_SRC
+*** Objects preparation
+  #+BEGIN_SRC
+postgres=> create database test; 
+CREATE DATABASE
+postgres=> \c test;
+test=> create table test_data_sync(col01 int primary key, col02 bigint not null, col03 numeric(20, 5), col04 char(10) not null, col05 varchar(32) not null, col06 boolean not null, col07 date, col08 timestamp ); 
+CREATE TABLE
+test=> insert into test_data_sync values(1, 1000, 10.5, '1010101010', 'This is the test', true, current_date, current_timestamp);
+INSERT 0 1
+test=> select * from test_data_sync; 
+ col01 | col02 |  col03   |   col04    |      col05       | col06 |   col07    |           col08            
+-------+-------+----------+------------+------------------+-------+------------+----------------------------
+     1 |  1000 | 10.50000 | 1010101010 | This is the test | t     | 2022-06-13 | 2022-06-13 01:54:12.235746
+(Row 1)
+  #+END_SRC
+** Target TiDB confirmation
+  #+BEGIN_SRC
+$ mysql --connect-timeout 15 -u root -h tidb.c4604e43.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -P 4000 -p test
+Enter password: 
+... ...
+MySQL [test]>
+  #+END_SRC
+*** Objects preparation
+  #+BEGIN_SRC
+MySQL [test]> create table test_data_sync(col01 int primary key, col02 bigint not null, col03 numeric(20, 5), col04 char(10) not null, col05 varchar(32) not null, col06 boolean not null, col07 date, col08 timestamp );
+Query OK, 0 rows affected (0.103 sec)
+  #+END_SRC
+
+* Get one confluent account and follow the bellow procedure
+** Source connector
+*** Add source connector to culster
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/01.01.png]]
+*** Set the source connector
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/01.02.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/01.03.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/01.04.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/01.05.png]]
+*** Check the source connecto status by GUI and email
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/01.06.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/01.07.png]]
+** Sink connector
+*** Search MySQL sink and start configuration
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.01.png]]
+*** Select the kafka topic to start
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.02.png]]
+*** Set the API key for authentication
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.03.png]]
+*** Start the sink connector configuration
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.04.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.05.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.06.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.07.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.08.png]]
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.09.png]]
+*** Check the sink connector status
+  #+attr_html: :width 800px
+  #+attr_latex: :width 800px
+  [[./png/confluent/02.10.png]]
+
+  #+BEGIN_EXPORT html
+  <viedo width="640" height="400" controls>
+  <source src="./png/confluent/03.01.mp4" type="viedo/mp4">
+  </viedo>
+  #+END_EXPORT
