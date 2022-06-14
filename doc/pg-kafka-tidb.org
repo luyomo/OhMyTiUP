@@ -1,7 +1,7 @@
-* Architure
+* Architecture
   [[./png/confluent/pg2tidb-confluent.cloud.architure.png]]
   
-* Flow
+* Deployment process
 ** Source DB confirmation
 *** Postgres install
     #+attr_html: :width 800px
