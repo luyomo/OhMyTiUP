@@ -4,11 +4,12 @@
 ** TiDB Solution
  #+CAPTION: Index of all topics
  #+ATTR_HTML: :border 2 :rules all :frame border
- | Link                        | Comment                                              | Source                                     |
- |-----------------------------+------------------------------------------------------+--------------------------------------------|
- | [[./baidu-uuid.org][uuid generator]]              | Use uid-generator from baidu to generate sequence id | [[https://github.com/baidu/uid-generator.git]] |
- | [[./powerdns.org][powerdns on TiDB]]            | Deploy powerdbs on TiDB                              |                                            |
- | [[./tidb-endpoints.org][TiDB Cluster service on aws]] | Create TiDB Service using PrivateLink on aws         |                                            |
+ | Link                        | Comment                                                   | Source                                     |
+ |-----------------------------+-----------------------------------------------------------+--------------------------------------------|
+ | [[./baidu-uuid.org][uuid generator]]              | Use uid-generator from baidu to generate sequence id      | [[https://github.com/baidu/uid-generator.git]] |
+ | [[./powerdns.org][powerdns on TiDB]]            | Deploy powerdbs on TiDB                                   |                                            |
+ | [[./tidb-endpoints.org][TiDB Cluster service on aws]] | Create TiDB Service using PrivateLink on aws              |                                            |
+ | [[./ossinsight-aurora.org][OSS Insight on AWS]]          | Query performance test using OSS Insight project's tables | https://ossinsight.io/                     |
 
 ** TiDB Cloud on aws solution
  #+CAPTION: Index of all topics on aws
@@ -29,12 +30,13 @@
  | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                                                                                   |        |
  | Setup TiDB Cloud VPC peering                                      |                                                                                                                   |        |
  | [[./prometheus2newrelic.org][Prometheus to Newrelic metrics]]                                    | Convert the Prometheus metrics to Newrelic                                                                        |        |
+ | [[./doc/pg-kafka-tidb.org][Replication from Postgres to TiDB through kafka]]                   | Data replication using Debezium source connector and JDBC sink connector                                          |        |
 
 
 ** Troubleshooting
    
 
-    #+CAPTION: Index of all topics on aws
+ #+CAPTION: Index of all topics on aws
  #+ATTR_HTML: :border 2 :rules all :frame border
  | Link                                   | Comment                                           | Source |
  |----------------------------------------+---------------------------------------------------+--------|
@@ -59,3 +61,11 @@
 ** Monitoring API
 *** API to prometheus
 *** Monitoring data sync to Datadog
+
+* Todo
+#+CAPTION: Index of all topics on aws
+#+ATTR_HTML: :border 2 :rules all :frame border
+| Seq | Todo                  | Comment                                            | Date       |
+|-----+-----------------------+----------------------------------------------------+------------|
+|-----+-----------------------+----------------------------------------------------+------|
+|   1 | OSSINSIGHT Query test | Performance test on Auroro using OSSINSIGHT's Data | 2020/06/07 |

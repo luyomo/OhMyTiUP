@@ -1,7 +1,18 @@
 * Architure
+  [[./png/confluent/pg2tidb-confluent.cloud.architure.png]]
+  
 * Flow
 ** Source DB confirmation
 *** Postgres install
+    #+attr_html: :width 800px
+    #+attr_latex: :width 800px
+    [[./png/confluent/pg.001.png]]
+    #+attr_html: :width 800px
+    #+attr_latex: :width 800px
+    [[./png/confluent/pg.002.png]]
+    #+attr_html: :width 800px
+    #+attr_latex: :width 800px
+    [[./png/confluent/pg.003.png]]
 *** Check the postgres wal_level parameter
   #+BEGIN_SRC
 $ psql -h masterdb.cxmxisy1o2a2.us-east-1.rds.amazonaws.com -p 5432 -U kafkauser postgres
@@ -46,6 +57,7 @@ Query OK, 0 rows affected (0.103 sec)
   #+attr_latex: :width 800px
   [[./png/confluent/01.01.png]]
 *** Set the source connector
+**** GUI setting
   #+attr_html: :width 800px
   #+attr_latex: :width 800px
   [[./png/confluent/01.02.png]]
@@ -65,20 +77,53 @@ Query OK, 0 rows affected (0.103 sec)
   #+attr_html: :width 800px
   #+attr_latex: :width 800px
   [[./png/confluent/01.07.png]]
+**** Command setting
+   #+BEGIN_SRC
+$more source.json
+{
+  "name": "pg2tidbtest",
+  "config": {
+      "name": "pg2tidbtest",
+      "connector.class": "PostgresCdcSource",
+      "tasks.max": "1",
+      "database.hostname": "pg2tidb.cxmxisy1o2a2.us-east-1.rds.amazonaws.com",
+      "database.port": "5432",
+      "database.user": "kafkauser",
+      "database.password": "1234Abcd",
+      "database.dbname" : "test",
+      "database.server.name": "clitest",
+      "kafka.api.key": "UKMEXXXXXXXXXXXXX",
+      "kafka.api.secret": "p4o/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "schema.whitelist": "public",
+      "database.sslmode": "disable",
+      "snapshot.mode": "initial",
+      "plugin.name": "pgoutput",
+      "output.data.format": "AVRO",
+      "output.key.format": "AVRO"
+      }
+ }
+$curl --request POST 'https://api.confluent.cloud/connect/v1/environments/env-dok2yz/clusters/lkc-yo6o0j/connectors' --header 'authorization: Basic XXXX.....XXXX' --header 'Content-Type: application/json' --data "@source.json"
+{"name":"mysqlSink","type":"sink","config":{"cloud.environment":"prod","cloud.provider":"aws","connection.host":"tidb.c4604e43.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com","connection.password":"******
+**********","connection.port":"4000","connection.user":"root","connector.class":"MySqlSink","db.name":"test","delete.enabled":"true","fields.whitelist":"col01,col02","input.data.format":"AVRO","input.key.
+format":"AVRO","insert.mode":"UPSERT","kafka.api.key":"****************","kafka.api.secret":"****************","kafka.auth.mode":"KAFKA_API_KEY","kafka.endpoint":"SASL_SSL://pkc-ymrq7.us-east-2.aws.conflu
+ent.cloud:9092","kafka.region":"us-east-2","name":"mysqlSink","pk.mode":"record_key","ssl.mode":"prefer","table.name.format":"test.test01","table.types":"TABLE","tasks.max":"1","topics":"clitest.public.te
+st01"},"tasks":[]}
+   #+END_SRC
 ** Sink connector
-*** Search MySQL sink and start configuration
+*** GUI setting
+**** Search MySQL sink and start configuration
   #+attr_html: :width 800px
   #+attr_latex: :width 800px
   [[./png/confluent/02.01.png]]
-*** Select the kafka topic to start
+**** Select the kafka topic to start
   #+attr_html: :width 800px
   #+attr_latex: :width 800px
   [[./png/confluent/02.02.png]]
-*** Set the API key for authentication
+**** Set the API key for authentication
   #+attr_html: :width 800px
   #+attr_latex: :width 800px
   [[./png/confluent/02.03.png]]
-*** Start the sink connector configuration
+**** Start the sink connector configuration
   #+attr_html: :width 800px
   #+attr_latex: :width 800px
   [[./png/confluent/02.04.png]]
@@ -97,13 +142,44 @@ Query OK, 0 rows affected (0.103 sec)
   #+attr_html: :width 800px
   #+attr_latex: :width 800px
   [[./png/confluent/02.09.png]]
-*** Check the sink connector status
+**** Check the sink connector status
   #+attr_html: :width 800px
   #+attr_latex: :width 800px
   [[./png/confluent/02.10.png]]
 
-  #+BEGIN_EXPORT html
-  <viedo width="640" height="400" controls>
-  <source src="./png/confluent/03.01.mp4" type="viedo/mp4">
-  </viedo>
-  #+END_EXPORT
+*** Command setting
+    #+BEGIN_SRC
+$more sink.json
+{
+  "name": "mysqlSink",
+  "config": {
+    "topics": "clitest.public.test01",
+    "input.data.format": "AVRO",
+    "input.key.format": "AVRO",
+    "delete.enabled": "true",
+    "connector.class": "MySqlSink",
+    "name": "mysqlSink",
+    "kafka.auth.mode": "KAFKA_API_KEY",
+    "kafka.api.key": "UKMEXXXXXXXXXXXXX",
+    "kafka.api.secret": "p4o/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "connection.host": "tidb.c4604e43.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com",
+    "connection.port": "4000",
+    "connection.user": "root",
+    "connection.password": "1234Abcd",
+    "db.name": "test",
+    "ssl.mode": "prefer",
+    "insert.mode": "UPSERT",
+    "table.name.format": "test.test01",
+    "table.types": "TABLE",
+    "pk.mode": "record_key",
+    "fields.whitelist": "col01,col02",
+    "tasks.max": "1"
+  }
+}
+$curl --request POST 'https://api.confluent.cloud/connect/v1/environments/env-dok2yz/clusters/lkc-yo6o0j/connectors' --header 'authorization: Basic XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX' --header 'Content-Type: application/json' --data "@sink.json"
+{"name":"mysqlSink","type":"sink","config":{"cloud.environment":"prod","cloud.provider":"aws","connection.host":"tidb.c4604e43.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com","connection.password":"******
+**********","connection.port":"4000","connection.user":"root","connector.class":"MySqlSink","db.name":"test","delete.enabled":"true","fields.whitelist":"col01,col02","input.data.format":"AVRO","input.key.
+format":"AVRO","insert.mode":"UPSERT","kafka.api.key":"****************","kafka.api.secret":"****************","kafka.auth.mode":"KAFKA_API_KEY","kafka.endpoint":"SASL_SSL://pkc-ymrq7.us-east-2.aws.conflu
+ent.cloud:9092","kafka.region":"us-east-2","name":"mysqlSink","pk.mode":"record_key","ssl.mode":"prefer","table.name.format":"test.test01","table.types":"TABLE","tasks.max":"1","topics":"clitest.public.te
+st01"},"tasks":[]}
+    #+END_SRC

@@ -201,8 +201,10 @@ func init() {
 		//		newTelemetryCmd(),
 		//		newReplayCmd(),
 		//		newTemplateCmd(),
-		newTiDB2AuroraCmd(),
+
 		newAuroraCmd(),
+		newPostgresCmd(),
+		newTiDB2AuroraCmd(),
 		newTiDB2MSCmd(),
 		newTiDB2OraCmd(),
 		newAcceptTiDBCloudPeering(),

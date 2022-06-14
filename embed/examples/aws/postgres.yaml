@@ -1,0 +1,19 @@
+workstation:
+  cidr: 172.82.0.0/16
+  instance_type: m5.2xlarge
+  keyname: jay-us-east-01
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem
+  username: admin
+  imageid: ami-07d02ee1eeb0c996c
+  volumeSize: 100
+postgres:
+  cidr: 172.84.0.0/16
+  instance_type: db.r5.large
+  db_parameter_family_group: postgres11
+  engine: postgres
+  engine_version: 11.14
+  db_size: 10
+  db_username: kafkauser
+  db_password: 1234Abcd
+  public_accessible_flag: true
+  #public_accessible_flag: false
