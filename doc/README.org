@@ -30,7 +30,7 @@
  | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                                                                                   |        |
  | Setup TiDB Cloud VPC peering                                      |                                                                                                                   |        |
  | [[./prometheus2newrelic.org][Prometheus to Newrelic metrics]]                                    | Convert the Prometheus metrics to Newrelic                                                                        |        |
- | [[./doc/pg-kafka-tidb.org][Replication from Postgres to TiDB through kafka]]                   | Data replication using Debezium source connector and JDBC sink connector                                          |        |
+ | [[./pg-kafka-tidb.org][Replication from Postgres to TiDB through kafka]]                   | Postgres |-> Debezium source connector -> kafka -> jdbc sink connector |-> TiDB Cloud                                                                          |        |
 
 
 ** Troubleshooting
