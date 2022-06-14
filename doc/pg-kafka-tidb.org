@@ -183,3 +183,9 @@ format":"AVRO","insert.mode":"UPSERT","kafka.api.key":"****************","kafka.
 ent.cloud:9092","kafka.region":"us-east-2","name":"mysqlSink","pk.mode":"record_key","ssl.mode":"prefer","table.name.format":"test.test01","table.types":"TABLE","tasks.max":"1","topics":"clitest.public.te
 st01"},"tasks":[]}
     #+END_SRC
+
+* TODO
+ + So far multiple tables could not be achieved by one connector instance
+ + Does not support date/datetimestamp
+ + No environment to test dedicate confluent since only the shared cluster is under use.
+ + No performance test because of no environment  
