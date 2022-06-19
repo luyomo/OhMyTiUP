@@ -202,6 +202,7 @@ func init() {
 		//		newReplayCmd(),
 		//		newTemplateCmd(),
 
+		newTiDBCmd(),
 		newAuroraCmd(),
 		newPostgresCmd(),
 		newTiDB2AuroraCmd(),

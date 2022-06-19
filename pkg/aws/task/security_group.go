@@ -89,7 +89,7 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 	c.clusterInfo.privateSecurityGroupId = securityGroup.GroupId
 	zap.L().Info("Variable confirmation", zap.String("clusterInfo.privateSecurityGroupId", c.clusterInfo.privateSecurityGroupId))
 
-	for _, port := range []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 10080, 20160, 20180} {
+	for _, port := range []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180} {
 		command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port %d --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId, port)
 		zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 		stdout, _, err = executor.Execute(ctx, command, false)
@@ -152,18 +152,13 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 
 	c.clusterInfo.publicSecurityGroupId = securityGroup.GroupId
 
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 22 --cidr 0.0.0.0/0", c.clusterInfo.publicSecurityGroupId)
-	zap.L().Debug("Command", zap.String("create-security-group", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port 80 --cidr 0.0.0.0/0", c.clusterInfo.publicSecurityGroupId)
-	zap.L().Debug("Command", zap.String("create-security-group", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return err
+	for _, port := range []int{22, 80, 3000} {
+		command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port %d --cidr 0.0.0.0/0", c.clusterInfo.publicSecurityGroupId, port)
+		zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
+		stdout, _, err = executor.Execute(ctx, command, false)
+		if err != nil {
+			return nil
+		}
 	}
 
 	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", c.clusterInfo.publicSecurityGroupId, c.clusterInfo.cidr)

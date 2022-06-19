@@ -93,7 +93,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 				}
 				if tag["Key"] == "Component" && tag["Value"] == "ticdc" {
 					tplData.TiCDC = append(tplData.TiCDC, instance.PrivateIpAddress)
-
 				}
 
 				if tag["Key"] == "Component" && tag["Value"] == "dm" {
@@ -114,6 +113,14 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 				}
 			}
 		}
+	}
+	zap.L().Debug("AWS WS Config:", zap.String("Monitoring", c.awsWSConfigs.EnableMonitoring))
+	if c.awsWSConfigs.EnableMonitoring == "enabled" {
+		workstation, err := getWorkstation(*c.pexecutor, ctx, clusterName, clusterType)
+		if err != nil {
+			return err
+		}
+		tplData.Monitor = append(tplData.Monitor, workstation.PrivateIpAddress)
 	}
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
 
