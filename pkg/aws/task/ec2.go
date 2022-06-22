@@ -467,11 +467,11 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 		// If the volume size is specified, add the below statement
 		deviceStmt := ""
 		if c.awsTopoConfigs.VolumeSize > 0 {
-			deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsTopoConfigs.VolumeSize)
+			deviceStmt = fmt.Sprintf(" --block-device-mappings \"DeviceName=/dev/xvda,Ebs={VolumeSize=%d,VolumeType=%s,Iops=%d}\"", c.awsTopoConfigs.VolumeSize, c.awsTopoConfigs.VolumeType, c.awsTopoConfigs.Iops)
 		}
 
 		// Start the instance
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=%s}]\"", c.awsGeneralConfigs.ImageId, c.awsTopoConfigs.InstanceType, c.awsGeneralConfigs.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType, c.componentName)
+		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --ebs-optimized --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=%s}]\"", c.awsGeneralConfigs.ImageId, c.awsTopoConfigs.InstanceType, c.awsGeneralConfigs.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType, c.componentName)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {

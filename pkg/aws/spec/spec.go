@@ -125,6 +125,8 @@ type (
 		InstanceType string `yaml:"instance_type"`
 		Count        int    `yaml:"count"`
 		VolumeSize   int    `yaml:"volumeSize,omitempty"`
+		VolumeType   string `yaml:"volumeType",omitempty`
+		Iops         int    `yaml:"iops", default:500`
 	}
 
 	AuroraConfig struct {
