@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -59,6 +60,8 @@ type ClusterInfo struct {
 	privateSubnets         []string
 	publicSubnet           string
 	pcxTidb2Aurora         string
+	excludedAZ             []string
+	includedAZ             []string
 }
 
 func (v Vpc) String() string {
@@ -713,4 +716,14 @@ func installWebSSH2(wexecutor *ctxt.Executor, ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func containsInArray(s []string, searchterm string) bool {
+
+	if len(s) == 0 {
+		return false
+	}
+	i := sort.SearchStrings(s, searchterm)
+	fmt.Printf("The searched item is <%d> \n\n\n", i)
+	return i < len(s) && s[i] == searchterm
 }

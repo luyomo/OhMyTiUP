@@ -16,6 +16,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -164,6 +165,15 @@ func (c *CreateNetwork) createPrivateSubnets(executor ctxt.Executor, ctx context
 	}
 	for idx, zone := range zones.Zones {
 		subnetExists := false
+
+		if containsInArray(c.clusterInfo.excludedAZ, zone.ZoneName) == true {
+			continue
+		}
+
+		if len(c.clusterInfo.includedAZ) > 0 && containsInArray(c.clusterInfo.includedAZ, zone.ZoneName) == false {
+			continue
+		}
+
 		for idxNet, subnet := range subnets.Subnets {
 			if zone.ZoneName == subnet.AvailabilityZone {
 				zap.L().Info("avaiabilityZone", zap.Int("idxNet", idxNet), zap.String("availability zone", subnet.AvailabilityZone))
@@ -220,22 +230,34 @@ func (c *CreateNetwork) createPublicSubnets(executor ctxt.Executor, ctx context.
 		return err
 	}
 
-	command = fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", getNextCidr(c.clusterInfo.vpcInfo.CidrBlock, 10+1), c.clusterInfo.vpcInfo.VpcId, zones.Zones[0].ZoneName, clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("create-subnet", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-	var newSubnet SubnetResult
-	if err = json.Unmarshal(stdout, &newSubnet); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("subnet", string(stdout)))
-		return err
-	}
-	zap.L().Debug("Generated the subnet info", zap.String("State", newSubnet.Subnet.State), zap.String("Cidr Block", newSubnet.Subnet.CidrBlock))
-	associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, c.clusterInfo.publicRouteTableId, executor, ctx)
-	c.clusterInfo.publicSubnet = newSubnet.Subnet.SubnetId
+	for _, zone := range zones.Zones {
 
-	return nil
+		if containsInArray(c.clusterInfo.excludedAZ, zone.ZoneName) == true {
+			continue
+		}
+
+		if len(c.clusterInfo.includedAZ) > 0 && containsInArray(c.clusterInfo.includedAZ, zone.ZoneName) == false {
+			continue
+		}
+
+		command = fmt.Sprintf("aws ec2 create-subnet --cidr-block %s --vpc-id %s --availability-zone=%s --tag-specifications \"ResourceType=subnet,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", getNextCidr(c.clusterInfo.vpcInfo.CidrBlock, 10+1), c.clusterInfo.vpcInfo.VpcId, zone.ZoneName, clusterName, clusterType, c.subClusterType)
+		zap.L().Debug("Command", zap.String("create-subnet", command))
+		stdout, _, err = executor.Execute(ctx, command, false)
+		if err != nil {
+			return err
+		}
+		var newSubnet SubnetResult
+		if err = json.Unmarshal(stdout, &newSubnet); err != nil {
+			zap.L().Debug("Json unmarshal", zap.String("subnet", string(stdout)))
+			return err
+		}
+		zap.L().Debug("Generated the subnet info", zap.String("State", newSubnet.Subnet.State), zap.String("Cidr Block", newSubnet.Subnet.CidrBlock))
+		associateSubnet2RouteTable(newSubnet.Subnet.SubnetId, c.clusterInfo.publicRouteTableId, executor, ctx)
+		c.clusterInfo.publicSubnet = newSubnet.Subnet.SubnetId
+		return nil
+	}
+
+	return errors.New("no public network created")
 }
 
 /******************************************************************************/
