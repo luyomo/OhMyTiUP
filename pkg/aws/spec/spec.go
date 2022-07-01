@@ -114,6 +114,7 @@ type (
 		TiDBVersion  string   `yaml:"tidb_version"`
 		ExcludedAZ   []string `yaml:"excluded_az",omitempty`
 		IncludedAZ   []string `yaml:"included_az",omitempty`
+		EnableNAT    string   `yaml:"enable_nat", default:"true"`
 	}
 
 	AwsNodeVolume struct {

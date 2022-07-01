@@ -1,0 +1,7 @@
+* Performance test
+  | Patter n   | # of Thread | TiDB # of node | TiDB instance type | TiKV # of node | TiKV instance type | TiKV disk type | TiKV IOPS | QPS |
+  |------------+-------------+----------------+--------------------+----------------+--------------------+----------------+-----------+-----|
+  | Pattern 01 |        4000 |              3 | c5.2xlarge         |              6 | c5.4xlarge         | io2            |      6000 |     |
+  | Pattern 02 |        4000 |              6 |                    |              6 |                    | io2            |      6000 |     |
+  | Pattern 03 |        4000 |              9 |                    |              6 |                    | io2            |      6000 |     |
+  | Pattern 04 |        4000 |              9 |                    |              6 |                    | io2            |     12000 | 45k |

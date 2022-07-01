@@ -20,6 +20,11 @@ import (
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 // Mkdir is used to create directory on the target host
@@ -59,13 +64,13 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 	// Get the available zones
 	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", clusterName, clusterType, c.subClusterType), false)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	var routeTables RouteTables
 	if err = json.Unmarshal(stdout, &routeTables); err != nil {
 		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
-		return nil
+		return err
 	}
 
 	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
@@ -89,6 +94,49 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 
 	zap.L().Debug("Print the variable", zap.String("route table id", retRouteTable.TheRouteTable.RouteTableId))
 	c.clusterInfo.privateRouteTableId = retRouteTable.TheRouteTable.RouteTableId
+
+	// Add route to route table
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+
+	if err != nil {
+		return err
+	}
+
+	client := ec2.NewFromConfig(cfg)
+
+	var filters []types.Filter
+	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Name"),
+		Values: []string{clusterName},
+	})
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Cluster"),
+		Values: []string{clusterType},
+	})
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Type"),
+		Values: []string{"nat"},
+	})
+
+	natGatewayId, err := SearchNatGateway(client, filters)
+	fmt.Printf("The result from the nat gatway search <%#v> \n\n\n", natGatewayId)
+	if err != nil {
+		return err
+	}
+
+	if natGatewayId != nil {
+		createRouteInput := &ec2.CreateRouteInput{
+			RouteTableId:         aws.String(retRouteTable.TheRouteTable.RouteTableId),
+			DestinationCidrBlock: aws.String("0.0.0.0/0"),
+			GatewayId:            natGatewayId,
+		}
+
+		if _, err = client.CreateRoute(context.TODO(), createRouteInput); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

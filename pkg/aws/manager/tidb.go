@@ -24,6 +24,7 @@ import (
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
+	awsutils "github.com/luyomo/tisample/pkg/aws/utils"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
@@ -65,6 +66,10 @@ func (m *Manager) TiDBDeploy(
 	skipConfirm bool,
 	gOpt operator.Options,
 ) error {
+	// 1. Preparation phase
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
+
 	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
 		return err
 	}
@@ -142,7 +147,6 @@ func (m *Manager) TiDBDeploy(
 	if base.AwsWSConfigs.InstanceType != "" {
 		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
-
 		envInitTasks = append(envInitTasks, t1)
 	}
 
@@ -188,6 +192,8 @@ func (m *Manager) TiDBDeploy(
 	builder = task.NewBuilder().
 		ParallelStep("+ Deploying tidb solution service ... ...", false, t5)
 	t = builder.Build()
+
+	timer.Take("Preparation")
 	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
@@ -195,6 +201,11 @@ func (m *Manager) TiDBDeploy(
 		}
 		return err
 	}
+
+	timer.Take("Execution")
+
+	// 8. Print the execution summary
+	timer.Print()
 
 	logger.OutputDebugLog("aws-nodes")
 	return nil
@@ -219,7 +230,6 @@ func (m *Manager) DestroyTiDBCluster(name string, gOpt operator.Options, destroy
 
 	t0 := task.NewBuilder().
 		DestroyTransitGateways(&sexecutor).
-		DestroyDMSService(&sexecutor, "dmsservice").
 		DestroyVpcPeering(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
@@ -238,25 +248,12 @@ func (m *Manager) DestroyTiDBCluster(name string, gOpt operator.Options, destroy
 
 	var destroyTasks []*task.StepDisplay
 
-	//var auroraInfo, msInfo task.ClusterInfo
-	// var msInfo task.ClusterInfo
 	t1 := task.NewBuilder().
+		DestroyNAT(&sexecutor, "tidb").
 		DestroyEC2Nodes(&sexecutor, "tidb").
 		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
-
-	// t2 := task.NewBuilder().
-	// 	DestroyAurora(&sexecutor).
-	// 	BuildAsStep(fmt.Sprintf("  - Destroying aurora db cluster %s ", name))
-
-	// destroyTasks = append(destroyTasks, t2)
-
-	// t3 := task.NewBuilder().
-	// 	DestroySqlServer(&sexecutor, "sqlserver", &msInfo).
-	// 	BuildAsStep(fmt.Sprintf("  - Destroying sqlserver cluster %s ", name))
-
-	// destroyTasks = append(destroyTasks, t3)
 
 	t4 := task.NewBuilder().
 		DestroyEC2Nodes(&sexecutor, "workstation").

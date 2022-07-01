@@ -62,6 +62,7 @@ type ClusterInfo struct {
 	pcxTidb2Aurora         string
 	excludedAZ             []string
 	includedAZ             []string
+	enableNAT              string
 }
 
 func (v Vpc) String() string {
@@ -724,6 +725,6 @@ func containsInArray(s []string, searchterm string) bool {
 		return false
 	}
 	i := sort.SearchStrings(s, searchterm)
-	fmt.Printf("The searched item is <%d> \n\n\n", i)
+
 	return i < len(s) && s[i] == searchterm
 }

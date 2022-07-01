@@ -92,7 +92,6 @@ func (c *CreateNetwork) Execute(ctx context.Context) error {
 			return err
 		}
 		zap.L().Debug("Private Route Table ID", zap.String("privateSubnets", strings.Join(c.clusterInfo.privateSubnets, ",")))
-
 	} else {
 		zap.L().Debug("Public Route Table ID", zap.String("publicRouteTableId", c.clusterInfo.publicRouteTableId))
 		err := c.createPublicSubnets(*c.pexecutor, ctx, zones)
