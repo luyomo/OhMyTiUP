@@ -85,15 +85,15 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 
 	cyan := color.New(color.FgCyan, color.Bold)
 
-	fmt.Printf("AWS Region:      %s\n", cyan.Sprint("Tokyo"))
-	fmt.Printf("Cluster type:    %s\n", cyan.Sprint(m.sysName))
-	fmt.Printf("Cluster name:    %s\n", cyan.Sprint(name))
-	fmt.Printf("Cluster version: %s\n", cyan.Sprint(version))
-	fmt.Printf("User Name:       %s\n", cyan.Sprint("admin"))
-	fmt.Printf("Key Name:        %s\n", cyan.Sprint("jay"))
-	fmt.Printf("\n")
-
 	if spec, ok := topo.(*spec.Specification); ok {
+		fmt.Printf("AWS Region:      %s\n", cyan.Sprint(spec.AwsTopoConfigs.General.Region))
+		fmt.Printf("Cluster type:    %s\n", cyan.Sprint(m.sysName))
+		fmt.Printf("Cluster name:    %s\n", cyan.Sprint(name))
+		fmt.Printf("Cluster version: %s\n", cyan.Sprint(spec.AwsTopoConfigs.General.TiDBVersion))
+		fmt.Printf("User Name:       %s\n", cyan.Sprint(spec.AwsTopoConfigs.General.Name))
+		fmt.Printf("Key Name:        %s\n", cyan.Sprint(spec.AwsTopoConfigs.General.KeyName))
+		fmt.Printf("\n")
+
 		clusterTable := [][]string{
 			// Header
 			{"Component", "# of nodes", "Instance Type", "Image Name", "CIDR", "User"},

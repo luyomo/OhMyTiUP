@@ -1,0 +1,30 @@
+workstation:
+  imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+  keyname: jay-us-east-01                         # Public key for workstation instance deployment
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+  volumeSize: 100                                 # disk size in the workstation
+  enable_monitoring: enabled                      # enable the moniroting on the workstation
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 172.83.0.0/16                           # The cidr for the VPC
+    instance_type: m5.2xlarge                     # Default instance type
+    tidb_version: v6.1.0                          # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+  pd:
+    instance_type: c5.2xlarge                     # Instance type for PD component
+    count: 3                                      # Number of PD node to be deployed
+  tidb:
+    instance_type: c5.2xlarge                     # Instance type of tidb
+    count: 15                                     # Number of TiDB node to be deployed
+  tikv:
+    instance_type: c5.4xlarge                     # Instance type of TiKV
+    count:  15                                    # Number of TiKV nodes to be deployed
+    volumeSize: 100                               # Storage size for TiKV nodes (GB)
+    volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
+    iops: 8000                                    # Storage IOPS(Only for gp3, io2)
