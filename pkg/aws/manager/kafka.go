@@ -60,22 +60,7 @@ func (m *Manager) KafkaDeploy(
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
-		return err
-	}
-
-	exist, err := m.specManager.Exist(name)
-	if err != nil {
-		return err
-	}
-
-	if exist {
-		// FIXME: When change to use args, the suggestion text need to be updatem.
-		return errDeployNameDuplicate.
-			New("Cluster name '%s' is duplicated", name).
-			WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
-	}
-
+	// Get the topo file and parse it
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
 
@@ -83,45 +68,13 @@ func (m *Manager) KafkaDeploy(
 		return err
 	}
 
-	spec.ExpandRelativeDir(topo)
-
+	// Setup the ssh type
 	base := topo.BaseTopo()
 	if sshType := gOpt.SSHType; sshType != "" {
 		base.GlobalOptions.SSHType = sshType
 	}
 
-	var (
-		sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-		sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	)
-	if gOpt.SSHType != executor.SSHTypeNone {
-		var err error
-		if sshConnProps, err = tui.ReadIdentityFileOrPassword(opt.IdentityFile, opt.UsePassword); err != nil {
-			return err
-		}
-		if len(gOpt.SSHProxyHost) != 0 {
-			if sshProxyProps, err = tui.ReadIdentityFileOrPassword(gOpt.SSHProxyIdentity, gOpt.SSHProxyUsePassword); err != nil {
-				return err
-			}
-		}
-	}
-
-	if err := m.fillHostArch(sshConnProps, sshProxyProps, topo, &gOpt, opt.User); err != nil {
-		return err
-	}
-
-	if !skipConfirm {
-		if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
-			return err
-		}
-	}
-
-	if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
-		return errorx.InitializationFailed.
-			Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
-			WithProperty(tui.SuggestionFromString("Please check file system permissions and try again."))
-	}
-
+	// Setup the execution plan
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	globalOptions := base.GlobalOptions
@@ -130,6 +83,7 @@ func (m *Manager) KafkaDeploy(
 	if err != nil {
 		return err
 	}
+
 	clusterType := "ohmytiup-kafka"
 
 	var workstationInfo, clusterInfo task.ClusterInfo
@@ -140,23 +94,18 @@ func (m *Manager) KafkaDeploy(
 		envInitTasks = append(envInitTasks, t1)
 	}
 
-	cntEC2Nodes := base.AwsKafkaTopoConfigs.Zookeeper.Count + base.AwsKafkaTopoConfigs.Broker.Count
-	if cntEC2Nodes > 0 {
-		t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &clusterInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-		envInitTasks = append(envInitTasks, t2)
-	}
+	// Setup the kafka cluster
+	t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &clusterInfo).
+		BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
+	envInitTasks = append(envInitTasks, t2)
 
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, envInitTasks...)
-
-	if afterDeploy != nil {
-		afterDeploy(builder, topo)
-	}
 
 	t := builder.Build()
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
@@ -166,24 +115,24 @@ func (m *Manager) KafkaDeploy(
 	}
 
 	var t5 *task.StepDisplay
-	if cntEC2Nodes > 0 {
-		t5 = task.NewBuilder().
-			CreateTransitGateway(&sexecutor).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").
-			CreateRouteTgw(&sexecutor, "workstation", []string{"kafka"}).
-			DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
-			BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
-	}
+	// if cntEC2Nodes > 0 {
+	t5 = task.NewBuilder().
+		CreateTransitGateway(&sexecutor).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
+		CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").
+		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka"}).
+		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
+		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
+	// }
 
-	tailctx := context.WithValue(context.Background(), "clusterName", name)
-	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
+	// tailctx := context.WithValue(context.Background(), "clusterName", name)
+	// tailctx = context.WithValue(tailctx, "clusterType", clusterType)
 	builder = task.NewBuilder().
 		ParallelStep("+ Deploying kafka solution service ... ...", false, t5)
 	t = builder.Build()
 
 	timer.Take("Preparation")
-	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
+	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
@@ -448,12 +397,12 @@ func (m *Manager) KafkaScale(
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DM.Count + base.AwsTopoConfigs.TiCDC.Count
-	if cntEC2Nodes > 0 {
-		t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-		envInitTasks = append(envInitTasks, t2)
-	}
+	// cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DM.Count + base.AwsTopoConfigs.TiCDC.Count
+	// if cntEC2Nodes > 0 {
+	// 	t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+	// 		BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
+	// 	envInitTasks = append(envInitTasks, t2)
+	// }
 
 	builder := task.NewBuilder().ParallelStep("+ Initialize target host environments", false, envInitTasks...)
 
