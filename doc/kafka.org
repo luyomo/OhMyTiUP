@@ -1,0 +1,2 @@
+* Performance measurement
+  https://medium.com/metrosystemsro/apache-kafka-how-to-test-performance-for-clients-configured-with-ssl-encryption-3356d3a0d52b

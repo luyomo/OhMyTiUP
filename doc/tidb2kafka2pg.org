@@ -1,0 +1,6 @@
+* READEME
+  #+BEGIN_SRC
+  tiup cdc cli changefeed create --pd=http://182.83.1.91:2379 --changefeed-id="kafka-avro" --sink-uri="kafka://172.83.2.95:9092/topic-name?protocol=avro" --schema-registry=http://172.83.1.144:8081 --config /tmp/sink.toml
+kafka-topics --list --bootstrap-server 172.83.1.149:9092,172.83.3.190:9092,172.83.2.95:9092
+kafka-run-class kafka.tools.GetOffsetShell --broker-list 172.83.1.149:9092,172.83.3.190:9092,172.83.2.95:9092 --topic _schemas --time -1
+  #+END_SRC
