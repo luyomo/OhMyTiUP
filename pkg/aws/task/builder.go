@@ -517,12 +517,14 @@ func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType stri
 	return b
 }
 
-func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo, openPortsPublic, openPortsPrivate []int) *Builder {
 	b.tasks = append(b.tasks, &CreateSecurityGroup{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-		isPrivate:      isPrivate,
+		pexecutor:        pexecutor,
+		subClusterType:   subClusterType,
+		clusterInfo:      clusterInfo,
+		isPrivate:        isPrivate,
+		openPortsPublic:  openPortsPublic,
+		openPortsPrivate: openPortsPrivate,
 	})
 	return b
 }
@@ -610,6 +612,43 @@ func (b *Builder) CreateDrainerNodes(pexecutor *ctxt.Executor, subClusterType st
 	})
 	return b
 }
+
+func (b *Builder) CreateZookeeperNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsKafkaTopoConfigs.Zookeeper,
+		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "zookeeper",
+	})
+	return b
+}
+
+func (b *Builder) CreateBrokerNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsKafkaTopoConfigs.Broker,
+		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "broker",
+	})
+	return b
+}
+
+func (b *Builder) CreateSchemaRegistryNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsKafkaTopoConfigs.SchemaRegistry,
+		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "schemaRegistry",
+	})
+	return b
+}
+
 func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateWorkstation{
 		pexecutor:      pexecutor,
@@ -836,6 +875,16 @@ func (b *Builder) ScaleTiDBInstance(pexecutor *ctxt.Executor, subClusterType str
 	return b
 }
 
+func (b *Builder) DeployKafka(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &DeployKafka{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		awsWSConfigs:   awsWSConfigs,
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
 func (b *Builder) DeployTiCDC(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiCDC{
 		pexecutor:      pexecutor,
@@ -960,26 +1009,26 @@ func (b *Builder) DestroyTransitGateway(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
-func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo, openPortsPublic, openPortsPrivate []int) *Builder {
 	if isPrivate == true {
 		if clusterInfo.enableNAT == "true" {
 			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo).Build())
+				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
 		} else {
 			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo).Build())
+				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
 		}
 
 	} else {
 		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Creating route table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating security group ... ...", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating security group ... ...", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build()).
 			Step(fmt.Sprintf("%s : Creating internet gateway ... ...", subClusterType), NewBuilder().CreateInternetGateway(pexecutor, subClusterType, clusterInfo).Build())
 	}
 
@@ -990,7 +1039,7 @@ func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterT
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, false, clusterInfo).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, false, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
 		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo).Build())
 
 	return b
@@ -1018,7 +1067,7 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180}).Build()).
 		Step(fmt.Sprintf("%s : Creating PD Nodes ... ...", subClusterType), NewBuilder().CreatePDNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", subClusterType), NewBuilder().CreateTiDBNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
@@ -1030,6 +1079,20 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build())
+
+	return b
+}
+
+func (b *Builder) CreateKafkaCluster(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsKafkaTopoConfigs.General.CIDR
+	clusterInfo.excludedAZ = awsKafkaTopoConfigs.General.ExcludedAZ
+	clusterInfo.includedAZ = awsKafkaTopoConfigs.General.IncludedAZ
+	clusterInfo.enableNAT = awsKafkaTopoConfigs.General.EnableNAT
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 9092, 2181, 8081}).Build()).
+		Step(fmt.Sprintf("%s : Creating Zookeeper Nodes ... ...", subClusterType), NewBuilder().CreateZookeeperNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating brokers Nodes ... ...", subClusterType), NewBuilder().CreateBrokerNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateSchemaRegistryNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build())
 
 	return b
 }
@@ -1080,7 +1143,7 @@ func (b *Builder) CreateSqlServer(pexecutor *ctxt.Executor, subClusterType strin
 	clusterInfo.instanceType = awsMSConfigs.InstanceType
 	clusterInfo.imageId = awsMSConfigs.ImageId
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433}).Build()).
 		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", subClusterType), NewBuilder().CreateDBSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", subClusterType), NewBuilder().CreateDBParameterGroup(pexecutor, subClusterType, awsMSConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating MS ... ...", subClusterType), NewBuilder().CreateMS(pexecutor, subClusterType, awsMSConfigs, clusterInfo).Build())
@@ -1102,7 +1165,7 @@ func (b *Builder) CreateDMSService(pexecutor *ctxt.Executor, subClusterType stri
 	}
 	clusterInfo.cidr = awsDMSConfigs.CIDR
 	clusterInfo.instanceType = awsDMSConfigs.InstanceType
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180}).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Subnet Group ... ...", subClusterType), NewBuilder().CreateDMSSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Instance ... ...", subClusterType), NewBuilder().CreateDMSInstance(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Source Endpoint ... ...", subClusterType), NewBuilder().CreateDMSSourceEndpoint(pexecutor, subClusterType, clusterInfo).Build()).

@@ -76,7 +76,7 @@ func (m *Manager) TiDB2AuroraDeploy(
 		return err
 	}
 
-    //fmt.Printf("The spec contents are <%#v>\n", topo)
+	//fmt.Printf("The spec contents are <%#v>\n", topo)
 	//instCnt := 0
 	//topo.IterInstance(func(inst spec.Instance) {
 	//	switch inst.ComponentName() {
@@ -223,7 +223,7 @@ func (m *Manager) TiDB2AuroraDeploy(
 				CreateVpc(&sexecutor, "test", &clusterInfo).
 				CreateRouteTable(&sexecutor, "test", true, &clusterInfo).
 				CreateNetwork(&sexecutor, "test", true, &clusterInfo).
-				CreateSecurityGroup(&sexecutor, "test", true, &clusterInfo).
+				CreateSecurityGroup(&sexecutor, "test", true, &clusterInfo, []int{22}, []int{}).
 				CreateInternetGateway(&sexecutor, "test", &clusterInfo).
 				CreateDBSubnetGroup(&sexecutor, "test", &clusterInfo).
 				//				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).

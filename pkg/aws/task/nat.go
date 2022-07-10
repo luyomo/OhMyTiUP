@@ -64,6 +64,11 @@ func (c *CreateNAT) Execute(ctx context.Context) error {
 	})
 
 	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Component"),
+		Values: []string{c.subClusterType},
+	})
+
+	filters = append(filters, types.Filter{
 		Name:   aws.String("tag:Type"),
 		Values: []string{"nat"},
 	})
@@ -76,6 +81,10 @@ func (c *CreateNAT) Execute(ctx context.Context) error {
 		{
 			Key:   aws.String("Type"),
 			Value: aws.String("nat"), // tidb/oracle/workstation
+		},
+		{
+			Key:   aws.String("Component"),
+			Value: aws.String(c.subClusterType),
 		},
 		{
 			Key:   aws.String("Name"),
@@ -272,6 +281,11 @@ func (c *DestroyNAT) Execute(ctx context.Context) error {
 	filters = append(filters, types.Filter{
 		Name:   aws.String("tag:Cluster"),
 		Values: []string{clusterType},
+	})
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Component"),
+		Values: []string{c.subClusterType},
 	})
 
 	filters = append(filters, types.Filter{
@@ -483,17 +497,20 @@ func SearchAddresses(client *ec2.Client, filters []types.Filter) (*string, error
 }
 
 func SearchNatGateway(client *ec2.Client, filters []types.Filter) (*string, error) {
+	filters = append(filters, types.Filter{
+		Name:   aws.String("state"),
+		Values: []string{"available"},
+	})
+
 	input := &ec2.DescribeNatGatewaysInput{
 		Filter: filters,
 	}
 
 	result, err := client.DescribeNatGateways(context.TODO(), input)
 	if err != nil {
-		//		fmt.Printf("The error is <%#v> \n\n\n", err)
 		return nil, err
 	}
 
-	//	fmt.Printf("The result from the internet gateway creation <%#v> \n\n\n", result)
 	if len((*result).NatGateways) > 1 {
 		return nil, errors.New("More than required route table")
 	}

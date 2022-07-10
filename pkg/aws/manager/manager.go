@@ -139,6 +139,19 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 		if spec.AwsDMSConfigs.InstanceType != "" {
 			clusterTable = append(clusterTable, []string{"DMS", "1", spec.AwsDMSConfigs.InstanceType, "-", spec.AwsDMSConfigs.CIDR, "-"})
 		}
+
+		if spec.AwsKafkaTopoConfigs.Zookeeper.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Zookeeper", strconv.Itoa(spec.AwsKafkaTopoConfigs.Zookeeper.Count), spec.AwsKafkaTopoConfigs.Zookeeper.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsKafkaTopoConfigs.Broker.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Broker", strconv.Itoa(spec.AwsKafkaTopoConfigs.Broker.Count), spec.AwsKafkaTopoConfigs.Broker.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsKafkaTopoConfigs.SchemaRegistry.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Schema Registry", strconv.Itoa(spec.AwsKafkaTopoConfigs.SchemaRegistry.Count), spec.AwsKafkaTopoConfigs.SchemaRegistry.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
 		tui.PrintTable(clusterTable, true)
 	}
 

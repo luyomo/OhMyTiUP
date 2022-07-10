@@ -23,10 +23,12 @@ import (
 )
 
 type CreateSecurityGroup struct {
-	pexecutor      *ctxt.Executor
-	subClusterType string
-	clusterInfo    *ClusterInfo
-	isPrivate      bool `default:false`
+	pexecutor        *ctxt.Executor
+	subClusterType   string
+	clusterInfo      *ClusterInfo
+	isPrivate        bool `default:false`
+	openPortsPublic  []int
+	openPortsPrivate []int
 }
 
 // Execute implements the Task interface
@@ -89,7 +91,8 @@ func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx contex
 	c.clusterInfo.privateSecurityGroupId = securityGroup.GroupId
 	zap.L().Info("Variable confirmation", zap.String("clusterInfo.privateSecurityGroupId", c.clusterInfo.privateSecurityGroupId))
 
-	for _, port := range []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180} {
+	//	for _, port := range []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180} {
+	for _, port := range c.openPortsPrivate {
 		command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port %d --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId, port)
 		zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 		stdout, _, err = executor.Execute(ctx, command, false)
@@ -152,7 +155,8 @@ func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context
 
 	c.clusterInfo.publicSecurityGroupId = securityGroup.GroupId
 
-	for _, port := range []int{22, 80, 3000} {
+	//	for _, port := range []int{22, 80, 3000} {
+	for _, port := range c.openPortsPublic {
 		command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port %d --cidr 0.0.0.0/0", c.clusterInfo.publicSecurityGroupId, port)
 		zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
 		stdout, _, err = executor.Execute(ctx, command, false)

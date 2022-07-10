@@ -115,7 +115,7 @@ func (m *Manager) KafkaDeploy(
 	}
 
 	var t5 *task.StepDisplay
-	// if cntEC2Nodes > 0 {
+
 	t5 = task.NewBuilder().
 		CreateTransitGateway(&sexecutor).
 		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
@@ -123,10 +123,7 @@ func (m *Manager) KafkaDeploy(
 		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka"}).
 		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
-	// }
 
-	// tailctx := context.WithValue(context.Background(), "clusterName", name)
-	// tailctx = context.WithValue(tailctx, "clusterType", clusterType)
 	builder = task.NewBuilder().
 		ParallelStep("+ Deploying kafka solution service ... ...", false, t5)
 	t = builder.Build()
@@ -386,7 +383,8 @@ func (m *Manager) KafkaScale(
 	}
 	clusterType := "ohmytiup-kafka"
 
-	var workstationInfo, clusterInfo task.ClusterInfo
+	// var workstationInfo, clusterInfo task.ClusterInfo
+	var workstationInfo task.ClusterInfo
 
 	if base.AwsWSConfigs.InstanceType != "" {
 		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).

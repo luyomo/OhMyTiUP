@@ -203,11 +203,13 @@ func init() {
 		//		newTemplateCmd(),
 
 		newTiDBCmd(),
+		newKafkaCmd(),
 		newAuroraCmd(),
 		newPostgresCmd(),
 		newTiDB2AuroraCmd(),
 		newTiDB2MSCmd(),
 		newTiDB2OraCmd(),
+		newTiDB2Kafka2PgCmd(),
 		newAcceptTiDBCloudPeering(),
 		newPDNS(),
 		newOssInsightCmd(),

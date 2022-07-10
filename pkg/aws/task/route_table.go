@@ -116,6 +116,11 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 	})
 
 	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Component"),
+		Values: []string{c.subClusterType},
+	})
+
+	filters = append(filters, types.Filter{
 		Name:   aws.String("tag:Type"),
 		Values: []string{"nat"},
 	})
