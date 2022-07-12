@@ -21,8 +21,14 @@ aws_kafka_topo_configs:
   schema_registry:
     instance_type: c5.2xlarge                     # Instance type of tidb
     count: 2                                      # Number of TiDB node to be deployed
+  connector:
+    instance_type: c5.2xlarge                     # Instance type of tidb
+    count: 2                                      # Number of TiDB node to be deployed
+  rest_service:
+    instance_type: c5.2xlarge                     # Instance type of tidb
+    count: 1                                      # Number of TiDB node to be deployed
   broker:
-    instance_type: c5.4xlarge                     # Instance type of TiKV
+    instance_type: c5.xlarge                     # Instance type of TiKV
     count: 3                                      # Number of TiKV nodes to be deployed
     volumeSize: 100                               # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2

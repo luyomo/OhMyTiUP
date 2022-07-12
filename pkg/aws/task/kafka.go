@@ -41,6 +41,8 @@ type KafkaNodes struct {
 	Zookeeper      []string
 	Broker         []string
 	SchemaRegistry []string
+	RestService    []string
+	Connector      []string
 }
 
 // Execute implements the Task interface
@@ -100,6 +102,14 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 					kafkaNodes.SchemaRegistry = append(kafkaNodes.SchemaRegistry, instance.PrivateIpAddress)
 					kafkaNodes.All = append(kafkaNodes.All, instance.PrivateIpAddress)
 				}
+				if tag["Key"] == "Component" && tag["Value"] == "restService" {
+					kafkaNodes.RestService = append(kafkaNodes.RestService, instance.PrivateIpAddress)
+					kafkaNodes.All = append(kafkaNodes.All, instance.PrivateIpAddress)
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "connector" {
+					kafkaNodes.Connector = append(kafkaNodes.Connector, instance.PrivateIpAddress)
+					kafkaNodes.All = append(kafkaNodes.All, instance.PrivateIpAddress)
+				}
 
 			}
 		}
@@ -138,16 +148,20 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 			return err
 		}
 	}
-	fmt.Printf("The template file was completed \n\n\n  ")
 
+	var pkgInstallTasks []Task
 	for _, node := range kafkaNodes.All {
-		fmt.Printf("The data is <%s> \n\n\n\n", node)
-		for _, cmd := range commands {
-			if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, node, cmd), false, 600*time.Second); err != nil {
-				return err
-			}
+		pkgInstallTask := &KafkaInstallPkgTask{
+			wsexecutor: workstation,
+			exeNode:    node,
 		}
 
+		pkgInstallTasks = append(pkgInstallTasks, pkgInstallTask)
+
+	}
+	parallelExe := Parallel{ignoreError: false, inner: pkgInstallTasks}
+	if err := parallelExe.Execute(ctx); err != nil {
+		return err
 	}
 
 	err = (*workstation).TransferTemplate(ctx, "templates/config/zookeeper.properties.tpl", "/tmp/zookeeper.properties", "0644", kafkaNodes, true, 0)
@@ -237,6 +251,55 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	}
 
+	err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.rest.properties.tpl", "/tmp/kafka.rest.properties", "0644", kafkaNodes, true, 0)
+	if err != nil {
+		return err
+	}
+	for _, node := range kafkaNodes.RestService {
+		commands = []string{
+			"sudo mv /etc/kafka-rest/kafka-rest.properties /etc/kafka-rest/kafka-rest.properties.bak",
+			"sudo mv /tmp/kafka.rest.properties /etc/kafka-rest/kafka-rest.properties",
+			"sudo systemctl restart confluent-kafka-rest",
+		}
+
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`scp /tmp/kafka.rest.properties %s:/tmp/kafka.rest.properties`, node), false); err != nil {
+			return err
+		}
+
+		for _, cmd := range commands {
+
+			if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, node, cmd), false, 600*time.Second); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.connector.properties.tpl", "/tmp/connect-distributed.properties", "0644", kafkaNodes, true, 0)
+	if err != nil {
+		return err
+	}
+	for _, node := range kafkaNodes.Connector {
+		commands = []string{
+			"sudo mv /etc/kafka/connect-distributed.properties /etc/kafka/connect-distributed.properties.bak",
+			"sudo mv /tmp/connect-distributed.properties /etc/kafka/connect-distributed.properties",
+			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.0.0",
+			"sudo systemctl restart confluent-kafka-connect",
+		}
+
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`scp /tmp/connect-distributed.properties  %s:/tmp/connect-distributed.properties`, node), false); err != nil {
+			return err
+		}
+
+		for _, cmd := range commands {
+
+			if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, node, cmd), false, 600*time.Second); err != nil {
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 
@@ -248,4 +311,38 @@ func (c *DeployKafka) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *DeployKafka) String() string {
 	return fmt.Sprintf("Echo: Deploying Kafka")
+}
+
+// *********** The package installation for parallel
+type KafkaInstallPkgTask struct {
+	wsexecutor *ctxt.Executor
+	exeNode    string
+}
+
+func (c *KafkaInstallPkgTask) Execute(ctx context.Context) error {
+	commands := []string{
+		"sudo apt-get update -y 1>/dev/null",
+		"sudo apt-get install -y gnupg2 software-properties-common openjdk-11-jdk jq 1>/dev/null 2>/dev/null",
+		"wget https://packages.confluent.io/deb/7.1/archive.key -P /tmp/",
+		"sudo apt-key add /tmp/archive.key",
+		`sudo add-apt-repository 'deb [arch=amd64] https://packages.confluent.io/deb/7.1 stable main'`,
+		`sudo add-apt-repository 'deb https://packages.confluent.io/clients/deb '$(lsb_release -cs)' main'`,
+		"sudo apt-get update -y 1>/dev/null",
+		"sudo apt-get install -y confluent-platform confluent-security confluent-community-2.13  1>/dev/null 2>/dev/null",
+	}
+
+	for _, cmd := range commands {
+		if _, _, err := (*(c.wsexecutor)).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, c.exeNode, cmd), false, 600*time.Second); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+func (c *KafkaInstallPkgTask) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+func (c *KafkaInstallPkgTask) String() string {
+	return fmt.Sprintf("Echo: Parallel kafka package install")
 }

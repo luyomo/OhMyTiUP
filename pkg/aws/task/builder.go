@@ -649,6 +649,30 @@ func (b *Builder) CreateSchemaRegistryNodes(pexecutor *ctxt.Executor, subCluster
 	return b
 }
 
+func (b *Builder) CreateKafkaConnectorNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsKafkaTopoConfigs.Connector,
+		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "connector",
+	})
+	return b
+}
+
+func (b *Builder) CreateKafkaRestServiceNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsKafkaTopoConfigs.RestService,
+		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "restService",
+	})
+	return b
+}
+
 func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateWorkstation{
 		pexecutor:      pexecutor,
@@ -1089,10 +1113,13 @@ func (b *Builder) CreateKafkaCluster(pexecutor *ctxt.Executor, subClusterType st
 	clusterInfo.includedAZ = awsKafkaTopoConfigs.General.IncludedAZ
 	clusterInfo.enableNAT = awsKafkaTopoConfigs.General.EnableNAT
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 9092, 2181, 8081}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 9092, 2181, 8081, 8082, 8083}).Build()).
 		Step(fmt.Sprintf("%s : Creating Zookeeper Nodes ... ...", subClusterType), NewBuilder().CreateZookeeperNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating brokers Nodes ... ...", subClusterType), NewBuilder().CreateBrokerNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateSchemaRegistryNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build())
+		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateSchemaRegistryNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateSchemaRegistryNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateKafkaRestServiceNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateKafkaConnectorNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build())
 
 	return b
 }

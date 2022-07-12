@@ -108,6 +108,8 @@ type (
 		Zookeeper      AwsNodeModal          `yaml:"zookeeper"`
 		Broker         AwsNodeModal          `yaml:"broker"`
 		SchemaRegistry AwsNodeModal          `yaml:"schema_registry"`
+		RestService    AwsNodeModal          `yaml:"rest_service"`
+		Connector      AwsNodeModal          `yaml:"connector"`
 	}
 
 	AwsTopoConfigsGeneral struct {
