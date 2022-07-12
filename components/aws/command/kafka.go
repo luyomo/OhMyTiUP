@@ -14,7 +14,7 @@
 package command
 
 import (
-	"fmt"
+	// "fmt"
 	"os"
 	"path"
 
@@ -168,8 +168,8 @@ func newKafkaScale() *cobra.Command {
 			if data, err := os.ReadFile(topoFile); err == nil {
 				teleTopology = string(data)
 			}
-			fmt.Printf("The command here is %v \n", teleCommand)
-			fmt.Printf("The cluster name is <%s> \n", clusterName)
+			// fmt.Printf("The command here is %v \n", teleCommand)
+			// fmt.Printf("The cluster name is <%s> \n", clusterName)
 
 			return cm.TiDBScale(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
@@ -188,6 +188,7 @@ func newKafkaPerf() *cobra.Command {
 
 	cmd.AddCommand(
 		newKafkaPerfPC(),
+		newKafkaPerfE2E(),
 	)
 	return cmd
 }
@@ -199,7 +200,7 @@ func newKafkaPerfPC() *cobra.Command {
 		BytesOfRecord: 1024,
 	}
 	cmd := &cobra.Command{
-		Use:          "producer <cluster-name>",
+		Use:          "produce-consume <cluster-name>",
 		Short:        "producer performance test",
 		Long:         "Performance measurement against kafka cluster",
 		SilenceUsage: true,
@@ -221,6 +222,41 @@ func newKafkaPerfPC() *cobra.Command {
 	cmd.Flags().IntVar(&perfOpt.Partitions, "partitions", 16, "The partition number of the topic to be tested.")
 	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
 	cmd.Flags().IntVar(&perfOpt.BytesOfRecord, "bytes-of-record", 1024, "Bytes of records to be tested")
+
+	return cmd
+}
+
+func newKafkaPerfE2E() *cobra.Command {
+	perfOpt := manager.KafkaPerfOpt{
+		Partitions:    1,
+		NumOfRecords:  100000,
+		BytesOfRecord: 1024,
+		ProducerAcks:  "1",
+	}
+	cmd := &cobra.Command{
+		Use:          "end2end <cluster-name>",
+		Short:        "end2end performance test",
+		Long:         "Performance measurement against kafka cluster of the end to end",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.PerfKafkaE2E(clusterName, perfOpt, gOpt)
+		},
+	}
+
+	cmd.Flags().IntVar(&perfOpt.Partitions, "partitions", 16, "The partition number of the topic to be tested.")
+	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
+	cmd.Flags().IntVar(&perfOpt.BytesOfRecord, "bytes-of-record", 1024, "Bytes of records to be tested")
+	cmd.Flags().StringVar(&perfOpt.ProducerAcks, "producer-acks", "1", "The number of acks: 1 or all")
 
 	return cmd
 }

@@ -152,6 +152,14 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 			clusterTable = append(clusterTable, []string{"Schema Registry", strconv.Itoa(spec.AwsKafkaTopoConfigs.SchemaRegistry.Count), spec.AwsKafkaTopoConfigs.SchemaRegistry.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
 		}
 
+		if spec.AwsKafkaTopoConfigs.RestService.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Rest Service", strconv.Itoa(spec.AwsKafkaTopoConfigs.RestService.Count), spec.AwsKafkaTopoConfigs.RestService.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsKafkaTopoConfigs.Connector.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Connector", strconv.Itoa(spec.AwsKafkaTopoConfigs.Connector.Count), spec.AwsKafkaTopoConfigs.Connector.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
 		tui.PrintTable(clusterTable, true)
 	}
 

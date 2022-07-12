@@ -40,18 +40,23 @@ $more embed/examples/aws/aws-nodes-kafka.yaml
      volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
      iops: 3000                                    # Storage IOPS(Only for gp3, io2)
    #+END_SRC
-   
-  [[./png/kafka/kafka.01.png]]
 ** Kafka cluster deployment
+  [[./png/kafka/kafka.01.png]]
   [[./png/kafka/kafka.02.png]]
-  [[./png/kafka/kafka.03.png]]
 ** List Resources
+  [[./png/kafka/kafka.03.png]]
   [[./png/kafka/kafka.04.png]]
 ** Performance test
+*** Producer and consume performance test
    #+BEGIN_SRC
-$./bin/aws kafka perf producer kafkatest --partitions 6 --num-of-records 500000 --bytes-of-record 1024 --ssh-user admin --identity-file /home/ohmytiup/.ssh/id_rsa
+$./bin/aws kafka perf produce-consume kafkatest --partitions 6 --num-of-records 500000 --bytes-of-record 1024 --ssh-user admin --identity-file /home/ohmytiup/.ssh/id_rsa
    #+END_SRC
-  [[./png/kafka/kafka.05.png]]
+   [[./png/kafka/kafka.05.png]]
+*** End 2 End performance test
+    #+BEGIN_SRC
+$./bin/aws kafka perf end2end kafkatest --partitions 3 --num-of-records 100000 --bytes-of-record 1024 --producer-acks 1 --ssh-user admin --identity-file /home/ohmytiup/.ssh/id_rsa
+    #+END_SRC
+    [[./png/kafka/kafka.06.png]]
 
 * Performance measurement
   https://medium.com/metrosystemsro/apache-kafka-how-to-test-performance-for-clients-configured-with-ssl-encryption-3356d3a0d52b

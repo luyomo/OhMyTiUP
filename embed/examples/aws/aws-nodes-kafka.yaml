@@ -8,28 +8,28 @@ aws_kafka_topo_configs:
     # debian os
     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
     keyname: jay-us-east-01                       # Public key to access the EC2 instance
-    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key to access the EC2 instance
     cidr: 172.83.0.0/16                           # The cidr for the VPC
     instance_type: m5.2xlarge                     # Default instance type
-    tidb_version: v6.1.0                          # TiDB version
+    tidb_version: v6.1.0                          # kafka version
     excluded_az:                                  # The AZ to be excluded for the subnets
       - us-east-1e
-    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+    enable_nat: true                              # The flag to decide whether the nat is created in the kafka VPC
   zookeeper:
-    instance_type: c5.2xlarge                     # Instance type for PD component
-    count: 3                                      # Number of PD node to be deployed
+    instance_type: c5.2xlarge                     # Instance type for zookeeper component
+    count: 3                                      # Number of zookeeper node to be deployed
   schema_registry:
-    instance_type: c5.2xlarge                     # Instance type of tidb
-    count: 2                                      # Number of TiDB node to be deployed
+    instance_type: c5.2xlarge                     # Instance type of schema registry
+    count: 1                                      # Number of schema registry node to be deployed
   connector:
-    instance_type: c5.2xlarge                     # Instance type of tidb
-    count: 2                                      # Number of TiDB node to be deployed
+    instance_type: c5.2xlarge                     # Instance type of connector
+    count: 2                                      # Number of connector node to be deployed
   rest_service:
-    instance_type: c5.2xlarge                     # Instance type of tidb
-    count: 1                                      # Number of TiDB node to be deployed
+    instance_type: c5.2xlarge                     # Instance type of rest service
+    count: 1                                      # Number of rest service node to be deployed
   broker:
-    instance_type: c5.xlarge                     # Instance type of TiKV
-    count: 3                                      # Number of TiKV nodes to be deployed
+    instance_type: c5.xlarge                      # Instance type of broker
+    count: 3                                      # Number of broker nodes to be deployed
     volumeSize: 100                               # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)

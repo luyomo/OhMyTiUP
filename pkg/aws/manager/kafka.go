@@ -74,6 +74,10 @@ func (m *Manager) KafkaDeploy(
 		base.GlobalOptions.SSHType = sshType
 	}
 
+	if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
+		return err
+	}
+
 	// Setup the execution plan
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
@@ -395,13 +399,6 @@ func (m *Manager) KafkaScale(
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	// cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DM.Count + base.AwsTopoConfigs.TiCDC.Count
-	// if cntEC2Nodes > 0 {
-	// 	t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-	// 		BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-	// 	envInitTasks = append(envInitTasks, t2)
-	// }
-
 	builder := task.NewBuilder().ParallelStep("+ Initialize target host environments", false, envInitTasks...)
 
 	if afterDeploy != nil {
@@ -441,9 +438,13 @@ func (m *Manager) KafkaScale(
 }
 
 type KafkaPerfOpt struct {
+	// Arguments for consumer/producer and E2E
 	Partitions    int // The number of partitions
 	NumOfRecords  int // The number of records to be tested
 	BytesOfRecord int // The Bytes per record to be tested
+
+	// End 2 End performance test
+	ProducerAcks string
 }
 
 func (m *Manager) PerfKafkaPC(clusterName string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
@@ -515,6 +516,60 @@ func (m *Manager) PerfKafkaPC(clusterName string, perfOpt KafkaPerfOpt, gOpt ope
 	tui.PrintTable(tableMetrics, true)
 
 	fmt.Printf("\n\nPerformance test:      %s\n", titleFont.Sprint("Consumer"))
+	tui.PrintTable(tableConsumerMetrics, true)
+
+	return nil
+}
+
+func (m *Manager) PerfKafkaE2E(clusterName string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	ctx := ctxt.New(context.Background(), 1)
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, "ohmytiup-kafka", gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	// Create the partition
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %d", perfOpt.Partitions), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+
+	// Producer performance measurement
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.e2e.perf.sh %d %s %d", perfOpt.NumOfRecords, perfOpt.ProducerAcks, perfOpt.BytesOfRecord), false, 2*time.Hour)
+	if err != nil {
+		return err
+	}
+	output := strings.Split(string(stdout), "\n")
+
+	rows := strings.Split(output[len(output)-4], ":")
+
+	var tableConsumerMetrics [][]string
+	var rowHeader, rowMetric []string
+	rowHeader = append(rowHeader, rows[0])
+	rowMetric = append(rowMetric, rows[1])
+
+	rows = strings.Split(output[len(output)-2], ":")
+	rows = strings.Split(rows[1], ",")
+
+	for _, item := range rows {
+		item := strings.Split(item, "=")
+		rowHeader = append(rowHeader, item[0])
+		rowMetric = append(rowMetric, item[1])
+	}
+
+	tableConsumerMetrics = append(tableConsumerMetrics, rowHeader)
+	tableConsumerMetrics = append(tableConsumerMetrics, rowMetric)
+
+	titleFont := color.New(color.FgRed, color.Bold)
+	fmt.Printf("\nPerformance test:      %s\n", titleFont.Sprint("End 2 End"))
+
 	tui.PrintTable(tableConsumerMetrics, true)
 
 	return nil
