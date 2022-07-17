@@ -17,8 +17,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	// "strings"
-	// "time"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -88,15 +90,14 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 		return err
 	}
 
-	var workstationInfo, clusterInfo, kafkaClusterInfo task.ClusterInfo
+	var workstationInfo, clusterInfo, kafkaClusterInfo, pgClusterInfo task.ClusterInfo
+	// var workstationInfo, clusterInfo task.ClusterInfo
 
-	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
-		envInitTasks = append(envInitTasks, t1)
-	}
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
+		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
+	envInitTasks = append(envInitTasks, t1)
 
-	// Setup the kafka cluster
+	//Setup the kafka cluster
 	t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
 	envInitTasks = append(envInitTasks, t2)
@@ -107,6 +108,11 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 		envInitTasks = append(envInitTasks, t3)
 	}
+
+	t4 := task.NewBuilder().
+		CreatePostgres(&sexecutor, base.AwsWSConfigs, base.AwsPostgresConfigs, &pgClusterInfo).
+		BuildAsStep(fmt.Sprintf("  - Preparing postgres servers"))
+	envInitTasks = append(envInitTasks, t4)
 
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, envInitTasks...)
 
@@ -130,8 +136,9 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 		CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").
 		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
-		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb"}).
-		CreateRouteTgw(&sexecutor, "tidb", []string{"kafka"}).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "postgres").
+		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "postgres"}).
+		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "postgres"}).
 		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
 		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
@@ -207,6 +214,7 @@ func (m *Manager) DestroyTiDB2Kafka2PgCluster(name string, gOpt operator.Options
 		DestroyNAT(&sexecutor, "tidb").
 		DestroyEC2Nodes(&sexecutor, "workstation").
 		DestroyEC2Nodes(&sexecutor, "tidb").
+		DestroyPostgres(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t4)
@@ -280,7 +288,7 @@ func (m *Manager) ListTiDB2Kafka2PgCluster(clusterName string, opt DeployOptions
 
 	// 008. NLB
 	var nlb task.LoadBalancer
-	t8 := task.NewBuilder().ListNLB(&sexecutor, "kafka", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
+	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 
 	// *********************************************************************
@@ -320,218 +328,188 @@ func (m *Manager) ListTiDB2Kafka2PgCluster(clusterName string, opt DeployOptions
 	return nil
 }
 
-// // Scale a cluster.
-// func (m *Manager) KafkaScale(
-// 	name string,
-// 	topoFile string,
-// 	opt DeployOptions,
-// 	afterDeploy func(b *task.Builder, newPart spec.Topology),
-// 	skipConfirm bool,
-// 	gOpt operator.Options,
-// ) error {
-// 	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
-// 		return err
-// 	}
+func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
 
-// 	// exist, err := m.specManager.Exist(name)
-// 	// if err != nil {
-// 	// 	return err
-// 	// }
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2kafka2pg")
 
-// 	// if !exist {
-// 	// 	// FIXME: When change to use args, the suggestion text need to be updatem.
-// 	// 	return errors.New("cluster is not found")
-// 	// }
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
 
-// 	metadata := m.specManager.NewMetadata()
-// 	topo := metadata.GetTopology()
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, "ohmytiup-tidb2kafka2pg", gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
 
-// 	if err := spec.ParseTopologyYaml(topoFile, topo); err != nil {
-// 		return err
-// 	}
+	// 02. Create the postgres objects(Database and tables)
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query postgres '%s'", "drop database if exists test"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The outpur from the query is <%s> \n\n\n", stdout)
 
-// 	spec.ExpandRelativeDir(topo)
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query postgres '%s'", "create database  test"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
 
-// 	base := topo.BaseTopo()
-// 	if sshType := gOpt.SSHType; sshType != "" {
-// 		base.GlobalOptions.SSHType = sshType
-// 	}
+	commands := []string{
+		"create table test01(col01 int primary key, col02 int, tidb_timestamp timestamp, pg_timestamp timestamp default current_timestamp)",
+	}
 
-// 	var (
-// 		sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-// 		sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-// 	)
-// 	if gOpt.SSHType != executor.SSHTypeNone {
-// 		var err error
-// 		if sshConnProps, err = tui.ReadIdentityFileOrPassword(opt.IdentityFile, opt.UsePassword); err != nil {
-// 			return err
-// 		}
-// 		if len(gOpt.SSHProxyHost) != 0 {
-// 			if sshProxyProps, err = tui.ReadIdentityFileOrPassword(gOpt.SSHProxyIdentity, gOpt.SSHProxyUsePassword); err != nil {
-// 				return err
-// 			}
-// 		}
-// 	}
+	for _, command := range commands {
+		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query test '%s'", command), false, 1*time.Hour)
+		if err != nil {
+			return err
+		}
+	}
 
-// 	if err := m.fillHostArch(sshConnProps, sshProxyProps, topo, &gOpt, opt.User); err != nil {
-// 		return err
-// 	}
+	// 03. Create TiDB objects(Databse and tables)
+	commands = []string{
+		"drop table if exists test01",
+		"create table test01(col01 int primary key, col02 int , tidb_timestamp timestamp default current_timestamp)",
+	}
 
-// 	if !skipConfirm {
-// 		if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
-// 			return err
-// 		}
-// 	}
+	for _, command := range commands {
+		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query test '%s'", command), false, 1*time.Hour)
+		if err != nil {
+			return err
+		}
+	}
 
-// 	if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
-// 		return errorx.InitializationFailed.
-// 			Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
-// 			WithProperty(tui.SuggestionFromString("Please check file system permissions and try again."))
-// 	}
+	// 04. Deploy the ticdc source connector
+	err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2pg/source.toml.tpl", "/tmp/source.toml", "0644", []string{}, true, 0)
+	if err != nil {
+		return err
+	}
 
-// 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
+	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/source.toml /opt/kafka/", true); err != nil {
+		return err
+	}
 
-// 	globalOptions := base.GlobalOptions
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %s %d", "test_test01", perfOpt.Partitions), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
 
-// 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	clusterType := "ohmytiup-kafka"
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+	var tableECs [][]string
+	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	listTasks = append(listTasks, t1)
 
-// 	// var workstationInfo, clusterInfo task.ClusterInfo
-// 	var workstationInfo task.ClusterInfo
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
 
-// 	if base.AwsWSConfigs.InstanceType != "" {
-// 		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
-// 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
+	t := builder.Build()
 
-// 		envInitTasks = append(envInitTasks, t1)
-// 	}
-// 	ctx := context.WithValue(context.Background(), "clusterName", name)
-// 	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
 
-// 	// cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DM.Count + base.AwsTopoConfigs.TiCDC.Count
-// 	// if cntEC2Nodes > 0 {
-// 	// 	t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-// 	// 		BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-// 	// 	envInitTasks = append(envInitTasks, t2)
-// 	// }
+	var pdIP, schemaRegistryIP, brokerIP, connectorIP string
+	for _, row := range tableECs {
+		if row[0] == "pd" {
+			pdIP = row[5]
+		}
+		if row[0] == "broker" {
+			brokerIP = row[5]
+		}
+		if row[0] == "schemaRegistry" {
+			schemaRegistryIP = row[5]
+		}
+		if row[0] == "connector" {
+			connectorIP = row[5]
+		}
+	}
 
-// 	builder := task.NewBuilder().ParallelStep("+ Initialize target host environments", false, envInitTasks...)
+	if stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --pd=http://%s:2379 2>/dev/null", pdIP), false); err != nil {
+		return err
+	}
 
-// 	if afterDeploy != nil {
-// 		afterDeploy(builder, topo)
-// 	}
+	type ChangeFeedSummary struct {
+		State      string `json:"state"`
+		Tso        int    `json:"tso"`
+		Checkpoint string `json:"checkpoint"`
+		Error      string `json:"error"`
+	}
 
-// 	t := builder.Build()
+	type ChangeFeed struct {
+		Id string `json:"id"`
+		// Summary ChangeFeedSummary `json:"summary"`
+		Summary struct {
+			State      string `json:"state"`
+			Tso        int    `json:"tso"`
+			Checkpoint string `json:"checkpoint"`
+			Error      string `json:"error"`
+		} `json:"summary"`
+	}
+	var changeFeeds []ChangeFeed
 
-// 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
-// 		if errorx.Cast(err) != nil {
-// 			// FIXME: Map possible task errors and give suggestions.
-// 			return err
-// 		}
-// 		return err
-// 	}
+	err = yaml.Unmarshal(stdout, &changeFeeds)
+	if err != nil {
+		return err
+	}
 
-// 	var t5 *task.StepDisplay
-// 	t5 = task.NewBuilder().
-// 		ScaleTiDB(&sexecutor, "tidb", base.AwsWSConfigs, base.AwsTopoConfigs).
-// 		BuildAsStep(fmt.Sprintf("  - Prepare Ec2  resources %s:%d", globalOptions.Host, 22))
+	changeFeedHasExisted := false
+	for _, changeFeed := range changeFeeds {
+		if changeFeed.Id == "kafka-avro" {
+			changeFeedHasExisted = true
+		}
+	}
 
-// 	tailctx := context.WithValue(context.Background(), "clusterName", name)
-// 	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
-// 	builder = task.NewBuilder().
-// 		ParallelStep("+ Initialize target host environments", false, t5)
-// 	t = builder.Build()
-// 	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
-// 		if errorx.Cast(err) != nil {
-// 			// FIXME: Map possible task errors and give suggestions.
-// 			return err
-// 		}
-// 		return err
-// 	}
+	if changeFeedHasExisted == false {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed create --pd=http://%s:2379 --changefeed-id='%s' --sink-uri='kafka://%s:9092/%s?protocol=avro' --schema-registry=http://%s:8081 --config %s", pdIP, "kafka-avro", brokerIP, "topic-name", schemaRegistryIP, "/opt/kafka/source.toml"), false); err != nil {
+			return err
+		}
+	}
 
-// 	log.Infof("Cluster `%s` scaled successfully ", name)
-// 	return nil
-// }
+	// 05. Deploy the sink connector for kafka
+	if err = (*workstation).Transfer(ctx, "/opt/db-info.yml", "/tmp/db-info.yml", true, 1024); err != nil {
+		return err
+	}
+	type PGSinkData struct {
+		PGHost         string `yaml:"Host"`
+		PGPort         int    `yaml:"Port"`
+		PGUser         string `yaml:"User"`
+		PGPassword     string `yaml:"Password"`
+		PGDBName       string
+		TopicName      string
+		TableName      string
+		SchemaRegistry string
+	}
 
-// type KafkaPerfOpt struct {
-// 	Partitions    int // The number of partitions
-// 	NumOfRecords  int // The number of records to be tested
-// 	BytesOfRecord int // The Bytes per record to be tested
-// }
+	pgSinkData := PGSinkData{}
 
-// func (m *Manager) PerfKafkaPC(clusterName string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+	yfile, err := ioutil.ReadFile("/tmp/db-info.yml")
+	if err != nil {
+		return err
+	}
 
-// 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-// 	if err != nil {
-// 		return err
-// 	}
+	err = yaml.Unmarshal(yfile, &pgSinkData)
+	if err != nil {
+		return err
+	}
+	pgSinkData.PGDBName = "test"
+	pgSinkData.TopicName = "test_test01"
+	pgSinkData.TableName = "test01"
+	pgSinkData.SchemaRegistry = schemaRegistryIP
 
-// 	ctx := ctxt.New(context.Background(), 1)
+	fmt.Printf("The data is <%#v> \n\n\n", pgSinkData)
 
-// 	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, "ohmytiup-kafka", gOpt.SSHUser, gOpt.IdentityFile)
-// 	if err != nil {
-// 		return err
-// 	}
+	err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.sink.json", "/tmp/kafka.sink.json", "0644", pgSinkData, true, 0)
+	if err != nil {
+		return err
+	}
 
-// 	// Create the partition
-// 	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %d", perfOpt.Partitions), false, 1*time.Hour)
-// 	if err != nil {
-// 		return err
-// 	}
+	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/kafka.sink.json /opt/kafka/", true); err != nil {
+		return err
+	}
 
-// 	// Producer performance measurement
-// 	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.producer.perf.sh %d %d", perfOpt.NumOfRecords, perfOpt.BytesOfRecord), false, 1*time.Hour)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	output := strings.Split(string(stdout), "\n")
-// 	rows := strings.Split(output[len(output)-2], ",")
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/kafka.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
+		return err
+	}
 
-// 	tableMetrics := [][]string{{"records sent", "records/sec", "avg latency", "max latency", "50th", "95th", "99th", "99.9th"}}
-// 	var metrics []string
-// 	for idx, metric := range rows {
-// 		value := strings.Split(string(strings.Trim(metric, " ")), " ")
-// 		if idx > 1 {
-// 			metrics = append(metrics, value[0]+" "+value[1])
-// 		} else {
-// 			metrics = append(metrics, value[0])
-// 		}
-
-// 	}
-
-// 	// Consumer performance measurment
-// 	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.consumer.perf.sh %d", perfOpt.NumOfRecords), false, 1*time.Hour)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	var tableConsumerMetrics [][]string
-// 	var rowHeader, rowMetric []string
-
-// 	arrConsumer := strings.Split(string(stdout), "\n")
-// 	for _, metric := range arrConsumer {
-// 		arrMetrics := strings.Split(strings.Trim(string(metric), " "), ":")
-// 		if len(arrMetrics) < 2 {
-// 			continue
-// 		}
-// 		rowHeader = append(rowHeader, arrMetrics[0])
-// 		rowMetric = append(rowMetric, strings.Trim(strings.Join(arrMetrics[1:], ":"), " "))
-// 	}
-
-// 	tableConsumerMetrics = append(tableConsumerMetrics, rowHeader)
-// 	tableConsumerMetrics = append(tableConsumerMetrics, rowMetric)
-
-// 	titleFont := color.New(color.FgRed, color.Bold)
-// 	fmt.Printf("\nPerformance test:      %s\n", titleFont.Sprint("Producer"))
-
-// 	tableMetrics = append(tableMetrics, metrics)
-// 	tui.PrintTable(tableMetrics, true)
-
-// 	fmt.Printf("\n\nPerformance test:      %s\n", titleFont.Sprint("Consumer"))
-// 	tui.PrintTable(tableConsumerMetrics, true)
-
-// 	return nil
-// }
+	return nil
+}

@@ -38,8 +38,9 @@ func newTiDB2Kafka2PgCmd() *cobra.Command {
 		newTiDB2Kafka2PgDeploy(),
 		newListTiDB2Kafka2PgCmd(),
 		newDestroyTiDB2Kafka2PgCmd(),
-		// newKafkaScale(),
-		newPerfTiDB2Kafka2Pg(),
+		newPerfPCTiDB2Kafka2Pg(),
+		// // newKafkaScale(),
+		// newPerfTiDB2Kafka2Pg(),
 	)
 	return cmd
 }
@@ -145,52 +146,17 @@ You can retain some nodes and roles data when destroy cluster, eg:
 	return cmd
 }
 
-// func newKafkaScale() *cobra.Command {
-// 	opt := manager.DeployOptions{
-// 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
-// 	}
+// func newPerfTiDB2Kafka2Pg() *cobra.Command {
 // 	cmd := &cobra.Command{
-// 		Use:          "scale <cluster-name> <topology.yaml>",
-// 		Short:        "scale tidb cluster",
-// 		Long:         "scale-in or scale-out the tidb cluster",
-// 		SilenceUsage: true,
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			if !shouldContinue {
-// 				return nil
-// 			}
-
-// 			clusterName := args[0]
-// 			topoFile := args[1]
-// 			if data, err := os.ReadFile(topoFile); err == nil {
-// 				teleTopology = string(data)
-// 			}
-// 			fmt.Printf("The command here is %v \n", teleCommand)
-// 			fmt.Printf("The cluster name is <%s> \n", clusterName)
-
-// 			return cm.TiDBScale(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
-// 		},
+// 		Use:   "perf <sub_command>",
+// 		Short: "Run commands for kafka performance measurement",
 // 	}
 
-// 	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
-
+// 	cmd.AddCommand(
+// 		newPerfPCTiDB2Kafka2Pg(),
+// 	)
 // 	return cmd
 // }
-
-func newPerfTiDB2Kafka2Pg() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "perf <sub_command>",
-		Short: "Run commands for kafka performance measurement",
-	}
-
-	cmd.AddCommand(
-		newPerfPCTiDB2Kafka2Pg(),
-	)
-	return cmd
-}
 
 func newPerfPCTiDB2Kafka2Pg() *cobra.Command {
 	perfOpt := manager.KafkaPerfOpt{
@@ -199,8 +165,8 @@ func newPerfPCTiDB2Kafka2Pg() *cobra.Command {
 		BytesOfRecord: 1024,
 	}
 	cmd := &cobra.Command{
-		Use:          "producer <cluster-name>",
-		Short:        "producer performance test",
+		Use:          "perf <cluster-name>",
+		Short:        "perf performance test",
 		Long:         "Performance measurement against kafka cluster",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -214,7 +180,7 @@ func newPerfPCTiDB2Kafka2Pg() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.PerfKafkaPC(clusterName, perfOpt, gOpt)
+			return cm.PerfTiDB2Kafka2PG(clusterName, perfOpt, gOpt)
 		},
 	}
 

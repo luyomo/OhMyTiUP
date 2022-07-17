@@ -42,13 +42,6 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	type DBInfo struct {
-		DBHost     string
-		DBPort     int64
-		DBUser     string
-		DBPassword string
-	}
-
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err

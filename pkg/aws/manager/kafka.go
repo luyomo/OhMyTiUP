@@ -268,7 +268,7 @@ func (m *Manager) ListKafkaCluster(clusterName string, opt DeployOptions) error 
 
 	// 008. NLB
 	var nlb task.LoadBalancer
-	t8 := task.NewBuilder().ListNLB(&sexecutor, "kafka", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
+	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 
 	// *********************************************************************
@@ -461,14 +461,15 @@ func (m *Manager) PerfKafkaPC(clusterName string, perfOpt KafkaPerfOpt, gOpt ope
 		return err
 	}
 
+	topicName := "test-topic"
 	// Create the partition
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %d", perfOpt.Partitions), false, 1*time.Hour)
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %d", topicName, perfOpt.Partitions), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 
 	// Producer performance measurement
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.producer.perf.sh %d %d", perfOpt.NumOfRecords, perfOpt.BytesOfRecord), false, 1*time.Hour)
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.producer.perf.sh %d %d", topicName, perfOpt.NumOfRecords, perfOpt.BytesOfRecord), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -488,7 +489,7 @@ func (m *Manager) PerfKafkaPC(clusterName string, perfOpt KafkaPerfOpt, gOpt ope
 	}
 
 	// Consumer performance measurment
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.consumer.perf.sh %d", perfOpt.NumOfRecords), false, 1*time.Hour)
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.consumer.perf.sh %d", topicName, perfOpt.NumOfRecords), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}

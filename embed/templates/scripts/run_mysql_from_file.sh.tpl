@@ -6,4 +6,4 @@ then
   exit 2
 fi
 
-mysql -h {{.DBHost}} -P {{.DBPort}} -u {{.DBUser}} -p{{.DBPassword}} $1 < $2
+mysql -h {{.DBHost}} -P {{.DBPort}} -u {{.DBUser}} {{if .DBPassword}}-p{{.DBPassword}}{{end}} $1 < $2

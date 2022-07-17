@@ -1,0 +1,27 @@
+{
+    "name": "JDBCTEST",
+    "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "connection.url": "jdbc:postgresql://{{ .PGHost }}:5432/{{ .PGDBName }}?stringtype=unspecified",
+        "connection.user": "{{ .PGUser }}",
+        "connection.password": "{{ .PGPassword }}",
+        "topics": "{{ .TopicName }}",
+        "insert.mode": "upsert",
+        "dialect.name":"PostgreSqlDatabaseDialect",
+        "table.name.format":"{{ .TableName }}",
+        "key.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "key.converter.schema.registry.url": "http://{{ .SchemaRegistry }}:8081",
+        "value.converter.schema.registry.url": "http://{{ .SchemaRegistry }}:8081",
+        "key.converter.schemas.enable": "true",
+        "value.converter.schemas.enable": "true",
+        "pk.mode": "record_key",
+        "auto.create":"false",
+        "auto.evolve":"false",
+        "transforms": "timestamp",
+        "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+        "transforms.timestamp.target.type": "Timestamp",
+        "transforms.timestamp.field":"timestamp",
+        "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss"
+    }
+}

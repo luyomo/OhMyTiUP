@@ -63,6 +63,7 @@ func (c *CreatePostgres) Execute(ctx context.Context) error {
 	}
 	for _, stackSummary := range listStacks.StackSummaries {
 		if *(stackSummary.StackName) == clusterName && stackSummary.StackStatus != "DELETE_COMPLETE" {
+			c.Install(ctx)
 			return nil
 		}
 	}
@@ -172,6 +173,15 @@ func (c *CreatePostgres) Execute(ctx context.Context) error {
 		time.Sleep(60 * time.Second)
 	}
 
+	c.Install(ctx)
+
+	return nil
+}
+
+func (c *CreatePostgres) Install(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	// 1. Get all the workstation nodes
 	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
 	if err != nil {
@@ -189,7 +199,7 @@ func (c *CreatePostgres) Execute(ctx context.Context) error {
 	dbInfo.DBUser = (*auroraInstanceInfos)[0].DBUserName
 	dbInfo.DBPassword = c.awsPostgresConfigs.DBPassword
 
-	_, _, err = (*workstation).Execute(ctx, "mkdir /opt/scripts", true)
+	_, _, err = (*workstation).Execute(ctx, "mkdir -p /opt/scripts", true)
 	if err != nil {
 		return err
 	}

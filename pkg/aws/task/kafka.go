@@ -137,7 +137,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		return err
 	}
 
-	for _, file := range []string{"kafka.create.topic.sh", "kafka.producer.perf.sh", "kafka.consumer.perf.sh", "kafka.e2e.perf.sh"} {
+	for _, file := range []string{"kafka.create.topic.sh", "kafka.producer.perf.sh", "kafka.consumer.perf.sh", "kafka.e2e.perf.sh", "kafka-util.sh"} {
 		fmt.Printf("The template file to parse <%s> \n\n\n", file)
 		err = (*workstation).TransferTemplate(ctx, fmt.Sprintf("templates/config/%s.tpl", file), fmt.Sprintf("/tmp/%s", file), "0755", kafkaNodes, true, 0)
 		if err != nil {
@@ -275,16 +275,30 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	}
 
-	err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.connector.properties.tpl", "/tmp/connect-distributed.properties", "0644", kafkaNodes, true, 0)
-	if err != nil {
-		return err
+	type ConnectorData struct {
+		SchemaRegistry []string
+		ConnectorIP    string
+		Broker         []string
 	}
+
+	connectorData := ConnectorData{
+		SchemaRegistry: kafkaNodes.SchemaRegistry,
+		Broker:         kafkaNodes.Broker,
+	}
+
 	for _, node := range kafkaNodes.Connector {
+		connectorData.ConnectorIP = node
+
 		commands = []string{
 			"sudo mv /etc/kafka/connect-distributed.properties /etc/kafka/connect-distributed.properties.bak",
 			"sudo mv /tmp/connect-distributed.properties /etc/kafka/connect-distributed.properties",
 			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.0.0",
 			"sudo systemctl restart confluent-kafka-connect",
+		}
+
+		err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.connector.properties.tpl", "/tmp/connect-distributed.properties", "0644", connectorData, true, 0)
+		if err != nil {
+			return err
 		}
 
 		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`scp /tmp/connect-distributed.properties  %s:/tmp/connect-distributed.properties`, node), false); err != nil {

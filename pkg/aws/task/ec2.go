@@ -279,6 +279,9 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 	}
 
 	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+    if err != nil {
+        return err
+    }
 
 	// 4. Deploy docker-compose file
 	type TiDBCONN struct {

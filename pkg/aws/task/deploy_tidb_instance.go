@@ -169,6 +169,36 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	}
 
+	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	if err != nil {
+		return err
+	}
+
+	var dbInfo DBInfo
+	dbInfo.DBHost = (*nlb).DNSName
+	dbInfo.DBPort = 4000
+	dbInfo.DBUser = "root"
+
+	_, _, err = wsexecutor.Execute(ctx, "mkdir -p /opt/scripts", true)
+	if err != nil {
+		return err
+	}
+
+	err = wsexecutor.TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/tidb-db-info.yml", "0644", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = wsexecutor.TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_tidb_query", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = wsexecutor.TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_tidb_from_file", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

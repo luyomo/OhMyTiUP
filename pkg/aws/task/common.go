@@ -65,6 +65,13 @@ type ClusterInfo struct {
 	enableNAT              string
 }
 
+type DBInfo struct {
+	DBHost     string
+	DBPort     int64
+	DBUser     string
+	DBPassword string
+}
+
 func (v Vpc) String() string {
 	return fmt.Sprintf("Cidr: %s, State: %s, VpcId: %s, OwnerId: %s", v.CidrBlock, v.State, v.VpcId, v.OwnerId)
 }
