@@ -38,7 +38,9 @@ func newTiDB2Kafka2PgCmd() *cobra.Command {
 		newTiDB2Kafka2PgDeploy(),
 		newListTiDB2Kafka2PgCmd(),
 		newDestroyTiDB2Kafka2PgCmd(),
-		newPerfPCTiDB2Kafka2Pg(),
+		newPerfPrepareTiDB2Kafka2Pg(),
+		newPerfTiDB2Kafka2Pg(),
+		newPerfCleanTiDB2Kafka2Pg(),
 		// // newKafkaScale(),
 		// newPerfTiDB2Kafka2Pg(),
 	)
@@ -146,23 +148,42 @@ You can retain some nodes and roles data when destroy cluster, eg:
 	return cmd
 }
 
-// func newPerfTiDB2Kafka2Pg() *cobra.Command {
-// 	cmd := &cobra.Command{
-// 		Use:   "perf <sub_command>",
-// 		Short: "Run commands for kafka performance measurement",
-// 	}
-
-// 	cmd.AddCommand(
-// 		newPerfPCTiDB2Kafka2Pg(),
-// 	)
-// 	return cmd
-// }
-
-func newPerfPCTiDB2Kafka2Pg() *cobra.Command {
+func newPerfPrepareTiDB2Kafka2Pg() *cobra.Command {
 	perfOpt := manager.KafkaPerfOpt{
 		Partitions:    1,
 		NumOfRecords:  100000,
 		BytesOfRecord: 1024,
+	}
+	cmd := &cobra.Command{
+		Use:          "perf-prepare <cluster-name>",
+		Short:        "perf performance test",
+		Long:         "Performance measurement against kafka cluster",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.PerfPrepareTiDB2Kafka2PG(clusterName, perfOpt, gOpt)
+		},
+	}
+
+	cmd.Flags().IntVar(&perfOpt.Partitions, "partitions", 16, "The partition number of the topic to be tested.")
+	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
+	cmd.Flags().IntVar(&perfOpt.BytesOfRecord, "bytes-of-record", 1024, "Bytes of records to be tested")
+
+	return cmd
+}
+
+func newPerfTiDB2Kafka2Pg() *cobra.Command {
+	perfOpt := manager.KafkaPerfOpt{
+		NumOfRecords: 100000,
 	}
 	cmd := &cobra.Command{
 		Use:          "perf <cluster-name>",
@@ -184,9 +205,31 @@ func newPerfPCTiDB2Kafka2Pg() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&perfOpt.Partitions, "partitions", 16, "The partition number of the topic to be tested.")
 	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
-	cmd.Flags().IntVar(&perfOpt.BytesOfRecord, "bytes-of-record", 1024, "Bytes of records to be tested")
+
+	return cmd
+}
+
+func newPerfCleanTiDB2Kafka2Pg() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "perf-clean <cluster-name>",
+		Short:        "clean perf performance test",
+		Long:         "Performance measurement against kafka cluster",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.PerfCleanTiDB2Kafka2PG(clusterName, gOpt)
+		},
+	}
 
 	return cmd
 }

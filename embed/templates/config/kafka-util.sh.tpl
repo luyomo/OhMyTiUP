@@ -6,17 +6,20 @@ then
   echo "kafka-util.sh list-topic"
   echo "kafka-util.sh topic-offset"
   echo "kafka-util.sh sink-status sink-name"
+  echo "kafka-util.sh remove-topic sink-name"
   exit 1
 fi
 
 brokerList={{ range $idx, $data := .Broker -}}{{if $idx}},{{end}}{{$data}}:9092{{- end }}
-connectorIP={{ range $idx, $data := .Connector -}}{{if eq $idx 0}}{{$ata}}{{end}}{{- end }}
+connectorIP={{ range $idx, $data := .Connector -}}{{if eq $idx 0}}{{$data}}{{end}}{{- end }}
 
 case $1 in
 list-topic)
-    kafka-topics --list --bootstrap-server=$brokerList;;
+  kafka-topics --list --bootstrap-server=$brokerList;;
+remove-topic)
+  kafka-topics --delete --topic $2 --bootstrap-server=$brokerList;;
 topic-offset)
-    kafka-run-class kafka.tools.GetOffsetShell --broker-list $brokerList --topic test_test01 --time -1;;
+  kafka-run-class kafka.tools.GetOffsetShell --broker-list $brokerList --topic test_test01 --time -1;;
 sink-status)
-    curl http://$connectorIP:8083/connectors/$2/status | jq
+  curl http://$connectorIP:8083/connectors/$2/status | jq;;
 esac
