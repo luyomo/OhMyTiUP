@@ -1,0 +1,11 @@
+* Architecture
+  + Take Aurora GTID
+  + Take aurora database snapshot
+  + Convert aurora snapshot to S3(Parquet)
+  + Import snapshot data into TiDB Cloud from S3
+  + Setup DM to replicate data from Aurora to TiDB Cloud(using GTID)
+  + Stop DM replication
+  + Wait for replication completeness
+  + Start the reverse TiCDC reverse replication from TiDB Cloud to Aurora
+  [[./png/aurora2tidbcloud/Aurora2TiDBCloud.01.png]]
+  [[./png/aurora2tidbcloud/Aurora2TiDBCloud.02.png]]

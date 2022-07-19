@@ -23,7 +23,7 @@
  | [[./tidb-on-eks.org][Migration from TiDB-on-EKS to TiDB Cloud]]                          |                                                                                                                   |        |
  | Data Migration from TiDB Cloud to TiDB-on-eks(S3)                 |                                                                                                                   |        |
  | Data Migration from TiDB Cloud to Aurora(S3)                      |                                                                                                                   |        |
- | Data Migration from Aurora(S3) to TiDB Cloud                      |                                                                                                                   |        |
+ | [[./aurora2tidbcloud.org][Data Migration from Aurora(S3) to TiDB Cloud]]                                    |                                                                                                                   |        |
  | [[./tidb-on-eks.deployment.org][TiDB Deployment on EKS]]                                            |                                                                                                                   |        |
  | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]                                    | Redshift --federated query--> TiDB Cloud(Not supported any more since redshift only allow the access to RDS by CA |        |
  | [[./tidbcloud2reshift-serverless.org][Serverless data migration from TiDBCloud To Redshift]]              | Use lambda function to migrate the data from TiDBCloud to redshift                                                |        |
