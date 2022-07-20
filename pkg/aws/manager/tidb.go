@@ -93,7 +93,7 @@ func (m *Manager) TiDBDeploy(
 		return err
 	}
 
-	spec.ExpandRelativeDir(topo)
+	// spec.ExpandRelativeDir(topo)
 
 	base := topo.BaseTopo()
 	if sshType := gOpt.SSHType; sshType != "" {
@@ -126,11 +126,11 @@ func (m *Manager) TiDBDeploy(
 		}
 	}
 
-	if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
-		return errorx.InitializationFailed.
-			Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
-			WithProperty(tui.SuggestionFromString("Please check file system permissions and try again."))
-	}
+	// if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
+	// 	return errorx.InitializationFailed.
+	// 		Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
+	// 		WithProperty(tui.SuggestionFromString("Please check file system permissions and try again."))
+	// }
 
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
@@ -159,9 +159,9 @@ func (m *Manager) TiDBDeploy(
 
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks...)
 
-	if afterDeploy != nil {
-		afterDeploy(builder, topo)
-	}
+	// if afterDeploy != nil {
+	// 	afterDeploy(builder, topo)
+	// }
 
 	t := builder.Build()
 
@@ -175,8 +175,8 @@ func (m *Manager) TiDBDeploy(
 		return err
 	}
 
-	var t5 *task.StepDisplay
 	if cntEC2Nodes > 0 {
+		var t5 *task.StepDisplay
 		t5 = task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
@@ -185,21 +185,21 @@ func (m *Manager) TiDBDeploy(
 			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
-	}
 
-	tailctx := context.WithValue(context.Background(), "clusterName", name)
-	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
-	builder = task.NewBuilder().
-		ParallelStep("+ Deploying tidb solution service ... ...", false, t5)
-	t = builder.Build()
+		tailctx := context.WithValue(context.Background(), "clusterName", name)
+		tailctx = context.WithValue(tailctx, "clusterType", clusterType)
+		builder = task.NewBuilder().
+			ParallelStep("+ Deploying tidb solution service ... ...", false, t5)
+		t = builder.Build()
+		timer.Take("Preparation")
 
-	timer.Take("Preparation")
-	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
+		if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
+			if errorx.Cast(err) != nil {
+				// FIXME: Map possible task errors and give suggestions.
+				return err
+			}
 			return err
 		}
-		return err
 	}
 
 	timer.Take("Execution")
