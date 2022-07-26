@@ -72,6 +72,18 @@ type DBInfo struct {
 	DBPassword string
 }
 
+type DMClusterInfo struct {
+	Name       string `json:"name"`
+	User       string `json:"user"`
+	DMVersion  string `json:"version"`
+	Path       string `json:"path"`
+	PrivateKey string `json:"private_key"`
+}
+
+type DMClustersInfo struct {
+	Clusters []DMClusterInfo `json:"clusters"`
+}
+
 func (v Vpc) String() string {
 	return fmt.Sprintf("Cidr: %s, State: %s, VpcId: %s, OwnerId: %s", v.CidrBlock, v.State, v.VpcId, v.OwnerId)
 }
@@ -327,8 +339,8 @@ func getNetworksString(executor ctxt.Executor, ctx context.Context, clusterName,
 
 }
 
-func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName string) (*TransitGateway, error) {
-	command := fmt.Sprintf("aws ec2 describe-transit-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName)
+func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*TransitGateway, error) {
+	command := fmt.Sprintf("aws ec2 describe-transit-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
 		return nil, err
@@ -481,6 +493,30 @@ func getTiDBClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterN
 	}
 
 	return &tidbClusterDetail, nil
+}
+
+func getDMClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterName string) (*DMClusterInfo, error) {
+
+	stdout, _, err := (*wsexecutor).Execute(ctx, fmt.Sprintf(`/home/admin/.tiup/bin/tiup dm list --format json`), false)
+	if err != nil {
+		return nil, err
+	}
+
+	var dmClustersInfo DMClustersInfo
+	if err = json.Unmarshal(stdout, &dmClustersInfo); err != nil {
+		zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
+		return nil, err
+	}
+
+	fmt.Printf("Found dm clusters: <%#v> \n\n\n", dmClustersInfo)
+
+	for _, clusterInfo := range dmClustersInfo.Clusters {
+		if clusterInfo.Name == clusterName {
+			return &clusterInfo, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func getEC2Nodes(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, componentName string) (*[]EC2, error) {

@@ -98,7 +98,9 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 			// Header
 			{"Component", "# of nodes", "Instance Type", "Image Name", "CIDR", "User"},
 		}
-		clusterTable = append(clusterTable, []string{"Workstation", "1", spec.AwsWSConfigs.InstanceType, spec.AwsWSConfigs.ImageId, spec.AwsWSConfigs.CIDR, "admin"})
+		if spec.AwsWSConfigs.InstanceType != "" {
+			clusterTable = append(clusterTable, []string{"Workstation", "1", spec.AwsWSConfigs.InstanceType, spec.AwsWSConfigs.ImageId, spec.AwsWSConfigs.CIDR, "admin"})
+		}
 
 		if spec.AwsTopoConfigs.TiDB.Count > 0 {
 			clusterTable = append(clusterTable, []string{"TiDB", strconv.Itoa(spec.AwsTopoConfigs.TiDB.Count), spec.AwsTopoConfigs.TiDB.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
@@ -116,8 +118,11 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 			clusterTable = append(clusterTable, []string{"TiCDC", strconv.Itoa(spec.AwsTopoConfigs.TiCDC.Count), spec.AwsTopoConfigs.TiCDC.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
 
-		if spec.AwsTopoConfigs.DM.Count > 0 {
-			clusterTable = append(clusterTable, []string{"DM", strconv.Itoa(spec.AwsTopoConfigs.DM.Count), spec.AwsTopoConfigs.DM.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		if spec.AwsTopoConfigs.DMMaster.Count > 0 {
+			clusterTable = append(clusterTable, []string{"DM Master", strconv.Itoa(spec.AwsTopoConfigs.DMMaster.Count), spec.AwsTopoConfigs.DMMaster.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
+		if spec.AwsTopoConfigs.DMWorker.Count > 0 {
+			clusterTable = append(clusterTable, []string{"DM Worker", strconv.Itoa(spec.AwsTopoConfigs.DMWorker.Count), spec.AwsTopoConfigs.DMWorker.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
 
 		if spec.AwsTopoConfigs.Pump.Count > 0 {

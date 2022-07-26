@@ -854,13 +854,53 @@ $ aws rds describe-db-cluster-snapshots     --db-cluster-snapshot-identifier aur
     ]
 }
 
+$ aws iam create-policy --policy-name MigrationExportPolicy --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ExportPolicy",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject*",
+                "s3:ListBucket",
+                "s3:GetObject*",
+                "s3:DeleteObject*",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": [
+                "arn:aws:s3:::ossinsight-data",
+                "arn:aws:s3:::ossinsight-data/*"
+            ]
+        }
+    ]
+}'
+
+$ aws iam create-role  --role-name migration-rds-s3-export-role  --assume-role-policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+            "Service": "export.rds.amazonaws.com"
+          },
+         "Action": "sts:AssumeRole"
+       }
+     ] 
+   }'
+
+$ aws iam attach-role-policy  --policy-arn arn:aws:iam::729581434105:policy/MigrationExportPolicy  --role-name migration-rds-s3-export-role
+
+aws kms create-key
+
+aws kms create-alias --alias-name alias/aurora2tidbcloud --target-key-id arn:aws:kms:us-east-1:729581434105:key/a3aae0d1-6b26-4909-b2b4-c2eb231bfc57
+
 $ aws rds start-export-task \
-    --export-task-identifier aurora2tidb-snap03 \
-    --source-arn arn:aws:rds:ap-northeast-1:385595570414:cluster-snapshot:aurora2tidb-snap03 \
-    --s3-bucket-name tidb-jay \
-    --iam-role-arn arn:aws:iam::385595570414:role/tidb-jay-export \
-    --s3-prefix aurora2tidb-snap01 \
-    --kms-key-id arn:aws:kms:ap-northeast-1:385595570414:key/0056c14f-4bd4-4c1a-8b83-bd265e0b7e7e
+    --export-task-identifier aurora2tidb-snap \
+    --source-arn arn:aws:rds:us-east-1:729581434105:cluster-snapshot:aurora2tidbcloud \
+    --s3-bucket-name ossinsight-data \
+    --iam-role-arn arn:aws:iam::729581434105:role/migration-rds-s3-export-role \
+    --s3-prefix migration2tidbcloud \
+    --kms-key-id arn:aws:kms:us-east-1:729581434105:key/a3aae0d1-6b26-4909-b2b4-c2eb231bfc57 
 {
     "ExportTaskIdentifier": "aurora2tidb-snap03",
     "SourceArn": "arn:aws:rds:ap-northeast-1:385595570414:cluster-snapshot:aurora2tidb-snap03",
@@ -876,9 +916,71 @@ $ aws rds start-export-task \
 
 $ aws rds describe-export-tasks --export-task-identifier aurora2tidb-snap04
 
+$ aws iam create-policy --policy-name MigrationImportPolicy --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": "arn:aws:s3:::ossinsight-data/*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::ossinsight-data"
+        }
+    ]
+}'
+
+$aws iam create-role  --role-name migration-rds-s3-import-role  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+                "AWS": "380838443567"
+            },
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "696e6672612d61706953667e816d923a2bec415c942cbe1744"
+                }
+            }
+        }
+    ]
+}'
+
+$aws iam attach-role-policy  --policy-arn arn:aws:iam::729581434105:policy/MigrationImportPolicy  --role-name migration-rds-s3-import-role
+
+$aws iam create-role  --role-name migration-rds-s3-import-role  --assume-role-policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+            "Service": "export.rds.amazonaws.com"
+          },
+         "Action": "sts:AssumeRole"
+       }
+     ] 
+   }'
+
 $ aws s3api put-bucket-encryption \
     --bucket tidb-jay  \
     --server-side-encryption-configuration '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'
+
+
+$ mysqldump -h arasepoxgc2ni0.cxmxisy1o2a2.us-east-1.rds.amazonaws.com -u admin -p -d ossinsight > ossinsight.ddl
+
+$ mysql --connect-timeout 15 -u root -h tidb.mwsuusaexoc.clusters.tidb-cloud.com -P 4000 -D test -p -e "source ossinsight.ddl"
 #+eND_SRC
 
 ** tiup install

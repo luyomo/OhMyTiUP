@@ -42,7 +42,7 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
+	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 	}
 
 	for i := 1; i <= 50; i++ {
-		transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
+		transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
 		if err != nil {
 			return err
 		}
@@ -92,8 +92,9 @@ type DestroyTransitGateway struct {
 
 func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, clusterName)
+	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, clusterName, clusterType)
 
 	if err != nil {
 		return err
@@ -130,8 +131,9 @@ type ListTransitGateway struct {
 
 func (c *ListTransitGateway) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, clusterName)
+	transitGateway, err := getTransitGateway(*(c.pexecutor), ctx, clusterName, clusterType)
 
 	if err != nil {
 		return err

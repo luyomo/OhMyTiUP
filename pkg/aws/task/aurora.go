@@ -86,6 +86,13 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 		})
 	}
 
+	if c.awsAuroraConfigs.DBParameterFamilyGroup != "" {
+		parameters = append(parameters, types.Parameter{
+			ParameterKey:   aws.String("AuroraFamily"),
+			ParameterValue: aws.String(c.awsAuroraConfigs.DBParameterFamilyGroup),
+		})
+	}
+
 	if c.awsAuroraConfigs.Engine != "" {
 		parameters = append(parameters, types.Parameter{
 			ParameterKey:   aws.String("Engine"),

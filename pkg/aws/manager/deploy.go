@@ -240,7 +240,8 @@ func (m *Manager) Deploy(
 				CreatePDNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiDBNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiKVNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				CreateDMNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMMasterNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMWorkerNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiCDCNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				//CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &clusterInfo).

@@ -61,7 +61,7 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
+	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
 	if err != nil {
 		return err
 	}

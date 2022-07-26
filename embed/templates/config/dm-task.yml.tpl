@@ -1,26 +1,26 @@
-name: "test"
-task-mode: "all"
+name: "one-tidb-slave"
+task-mode: all
+meta-schema: "dm_meta"
 
-ignore-checking-items: ["replication_privilege", "dump_privilege"]
 target-database:
-  host: "172.83.1.183"
+  host: "private-tidb.xzgvoqakkq5.clusters.tidb-cloud.com"
   port: 4000
   user: "root"
-  password: ""
+  password: "1234Abcd"
 
 mysql-instances:
--
-  source-id: "mysql-replica-01"
-  block-allow-list: "global"  # Use black-white-list if the DM's version <= v2.0.0-beta.2.
-  mydumper-config-name: "global"
+  -
+    source-id: "mysql-replica-01"
+    route-rules: ["instance-1-user-rule"]
+    filter-rules: ["log-filter-rule" ]
 
-block-allow-list:                     # Use black-white-list if the DM's version <= v2.0.0-beta.2.
-  global:
-    do-tables:                        # The allow list of upstream tables to be migrated.
-    - db-name: "dm_test"              # The database name of the table to be migrated.
-      tbl-name: "test02"          # The name of the table to be migrated.
+routes:
+  instance-1-user-rule:
+    schema-pattern: "user"
+    target-schema: "test"
 
-# The global configuration of the dump unit. Each instance can quote it by the configuration item name.
-mydumpers:
-  global:
-    extra-args: " --no-locks"
+filters:
+  log-filter-rule:
+    schema-pattern: "user"
+    table-pattern: "test02"
+    action: Ignore

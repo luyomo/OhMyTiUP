@@ -565,14 +565,26 @@ func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType strin
 	return b
 }
 
-func (b *Builder) CreateDMNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateDMMasterNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
 		pexecutor:         pexecutor,
-		awsTopoConfigs:    &awsTopoConfigs.DM,
+		awsTopoConfigs:    &awsTopoConfigs.DMMaster,
 		awsGeneralConfigs: &awsTopoConfigs.General,
 		subClusterType:    subClusterType,
 		clusterInfo:       clusterInfo,
-		componentName:     "dm",
+		componentName:     "dm-master",
+	})
+	return b
+}
+
+func (b *Builder) CreateDMWorkerNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.DMWorker,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "dm-worker",
 	})
 	return b
 }
@@ -701,6 +713,16 @@ func (b *Builder) AcceptVPCPeering(pexecutor *ctxt.Executor) *Builder {
 
 func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDB{
+		pexecutor:      pexecutor,
+		awsWSConfigs:   awsWSConfigs,
+		subClusterType: subClusterType,
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) DeployDM(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &DeployDM{
 		pexecutor:      pexecutor,
 		awsWSConfigs:   awsWSConfigs,
 		subClusterType: subClusterType,
@@ -1095,7 +1117,8 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 		Step(fmt.Sprintf("%s : Creating PD Nodes ... ...", subClusterType), NewBuilder().CreatePDNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", subClusterType), NewBuilder().CreateTiDBNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMWorkerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Pump Nodes ... ...", subClusterType), NewBuilder().CreatePumpNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Drainer Nodes ... ...", subClusterType), NewBuilder().CreateDrainerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
@@ -1103,6 +1126,19 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build())
+
+	return b
+}
+
+func (b *Builder) CreateDMCluster(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsTopoConfigs.General.CIDR
+	clusterInfo.excludedAZ = awsTopoConfigs.General.ExcludedAZ
+	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
+	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 8261, 8262, 8291, 8249, 9090, 3000, 9093, 9094}).Build()).
+		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMWorkerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build())
 
 	return b
 }
@@ -1128,6 +1164,7 @@ func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType 
 
 	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroySecurityGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroyNAT(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying network ... ...", subClusterType), NewBuilder().DestroyNetwork(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying route table ... ...", subClusterType), NewBuilder().DestroyRouteTable(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyVpc(pexecutor, subClusterType).Build())
@@ -1223,6 +1260,14 @@ func (b *Builder) ListVpc(pexecutor *ctxt.Executor, tableVPC *[][]string) *Build
 	b.tasks = append(b.tasks, &ListVpc{
 		pexecutor: pexecutor,
 		tableVPC:  tableVPC,
+	})
+	return b
+}
+
+func (b *Builder) ListAccount(pexecutor *ctxt.Executor, account *string) *Builder {
+	b.tasks = append(b.tasks, &ListAccount{
+		pexecutor: pexecutor,
+		account:   account,
 	})
 	return b
 }
@@ -1483,5 +1528,14 @@ func (b *Builder) DeployWS(pexecutor *ctxt.Executor, subClusterType string, awsW
 func (b *Builder) TakeTimer(timer *awsutils.ExecutionTimer, exePhase string) *Builder {
 	timer.Take(exePhase)
 
+	return b
+}
+
+func (b *Builder) ListVpcPeering(pexecutor *ctxt.Executor, subClusterTypes []string, tableVpcPeeringInfo *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListVpcPeering{
+		pexecutor:           pexecutor,
+		subClusterTypes:     subClusterTypes,
+		tableVpcPeeringInfo: tableVpcPeeringInfo,
+	})
 	return b
 }

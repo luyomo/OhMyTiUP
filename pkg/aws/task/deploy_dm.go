@@ -17,6 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -28,30 +30,27 @@ import (
 	"go.uber.org/zap"
 )
 
-type DeployTiDB struct {
+type DeployDM struct {
 	pexecutor      *ctxt.Executor
 	awsWSConfigs   *spec.AwsWSConfigs
 	subClusterType string
 	clusterInfo    *ClusterInfo
 }
 
-type TplTiupData struct {
-	PD      []string
-	TiDB    []string
-	TiKV    []string
-	TiCDC   []string
-	DM      []string
-	Monitor []string
-	Pump    []string
-	Drainer []string
+type TplTiupDMData struct {
+	DMMaster     []string
+	DMWorker     []string
+	Monitor      []string
+	Grafana      []string
+	AlertManager []string
 }
 
-func (t TplTiupData) String() string {
-	return fmt.Sprintf("PD: %s  |  TiDB: %s  |  TiKV: %s  |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s ", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiKV, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","))
+func (t TplTiupDMData) String() string {
+	return fmt.Sprintf("DM Master: %s  |  DMWorker:%s  | Monitor:%s | AlertManager: %s | Grafana: %s", strings.Join(t.DMMaster, ","), strings.Join(t.DMWorker, ","), strings.Join(t.Monitor, ","), strings.Join(t.Grafana, ","), strings.Join(t.AlertManager, ","))
 }
 
 // Execute implements the Task interface
-func (c *DeployTiDB) Execute(ctx context.Context) error {
+func (c *DeployDM) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
@@ -75,40 +74,29 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	var tplData TplTiupData
+	var tplDMData TplTiupDMData
 	for _, reservation := range reservations.Reservations {
 		for _, instance := range reservation.Instances {
 			for _, tag := range instance.Tags {
-				if tag["Key"] == "Component" && tag["Value"] == "pd" {
-					tplData.PD = append(tplData.PD, instance.PrivateIpAddress)
 
-				}
-				if tag["Key"] == "Component" && tag["Value"] == "tidb" {
-					tplData.TiDB = append(tplData.TiDB, instance.PrivateIpAddress)
-
-				}
-				if tag["Key"] == "Component" && tag["Value"] == "tikv" {
-					tplData.TiKV = append(tplData.TiKV, instance.PrivateIpAddress)
-
-				}
-				if tag["Key"] == "Component" && tag["Value"] == "ticdc" {
-					tplData.TiCDC = append(tplData.TiCDC, instance.PrivateIpAddress)
+				if tag["Key"] == "Component" && tag["Value"] == "dm-master" {
+					tplDMData.DMMaster = append(tplDMData.DMMaster, instance.PrivateIpAddress)
 				}
 
-				if tag["Key"] == "Component" && tag["Value"] == "dm" {
-					tplData.DM = append(tplData.DM, instance.PrivateIpAddress)
-				}
-
-				if tag["Key"] == "Component" && tag["Value"] == "pump" {
-					tplData.Pump = append(tplData.Pump, instance.PrivateIpAddress)
-				}
-
-				if tag["Key"] == "Component" && tag["Value"] == "drainer" {
-					tplData.Drainer = append(tplData.Drainer, instance.PrivateIpAddress)
+				if tag["Key"] == "Component" && tag["Value"] == "dm-worker" {
+					tplDMData.DMWorker = append(tplDMData.DMWorker, instance.PrivateIpAddress)
 				}
 
 				if tag["Key"] == "Component" && tag["Value"] == "workstation" {
-					tplData.Monitor = append(tplData.Monitor, instance.PrivateIpAddress)
+					tplDMData.Grafana = append(tplDMData.Grafana, instance.PrivateIpAddress)
+				}
+
+				if tag["Key"] == "Component" && tag["Value"] == "workstation" {
+					tplDMData.Monitor = append(tplDMData.Monitor, instance.PrivateIpAddress)
+
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "workstation" {
+					tplDMData.AlertManager = append(tplDMData.AlertManager, instance.PrivateIpAddress)
 
 				}
 			}
@@ -120,9 +108,9 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		tplData.Monitor = append(tplData.Monitor, workstation.PrivateIpAddress)
+		tplDMData.Monitor = append(tplDMData.Monitor, workstation.PrivateIpAddress)
 	}
-	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
+	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplDMData.String()))
 
 	// 3. Make all the necessary folders
 	if _, _, err := (*workstation).Execute(ctx, `mkdir -p /opt/tidb/sql`, true); err != nil {
@@ -134,7 +122,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 
 	// 4. Deploy all tidb templates
-	configFiles := []string{"cdc-task.toml", "tidb-cluster.yml"}
+	configFiles := []string{"dm-task.yml", "dm-cluster.yml"}
 	for _, configFile := range configFiles {
 		fdFile, err := os.Create(fmt.Sprintf("/tmp/%s", configFile))
 		if err != nil {
@@ -153,20 +141,11 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if err := tmpl.Execute(fdFile, tplData); err != nil {
+		if err := tmpl.Execute(fdFile, tplDMData); err != nil {
 			return err
 		}
 
 		err = (*workstation).Transfer(ctx, fmt.Sprintf("/tmp/%s", configFile), "/opt/tidb/", false, 0)
-		if err != nil {
-			return err
-		}
-	}
-
-	// 5. Render the ddl templates to tidb/aurora/sql server
-	sqlFiles := []string{"ontime_ms.ddl", "ontime_mysql.ddl", "ontime_tidb.ddl"}
-	for _, sqlFile := range sqlFiles {
-		err = (*workstation).Transfer(ctx, fmt.Sprintf("embed/templates/sql/%s", sqlFile), "/opt/tidb/sql/", false, 0)
 		if err != nil {
 			return err
 		}
@@ -218,6 +197,65 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
+	dmClusterInfo, err := getDMClusterInfo(workstation, ctx, clusterName)
+	if err != nil {
+		return err
+	}
+
+	if dmClusterInfo == nil {
+		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm deploy %s %s %s -y", "aurora2tidbcloudtest01", "v6.1.0", "/opt/tidb/dm-cluster.yml"), false)
+		if err != nil {
+			fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+			return err
+		}
+	}
+
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm start %s", "aurora2tidbcloudtest01"), false)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	if err = (*workstation).Transfer(ctx, "/opt/db-info.yml", "/tmp/db-info.yml", true, 1024); err != nil {
+		return err
+	}
+
+	type SourceData struct {
+		MySQLHost     string `yaml:"Host"`
+		MySQLPort     int    `yaml:"Port"`
+		MySQLUser     string `yaml:"User"`
+		MySQLPassword string `yaml:"Password"`
+
+		SourceName string
+	}
+
+	sourceData := SourceData{}
+
+	yfile, err := ioutil.ReadFile("/tmp/db-info.yml")
+	if err != nil {
+		return err
+	}
+
+	if err = yaml.Unmarshal(yfile, &sourceData); err != nil {
+		return err
+	}
+	sourceData.SourceName = clusterName
+	fmt.Printf("The parameteers are <%#v> \n\n\n\n", sourceData)
+	err = (*workstation).TransferTemplate(ctx, "templates/config/dm-source.yml.tpl", "/tmp/dm-source.yml", "0644", sourceData, true, 0)
+	if err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/dm-source.yml /opt/tidb/", true); err != nil {
+		return err
+	}
+
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s:8261 operate-source create /opt/tidb/dm-source.yml", tplDMData.DMMaster[0]), false)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
 	// stdout, _, err = (*workstation).Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
 	// if err != nil {
 	// 	return err
@@ -228,31 +266,31 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	// 	return err
 	// }
 
-	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
-	if err != nil {
-		if err.Error() == "No RDB Instance found(No matched name)" {
-			return nil
-		}
-		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
-		return err
-	}
+	// dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
+	// if err != nil {
+	// 	if err.Error() == "No RDB Instance found(No matched name)" {
+	// 		return nil
+	// 	}
+	// 	fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
+	// 	return err
+	// }
 
-	deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
+	// deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p %d -U %s -P %s`, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd"), true)
-	if err != nil {
-		return err
-	}
+	// stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p %d -U %s -P %s`, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd"), true)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *DeployTiDB) Rollback(ctx context.Context) error {
+func (c *DeployDM) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *DeployTiDB) String() string {
-	return fmt.Sprintf("Echo: Deploying TiDB")
+func (c *DeployDM) String() string {
+	return fmt.Sprintf("Echo: Deploying DM")
 }

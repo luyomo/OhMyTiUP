@@ -91,8 +91,12 @@ func (m *Manager) TiDB2OraDeploy(
 	}
 
 	// Skip the DM since it's not the part of this structure
-	if base.AwsTopoConfigs.DM.Count > 0 {
-		log.Warnf("DM nodes config will be skipped")
+	if base.AwsTopoConfigs.DMMaster.Count > 0 {
+		log.Warnf("DM Master nodes config will be skipped")
+	}
+
+	if base.AwsTopoConfigs.DMWorker.Count > 0 {
+		log.Warnf("DM Worker nodes config will be skipped")
 	}
 
 	var (

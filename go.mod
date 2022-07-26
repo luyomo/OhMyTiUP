@@ -19,11 +19,12 @@ require (
 	github.com/appleboy/easyssh-proxy v1.3.9
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef
 	github.com/aws/aws-sdk-go v1.42.30 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.16.3 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.16.7 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.15.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.20.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.43.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/rds v1.21.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.9 // indirect
 	github.com/blevesearch/bleve v1.0.14
 	github.com/cavaliercoder/grab v1.0.1-0.20201108051000-98a5bfe305ec
 	github.com/cheggaaa/pb/v3 v3.0.8

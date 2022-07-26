@@ -1,0 +1,36 @@
+workstation:
+  cidr: 172.82.0.0/16
+  instance_type: m5.2xlarge
+  keyname: jay-us-east-01
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem
+  username: admin
+  imageid: ami-07d02ee1eeb0c996c
+  volumeSize: 100
+  #shared: false
+aurora:
+  cidr: 172.84.0.0/16
+  instance_type: db.r5.large
+  db_parameter_family_group: aurora-mysql5.7
+  engine: aurora-mysql
+  engine_version: 5.7.mysql_aurora.2.10.1
+  db_username: admin
+  db_password: 1234Abcd
+  public_accessible_flag: false
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 172.83.0.0/16                           # The cidr for the VPC
+    instance_type: m5.2xlarge                     # Default instance type
+    tidb_version: v6.1.0                          # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+  dm-master:
+    instance_type: c5.2xlarge                     # Instance type for PD component
+    count: 3                                      # Number of PD node to be deployed
+  dm-worker:
+    instance_type: c5.2xlarge                     # Instance type for PD component
+    count: 1                                      # Number of PD node to be deployed

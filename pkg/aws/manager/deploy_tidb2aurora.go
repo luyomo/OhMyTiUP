@@ -230,7 +230,8 @@ func (m *Manager) TiDB2AuroraDeploy(
 				CreatePDNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiDBNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiKVNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
-				CreateDMNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMMasterNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
+				CreateDMWorkerNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiCDCNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
 				DeployTiDB(&sexecutor, "test", base.AwsWSConfigs, &clusterInfo).
 				CreateDBClusterParameterGroup(&sexecutor, "test", &clusterInfo).

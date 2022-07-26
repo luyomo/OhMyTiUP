@@ -146,20 +146,21 @@ type (
 	}
 
 	AwsTopoConfigs struct {
-		General AwsTopoConfigsGeneral `yaml:"general"`
-		PD      AwsNodeModal          `yaml:"pd"`
-		TiDB    AwsNodeModal          `yaml:"tidb"`
-		TiKV    AwsNodeModal          `yaml:"tikv"`
-		DM      AwsNodeModal          `yaml:"dm"`
-		TiCDC   AwsNodeModal          `yaml:"ticdc"`
-		Pump    AwsNodeModal          `yaml:"pump"`
-		Drainer AwsNodeModal          `yaml:"drainer"`
+		General  AwsTopoConfigsGeneral `yaml:"general"`
+		PD       AwsNodeModal          `yaml:"pd"`
+		TiDB     AwsNodeModal          `yaml:"tidb"`
+		TiKV     AwsNodeModal          `yaml:"tikv"`
+		DMMaster AwsNodeModal          `yaml:"dm-master"`
+		DMWorker AwsNodeModal          `yaml:"dm-worker"`
+		TiCDC    AwsNodeModal          `yaml:"ticdc"`
+		Pump     AwsNodeModal          `yaml:"pump"`
+		Drainer  AwsNodeModal          `yaml:"drainer"`
 	}
 
 	AwsWSConfigs struct {
-		ImageId          string `yaml:"imageid,omitempty"  default:"ami-0ac97798ccf296e02"`
-		CIDR             string `yaml:"cidr" default:"172.82.0.0/16"`
-		InstanceType     string `yaml:"instance_type" default:"m5.2xlarge"`
+		ImageId          string `yaml:"imageid,omitempty"`
+		CIDR             string `yaml:"cidr"`
+		InstanceType     string `yaml:"instance_type"`
 		KeyName          string `yaml:"keyname" default:"jay.pingcap"`
 		KeyFile          string `yaml:"keyfile" default:"/home/pi/.ssh/jaypingcap.pem"`
 		UserName         string `yaml:"username" default:"admin"`

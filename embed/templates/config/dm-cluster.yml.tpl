@@ -18,9 +18,9 @@ server_configs:
     log-level: info
 
 master_servers:
-   {{- range .DM }}
-  - host: {{. }}
-    name: master1
+   {{- range $idx, $node := .DMMaster }}
+  - host: {{ $node }}
+    name: master{{$idx}}
     ssh_port: 22
     port: 8261
     config:
@@ -28,7 +28,7 @@ master_servers:
    {{- end }}
 
 worker_servers:
-   {{- range .DM }}
+   {{- range .DMWorker }}
   - host: {{. }}
     ssh_port: 22
     port: 8262

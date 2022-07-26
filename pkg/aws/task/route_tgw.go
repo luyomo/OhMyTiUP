@@ -51,7 +51,7 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 		return err
 	}
 
-	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName)
+	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
 	if err != nil {
 		return err
 	}
