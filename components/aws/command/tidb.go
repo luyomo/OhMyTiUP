@@ -39,6 +39,7 @@ func newTiDBCmd() *cobra.Command {
 		newListTiDBCmd(),
 		newDestroyTiDBCmd(),
 		newTiDBScale(),
+		newTiDBLatencyMeasurementCmd(),
 	)
 	return cmd
 }
@@ -175,6 +176,101 @@ func newTiDBScale() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
+
+	return cmd
+}
+
+// -- latency measurement
+func newTiDBLatencyMeasurementCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "measure-latency <sub_command>",
+		Short: "Run measure latency against tidb",
+	}
+
+	cmd.AddCommand(
+		newTiDBLatencyMeasurementPrepareCmd(),
+		newTiDBLatencyMeasurementRunCmd(),
+		newTiDBLatencyMeasurementCleanupCmd(),
+	)
+	return cmd
+}
+
+func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "prepare <cluster-name>",
+		Short: "Prepare resource for test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBMeasureLatencyPrepareCluster(clusterName, gOpt)
+		},
+	}
+
+	return cmd
+}
+
+func newTiDBLatencyMeasurementRunCmd() *cobra.Command {
+
+	opt := operator.LatencyWhenBatchOptions{
+		BatchSize: 10000,
+		BatchLoop: 50,
+
+		TransInterval: 2,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "run <cluster-name>",
+		Short: "Run the query for latency performance test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBMeasureLatencyRunCluster(clusterName, opt, gOpt)
+		},
+	}
+
+	cmd.Flags().IntVar(&opt.BatchSize, "batch-size", 10000, "The batch size to insert")
+	cmd.Flags().IntVar(&opt.BatchLoop, "batch-loop", 100, "The loop to insert ")
+	cmd.Flags().IntVar(&opt.TransInterval, "trans-interval", 2, "The interval to insert the transaction")
+
+	return cmd
+}
+
+func newTiDBLatencyMeasurementCleanupCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "cleanup <cluster-name>",
+		Short: "Cleanup resource for test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBMeasureLatencyCleanupCluster(clusterName, gOpt)
+		},
+	}
 
 	return cmd
 }

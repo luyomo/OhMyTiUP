@@ -144,3 +144,10 @@ func FilterInstance(instances []spec.Instance, nodes set.StringSet) (res []spec.
 
 	return
 }
+
+type LatencyWhenBatchOptions struct {
+	BatchSize int
+	BatchLoop int
+
+	TransInterval int
+}

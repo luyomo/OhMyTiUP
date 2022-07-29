@@ -17,6 +17,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -509,4 +511,137 @@ func (m *Manager) TiDBScale(
 
 	log.Infof("Cluster `%s` scaled successfully ", name)
 	return nil
+}
+
+// ------------- Latency measurement
+func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, gOpt operator.Options) error {
+	clusterType := "ohmytiup-tidb"
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
+
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf(" ----- ----- Running in the prepare phase \n")
+	fmt.Printf("01. Adjust the apply thread pool \n")
+	fmt.Printf("02. Create database\n")
+	// 02. Create the postgres objects(Database and tables)
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "drop database if exists latencytest"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "create database latencytest"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("03. Create ontime table and test01\n")
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "latencytest", "CREATE TABLE test01 (col01 bigint primary key auto_random, col02 int(11) NOT NULL, col03 varchar(128) DEFAULT NULL)"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_from_file %s '%s'", "latencytest", "/opt/tidb/sql/ontime_tidb.ddl"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("04. Create ontime backup table\n")
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "latencytest", "create table ontime01 like ontime;"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("05. Generate data in the ontime table\n")
+	if _, _, err := (*workstation).Execute(ctx, "apt-get install -y zip", true); err != nil {
+		return err
+	}
+
+	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh", "ontime_tp_insert.sh"} {
+		err = (*workstation).TransferTemplate(ctx, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/tmp/%s", file), "0755", []string{}, true, 0)
+		if err != nil {
+			return err
+		}
+
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("mv /tmp/%s /opt/scripts/", file), true); err != nil {
+			return err
+		}
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s 2022 01 2022 01 1>/dev/null", "latencytest", "ontime01"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	fmt.Printf(" ----- ----- Running in the execute phase \n")
+	fmt.Printf("Parameter 01: Loop times\n")
+	fmt.Printf("Parameter 02: batch size\n")
+	fmt.Printf("Parameter 03: loop size\n")
+
+	fmt.Printf("Two thread to check the data insert\n")
+
+	clusterType := "ohmytiup-tidb"
+	ctx, cancel := context.WithCancel(context.Background())
+	// ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	var metricsOfLatencyWhenBatch task.MetricsOfLatencyWhenBatch
+	t1 := task.NewBuilder().RunOntimeBatchInsert(&sexecutor, &metricsOfLatencyWhenBatch, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+	envInitTasks = append(envInitTasks, t1)
+
+	t2 := task.NewBuilder().RunOntimeTpInsert(&sexecutor, &metricsOfLatencyWhenBatch, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+	envInitTasks = append(envInitTasks, t2)
+
+	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
+		if errorx.Cast(err) != nil {
+			return err
+		}
+		return err
+	}
+
+	var tableResult [][]string
+	tableResult = append(tableResult, []string{"Batch Execution Time(mill)", "Batch Size", "Batch Loop", "Batch rows", "Transaction Rows", "Transaction Execution Time(Mill)", "Transaction Average execution(Mill)"})
+	tableResult = append(tableResult, []string{strconv.FormatInt(metricsOfLatencyWhenBatch.BatchExecutionTime, 10),
+		strconv.Itoa(metricsOfLatencyWhenBatch.BatchSize),
+		strconv.Itoa(metricsOfLatencyWhenBatch.Loop),
+		strconv.FormatInt(metricsOfLatencyWhenBatch.BatchTotalRows, 10),
+		strconv.FormatInt(metricsOfLatencyWhenBatch.TransRow, 10),
+		strconv.FormatInt(metricsOfLatencyWhenBatch.TotalExecutionTime, 10),
+		strconv.FormatInt(metricsOfLatencyWhenBatch.AverageExecutionTime, 10)})
+
+	tui.PrintTable(tableResult, true)
+
+	return nil
+
+}
+
+func (m *Manager) TiDBMeasureLatencyCleanupCluster(clusterName string, gOpt operator.Options) error {
+	fmt.Printf("Running in the clean phase ")
+	fmt.Printf("Remove the database")
+	return nil
+
 }

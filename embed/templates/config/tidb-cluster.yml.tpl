@@ -8,8 +8,9 @@ server_configs:
   cdc:
     per-table-memory-quota: 20971520
 {{ end  }}
-{{ if gt (len .Pump) 0 }}
   tidb:
+    performance.txn-total-size-limit: 107374182400
+{{ if gt (len .Pump) 0 }}
     binlog.enable: true
     binlog.ignore-error: false
 {{ end  }}

@@ -1539,3 +1539,24 @@ func (b *Builder) ListVpcPeering(pexecutor *ctxt.Executor, subClusterTypes []str
 	})
 	return b
 }
+
+func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, metricsOfLatencyWhenBatch *MetricsOfLatencyWhenBatch, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, cancelCtx *context.CancelFunc) *Builder {
+	b.tasks = append(b.tasks, &RunOntimeBatchInsert{
+		pexecutor:                 pexecutor,
+		gOpt:                      gOpt,
+		opt:                       opt,
+		cancelCtx:                 cancelCtx,
+		metricsOfLatencyWhenBatch: metricsOfLatencyWhenBatch,
+	})
+	return b
+}
+
+func (b *Builder) RunOntimeTpInsert(pexecutor *ctxt.Executor, metricsOfLatencyWhenBatch *MetricsOfLatencyWhenBatch, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options) *Builder {
+	b.tasks = append(b.tasks, &RunOntimeTpInsert{
+		pexecutor:                 pexecutor,
+		gOpt:                      gOpt,
+		opt:                       opt,
+		metricsOfLatencyWhenBatch: metricsOfLatencyWhenBatch,
+	})
+	return b
+}
