@@ -35,19 +35,27 @@ type DeployTiDB struct {
 	clusterInfo    *ClusterInfo
 }
 
+type TplTiKVData struct {
+	IPAddress string
+	Labels    []map[string]string
+}
+
 type TplTiupData struct {
-	PD      []string
-	TiDB    []string
-	TiKV    []string
+	PD   []string
+	TiDB []string
+	// TiKV    []string
+	TiKV    []TplTiKVData
 	TiCDC   []string
 	DM      []string
 	Monitor []string
 	Pump    []string
 	Drainer []string
+
+	Labels []string
 }
 
 func (t TplTiupData) String() string {
-	return fmt.Sprintf("PD: %s  |  TiDB: %s  |  TiKV: %s  |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s ", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiKV, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","))
+	return fmt.Sprintf("PD: %s  |  TiDB: %   |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s ", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","))
 }
 
 // Execute implements the Task interface
@@ -81,15 +89,35 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 			for _, tag := range instance.Tags {
 				if tag["Key"] == "Component" && tag["Value"] == "pd" {
 					tplData.PD = append(tplData.PD, instance.PrivateIpAddress)
-
 				}
 				if tag["Key"] == "Component" && tag["Value"] == "tidb" {
 					tplData.TiDB = append(tplData.TiDB, instance.PrivateIpAddress)
-
 				}
 				if tag["Key"] == "Component" && tag["Value"] == "tikv" {
-					tplData.TiKV = append(tplData.TiKV, instance.PrivateIpAddress)
+					// tplData.TiKV = append(tplData.TiKV, instance.PrivateIpAddress)
 
+					tplTiKVData := TplTiKVData{IPAddress: instance.PrivateIpAddress}
+
+					for _, tag := range instance.Tags {
+
+						if strings.Contains(tag["Key"], "label:") {
+							fmt.Printf("The key is <%s> value is <%s> \n\n\n", tag["Key"], tag["Value"])
+							tagKey := strings.Replace(tag["Key"], "label:", "", 1)
+							tplTiKVData.Labels = append(tplTiKVData.Labels, map[string]string{tagKey: tag["Value"]})
+
+							existsInArray := false
+							for _, element := range tplData.Labels {
+								if element == tagKey {
+									existsInArray = true
+								}
+							}
+							if existsInArray == false {
+								tplData.Labels = append(tplData.Labels, tagKey)
+							}
+						}
+					}
+					tplData.TiKV = append(tplData.TiKV, tplTiKVData)
+					fmt.Printf("The tikv config is <%#v> \n\n\n", tplData.TiKV)
 				}
 				if tag["Key"] == "Component" && tag["Value"] == "ticdc" {
 					tplData.TiCDC = append(tplData.TiCDC, instance.PrivateIpAddress)
@@ -133,6 +161,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
+	fmt.Printf("Reaching here \n\n\n")
 	// 4. Deploy all tidb templates
 	configFiles := []string{"cdc-task.toml", "tidb-cluster.yml"}
 	for _, configFile := range configFiles {

@@ -553,8 +553,20 @@ func (b *Builder) CreateTiDBNodes(pexecutor *ctxt.Executor, subClusterType strin
 	return b
 }
 
+// func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+// 	b.tasks = append(b.tasks, &CreateEC2Nodes{
+// 		pexecutor:         pexecutor,
+// 		awsTopoConfigs:    &awsTopoConfigs.TiKV,
+// 		awsGeneralConfigs: &awsTopoConfigs.General,
+// 		subClusterType:    subClusterType,
+// 		clusterInfo:       clusterInfo,
+// 		componentName:     "tikv",
+// 	})
+// 	return b
+// }
+
 func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateEC2Nodes{
+	b.tasks = append(b.tasks, &CreateTiKVNodes{
 		pexecutor:         pexecutor,
 		awsTopoConfigs:    &awsTopoConfigs.TiKV,
 		awsGeneralConfigs: &awsTopoConfigs.General,

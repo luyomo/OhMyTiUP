@@ -47,6 +47,7 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 	tidbClusterInfo, err := getTiDBClusterInfo(workstation, ctx, clusterName)
 	if err != nil {
 		return err
+
 	}
 
 	// 2. Get all the nodes from tag definition
@@ -114,7 +115,9 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 				}
 				if tag["Key"] == "Component" && tag["Value"] == "tikv" {
 					if !tikvMap[instance.PrivateIpAddress] {
-						tplData.TiKV = append(tplData.TiKV, instance.PrivateIpAddress)
+						// tplData.TiKV = append(tplData.TiKV, instance.PrivateIpAddress)
+						tplTiKVData := TplTiKVData{IPAddress: instance.PrivateIpAddress}
+						tplData.TiKV = append(tplData.TiKV, tplTiKVData)
 					} else {
 						if activeNodesMap["tikv"] == nil {
 							activeNodesMap["tikv"] = make(map[string][][]string)
@@ -233,7 +236,8 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 		buffer.WriteString("tikv_servers:\n")
 		for _, ip := range tplData.TiKV {
 			buffer.WriteString("  - host: ")
-			buffer.WriteString(ip)
+			// buffer.WriteString(ip)
+			buffer.WriteString(ip.IPAddress)
 			buffer.WriteString("\n")
 		}
 	}

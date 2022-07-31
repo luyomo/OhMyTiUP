@@ -16,13 +16,19 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
 	"sort"
+	"strings"
 	"text/template"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
@@ -279,9 +285,9 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 	}
 
 	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
 	// 4. Deploy docker-compose file
 	type TiDBCONN struct {
@@ -492,4 +498,413 @@ func (c *CreateEC2Nodes) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *CreateEC2Nodes) String() string {
 	return fmt.Sprintf(fmt.Sprintf("Echo: Deploying %s Nodes ", c.componentName))
+}
+
+// ---------------------------------TiKV
+/*******************************************************************************/
+type CreateTiKVNodes struct {
+	pexecutor         *ctxt.Executor
+	awsTopoConfigs    *spec.AwsTiKVModal
+	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
+	subClusterType    string
+	clusterInfo       *ClusterInfo
+	componentName     string
+}
+
+//
+// batch
+//   -> zone
+// online
+//   -> zone
+// Loop the topo structure, and find out all the instance.
+//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host01
+//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host02
+//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host03
+//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host04
+//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host05
+//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host06
+// Execute implements the Task interface
+func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	//// fmt.Printf("The configuration is <%#v> \n\n\n\n\n\n", c.awsTopoConfigs)
+
+	// Scan all the labels and convert to instance configuration
+	ec2NodeConfigs, err := ScanLabels(&(*c.awsTopoConfigs).Labels, &(*c.awsTopoConfigs).ModalTypes)
+	if err != nil {
+		return err
+	}
+
+	//// fmt.Printf("------------------------------------ \n")
+	//// fmt.Printf("The length is <%d> \n", len(*ec2NodeConfigs))
+
+	// Define the function to remove or reduce the nodes from label definition if it has been created in the AWS.
+	funFilter := func(tags []types.Tag) error {
+		// fmt.Printf("The nodes here are <%#v>\n\n\n", *ec2NodeConfigs)
+
+		if ec2NodeConfigs != nil {
+			for idx, nodeLabel := range *ec2NodeConfigs {
+				for _, label := range nodeLabel.Labels {
+					var arrayLabel []string
+					for labelKey, labelValue := range label {
+						arrayLabel = append(arrayLabel, labelKey+"="+labelValue)
+						// fmt.Printf("The node label is <%s> and <%s> \n\n\n", labelKey, labelValue)
+					}
+					strLabel := strings.Join(arrayLabel, ",")
+					// fmt.Printf("The label is <%s> \n\n\n", strings.Join(arrayLabel, ","))
+
+					var arrayNodeLabel []string
+					for _, tag := range tags {
+						if strings.Contains(*(tag.Key), "label:") {
+							arrayNodeLabel = append(arrayNodeLabel, *(tag.Key)+"="+*(tag.Value))
+						}
+						// fmt.Printf("The tags from DB is <%s> : %s \n\n\n", *(tag.Key), *(tag.Value))
+					}
+
+					if strings.Join(arrayNodeLabel, ",") == strLabel {
+						// fmt.Printf("Reduce one node to sho\n\n\nw")
+						// fmt.Printf("The label is <%s> \n\n\n", strings.Join(arrayNodeLabel, ","))
+
+						if (*ec2NodeConfigs)[idx].Count > 0 {
+							((*ec2NodeConfigs)[idx]).Count = ((*ec2NodeConfigs)[idx]).Count - 1
+						}
+						return nil
+					}
+
+				}
+			}
+		}
+
+		for _, tag := range tags {
+			if strings.Contains(*(tag.Key), "label:") {
+				return nil
+			}
+		}
+		if (*c.awsTopoConfigs).Count > 0 {
+			(*c.awsTopoConfigs).Count = (*c.awsTopoConfigs).Count - 1
+		}
+
+		return nil
+	}
+
+	// Run filtering. If the instances have been created in the AWS, reduce the number from the definition
+	FetchTiKVInstances(ctx, clusterName, clusterType, c.subClusterType, c.componentName, funFilter)
+
+	// fmt.Printf("The data is <%#v> \n\n\n", *ec2NodeConfigs)
+
+	// Define the tasks to generate the instance
+	var generateInstancesTask []Task
+
+	if ec2NodeConfigs != nil {
+		for _, ec2NodeConfig := range *ec2NodeConfigs {
+			for idx := 1; idx <= ec2NodeConfig.Count; idx++ {
+				makeEc2Instance := &MakeEC2Instance{
+					ec2NodeConfig:     ec2NodeConfig,
+					clusterName:       clusterName,
+					clusterType:       clusterType,
+					subClusterType:    c.subClusterType,
+					componentName:     c.componentName,
+					clusterInfo:       c.clusterInfo,
+					awsGeneralConfigs: c.awsGeneralConfigs,
+					subnetID:          c.clusterInfo.privateSubnets[idx%len(c.clusterInfo.privateSubnets)], // Todo. How to decide the proper value
+				}
+				generateInstancesTask = append(generateInstancesTask, makeEc2Instance)
+			}
+			// fmt.Printf("The config is <%#v> \n", ec2NodeConfig)
+
+		}
+	}
+
+	for idx := 0; idx < (*c.awsTopoConfigs).Count; idx++ {
+		makeEc2Instance := &MakeEC2Instance{
+			clusterName:       clusterName,
+			clusterType:       clusterType,
+			subClusterType:    c.subClusterType,
+			componentName:     c.componentName,
+			clusterInfo:       c.clusterInfo,
+			awsGeneralConfigs: c.awsGeneralConfigs,
+			subnetID:          c.clusterInfo.privateSubnets[idx%len(c.clusterInfo.privateSubnets)], // Todo. How to decide the proper value
+		}
+		generateInstancesTask = append(generateInstancesTask, makeEc2Instance)
+	}
+
+	parallelExe := Parallel{ignoreError: false, inner: generateInstancesTask}
+	if err := parallelExe.Execute(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *CreateTiKVNodes) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *CreateTiKVNodes) String() string {
+	return fmt.Sprintf(fmt.Sprintf("Echo: Deploying %s Nodes ", c.componentName))
+}
+
+// InstanceType:"c5.2xlarge", Count:3, VolumeSize:300, VolumeType:"gp3", Iops:3000
+type EC2NodeConfig struct {
+	InstanceType string
+	Count        int
+	VolumeSize   int
+	VolumeType   string
+	Iops         int
+
+	Labels []map[string]string
+}
+
+func ScanLabels(tikvLabels *[]spec.AwsTiKVLabel, tikvMachineTypes *[]spec.AwsTiKVMachineType) (*[]EC2NodeConfig, error) {
+	if len(*tikvLabels) == 0 {
+		return nil, nil
+	}
+
+	var ec2NodeConfigs []EC2NodeConfig
+
+	for _, tikvLabel := range *tikvLabels {
+		for _, tikvValue := range tikvLabel.Values {
+
+			retEc2NodeConfig, err := ScanLabels(&tikvValue.Labels, tikvMachineTypes)
+			if err != nil {
+				return nil, err
+			}
+			if tikvValue.MachineType != "" {
+				for _, machineType := range *tikvMachineTypes {
+					if tikvValue.MachineType == machineType.Name {
+						var ec2NodeConfig EC2NodeConfig
+						ec2NodeConfig.InstanceType = machineType.ModalValue.InstanceType
+						ec2NodeConfig.Count = machineType.ModalValue.Count
+						ec2NodeConfig.VolumeSize = machineType.ModalValue.VolumeSize
+						ec2NodeConfig.VolumeType = machineType.ModalValue.VolumeType
+						ec2NodeConfig.Iops = machineType.ModalValue.Iops
+
+						ec2NodeConfig.Labels = append(ec2NodeConfig.Labels, map[string]string{"label:" + tikvLabel.Name: tikvValue.Value})
+						ec2NodeConfigs = append(ec2NodeConfigs, ec2NodeConfig)
+					}
+				}
+			} else {
+				for _, ec2NodeConfig := range *retEc2NodeConfig {
+					ec2NodeConfig.Labels = append(ec2NodeConfig.Labels, map[string]string{"label:" + tikvLabel.Name: tikvValue.Value})
+					ec2NodeConfigs = append(ec2NodeConfigs, ec2NodeConfig)
+					fmt.Printf("The data is <%#v> \n", ec2NodeConfig)
+				}
+			}
+
+		}
+	}
+	fmt.Printf("The length is <%d> \n", len(ec2NodeConfigs))
+	fmt.Printf("The data is <%#v> \n", ec2NodeConfigs)
+	return &ec2NodeConfigs, nil
+}
+
+// *********** The package installation for parallel
+type MakeEC2Instance struct {
+	ec2NodeConfig  EC2NodeConfig
+	clusterName    string
+	clusterType    string
+	subClusterType string
+	componentName  string
+
+	clusterInfo *ClusterInfo
+
+	subnetID string
+
+	// awsTopoConfigs    *spec.AwsNodeModal
+	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
+}
+
+func (c *MakeEC2Instance) Execute(ctx context.Context) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	client := ec2.NewFromConfig(cfg)
+
+	tags := []types.Tag{
+		{
+			Key:   aws.String("Cluster"),
+			Value: aws.String(c.clusterType),
+		},
+		{
+			Key:   aws.String("Type"),
+			Value: aws.String(c.subClusterType), // tidb/oracle/workstation
+		},
+		{
+			Key:   aws.String("Component"),
+			Value: aws.String(c.componentName),
+		},
+		{
+			Key:   aws.String("Name"),
+			Value: aws.String(c.clusterName),
+		},
+	}
+
+	for _, nodeLabel := range c.ec2NodeConfig.Labels {
+		for labelKey, labelValue := range nodeLabel {
+			tags = append(tags, types.Tag{
+				Key:   aws.String(labelKey),
+				Value: aws.String(labelValue),
+			})
+		}
+	}
+
+	tagSpecifications := []types.TagSpecification{
+		{
+			ResourceType: "instance",
+			Tags:         tags,
+		},
+	}
+
+	//command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --ebs-optimized --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=%s}]\"", c.awsGeneralConfigs.ImageId, c.awsTopoConfigs.InstanceType, c.awsGeneralConfigs.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType, c.componentName)
+	//deviceStmt = fmt.Sprintf(" --block-device-mappings \"DeviceName=/dev/xvda,Ebs={VolumeSize=%d,VolumeType=%s,Iops=%d}\"", c.awsTopoConfigs.VolumeSize, c.awsTopoConfigs.VolumeType, c.awsTopoConfigs.Iops)
+
+	runInstancesInput := &ec2.RunInstancesInput{
+
+		ImageId:           aws.String(c.awsGeneralConfigs.ImageId),
+		InstanceType:      types.InstanceType(c.ec2NodeConfig.InstanceType),
+		TagSpecifications: tagSpecifications,
+		KeyName:           aws.String(c.awsGeneralConfigs.KeyName),
+		SecurityGroupIds:  []string{c.clusterInfo.privateSecurityGroupId},
+		MaxCount:          aws.Int32(1),
+		MinCount:          aws.Int32(1),
+		SubnetId:          aws.String(c.subnetID),
+	}
+
+	if c.ec2NodeConfig.VolumeType != "" {
+		blockDeviceMapping := types.BlockDeviceMapping{
+			DeviceName: aws.String("/dev/xvda"),
+			Ebs: &types.EbsBlockDevice{
+				DeleteOnTermination: aws.Bool(true),
+				Iops:                aws.Int32(int32(c.ec2NodeConfig.Iops)),
+				VolumeSize:          aws.Int32(int32(c.ec2NodeConfig.VolumeSize)),
+				VolumeType:          types.VolumeType(c.ec2NodeConfig.VolumeType),
+			},
+		}
+
+		runInstancesInput.EbsOptimized = aws.Bool(true)
+		runInstancesInput.BlockDeviceMappings = []types.BlockDeviceMapping{blockDeviceMapping}
+	}
+
+	retInstance, err := client.RunInstances(context.TODO(), runInstancesInput)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The instance state is <%#v> \n\n\n\n\n\n", retInstance.Instances[0].State.Name)
+	fmt.Printf("The instance state is <%#v> \n\n\n\n\n\n", *(retInstance.Instances[0].InstanceId))
+
+	isRunning, err := WaitInstanceRunnung(ctx, *(retInstance.Instances[0].InstanceId))
+	if err != nil {
+		return err
+	}
+
+	if isRunning == false {
+		return errors.New("Failed to wait the instance to become running state")
+	} else {
+		fmt.Printf("Succeeded to become the running state \n\n\n\n\n\n")
+	}
+
+	return nil
+}
+func (c *MakeEC2Instance) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+func (c *MakeEC2Instance) String() string {
+	return fmt.Sprintf("Echo: Make one EC2 Instance")
+}
+
+func FetchTiKVInstances(ctx context.Context, clusterName, clusterType, subClusterType, componentName string, funcTags func([]types.Tag) error) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	client := ec2.NewFromConfig(cfg)
+
+	var filters []types.Filter
+	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Name"),
+		Values: []string{clusterName},
+	})
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Cluster"),
+		Values: []string{clusterType},
+	})
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Component"),
+		Values: []string{componentName},
+	})
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("tag:Type"),
+		Values: []string{subClusterType},
+	})
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("instance-state-name"),
+		Values: []string{"running", "pending", "stopping", "stopped"},
+	})
+
+	input := &ec2.DescribeInstancesInput{Filters: filters}
+
+	result, err := client.DescribeInstances(context.TODO(), input)
+	if err != nil {
+		return err
+	}
+
+	for _, reservation := range result.Reservations {
+		for _, instance := range reservation.Instances {
+			fmt.Printf("The instance id is <%s>, state: <%s>, tags: <%#v> \n\n\n", *instance.InstanceId, instance.State.Name, instance.Tags)
+			funcTags(instance.Tags)
+		}
+
+	}
+
+	return nil
+}
+
+func WaitInstanceRunnung(ctx context.Context, instanceId string) (bool, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return false, err
+	}
+
+	client := ec2.NewFromConfig(cfg)
+
+	var filters []types.Filter
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("instance-id"),
+		Values: []string{instanceId},
+	})
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("instance-state-name"),
+		Values: []string{"running"},
+	})
+
+	input := &ec2.DescribeInstancesInput{Filters: filters}
+
+	for idx := 0; idx < 50; idx++ {
+		time.Sleep(3 * time.Second)
+		result, err := client.DescribeInstances(context.TODO(), input)
+		if err != nil {
+			return false, err
+		}
+
+		// fmt.Printf("Waiting for the instance to become running \n\n")
+		// fmt.Printf("The node info is <%#v> \n\n\n", result)
+		if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

@@ -141,6 +141,34 @@ type (
 		Iops         int    `yaml:"iops", default:500`
 	}
 
+	// TiKV nodes definition
+	AwsTiKVMachineType struct {
+		Name       string       `yaml:"name"`
+		ModalValue AwsNodeModal `yaml:"modal_value"`
+	}
+
+	AwsTiKVLabelMachineType struct {
+		Value       string         `yaml:"value"`
+		MachineType string         `yaml:"machine_type,omitempty"`
+		Labels      []AwsTiKVLabel `yaml:"labels,omitempty"`
+	}
+
+	AwsTiKVLabel struct {
+		Name   string                    `yaml:"name"`
+		Values []AwsTiKVLabelMachineType `yaml:"values"`
+	}
+
+	AwsTiKVModal struct {
+		InstanceType string         `yaml:"instance_type"`
+		Count        int            `yaml:"count"`
+		VolumeSize   int            `yaml:"volumeSize,omitempty"`
+		VolumeType   string         `yaml:"volumeType",omitempty`
+		Iops         int            `yaml:"iops", default:500`
+		Labels       []AwsTiKVLabel `yaml:"labels,omitempty"`
+
+		ModalTypes []AwsTiKVMachineType `yaml:"machine_types,omitempty"`
+	}
+
 	AuroraConfig struct {
 		Name string `yaml:"name"`
 	}
@@ -149,7 +177,7 @@ type (
 		General  AwsTopoConfigsGeneral `yaml:"general"`
 		PD       AwsNodeModal          `yaml:"pd"`
 		TiDB     AwsNodeModal          `yaml:"tidb"`
-		TiKV     AwsNodeModal          `yaml:"tikv"`
+		TiKV     AwsTiKVModal          `yaml:"tikv"`
 		DMMaster AwsNodeModal          `yaml:"dm-master"`
 		DMWorker AwsNodeModal          `yaml:"dm-worker"`
 		TiCDC    AwsNodeModal          `yaml:"ticdc"`
