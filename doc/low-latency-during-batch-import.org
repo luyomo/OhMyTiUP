@@ -190,6 +190,37 @@ No slow queries
    [[./png/low-insert-latency-when-data-import.graph.png]]
 
 
+* New test
+There are 5 test for each scenario
+  + sysbench only
+  + sysbench + batch (50,000)
+  + sysbench + batch (25,000)
+  + sysbench + batch (10,000)
+  + sysbench + batch ( 5,000)
+** 3 TiKV without placement rule
+  [[./png/latencytest/3kv.100s.01.png]]
+  [[./png/latencytest/3kv.100s.02.png]]
+  [[./png/latencytest/3kv.300.01.png]]
+  [[./png/latencytest/3kv.60s.png]]
+** 6 TiKV without placement rule
+  [[./png/latencytest/6kv.60s.noplacementrule.01.png]]
+  [[./png/latencytest/6kv.60s.noplacementrule.02.png]]
+  [[./png/latencytest/6kv.200s.noplacementrule.01.png]]
+  [[./png/latencytest/6kv.200s.noplacementrule.02.png]]
+** 6 TiKV with placement rule
+*** 60 seconds
+  [[./png/latencytest/6kv.60s.placementrule.01.png]]
+  [[./png/latencytest/6kv.60s.placementrule.02.png]]
+  [[./png/latencytest/6kv.60s.placementrule.02.png]]
+*** 300 seconds
+  [[./png/latencytest/6kv.300s.placementrule.01.png]]
+  [[./png/latencytest/6kv.300s.placementrule.02.png]]
+  [[./png/latencytest/6kv.300s.placementrule.03.png]]
+*** 600 seconds
+  [[./png/latencytest/6kv.600s.placmentrule.01.png]]
+  [[./png/latencytest/6kv.600s.placmentrule.02.png]]
+  [[./png/latencytest/6kv.600s.placmentrule.03.png]]
 
 
 
+                        
