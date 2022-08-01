@@ -336,42 +336,37 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 	}
 
 	command := fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create user if not exists %s identified by \"%s\"'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBUser, tidbConn.TiDBPass)
-	stdout, _, err := (*workstation).Execute(ctx, command, true)
-	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
+	if _, _, err := (*workstation).Execute(ctx, command, true); err != nil {
+		// fmt.Printf("The command is <%s> \n\n\n", command)
+		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBName)
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
-	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
+	if _, _, err = (*workstation).Execute(ctx, command, true); err != nil {
+		// fmt.Printf("The command is <%s> \n\n\n", command)
+		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'grant all on %s.* to %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBName, tidbConn.TiDBUser)
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
-	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
+	if _, _, err = (*workstation).Execute(ctx, command, true); err != nil {
+		// fmt.Printf("The command is <%s> \n\n\n", command)
+		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", "pdns")
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
-	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
+	if _, _, err = (*workstation).Execute(ctx, command, true); err != nil {
+		// fmt.Printf("The command is <%s> \n\n\n", command)
+		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'grant all on %s.* to %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", "pdns", tidbConn.TiDBUser)
-	stdout, _, err = (*workstation).Execute(ctx, command, true)
-	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
+	if _, _, err = (*workstation).Execute(ctx, command, true); err != nil {
+		// fmt.Printf("The command is <%s> \n\n\n", command)
+		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
@@ -528,20 +523,13 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	//// fmt.Printf("The configuration is <%#v> \n\n\n\n\n\n", c.awsTopoConfigs)
-
-	// Scan all the labels and convert to instance configuration
 	ec2NodeConfigs, err := ScanLabels(&(*c.awsTopoConfigs).Labels, &(*c.awsTopoConfigs).ModalTypes)
 	if err != nil {
 		return err
 	}
 
-	//// fmt.Printf("------------------------------------ \n")
-	//// fmt.Printf("The length is <%d> \n", len(*ec2NodeConfigs))
-
 	// Define the function to remove or reduce the nodes from label definition if it has been created in the AWS.
 	funFilter := func(tags []types.Tag) error {
-		// fmt.Printf("The nodes here are <%#v>\n\n\n", *ec2NodeConfigs)
 
 		if ec2NodeConfigs != nil {
 			for idx, nodeLabel := range *ec2NodeConfigs {
@@ -549,23 +537,17 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 					var arrayLabel []string
 					for labelKey, labelValue := range label {
 						arrayLabel = append(arrayLabel, labelKey+"="+labelValue)
-						// fmt.Printf("The node label is <%s> and <%s> \n\n\n", labelKey, labelValue)
 					}
 					strLabel := strings.Join(arrayLabel, ",")
-					// fmt.Printf("The label is <%s> \n\n\n", strings.Join(arrayLabel, ","))
 
 					var arrayNodeLabel []string
 					for _, tag := range tags {
 						if strings.Contains(*(tag.Key), "label:") {
 							arrayNodeLabel = append(arrayNodeLabel, *(tag.Key)+"="+*(tag.Value))
 						}
-						// fmt.Printf("The tags from DB is <%s> : %s \n\n\n", *(tag.Key), *(tag.Value))
 					}
 
 					if strings.Join(arrayNodeLabel, ",") == strLabel {
-						// fmt.Printf("Reduce one node to sho\n\n\nw")
-						// fmt.Printf("The label is <%s> \n\n\n", strings.Join(arrayNodeLabel, ","))
-
 						if (*ec2NodeConfigs)[idx].Count > 0 {
 							((*ec2NodeConfigs)[idx]).Count = ((*ec2NodeConfigs)[idx]).Count - 1
 						}
@@ -690,14 +672,12 @@ func ScanLabels(tikvLabels *[]spec.AwsTiKVLabel, tikvMachineTypes *[]spec.AwsTiK
 				for _, ec2NodeConfig := range *retEc2NodeConfig {
 					ec2NodeConfig.Labels = append(ec2NodeConfig.Labels, map[string]string{"label:" + tikvLabel.Name: tikvValue.Value})
 					ec2NodeConfigs = append(ec2NodeConfigs, ec2NodeConfig)
-					fmt.Printf("The data is <%#v> \n", ec2NodeConfig)
 				}
 			}
 
 		}
 	}
-	fmt.Printf("The length is <%d> \n", len(ec2NodeConfigs))
-	fmt.Printf("The data is <%#v> \n", ec2NodeConfigs)
+
 	return &ec2NodeConfigs, nil
 }
 
@@ -794,8 +774,8 @@ func (c *MakeEC2Instance) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The instance state is <%#v> \n\n\n\n\n\n", retInstance.Instances[0].State.Name)
-	fmt.Printf("The instance state is <%#v> \n\n\n\n\n\n", *(retInstance.Instances[0].InstanceId))
+	// fmt.Printf("The instance state is <%#v> \n\n\n\n\n\n", retInstance.Instances[0].State.Name)
+	// fmt.Printf("The instance state is <%#v> \n\n\n\n\n\n", *(retInstance.Instances[0].InstanceId))
 
 	isRunning, err := WaitInstanceRunnung(ctx, *(retInstance.Instances[0].InstanceId))
 	if err != nil {
@@ -804,8 +784,6 @@ func (c *MakeEC2Instance) Execute(ctx context.Context) error {
 
 	if isRunning == false {
 		return errors.New("Failed to wait the instance to become running state")
-	} else {
-		fmt.Printf("Succeeded to become the running state \n\n\n\n\n\n")
 	}
 
 	return nil
@@ -861,7 +839,7 @@ func FetchTiKVInstances(ctx context.Context, clusterName, clusterType, subCluste
 
 	for _, reservation := range result.Reservations {
 		for _, instance := range reservation.Instances {
-			fmt.Printf("The instance id is <%s>, state: <%s>, tags: <%#v> \n\n\n", *instance.InstanceId, instance.State.Name, instance.Tags)
+			// fmt.Printf("The instance id is <%s>, state: <%s>, tags: <%#v> \n\n\n", *instance.InstanceId, instance.State.Name, instance.Tags)
 			funcTags(instance.Tags)
 		}
 

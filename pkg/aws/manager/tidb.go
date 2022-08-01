@@ -17,7 +17,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	// "strconv"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -524,7 +525,7 @@ func (m *Manager) TiDBScale(
 }
 
 // ------------- Latency measurement
-func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, gOpt operator.Options) error {
+func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
 	clusterType := "ohmytiup-tidb"
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
@@ -540,69 +541,67 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, gOpt oper
 		return err
 	}
 
-	fmt.Printf(" ----- ----- Running in the prepare phase \n")
-	fmt.Printf("01. Adjust the apply thread pool \n")
-	fmt.Printf("02. Create database\n")
-	// 02. Create the postgres objects(Database and tables)
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "drop database if exists latencytest"), false, 1*time.Hour)
-	if err != nil {
-		return err
-	}
-
-	// CREATE PLACEMENT POLICY policy_online CONSTRAINTS="[+db_type=online]";
-	// CREATE PLACEMENT POLICY policy_batch CONSTRAINTS="[+db_type=batch]";
-	//  select DB_NAME, TABLE_NAME, STORE_ID, count(*) as cnt from TIKV_REGION_PEERS t1 inner join TIKV_REGION_STATUS t2 on t1.REGION_ID = t2.REGION_ID and t2.db_name in ('sbtest', 'latencytest') group by DB_NAME, TABLE_NAME, STORE_ID order by DB_NAME, TABLE_NAME, STORE_ID;
-
-	// _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "create database latencytest"), false, 1*time.Hour)
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "create database latencytest PLACEMENT POLICY=policy_batch"), false, 1*time.Hour)
-	if err != nil {
-		return err
-	}
-	// fmt.Printf("03. Create ontime table and test01\n")
-	// _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "latencytest", "CREATE TABLE test01 (col01 bigint primary key auto_random, col02 int(11) NOT NULL, col03 varchar(128) DEFAULT NULL)"), false, 1*time.Hour)
-	// if err != nil {
-	// 	return err
-	// }
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_from_file %s '%s'", "latencytest", "/opt/tidb/sql/ontime_tidb.ddl"), false, 1*time.Hour)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("04. Create ontime backup table\n")
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "latencytest", "create table ontime01 like ontime;"), false, 1*time.Hour)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("05. Generate data in the ontime table\n")
+	// 01. Install the required package
 	if _, _, err := (*workstation).Execute(ctx, "apt-get install -y zip sysbench", true); err != nil {
 		return err
 	}
 
-	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh", "ontime_tp_insert.sh"} {
+	// 02. Create the postgres objects(Database and tables)
+	var queries []string
+
+	if opt.TiKVMode == "partition" {
+		queries = []string{"drop database if exists latencytest", // Drop the latencytest if not exists(For batch)
+			fmt.Sprintf("drop database if exists %s", opt.SysbenchDBName),             // Drop the sbtest if not exists(fosysbench)
+			"DROP PLACEMENT POLICY if exists policy_online",                           // Drop the placement rule
+			"DROP PLACEMENT POLICY if exists policy_batch",                            // Drop the placement rule
+			"CREATE PLACEMENT POLICY policy_online CONSTRAINTS=\"[+db_type=online]\"", // Add the placement policy for online label
+			"CREATE PLACEMENT POLICY policy_batch CONSTRAINTS=\"[+db_type=batch]\"",   // Add the placement policy for batch
+			"set global tidb_enable_alter_placement=true",
+			// Todo set one parameter to allow the database creation with placement rule
+			fmt.Sprintf("create database %s PLACEMENT POLICY=policy_online", opt.SysbenchDBName), // Create the database assigned with online label
+			"create database latencytest PLACEMENT POLICY=policy_batch",                          // Create the database assigned with batch label
+		}
+	} else {
+		queries = []string{"drop database if exists latencytest",
+			"create database latencytest",
+			fmt.Sprintf("drop database if exists %s", opt.SysbenchDBName),
+			fmt.Sprintf("create database %s", opt.SysbenchDBName),
+		}
+	}
+
+	for _, query := range queries {
+		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", query), false, 1*time.Hour); err != nil {
+			return err
+		}
+	}
+
+	// Create ontime table
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_from_file %s '%s'", "latencytest", "/opt/tidb/sql/ontime_tidb.ddl"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "latencytest", "create table ontime01 like ontime;"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	//  select DB_NAME, TABLE_NAME, STORE_ID, count(*) as cnt from TIKV_REGION_PEERS t1 inner join TIKV_REGION_STATUS t2 on t1.REGION_ID = t2.REGION_ID and t2.db_name in ('sbtest', 'latencytest') group by DB_NAME, TABLE_NAME, STORE_ID order by DB_NAME, TABLE_NAME, STORE_ID;
+
+	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh"} {
 		if err = task.TransferToWorkstation(workstation, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
 		}
-
-		// err = (*workstation).TransferTemplate(ctx, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/tmp/%s", file), "0755", []string{}, true, 0)
-		// if err != nil {
-		// 	return err
-		// }
-
-		// if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("mv /tmp/%s /opt/scripts/", file), true); err != nil {
-		// 	return err
-		// }
 	}
 
+	// Download the data for ontime data population
 	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s 2022 01 2022 01 1>/dev/null", "latencytest", "ontime01"), false, 1*time.Hour); err != nil {
 		return err
 	}
 
+	// Fetch the TiDB connection info
 	tidbConnInfo, err := task.ReadTiDBConntionInfo(workstation)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The TiDB connection info is <%#v> \n\n\n", *tidbConnInfo)
 
 	type TplSysbenchParam struct {
 		TiDBHost       string
@@ -620,38 +619,17 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, gOpt oper
 		TiDBPort:       (*tidbConnInfo).TiDBPort,
 		TiDBUser:       (*tidbConnInfo).TiDBUser,
 		TiDBPassword:   (*tidbConnInfo).TiDBPassword,
-		TiDBDBName:     "sbtest",
-		ExecutionTime:  600,
-		Thread:         4,
-		ReportInterval: 10,
+		TiDBDBName:     opt.SysbenchDBName,
+		ExecutionTime:  opt.SysbenchExecutionTime,
+		Thread:         opt.SysbenchThread,
+		ReportInterval: opt.SysbenchReportInterval,
 	}
-
-	// err = (*workstation).TransferTemplate(ctx, "templates/config/sysbench.toml.tpl", "/tmp/sysbench.toml", "0644", tplSysbenchParam, true, 0)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if _, _, err := (*workstation).Execute(ctx, "mv /tmp/sysbench.toml /opt/sysbench.toml", true); err != nil {
-	// 	return err
-	// }
 
 	if err = task.TransferToWorkstation(workstation, "templates/config/sysbench.toml.tpl", "/opt/sysbench.toml", "0644", tplSysbenchParam); err != nil {
 		return err
 	}
 
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "drop database if exists sbtest"), false, 1*time.Hour)
-	if err != nil {
-		return err
-	}
-
-	// _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "create database sbtest"), false, 1*time.Hour)
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "create database sbtest PLACEMENT POLICY=policy_online"), false, 1*time.Hour)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/sysbench.toml", "oltp_point_select", 8, 10000), false, 1*time.Hour)
-	if err != nil {
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
 		return err
 	}
 
@@ -666,16 +644,9 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, gOpt oper
 }
 
 func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
-	fmt.Printf(" ----- ----- Running in the execute phase \n")
-	fmt.Printf("Parameter 01: Loop times\n")
-	fmt.Printf("Parameter 02: batch size\n")
-	fmt.Printf("Parameter 03: loop size\n")
-
-	fmt.Printf("Two thread to check the data insert\n")
-
 	clusterType := "ohmytiup-tidb"
 	ctx, cancel := context.WithCancel(context.Background())
-	// ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+
 	ctx = context.WithValue(ctx, "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
@@ -687,149 +658,47 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName string, opt operator.
 
 	var sysbenchResult [][]string
 
-	// ---------01. Only run sysbench
-	var envInitTasks01 []*task.StepDisplay // tasks which are used to initialize environment
+	for idx := 0; idx < opt.RunCount; idx++ {
+		for idxBatchSize, batchSize := range strings.Split(opt.BatchSizeArray, ",") {
+			ctx, cancel = context.WithCancel(context.Background())
+			ctx = context.WithValue(ctx, "clusterName", clusterName)
+			ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	t1 := task.NewBuilder().RunSysbench(&sexecutor, &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
-	envInitTasks01 = append(envInitTasks01, t1)
+			var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks01...)
+			t1 := task.NewBuilder().RunSysbench(&sexecutor, &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+			envInitTasks = append(envInitTasks, t1)
 
-	t := builder.Build()
+			if batchSize != "x" {
+				opt.BatchSize, err = strconv.Atoi(batchSize)
+				if err != nil {
+					return err
+				}
 
-	if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
-		if errorx.Cast(err) != nil {
-			return err
+				t2 := task.NewBuilder().RunOntimeBatchInsert(&sexecutor, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+				envInitTasks = append(envInitTasks, t2)
+			} else {
+				opt.BatchSize = 0
+			}
+
+			builder := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %d th test for batch-size: %s", idx+1, idxBatchSize+1, batchSize), false, envInitTasks...)
+
+			t := builder.Build()
+
+			if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
+				if errorx.Cast(err) != nil {
+					return err
+				}
+				return err
+			}
+
+			time.Sleep(20 * time.Second)
 		}
-		return err
 	}
-
-	time.Sleep(20 * time.Second)
-
-	// ----------02. Run sysbench with batch (batch size: 50,000)
-	ctx, cancel = context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	var envInitTasks02 []*task.StepDisplay // tasks which are used to initialize environment
-
-	// var metricsOfLatencyWhenBatch task.MetricsOfLatencyWhenBatch
-	// Run the batch against DB to test the batch performance impact
-	t1 = task.NewBuilder().RunSysbench(&sexecutor, &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
-	envInitTasks02 = append(envInitTasks02, t1)
-
-	t2 := task.NewBuilder().RunOntimeBatchInsert(&sexecutor, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
-	envInitTasks02 = append(envInitTasks02, t2)
-
-	builder = task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks02...)
-
-	t = builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
-		if errorx.Cast(err) != nil {
-			return err
-		}
-		return err
-	}
-
-	// ----------03. Run sysbench with batch (batch size: 25,000)
-	time.Sleep(20 * time.Second)
-	ctx, cancel = context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	var envInitTasks03 []*task.StepDisplay // tasks which are used to initialize environment
-
-	// var metricsOfLatencyWhenBatch task.MetricsOfLatencyWhenBatch
-	// Run the batch against DB to test the batch performance impact
-	opt.BatchSize = 25000
-	t1 = task.NewBuilder().RunSysbench(&sexecutor, &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
-	envInitTasks03 = append(envInitTasks03, t1)
-
-	t2 = task.NewBuilder().RunOntimeBatchInsert(&sexecutor, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
-	envInitTasks03 = append(envInitTasks03, t2)
-
-	builder = task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks03...)
-
-	t = builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
-		if errorx.Cast(err) != nil {
-			return err
-		}
-		return err
-	}
-
-	// ----------04. Run sysbench with batch (batch size: 25,000)
-	time.Sleep(20 * time.Second)
-	ctx, cancel = context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	var envInitTasks04 []*task.StepDisplay // tasks which are used to initialize environment
-
-	// var metricsOfLatencyWhenBatch task.MetricsOfLatencyWhenBatch
-	// Run the batch against DB to test the batch performance impact
-	opt.BatchSize = 10000
-	t1 = task.NewBuilder().RunSysbench(&sexecutor, &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
-	envInitTasks04 = append(envInitTasks04, t1)
-
-	t2 = task.NewBuilder().RunOntimeBatchInsert(&sexecutor, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
-	envInitTasks04 = append(envInitTasks04, t2)
-
-	builder = task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks04...)
-
-	t = builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
-		if errorx.Cast(err) != nil {
-			return err
-		}
-		return err
-	}
-
-	// ----------04. Run sysbench with batch (batch size: 25,000)
-	time.Sleep(20 * time.Second)
-	ctx, cancel = context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	var envInitTasks05 []*task.StepDisplay // tasks which are used to initialize environment
-
-	// var metricsOfLatencyWhenBatch task.MetricsOfLatencyWhenBatch
-	// Run the batch against DB to test the batch performance impact
-	opt.BatchSize = 5000
-	t1 = task.NewBuilder().RunSysbench(&sexecutor, &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
-	envInitTasks05 = append(envInitTasks05, t1)
-
-	t2 = task.NewBuilder().RunOntimeBatchInsert(&sexecutor, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
-	envInitTasks05 = append(envInitTasks05, t2)
-
-	builder = task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks05...)
-
-	t = builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
-		if errorx.Cast(err) != nil {
-			return err
-		}
-		return err
-	}
-
-	// var tableResult [][]string
-	// tableResult = append(tableResult, []string{"Batch Execution Time(mill)", "Batch Size", "Batch Loop", "Batch rows", "Transaction Rows", "Transaction Execution Time(Mill)", "Transaction Average execution(Mill)"})
-	// tableResult = append(tableResult, []string{strconv.FormatInt(metricsOfLatencyWhenBatch.BatchExecutionTime, 10),
-	// 	strconv.Itoa(metricsOfLatencyWhenBatch.BatchSize),
-	// 	strconv.Itoa(metricsOfLatencyWhenBatch.Loop),
-	// 	strconv.FormatInt(metricsOfLatencyWhenBatch.BatchTotalRows, 10),
-	// 	strconv.FormatInt(metricsOfLatencyWhenBatch.TransRow, 10),
-	// 	strconv.FormatInt(metricsOfLatencyWhenBatch.TotalExecutionTime, 10),
-	// 	strconv.FormatInt(metricsOfLatencyWhenBatch.AverageExecutionTime, 10)})
 
 	tui.PrintTable(sysbenchResult, true)
 
 	return nil
-
 }
 
 func (m *Manager) TiDBMeasureLatencyCleanupCluster(clusterName string, gOpt operator.Options) error {

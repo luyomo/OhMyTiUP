@@ -1,231 +1,126 @@
 #+OPTIONS: \n:t
 #+OPTIONS: ^:nil
-#+TITLE: High insert latency when the data is imported
+#+TITLE: TiKV nodes isolation between batch and online transaction
 
-* Problem description
-  It takes about 30ms to complete one row data insert if there is no heavy process in the DB side. But when there are heavy batch processes running in the DB instance, the simple insert's latency might be impacted. This test shows the latency impact from batch processes.
-  The whole test secnario flow is as below:
-  + Start one loop process to insert 1 row every 3 seconds to similate the online query
-  + Start the batch data copy. Three batch insert size will be tested to see the difference.
-    [[./png/architecture-low-latency-druing-batch-import.png]]
-#+BEGIN_COMMENT
-  #+BEGIN_SRC plantuml :file ./png/architecture-low-latency-druing-batch-import.png
-participant InsertWork
-participant Main
-Main -> InsertWork
-activate InsertWork #FFBBBB
-InsertWork -> InsertWork: Insert one row every 3 seconds\r Online insert simulation
-Main -> BatchDataCopy: Batch Insert every \r(100,000/50,000/10,000) rows
-activate BatchDataCopy #DarkSalmon
-BatchDataCopy -> BatchDataCopy: Keep inserting
-BatchDataCopy -> Main
-deactivate BatchDataCopy
-Main -> InsertWork: Stop the insert process
-deactivate InsertWork
+* OLTP isolation from Batch
+  [[./png/placementrule/isolation-batch-oltp.01.png]]
+  [[./png/placementrule/isolation-batch-oltp.02.png]]
+* TiDB Cluster generation with node labels
+** Cluster deployment
+  Use the below config to generate TiDB Cluster with TiKV nodes labels. Three TiKV nodes are group together as batch nodes. And the remaining three are grouped as online nodes. 
+  #+BEGIN_SRC
+OhMyTiUP$ more /tmp/aws-nodes-tidb.yaml
+ workstation:
+   imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+   keyname: key name                               # Public key for workstation instance deployment
+   keyfile: /home/pi/.ssh/local-pricate-key.pem    # Private key to access the workstation
+   volumeSize: 100                                 # disk size in the workstation
+   enable_monitoring: enabled                      # enable the moniroting on the workstation
+   instance_type: c5.2xlarge
+   cidr: 172.81.0.0/16
+ aws_topo_configs:
+   general:
+     # debian os
+     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+     keyname: jay-us-east-01                       # Public key to access the EC2 instance
+     keyfile: /home/pi/.ssh/jay-us-east-01.pem
+     cidr: 172.83.0.0/16
+     tidb_version: v6.1.0
+     excluded_az:                                  # The AZ to be excluded for the subnets
+       - us-east-1e
+   pd:
+     instance_type: c5.2xlarge
+     count: 3
+   tidb:
+     instance_type: c5.2xlarge
+     count: 2
+   tikv:
+     labels:
+     - name: db_type
+       values:
+       - value: online
+         machine_type: standard
+       - value: batch
+         machine_type: standard
+     machine_types:
+       -
+         name: standard
+         modal_value:
+           instance_type: c5.2xlarge
+           count: 3
+           volumeSize: 300
+           volumeType: gp3
+           iops: 3000
+OhMyTiUP$ ./bin/aws tidb deploy placementruletest /tmp/aws-nodes-tidb.yaml
   #+END_SRC
-#+END_COMMENT
-
-* Test
-** Table create preparation
-   #+BEGIN_SRC sql
-     MySQL [test]> create table test01(col01 int primary key, col02 int not null, col03 varchar(128) );                                                                                                          
-     Query OK, 0 rows affected (0.556 sec)
-     MySQL [test]> create table ontime01 like ontime; 
-     Query OK, 0 rows affected (0.205 sec)
+  [[./png/placementrule/placementrule.01.png]]
+  [[./png/placementrule/placementrule.02.png]]
+** List all the resources
+   #+BEGIN_SRC
+OhMyTiUP$ ./bin/aws tidb list placementruletest
    #+END_SRC
-** Script preparation
-   + Batch data copy
-     #+BEGIN_SRC shell
-$ more 01.import.batch.sh 
-#!/bin/bash
+   [[./png/placementrule/placementrule.03.png]]
+   [[./png/placementrule/placementrule.04.png]]
+** Check the placement rule labels
+   [[./png/placementrule/placementrule.05.png]]
 
-date
-for i in {1..50}
-do
-  mysql --connect-timeout 15 -u root -h private-tidb.6d2de4af.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -P 4000 -p1234Abcd test -e " insert into ontime01( Year, Quarter, Month, DayofMonth, DayOfWeek, F
-lightDate, UniqueCarrier, AirlineID, Carrier, TailNum, FlightNum, OriginAirportID, OriginAirportSeqID, OriginCityMarketID, Origin, OriginCityName, OriginState, OriginStateFips, OriginStateName, OriginWac,
- DestAirportID, DestAirportSeqID, DestCityMarketID, Dest, DestCityName, DestState, DestStateFips, DestStateName, DestWac, CRSDepTime, DepTime, DepDelay, DepDelayMinutes, DepDel15, DepartureDelayGroups, De
-pTimeBlk, TaxiOut, WheelsOff, WheelsOn, TaxiIn, CRSArrTime, ArrTime, ArrDelay, ArrDelayMinutes, ArrDel15, ArrivalDelayGroups, ArrTimeBlk, Cancelled, CancellationCode, Diverted, CRSElapsedTime, ActualElaps
-edTime, AirTime, Flights, Distance, DistanceGroup, CarrierDelay, WeatherDelay, NASDelay, SecurityDelay, LateAircraftDelay, FirstDepTime, TotalAddGTime, LongestAddGTime, DivAirportLandings, DivReachedDest,
- DivActualElapsedTime, DivArrDelay, DivDistance, Div1Airport, Div1AirportID, Div1AirportSeqID, Div1WheelsOn, Div1TotalGTime, Div1LongestGTime, Div1WheelsOff, Div1TailNum, Div2Airport, Div2AirportID, Div2A
-irportSeqID, Div2WheelsOn, Div2TotalGTime, Div2LongestGTime, Div2WheelsOff, Div2TailNum, Div3Airport, Div3AirportID, Div3AirportSeqID, Div3WheelsOn, Div3TotalGTime, Div3LongestGTime, Div3WheelsOff, Div3Ta
-ilNum, Div4Airport, Div4AirportID, Div4AirportSeqID, Div4WheelsOn, Div4TotalGTime, Div4LongestGTime, Div4WheelsOff, Div4TailNum, Div5Airport, Div5AirportID, Div5AirportSeqID, Div5WheelsOn, Div5TotalGTime,
- Div5LongestGTime, Div5WheelsOff, Div5TailNum, timestamp_tidb ) select Year, Quarter, Month, DayofMonth, DayOfWeek, FlightDate, UniqueCarrier, AirlineID, Carrier, TailNum, FlightNum, OriginAirportID, Orig
-inAirportSeqID, OriginCityMarketID, Origin, OriginCityName, OriginState, OriginStateFips, OriginStateName, OriginWac, DestAirportID, DestAirportSeqID, DestCityMarketID, Dest, DestCityName, DestState, Dest
-StateFips, DestStateName, DestWac, CRSDepTime, DepTime, DepDelay, DepDelayMinutes, DepDel15, DepartureDelayGroups, DepTimeBlk, TaxiOut, WheelsOff, WheelsOn, TaxiIn, CRSArrTime, ArrTime, ArrDelay, ArrDelay
-Minutes, ArrDel15, ArrivalDelayGroups, ArrTimeBlk, Cancelled, CancellationCode, Diverted, CRSElapsedTime, ActualElapsedTime, AirTime, Flights, Distance, DistanceGroup, CarrierDelay, WeatherDelay, NASDelay
-, SecurityDelay, LateAircraftDelay, FirstDepTime, TotalAddGTime, LongestAddGTime, DivAirportLandings, DivReachedDest, DivActualElapsedTime, DivArrDelay, DivDistance, Div1Airport, Div1AirportID, Div1Airpor
-tSeqID, Div1WheelsOn, Div1TotalGTime, Div1LongestGTime, Div1WheelsOff, Div1TailNum, Div2Airport, Div2AirportID, Div2AirportSeqID, Div2WheelsOn, Div2TotalGTime, Div2LongestGTime, Div2WheelsOff, Div2TailNum
-, Div3Airport, Div3AirportID, Div3AirportSeqID, Div3WheelsOn, Div3TotalGTime, Div3LongestGTime, Div3WheelsOff, Div3TailNum, Div4Airport, Div4AirportID, Div4AirportSeqID, Div4WheelsOn, Div4TotalGTime, Div4
-LongestGTime, Div4WheelsOff, Div4TailNum, Div5Airport, Div5AirportID, Div5AirportSeqID, Div5WheelsOn, Div5TotalGTime, Div5LongestGTime, Div5WheelsOff, Div5TailNum, timestamp_tidb from ontime limit 100000"
-done
-date
-     #+END_SRC
-   + One row insertion
-     #+BEGIN_SRC shell
-$ more 02.data.insert.sh 
-#!/bin/bash
+* Command description
+** measure-latency
+   There are three sub command for the latency measurement.
+   + prepare - Prepare the test environment including database/table/placement rule generation and data preparation
+   + run     - Run the actual test
+   + cleanup - Cleanup all the resources (todo)
+  [[./png/placementrule/placementrule.06.png]]
+** measure-latency prepare
+   This command is used for test preparation. Including:
+   + batch database creation
+   + batch table creation
+   + batch table(ontime) sample data download and import to DB
+   + Placement rule policy creation(mode: partition)
+   + sysbench database creation
+   + sysbench table creation
+   + sysbench customization module upload
 
-time mysql -u root -h private-tidb.6d2de4af.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -P 4000 -p1234Abcd test -e "delete from test01 "
-for i in {1..10000}
-do
-    sleep 3
-    time mysql -u root -h private-tidb.6d2de4af.fc69e292.ap-northeast-1.prod.aws.tidbcloud.com -P 4000 -p1234Abcd test -e "insert into test01 values($i,1,'This is the test message ')" 1>> ./check.log
-done
+   [[./png/placementrule/placementrule.11.png]]
 
-     #+END_SRC
-** Test result
-*** Without any batch process
-No slow queries
+** measure-latency run
+*** Simple TiKV mode
+    In the mode, all the TiKV nodes are share by the batch and online application. Sometimes heavy batch might impact the online transaction even though there is no table confilict. Especially the log apply duration is impacted heavily if the batch is heavy.
+*** Placment rule policy TiKV mode
+    In this mode, the TiKV nodes are grouped to two. Online and batch. The online group nodes are used only by sysbench while the batch nodes are only used by batch. With placement rule, the TiKV resources are achieved.
+    
+   [[./png/placementrule/placementrule.12.png]]
+* Latency impact test
+** Scenario: Common TiDB Cluster without resource isolation
+*** Preparation
+#+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb measure-latency prepare placementruletest --sysbench-execution-time 40 --sysbench-num-tables 10  --tikv-mode simple --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
+#+END_SRC
+[[./png/placementrule/placementrule.07.png]]   
+*** Run test
+#+BEGIN_SRC
+./bin/aws tidb measure-latency run placementruletest --repeats 2 --trans-interval 200 --batch-size x,50000 --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
+#+END_SRC
+[[./png/placementrule/placementrule.08.png]]
 
-*** Insert 5 millions volume data every 100,000 rows (apply thread pool : 2)
-   + Batch data copy Execution time: 06:39
-   + Slow query - one row insert
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     | No | Execution Time |
-     |----+----------------|
-     |  1 | 31.554s        |
-     |  2 | 31.554s        |
-     |  3 | 1.485          |
-     |  4 | 1.065          |
-     |  5 | 1.014          |
-   + Execution period
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     |       | Timestamp |
-     |-------+-----------|
-     | start |  10:32:12 |
-     | end   |  10:38:51 |
-*** Insert 5 millions volume data every 50,000 rows (apply thread pool : 2)
-   + Batch data copy Execution time: 05:35
-   + Slow query - one row insert
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     | No | Execution time |
-     |----+----------------|
-     |  1 | 0.231s         |
-     |  2 | 0.153s         |
-     |  3 | 0.142s         |
-     |  4 | 0.120s         |
-   + Execution period
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     |       | Timestamp |
-     |-------+-----------|
-     | start |  11:00:09 |
-     | end   |  11:05:44 |
-
-*** Insert 5 million volume data every 10,000 rows (apply thread pool : 2)
-   + Batch data copy Execution time: 05:11
-   + Slow query - one row insert
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     | No | Execution time |
-     |----+----------------|
-     |  1 | 0.154s         |
-     |  2 | 0.148s         |
-   + Execution period
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     |       | Timestamp |
-     |-------+-----------|
-     | start |  12:45:33 |
-     | end   |  12:50:44 |
-
-*** Insert 5 millions volume data every 100,000 rows (apply thread pool : 4)
-    Change the apply thread pool from 2 to 4 to see how much performance is gained.
-   + Batch data copy Execution time: 05:50
-   + Slow query - one row insert
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     | No | Execution time |
-     |----+----------------|
-     |  1 | 1.280s         |
-     |  2 | 0.916s         |
-     |  3 | 0.770s         |
-     |  4 | 0.379s         |
-     |  5 | 0.370s         |
-     |  6 | 0.298s         |
-     |  7 | 0.281s         |
-     |  8 | 0.266s         |
-     |  9 | 0.167s         |
-     | 10 | 0.144s         |
-
-   + Execution period
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     |       | Timestamp |
-     |-------+-----------|
-     | start |  15:43:17 |
-     | end   |  15:49:07 |
-
-*** Insert 5 millions volume data every 50,000 rows (apply thread pool : 4)
-   + Batch data copy Execution time: 05:29
-   + Slow query - one row insert
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     | No | Execution time |
-     |----+----------------|
-     |  1 | 0.139s         |
-     |  2 | 0.128s         |
-
-
-   + Execution period
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     |       | Timestamp |
-     |-------+-----------|
-     | start |  17:42:01 |
-     | end   |  17:47:30 |
-
-*** Insert 5 millions volume data every 10,000 rows (apply thread pool : 4)
-   + Batch data copy Execution time: 05:24
-   + Slow query - one row insert
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     | No | Execution time |
-     |----+----------------|
-     |  1 | 0.054s         |
-
-   + Execution period
-     #+ATTR_HTML: :border 2 :rules all :frame border
-     |       | Timestamp |
-     |-------+-----------|
-     | start |  17:52:27 |
-     | end   |  17:57:51 |
-
+As the result from the above example, because of the heavy batch impact, the latency and qps are impacted compared to the case where only sysbench is running.
+** Scenario: Common TiDB Cluster without resource isolation
+*** Preparation
+    #+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb measure-latency prepare placementruletest --sysbench-execution-time 40 --sysbench-num-tables 10  --tikv-mode partition --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
+    #+END_SRC
+[[./png/placementrule/placementrule.09.png]]
+** Run test against cluster with batch/online isolated
    
-
-** Apply log duration per server
-   [[./png/low-insert-latency-when-data-import.graph.png]]
-
-
-* New test
-There are 5 test for each scenario
-  + sysbench only
-  + sysbench + batch (50,000)
-  + sysbench + batch (25,000)
-  + sysbench + batch (10,000)
-  + sysbench + batch ( 5,000)
-** 3 TiKV without placement rule
-  [[./png/latencytest/3kv.100s.01.png]]
-  [[./png/latencytest/3kv.200s.02.png]]
-  [[./png/latencytest/3kv.300.01.png]]
-  [[./png/latencytest/3kv.60s.png]]
-** 6 TiKV without placement rule
-  [[./png/latencytest/6kv.60s.noplacementrule.01.png]]
-  [[./png/latencytest/6kv.60s.noplacementrule.02.png]]
-  [[./png/latencytest/6kv.200s.noplacementrule.01.png]]
-  [[./png/latencytest/6kv.200s.noplacementrule.02.png]]
-** 6 TiKV with placement rule
-*** 60 seconds
-  [[./png/latencytest/6kv.60s.placementrule.01.png]]
-  [[./png/latencytest/6kv.60s.placementrule.02.png]]
-  [[./png/latencytest/6kv.60s.placementrule.02.png]]
-*** 300 seconds
-  [[./png/latencytest/6kv.300s.placementrule.01.png]]
-  [[./png/latencytest/6kv.300s.placementrule.02.png]]
-  [[./png/latencytest/6kv.300s.placementrule.03.png]]
-*** 600 seconds
-  [[./png/latencytest/6kv.600s.placmentrule.01.png]]
-  [[./png/latencytest/6kv.600s.placmentrule.02.png]]
-  [[./png/latencytest/6kv.600s.placmentrule.03.png]]
-*** 600 seconds
-  [[./png/latencytest/6kv.600s.placementrule.11.png]]
-  [[./png/latencytest/6kv.600s.placementrule.12.png]]
-  [[./png/latencytest/6kv.600s.placementrule.13.png]]
-  [[./png/latencytest/6kv.600s.placementrule.14.png]]
-
-
+    #+BEGIN_SRC
+./bin/aws tidb measure-latency run placementruletest --repeats 2 --trans-interval 200 --batch-size x,50000 --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
+    #+END_SRC
+[[./png/placementrule/placementrule.10.png]]
+The sysbench is not impacted by the batch too much. In other words, from the result the resources between batch and online application are isolated from each other.
+* How to simulate the batch import
+Use the below flow to simulate the heavy batch process.
+  + Create the ontime and ontime01 table. Please refer to [[https://github.com/ClickHouse/ClickHouse/blob/master/docs/en/getting-started/example-datasets/ontime.md][Clickhouse-sample-data]]
+  + Import one Month data into ontime01
+  + Insert into ontime select * from ontim01 limit 10000
 
                         

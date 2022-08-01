@@ -96,7 +96,7 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 
 		clusterTable := [][]string{
 			// Header
-			{"Component", "# of nodes", "Instance Type", "Image Name", "CIDR", "User"},
+			{"Component", "# of nodes", "Instance Type", "Image Name", "CIDR", "User", "Placement rule labels"},
 		}
 		if spec.AwsWSConfigs.InstanceType != "" {
 			clusterTable = append(clusterTable, []string{"Workstation", "1", spec.AwsWSConfigs.InstanceType, spec.AwsWSConfigs.ImageId, spec.AwsWSConfigs.CIDR, "admin"})
@@ -110,7 +110,22 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 			clusterTable = append(clusterTable, []string{"PD", strconv.Itoa(spec.AwsTopoConfigs.PD.Count), spec.AwsTopoConfigs.PD.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
 
+		ec2NodeConfigs, err := task.ScanLabels(&(spec.AwsTopoConfigs.TiKV).Labels, &(spec.AwsTopoConfigs.TiKV).ModalTypes)
+		if err != nil {
+			return err
+		}
+		for _, tikvNode := range *ec2NodeConfigs {
+			var arrLabels []string
+			for _, label := range tikvNode.Labels {
+				for key, value := range label {
+					arrLabels = append(arrLabels, fmt.Sprintf("%s=%s", strings.Replace(key, "label:", "", 1), value))
+				}
+			}
+			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(tikvNode.Count), tikvNode.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master", strings.Join(arrLabels, ",")})
+		}
+
 		if spec.AwsTopoConfigs.TiKV.Count > 0 {
+
 			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(spec.AwsTopoConfigs.TiKV.Count), spec.AwsTopoConfigs.TiKV.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
 

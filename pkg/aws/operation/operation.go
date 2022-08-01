@@ -146,8 +146,18 @@ func FilterInstance(instances []spec.Instance, nodes set.StringSet) (res []spec.
 }
 
 type LatencyWhenBatchOptions struct {
-	BatchSize int
-	BatchLoop int
+	BatchSize      int
+	BatchSizeArray string
+	RunCount       int
+	TransInterval  int
 
-	TransInterval int
+	TiKVMode string
+
+	SysbenchDBName         string
+	SysbenchNumTables      int
+	SysbenchNumRows        int
+	SysbenchPluginName     string
+	SysbenchExecutionTime  int64
+	SysbenchThread         int
+	SysbenchReportInterval int
 }

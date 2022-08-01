@@ -101,7 +101,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 					for _, tag := range instance.Tags {
 
 						if strings.Contains(tag["Key"], "label:") {
-							fmt.Printf("The key is <%s> value is <%s> \n\n\n", tag["Key"], tag["Value"])
 							tagKey := strings.Replace(tag["Key"], "label:", "", 1)
 							tplTiKVData.Labels = append(tplTiKVData.Labels, map[string]string{tagKey: tag["Value"]})
 
@@ -117,7 +116,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 						}
 					}
 					tplData.TiKV = append(tplData.TiKV, tplTiKVData)
-					fmt.Printf("The tikv config is <%#v> \n\n\n", tplData.TiKV)
+
 				}
 				if tag["Key"] == "Component" && tag["Value"] == "ticdc" {
 					tplData.TiCDC = append(tplData.TiCDC, instance.PrivateIpAddress)
@@ -161,7 +160,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("Reaching here \n\n\n")
 	// 4. Deploy all tidb templates
 	configFiles := []string{"cdc-task.toml", "tidb-cluster.yml"}
 	for _, configFile := range configFiles {
@@ -237,9 +235,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	// 	return err
 	// }
 
-	stdout, _, err = (*workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
-	if err != nil {
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+	if _, _, err = (*workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false); err != nil {
 		return err
 	}
 
@@ -262,7 +258,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		if err.Error() == "No RDB Instance found(No matched name)" {
 			return nil
 		}
-		fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
 		return err
 	}
 

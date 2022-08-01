@@ -197,6 +197,10 @@ func newTiDBLatencyMeasurementCmd() *cobra.Command {
 
 func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
 
+	opt := operator.LatencyWhenBatchOptions{
+		TiKVMode: "simple",
+	}
+
 	cmd := &cobra.Command{
 		Use:   "prepare <cluster-name>",
 		Short: "Prepare resource for test",
@@ -211,9 +215,20 @@ func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBMeasureLatencyPrepareCluster(clusterName, gOpt)
+			return cm.TiDBMeasureLatencyPrepareCluster(clusterName, opt, gOpt)
 		},
 	}
+
+	// One parameter to decide the test case - TiKV partition/Simple
+	cmd.Flags().StringVarP(&opt.TiKVMode, "tikv-mode", "m", "simple", "simple: No partition for TiKV nodes.  partition: Group the TiKV to online/batch. Batch query to batch TiKV nodes, sysbench to online TiKV nodes")
+	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
+	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
+	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")
+	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "oltp_point_select", "sysbench: oltp_point_select")
+
+	cmd.Flags().Int64Var(&opt.SysbenchExecutionTime, "sysbench-execution-time", 600, "sysbench: --execution-time")
+	cmd.Flags().IntVar(&opt.SysbenchThread, "sysbench-thread", 4, "sysbench: --thread")
+	cmd.Flags().IntVar(&opt.SysbenchReportInterval, "sysbench-report-interval", 10, "sysbench: --report-interval")
 
 	return cmd
 }
@@ -221,9 +236,6 @@ func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
 func newTiDBLatencyMeasurementRunCmd() *cobra.Command {
 
 	opt := operator.LatencyWhenBatchOptions{
-		BatchSize: 10000,
-		BatchLoop: 50,
-
 		TransInterval: 2,
 	}
 
@@ -245,8 +257,8 @@ func newTiDBLatencyMeasurementRunCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&opt.BatchSize, "batch-size", 10000, "The batch size to insert")
-	cmd.Flags().IntVar(&opt.BatchLoop, "batch-loop", 100, "The loop to insert ")
+	cmd.Flags().StringVarP(&opt.BatchSizeArray, "batch-size", "s", "x,10000", "Batch size: x,5000,10000,25000,50000 -> Loop the test as <no batch -> 5000 -> 10000 -> 25000 -> 50000>")
+	cmd.Flags().IntVar(&opt.RunCount, "repeats", 1, "Count to loop the test")
 	cmd.Flags().IntVar(&opt.TransInterval, "trans-interval", 2, "The interval to insert the transaction")
 
 	return cmd
