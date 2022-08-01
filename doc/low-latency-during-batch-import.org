@@ -199,7 +199,7 @@ There are 5 test for each scenario
   + sysbench + batch ( 5,000)
 ** 3 TiKV without placement rule
   [[./png/latencytest/3kv.100s.01.png]]
-  [[./png/latencytest/3kv.100s.02.png]]
+  [[./png/latencytest/3kv.200s.02.png]]
   [[./png/latencytest/3kv.300.01.png]]
   [[./png/latencytest/3kv.60s.png]]
 ** 6 TiKV without placement rule
