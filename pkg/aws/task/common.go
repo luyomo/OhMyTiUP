@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -770,4 +772,48 @@ func containsInArray(s []string, searchterm string) bool {
 	i := sort.SearchStrings(s, searchterm)
 
 	return i < len(s) && s[i] == searchterm
+}
+
+type TiDBConnectInfo struct {
+	TiDBHost     string `yaml:"Host"`
+	TiDBPort     int    `yaml:"Port"`
+	TiDBUser     string `yaml:"User"`
+	TiDBPassword string `yaml:"Password"`
+}
+
+func ReadTiDBConntionInfo(workstation *ctxt.Executor) (*TiDBConnectInfo, error) {
+
+	// 02. Get the TiDB connection info
+	if err := (*workstation).Transfer(context.Background(), "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
+		return nil, err
+	}
+
+	tidbConnectInfo := TiDBConnectInfo{}
+
+	yfile, err := ioutil.ReadFile("/tmp/tidb-db-info.yml")
+	if err != nil {
+		return nil, err
+	}
+
+	if err = yaml.Unmarshal(yfile, &tidbConnectInfo); err != nil {
+		return nil, err
+	}
+
+	return &tidbConnectInfo, nil
+}
+func TransferToWorkstation(workstation *ctxt.Executor, sourceFile, destFile, mode string, params interface{}) error {
+
+	ctx := context.Background()
+
+	err := (*workstation).TransferTemplate(ctx, sourceFile, fmt.Sprintf("/tmp/%s", "test.file"), mode, params, true, 0)
+	if err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("mv /tmp/%s %s", "test.file", destFile), true); err != nil {
+		return err
+	}
+
+	return nil
+
 }

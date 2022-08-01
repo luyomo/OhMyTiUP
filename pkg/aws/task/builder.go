@@ -1552,23 +1552,22 @@ func (b *Builder) ListVpcPeering(pexecutor *ctxt.Executor, subClusterTypes []str
 	return b
 }
 
-func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, metricsOfLatencyWhenBatch *MetricsOfLatencyWhenBatch, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, cancelCtx *context.CancelFunc) *Builder {
+func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options) *Builder {
 	b.tasks = append(b.tasks, &RunOntimeBatchInsert{
-		pexecutor:                 pexecutor,
-		gOpt:                      gOpt,
-		opt:                       opt,
-		cancelCtx:                 cancelCtx,
-		metricsOfLatencyWhenBatch: metricsOfLatencyWhenBatch,
+		pexecutor: pexecutor,
+		gOpt:      gOpt,
+		opt:       opt,
 	})
 	return b
 }
 
-func (b *Builder) RunOntimeTpInsert(pexecutor *ctxt.Executor, metricsOfLatencyWhenBatch *MetricsOfLatencyWhenBatch, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options) *Builder {
-	b.tasks = append(b.tasks, &RunOntimeTpInsert{
-		pexecutor:                 pexecutor,
-		gOpt:                      gOpt,
-		opt:                       opt,
-		metricsOfLatencyWhenBatch: metricsOfLatencyWhenBatch,
+func (b *Builder) RunSysbench(pexecutor *ctxt.Executor, sysbenchResult *[][]string, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, cancelCtx *context.CancelFunc) *Builder {
+	b.tasks = append(b.tasks, &RunSysbench{
+		pexecutor:      pexecutor,
+		gOpt:           gOpt,
+		opt:            opt,
+		sysbenchResult: sysbenchResult,
+		cancelCtx:      cancelCtx,
 	})
 	return b
 }

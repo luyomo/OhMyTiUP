@@ -220,6 +220,11 @@ There are 5 test for each scenario
   [[./png/latencytest/6kv.600s.placmentrule.01.png]]
   [[./png/latencytest/6kv.600s.placmentrule.02.png]]
   [[./png/latencytest/6kv.600s.placmentrule.03.png]]
+*** 600 seconds
+  [[./png/latencytest/6kv.600s.placementrule.11.png]]
+  [[./png/latencytest/6kv.600s.placementrule.12.png]]
+  [[./png/latencytest/6kv.600s.placementrule.13.png]]
+  [[./png/latencytest/6kv.600s.placementrule.14.png]]
 
 
 

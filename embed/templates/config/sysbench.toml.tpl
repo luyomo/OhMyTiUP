@@ -1,0 +1,9 @@
+mysql-host={{ .TiDBHost }}
+mysql-port={{ .TiDBPort }}
+mysql-user={{ .TiDBUser }}
+mysql-password={{ .TiDBPassword }}
+mysql-db={{ .TiDBDBName  }}
+time={{ .ExecutionTime }}
+threads={{ .Thread }}
+report-interval={{ .ReportInterval  }}
+db-driver=mysql
