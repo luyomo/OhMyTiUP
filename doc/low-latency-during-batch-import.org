@@ -87,7 +87,7 @@ OhMyTiUP$ ./bin/aws tidb list placementruletest
 *** Simple TiKV mode
     In the mode, all the TiKV nodes are share by the batch and online application. Sometimes heavy batch might impact the online transaction even though there is no table confilict. Especially the log apply duration is impacted heavily if the batch is heavy.
 *** Placment rule policy TiKV mode
-    In this mode, the TiKV nodes are grouped to two. Online and batch. The online group nodes are used only by sysbench while the batch nodes are only used by batch. With placement rule, the TiKV resources are achieved.
+    In this mode, the TiKV nodes are grouped to two. Online and batch. The online group nodes are used only by sysbench while the batch nodes are only used by batch. With placement rule, the TiKV resources isolation are achieved.
     
    [[./png/placementrule/placementrule.12.png]]
 * Latency impact test
