@@ -80,68 +80,80 @@ func (c *AcceptVPCPeering) Execute(ctx context.Context) error {
 		return err
 	}
 
-	for _, vpcPeeringConnection := range *vpcPeeringConnections {
-		fmt.Printf("The data is <%#v> \n\n\n", vpcPeeringConnection)
-		// *(c.tableVpcPeeringInfo) = append(*(c.tableVpcPeeringInfo), []string{vpcPeeringConnection.VpcConnectionId,
-		// 	vpcPeeringConnection.Status,
-		// 	vpcPeeringConnection.RequesterVpcId,
-		// 	vpcPeeringConnection.RequesterVpcCIDR,
-		// 	vpcPeeringConnection.AcceptorVpcId + "/" + vpcPeeringConnection.AcceptorVpcName,
-		// 	vpcPeeringConnection.AcceptorVpcCIDR,
-		// })
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
 	}
 
-	// clusterName := ctx.Value("clusterName").(string)
-	// clusterType := ctx.Value("clusterType").(string)
+	client := ec2.NewFromConfig(cfg)
 
-	// 01. Find out the vpc peering waiting for accept
-	// 02. accept the vpc peering
-	// 03. Wait until it becomes the valid
-	// 04. Go back
-	// vpcs, err := getVPCInfos(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType})
-	// if err != nil {
-	// 	return err
-	// }
+	for _, vpcPeeringConnection := range *vpcPeeringConnections {
+		// fmt.Printf("The data is <%#v> \n\n\n", vpcPeeringConnection)
 
-	// var arrVpcs []string
-	// for _, vpc := range (*vpcs).Vpcs {
-	// 	arrVpcs = append(arrVpcs, vpc.VpcId)
-	// }
+		clusterName := ctx.Value("clusterName").(string)
+		clusterType := ctx.Value("clusterType").(string)
+		if vpcPeeringConnection.Status == "pending-acceptance" {
 
-	// command := fmt.Sprintf("aws ec2 describe-vpc-peering-connections --filters \"Name=accepter-vpc-info.vpc-id,Values=%s\" ", strings.Join(arrVpcs, ","))
+			acceptVpcPeeringConnectionInput := &ec2.AcceptVpcPeeringConnectionInput{VpcPeeringConnectionId: aws.String(vpcPeeringConnection.VpcConnectionId)}
+			if _, err := client.AcceptVpcPeeringConnection(context.TODO(), acceptVpcPeeringConnectionInput); err != nil {
+				return err
+			}
 
-	// stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
-	// if err != nil {
-	// 	return nil
-	// }
-	// var vpcPeerings VPCPeeringConnections
-	// if err := json.Unmarshal(stdout, &vpcPeerings); err != nil {
-	// 	zap.L().Debug("The error to parse the string ", zap.Error(err))
-	// 	return nil
-	// }
+			tags := []types.Tag{
+				{
+					Key:   aws.String("Name"),
+					Value: aws.String(clusterName),
+				},
+				{
+					Key:   aws.String("Type"),
+					Value: aws.String(vpcPeeringConnection.AcceptorVpcName),
+				},
+			}
 
-	// for _, vpcPeering := range vpcPeerings.VpcPeeringConnections {
-	// 	if vpcPeering.Status.Code == "pending-acceptance" {
-	// 		command = fmt.Sprintf("aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id %s", vpcPeering.VpcPeeringConnectionId)
+			createTagsInput := &ec2.CreateTagsInput{Tags: tags, Resources: []string{vpcPeeringConnection.VpcConnectionId}}
+			if _, err := client.CreateTags(context.TODO(), createTagsInput); err != nil {
+				return err
+			}
+		}
 
-	// 		_, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	// 		if err != nil {
-	// 			return err
-	// 		}
+		var filters []types.Filter
+		filters = append(filters, types.Filter{
+			Name:   aws.String("tag:Name"),
+			Values: []string{clusterName},
+		})
 
-	// 		routeTable, err := getRouteTableByVPC(*c.pexecutor, ctx, clusterName, vpcPeering.AccepterVpcInfo.VpcId)
-	// 		if err != nil {
-	// 			return err
-	// 		}
+		filters = append(filters, types.Filter{
+			Name:   aws.String("tag:Cluster"),
+			Values: []string{clusterType},
+		})
 
-	// 		command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --vpc-peering-connection-id %s", routeTable.RouteTableId, vpcPeering.RequesterVpcInfo.CidrBlock, vpcPeering.VpcPeeringConnectionId)
-	// 		_, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
+		filters = append(filters, types.Filter{
+			Name:   aws.String("tag:Type"),
+			Values: []string{vpcPeeringConnection.AcceptorVpcName},
+		})
 
-	// }
+		describeRouteTablesInput := &ec2.DescribeRouteTablesInput{Filters: filters}
+		describeRouteTables, err := client.DescribeRouteTables(context.TODO(), describeRouteTablesInput)
+		if err != nil {
+			return err
+		}
+
+		hasRegistered := false
+		for _, routeTable := range describeRouteTables.RouteTables {
+			for _, route := range routeTable.Routes {
+				if vpcPeeringConnection.RequesterVpcCIDR == *route.DestinationCidrBlock {
+					hasRegistered = true
+				}
+			}
+		}
+		if hasRegistered == false {
+			createRouteInput := &ec2.CreateRouteInput{RouteTableId: describeRouteTables.RouteTables[0].RouteTableId, DestinationCidrBlock: &vpcPeeringConnection.RequesterVpcCIDR, VpcPeeringConnectionId: aws.String(vpcPeeringConnection.VpcConnectionId)}
+
+			if _, err := client.CreateRoute(context.TODO(), createRouteInput); err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
@@ -275,8 +287,7 @@ func searchVPCPeering(ctx context.Context, subClusterTypes []string) (*[]VPCPeer
 	})
 
 	filters = append(filters, types.Filter{
-		Name: aws.String("tag:Type"),
-		// Values: []string{c.subClusterType},
+		Name:   aws.String("tag:Type"),
 		Values: subClusterTypes,
 	})
 
@@ -290,11 +301,10 @@ func searchVPCPeering(ctx context.Context, subClusterTypes []string) (*[]VPCPeer
 	for _, vpc := range describeVpcs.Vpcs {
 		vpcName := ""
 		vpcId = *(vpc.VpcId)
-		// fmt.Printf("The vpcs info is <%#v> \n\n\n", vpc)
 		for _, tag := range vpc.Tags {
-			// fmt.Printf("The vpcs info is <%#v> \n\n\n", tag)
 			if *(tag.Key) == "Type" {
 				vpcName = *(tag.Value)
+				// fmt.Printf("The name of the vpc is <%s> \n\n\n", vpcName)
 			}
 		}
 
