@@ -42,6 +42,7 @@ func newAurora2TiDBCloudCmd() *cobra.Command {
 		newDestroyAurora2TiDBCloudCmd(),
 		newVPCPeeringAurora2TiDBCloudCmd(),
 		newVPCPeeringAcceptAurora2TiDBCloudCmd(),
+		newStartSyncAurora2TiDBCloudCmd(),
 	)
 	return cmd
 }
@@ -141,6 +142,28 @@ func newVPCPeeringAcceptAurora2TiDBCloudCmd() *cobra.Command {
 			clusterName := args[0]
 
 			return cm.AcceptVPCPeeringAurora2TiDBCloudCluster(clusterName)
+		},
+	}
+
+	return cmd
+}
+
+func newStartSyncAurora2TiDBCloudCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "start-sync <cluster-name>",
+		Short: "Create the DM's source and task",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.StartSyncAurora2TiDBCloudCluster(clusterName, gOpt)
 		},
 	}
 

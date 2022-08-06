@@ -31,10 +31,11 @@ import (
 )
 
 type DeployDM struct {
-	pexecutor      *ctxt.Executor
-	awsWSConfigs   *spec.AwsWSConfigs
-	subClusterType string
-	clusterInfo    *ClusterInfo
+	pexecutor         *ctxt.Executor
+	awsWSConfigs      *spec.AwsWSConfigs
+	tidbCloudConnInfo *spec.TiDBCloudConnInfo
+	subClusterType    string
+	clusterInfo       *ClusterInfo
 }
 
 type TplTiupDMData struct {
@@ -43,6 +44,17 @@ type TplTiupDMData struct {
 	Monitor      []string
 	Grafana      []string
 	AlertManager []string
+	TaskMetaData struct {
+		Host       string
+		Port       int
+		User       string
+		Password   string
+		TaskName   string
+		Databases  []string
+		SourceID   string
+		BinlogName string
+		BinlogPos  int
+	}
 }
 
 func (t TplTiupDMData) String() string {
@@ -102,6 +114,17 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 			}
 		}
 	}
+
+	tplDMData.TaskMetaData.Host = c.tidbCloudConnInfo.Host
+	tplDMData.TaskMetaData.Port = c.tidbCloudConnInfo.Port
+	tplDMData.TaskMetaData.User = c.tidbCloudConnInfo.User
+	tplDMData.TaskMetaData.Password = c.tidbCloudConnInfo.Password
+	tplDMData.TaskMetaData.TaskName = clusterName
+	tplDMData.TaskMetaData.Databases = c.tidbCloudConnInfo.Databases
+	tplDMData.TaskMetaData.SourceID = clusterName
+	tplDMData.TaskMetaData.BinlogName = "mysql-bin-changelog.000003"
+	tplDMData.TaskMetaData.BinlogPos = 154
+
 	zap.L().Debug("AWS WS Config:", zap.String("Monitoring", c.awsWSConfigs.EnableMonitoring))
 	if c.awsWSConfigs.EnableMonitoring == "enabled" {
 		workstation, err := getWorkstation(*c.pexecutor, ctx, clusterName, clusterType)
@@ -182,10 +205,6 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// stdout, _, err = (*workstation).Execute(ctx, `yum update`, true)
-	// if err != nil {
-	// 	return err
-	// }
 
 	stdout, _, err = (*workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
 	if err != nil {
@@ -250,35 +269,9 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		return err
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s:8261 operate-source create /opt/tidb/dm-source.yml", tplDMData.DMMaster[0]), false)
-	if err != nil {
-		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
-		return err
-	}
-
-	// stdout, _, err = (*workstation).Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
+	// stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s:8261 operate-source create /opt/tidb/dm-source.yml", tplDMData.DMMaster[0]), false)
 	// if err != nil {
-	// 	return err
-	// }
-
-	// stdout, _, err = (*workstation).Execute(ctx, `yum install -y mariadb.x86_64`, true)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
-	// if err != nil {
-	// 	if err.Error() == "No RDB Instance found(No matched name)" {
-	// 		return nil
-	// 	}
-	// 	fmt.Printf("The error is <%#v> \n\n\n", dbInstance)
-	// 	return err
-	// }
-
-	// deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
-
-	// stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p %d -U %s -P %s`, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd"), true)
-	// if err != nil {
+	// 	fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 	// 	return err
 	// }
 

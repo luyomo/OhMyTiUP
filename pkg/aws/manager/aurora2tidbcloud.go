@@ -15,8 +15,10 @@ package manager
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws/clusterutil"
@@ -199,7 +201,7 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		CreateRouteTgw(&sexecutor, "workstation", []string{"aurora", "dm"}).
 		CreateRouteTgw(&sexecutor, "aurora", []string{"workstation", "dm"}).
 		CreateRouteTgw(&sexecutor, "dm", []string{"aurora", "workstation"}).
-		DeployDM(&sexecutor, "dm", base.AwsWSConfigs, &workstationInfo).
+		DeployDM(&sexecutor, "dm", base.AwsWSConfigs, base.TiDBCloudConnInfo, &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
 
 	tailctx := context.WithValue(context.Background(), "clusterName", name)
@@ -337,7 +339,7 @@ func (m *Manager) ShowVPCPeeringAurora2TiDBCloudCluster(clusterName string) erro
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	vpcPeeringInfo := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
-	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation"}, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
+	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation", "aurora"}, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
 	listTasks = append(listTasks, t9)
 
 	// *********************************************************************
@@ -361,6 +363,184 @@ func (m *Manager) AcceptVPCPeeringAurora2TiDBCloudCluster(clusterName string) er
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora2tidbcloud")
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	vpcPeeringInfo := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
+	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation"}, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
+	listTasks = append(listTasks, t9)
+
+	// *********************************************************************
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	titleFont := color.New(color.FgRed, color.Bold)
+	fmt.Printf("Account ID   :      %s\n", titleFont.Sprint("VPC Peering Info"))
+	tui.PrintTable(vpcPeeringInfo, true)
+
+	// 02. Accept the VPC Peering
+	var acceptTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	t2 := task.NewBuilder().AcceptVPCPeering(&sexecutor).BuildAsStep(fmt.Sprintf("  - Accepting VPC Peering"))
+	acceptTasks = append(acceptTasks, t2)
+
+	// *********************************************************************
+	builder = task.NewBuilder().ParallelStep("+ Accepting aws resources", false, acceptTasks...)
+
+	t = builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt operator.Options) error {
+
+	fmt.Printf("Starting data sync from Aurora to TiDB Cloud \n")
+	clusterType := "ohmytiup-aurora2tidbcloud"
+
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	type DisplayDMCluster struct {
+		ClusterMeta struct {
+			ClusterType    string `json:"cluster_type"`
+			ClusterName    string `json:"cluster_name"`
+			ClusterVersion string `json:"cluster_version"`
+			DeployUser     string `json:"deploy_user"`
+			SshType        string `json:"ssh_type"`
+			TlsEnabled     bool   `json:"tls_enabled"`
+		} `json:"cluster_meta"`
+		Instances []struct {
+			ID            string `json:"id"`
+			Role          string `json:"role"`
+			Host          string `json:"host"`
+			Ports         string `json:"ports"`
+			OsArch        string `json:"os_arch"`
+			Status        string `json:"status"`
+			Since         string `json:"since"`
+			DataDir       string `json:"data_dir"`
+			DeployDir     string `json:"deploy_dir"`
+			ComponentName string `json:"ComponentName"`
+			Port          int    `json:"Port"`
+		} `json:"instances"`
+	}
+
+	// fmt.Printf(fmt.Sprintf("tiup dm display %s --format json \n\n\n", clusterName))
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
+	// fmt.Printf("The output is <%#v>\n\n\n", string(stdout))
+	var displayDMCluster DisplayDMCluster
+	if err = json.Unmarshal(stdout, &displayDMCluster); err != nil {
+		return err
+	}
+
+	masterNode := ""
+	for _, node := range displayDMCluster.Instances {
+		if node.Role == "dm-master" && node.Status == "Healthy" {
+			masterNode = fmt.Sprintf("%s:%d", node.Host, node.Port)
+		}
+	}
+
+	if masterNode == "" {
+		return errors.New("No healthy master node found")
+	}
+
+	type DMSourceMeta struct {
+		Result  bool   `json:"result"`
+		Msg     string `json:"msg"`
+		Sources []struct {
+			Result bool   `json:"result"`
+			Msg    string `json:"msg"`
+			Source string `json:"source"`
+			Worker string `json:"worker"`
+		} `json:"sources"`
+	}
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s operate-source show", masterNode), false)
+	if err != nil {
+		return err
+	}
+
+	var dmSourceMeta DMSourceMeta
+	if err = json.Unmarshal(stdout, &dmSourceMeta); err != nil {
+		return err
+	}
+	// fmt.Printf("The meta data is <%#v> \n\n\n", dmSourceMeta)
+
+	existSource := false
+	for _, source := range dmSourceMeta.Sources {
+		if source.Source == clusterName {
+			existSource = true
+			break
+		}
+	}
+	if existSource == false {
+		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s operate-source create /opt/tidb/dm-source.yml", masterNode), false)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The data is <%s> \n\n\n", stdout)
+	}
+
+	type DMTaskMeta struct {
+		Result bool   `json:"result"`
+		Msg    string `json:"msg"`
+		Tasks  []struct {
+			TaskName   string   `json:"taskName"`
+			TaskStatus string   `json:"taskStatus"`
+			Sources    []string `json:"sources"`
+		} `json:"tasks"`
+	}
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status", masterNode), false)
+	if err != nil {
+		return err
+	}
+
+	var dmTaskMeta DMTaskMeta
+	if err = json.Unmarshal(stdout, &dmTaskMeta); err != nil {
+		return err
+	}
+
+	existTask := false
+	for _, task := range dmTaskMeta.Tasks {
+		if task.TaskName == clusterName {
+			existTask = true
+			break
+		}
+	}
+	if existTask == false {
+		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s start-task /opt/tidb/dm-task.yml", masterNode), false)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The data is <%s> \n\n\n", stdout)
+	}
+
+	return nil
+	ctx = context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora2tidbcloud")
+
+	sexecutor, err = executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
 	}

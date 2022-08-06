@@ -733,12 +733,13 @@ func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, aw
 	return b
 }
 
-func (b *Builder) DeployDM(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DeployDM(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, tidbCloudConnInfo *spec.TiDBCloudConnInfo, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployDM{
-		pexecutor:      pexecutor,
-		awsWSConfigs:   awsWSConfigs,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
+		pexecutor:         pexecutor,
+		awsWSConfigs:      awsWSConfigs,
+		tidbCloudConnInfo: tidbCloudConnInfo,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
 	})
 	return b
 }

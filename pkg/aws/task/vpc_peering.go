@@ -75,7 +75,7 @@ type AcceptVPCPeering struct {
 
 // Execute implements the Task interface
 func (c *AcceptVPCPeering) Execute(ctx context.Context) error {
-	vpcPeeringConnections, err := searchVPCPeering(ctx, []string{"dm", "workstation"})
+	vpcPeeringConnections, err := searchVPCPeering(ctx, []string{"dm", "workstation", "aurora"})
 	if err != nil {
 		return err
 	}
@@ -304,7 +304,6 @@ func searchVPCPeering(ctx context.Context, subClusterTypes []string) (*[]VPCPeer
 		for _, tag := range vpc.Tags {
 			if *(tag.Key) == "Type" {
 				vpcName = *(tag.Value)
-				// fmt.Printf("The name of the vpc is <%s> \n\n\n", vpcName)
 			}
 		}
 
@@ -333,15 +332,6 @@ func searchVPCPeering(ctx context.Context, subClusterTypes []string) (*[]VPCPeer
 			vpcPeeringConnection.AcceptorVpcName = vpcName
 
 			vpcPeeringConnections = append(vpcPeeringConnections, vpcPeeringConnection)
-
-			// // var vpcPeeringConnections VPCPeeringConnections
-			// *(c.tableVpcPeeringInfo) = append(*(c.tableVpcPeeringInfo), []string{*(vpcPeering.VpcPeeringConnectionId),
-			// 	string(vpcPeering.Status.Code),
-			// 	*(vpcPeering.RequesterVpcInfo.VpcId),
-			// 	*(vpcPeering.RequesterVpcInfo.CidrBlock),
-			// 	*(vpcPeering.AccepterVpcInfo.VpcId) + "/" + vpcName,
-			// 	*(vpc.CidrBlock),
-			// })
 
 		}
 	}

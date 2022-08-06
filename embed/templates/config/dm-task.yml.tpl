@@ -1,26 +1,26 @@
-name: "one-tidb-slave"
-task-mode: all
+name: "{{ .TaskMetaData.TaskName }}"
+task-mode: incremental
 meta-schema: "dm_meta"
 
 target-database:
-  host: "private-tidb.xzgvoqakkq5.clusters.tidb-cloud.com"
-  port: 4000
-  user: "root"
-  password: "1234Abcd"
+  host: "{{ .TaskMetaData.Host }}"
+  port: {{ .TaskMetaData.Port }}
+  user: "{{ .TaskMetaData.User }}"
+  password: "{{ .TaskMetaData.Password }}"
+  max-allowed-packet: 67108864
+
+routes:
+ {{- range $i, $v := .TaskMetaData.Databases }}
+  route-rule-{{$i}}:
+    schema-pattern: "{{$v}}"
+    target-schema: "{{$v}}"
+ {{- end }}
 
 mysql-instances:
   -
-    source-id: "mysql-replica-01"
-    route-rules: ["instance-1-user-rule"]
-    filter-rules: ["log-filter-rule" ]
+    source-id: "{{ .TaskMetaData.SourceID }}"
+    meta:
+      binlog-name: {{ .TaskMetaData.BinlogName }}
+      binlog-pos: {{ .TaskMetaData.BinlogPos }}
+    route-rules: [ {{- range $i, $v := .TaskMetaData.Databases -}} {{if $i}},{{end}} "route-rule-{{$i}}" {{- end -}} ]
 
-routes:
-  instance-1-user-rule:
-    schema-pattern: "user"
-    target-schema: "test"
-
-filters:
-  log-filter-rule:
-    schema-pattern: "user"
-    table-pattern: "test02"
-    action: Ignore

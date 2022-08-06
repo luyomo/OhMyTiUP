@@ -34,3 +34,11 @@ aws_topo_configs:
   dm-worker:
     instance_type: c5.2xlarge                     # Instance type for PD component
     count: 1                                      # Number of PD node to be deployed
+tidb_cloud:
+  host: private-tidb.nrpdszb7r1h.clusters.tidb-cloud.com
+  port: 4000
+  user: root
+  password: 1234Abcd
+  databases:
+    - test01
+    - test02

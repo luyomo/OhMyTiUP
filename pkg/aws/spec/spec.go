@@ -219,6 +219,14 @@ type (
 		PubliclyAccessibleFlag bool   `yaml:"public_accessible_flag" default: false`
 	}
 
+	TiDBCloudConnInfo struct {
+		Host      string   `yaml:"host"`
+		Port      int      `yaml:"port"`
+		User      string   `yaml:"user"`
+		Password  string   `yaml:"password"`
+		Databases []string `yaml:"databases"`
+	}
+
 	AwsMSConfigs struct {
 		ImageId                string `yaml:"imageid,omitempty"`
 		CIDR                   string `yaml:"cidr"`
@@ -270,6 +278,7 @@ type (
 		AwsMSConfigs             AwsMSConfigs             `yaml:"sqlserver,omitempty"`
 		AwsDMSConfigs            AwsDMSConfigs            `yaml:"dms,omitempty"`
 		AwsCloudFormationConfigs AwsCloudFormationConfigs `yaml:"aws_cloud_formation_configs"`
+		TiDBCloudConnInfo        TiDBCloudConnInfo        `yaml:"tidb_cloud"`
 		DrainerReplicate         DrainerReplicate         `yaml:"drainer_replicate,omitempty"`
 		TiDBServers              []*TiDBSpec              `yaml:"tidb_servers"`
 		TiKVServers              []*TiKVSpec              `yaml:"tikv_servers"`
@@ -300,6 +309,7 @@ type BaseTopo struct {
 	AwsMSConfigs             *AwsMSConfigs
 	AwsDMSConfigs            *AwsDMSConfigs
 	AwsCloudFormationConfigs *AwsCloudFormationConfigs
+	TiDBCloudConnInfo        *TiDBCloudConnInfo
 	DrainerReplicate         *DrainerReplicate
 	MasterList               []string
 
@@ -378,6 +388,7 @@ func (s *Specification) NewPart() Topology {
 		AwsMSConfigs:             s.AwsMSConfigs,
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
+		TiDBCloudConnInfo:        s.TiDBCloudConnInfo,
 		DrainerReplicate:         s.DrainerReplicate,
 	}
 }
@@ -424,6 +435,7 @@ func (s *Specification) BaseTopo() *BaseTopo {
 		AwsMSConfigs:             &s.AwsMSConfigs,
 		AwsDMSConfigs:            &s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: &s.AwsCloudFormationConfigs,
+		TiDBCloudConnInfo:        &s.TiDBCloudConnInfo,
 		DrainerReplicate:         &s.DrainerReplicate,
 		MasterList:               s.GetPDList(),
 		Monitors:                 s.Monitors,
@@ -635,6 +647,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		AwsMSConfigs:             s.AwsMSConfigs,
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
+		TiDBCloudConnInfo:        s.TiDBCloudConnInfo,
 		DrainerReplicate:         s.DrainerReplicate,
 		TiDBServers:              append(s.TiDBServers, spec.TiDBServers...),
 		TiKVServers:              append(s.TiKVServers, spec.TiKVServers...),
@@ -680,13 +693,14 @@ var (
 	awsMSConfigsTypeName             = reflect.TypeOf(AwsMSConfigs{}).Name()
 	awsDMSConfigsTypeName            = reflect.TypeOf(AwsDMSConfigs{}).Name()
 	awsCloudFormationConfigsTypeName = reflect.TypeOf(AwsCloudFormationConfigs{}).Name()
+	tidbCloudConnInfo                = reflect.TypeOf(TiDBCloudConnInfo{}).Name()
 	drainerReplicate                 = reflect.TypeOf(DrainerReplicate{}).Name()
 )
 
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == drainerReplicate
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConnInfo || tp == drainerReplicate
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {
