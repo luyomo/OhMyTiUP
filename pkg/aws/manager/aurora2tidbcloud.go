@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -30,27 +32,15 @@ import (
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
-	// "github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
 )
 
-// DeployOptions contains the options for scale out.
-// type AuroraDeployOptions struct {
-// 	User              string // username to login to the SSH server
-// 	IdentityFile      string // path to the private key file
-// 	UsePassword       bool   // use password instead of identity file for ssh connection
-// 	IgnoreConfigCheck bool   // ignore config check result
-// }
-
-// Deploy a cluster.
 func (m *Manager) Aurora2TiDBCloudDeploy(
 	name string,
 	topoFile string,
-	// opt AuroraDeployOptions,
-	// afterDeploy func(b *task.Builder, newPart spec.Topology),
 	skipConfirm bool,
 	gOpt operator.Options,
 ) error {
@@ -88,26 +78,6 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	if sshType := gOpt.SSHType; sshType != "" {
 		base.GlobalOptions.SSHType = sshType
 	}
-
-	// var (
-	// 	sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	// 	sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	// )
-	// if gOpt.SSHType != executor.SSHTypeNone {
-	// 	var err error
-	// 	if sshConnProps, err = tui.ReadIdentityFileOrPassword(opt.IdentityFile, opt.UsePassword); err != nil {
-	// 		return err
-	// 	}
-	// 	if len(gOpt.SSHProxyHost) != 0 {
-	// 		if sshProxyProps, err = tui.ReadIdentityFileOrPassword(gOpt.SSHProxyIdentity, gOpt.SSHProxyUsePassword); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
-
-	// if err := m.fillHostArch(sshConnProps, sshProxyProps, topo, &gOpt, opt.User); err != nil {
-	// 	return err
-	// }
 
 	var (
 		envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
@@ -176,10 +146,6 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 
 	builder := task.NewBuilder().
 		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
-
-	// if afterDeploy != nil {
-	// 	afterDeploy(builder, topo)
-	// }
 
 	t := builder.Build()
 
@@ -370,7 +336,7 @@ func (m *Manager) AcceptVPCPeeringAurora2TiDBCloudCluster(clusterName string) er
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	vpcPeeringInfo := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
-	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation"}, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
+	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation", "aurora"}, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
 	listTasks = append(listTasks, t9)
 
 	// *********************************************************************
@@ -383,7 +349,7 @@ func (m *Manager) AcceptVPCPeeringAurora2TiDBCloudCluster(clusterName string) er
 	}
 
 	titleFont := color.New(color.FgRed, color.Bold)
-	fmt.Printf("Account ID   :      %s\n", titleFont.Sprint("VPC Peering Info"))
+	fmt.Printf("Account ID before Acceptance   :      %s\n", titleFont.Sprint("VPC Peering Info"))
 	tui.PrintTable(vpcPeeringInfo, true)
 
 	// 02. Accept the VPC Peering
@@ -401,12 +367,26 @@ func (m *Manager) AcceptVPCPeeringAurora2TiDBCloudCluster(clusterName string) er
 		return err
 	}
 
+	vpcPeeringInfo01 := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
+	t9 = task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation", "aurora"}, &vpcPeeringInfo01).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
+	listTasks = append(listTasks, t9)
+
+	// *********************************************************************
+	builder = task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t = builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	fmt.Printf("Account ID after Acceptance   :      %s\n", titleFont.Sprint("VPC Peering Info"))
+	tui.PrintTable(vpcPeeringInfo01, true)
+
 	return nil
 }
 
 func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt operator.Options) error {
-
-	fmt.Printf("Starting data sync from Aurora to TiDB Cloud \n")
 	clusterType := "ohmytiup-aurora2tidbcloud"
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
@@ -447,9 +427,7 @@ func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt oper
 		} `json:"instances"`
 	}
 
-	// fmt.Printf(fmt.Sprintf("tiup dm display %s --format json \n\n\n", clusterName))
 	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
-	// fmt.Printf("The output is <%#v>\n\n\n", string(stdout))
 	var displayDMCluster DisplayDMCluster
 	if err = json.Unmarshal(stdout, &displayDMCluster); err != nil {
 		return err
@@ -650,6 +628,292 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 		}
 		return err
 	}
+
+	return nil
+}
+
+// ------------- Latency measurement
+func (m *Manager) Aurora2TiDBCloudPrepareCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	clusterType := "ohmytiup-aurora2tidbcloud"
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	// 01. Install the required package
+	if _, _, err := (*workstation).Execute(ctx, "apt-get install -y sysbench", true); err != nil {
+		return err
+	}
+
+	// 02. Create the postgres objects(Database and tables)
+	queries := []string{
+		fmt.Sprintf("drop database if exists %s", opt.SysbenchDBName), // Drop the sbtest if not exists(fosysbench)
+		fmt.Sprintf("create database %s", opt.SysbenchDBName),         // Create the database assigned with online label
+	}
+
+	for _, query := range queries {
+		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_mysql_query mysql '%s'", query), false, 1*time.Hour); err != nil {
+			return err
+		}
+	}
+
+	type TplSysbenchParam struct {
+		TiDBHost       string
+		TiDBPort       int
+		TiDBUser       string
+		TiDBPassword   string
+		TiDBDBName     string
+		ExecutionTime  int64
+		Thread         int
+		ReportInterval int
+	}
+
+	// Set sysbench file for TiDB Cloud
+	// Fetch the TiDB connection info
+	dbConnInfo, err := task.ReadTiDBConntionInfo(workstation, "tidbcloud-info.yml")
+	if err != nil {
+		return err
+	}
+
+	tplSysbenchParam := TplSysbenchParam{
+		TiDBHost:       (*dbConnInfo).DBHost,
+		TiDBPort:       (*dbConnInfo).DBPort,
+		TiDBUser:       (*dbConnInfo).DBUser,
+		TiDBPassword:   (*dbConnInfo).DBPassword,
+		TiDBDBName:     opt.SysbenchDBName,
+		ExecutionTime:  opt.SysbenchExecutionTime,
+		Thread:         opt.SysbenchThread,
+		ReportInterval: opt.SysbenchReportInterval,
+	}
+
+	if err = task.TransferToWorkstation(workstation, "templates/config/sysbench.toml.tpl", "/opt/tidbcloud-sysbench.toml", "0644", tplSysbenchParam); err != nil {
+		return err
+	}
+
+	// Set the sysbench file for aurora
+	// Fetch the TiDB connection info
+	dbConnInfo, err = task.ReadTiDBConntionInfo(workstation, "db-info.yml")
+	if err != nil {
+		return err
+	}
+
+	tplSysbenchParam.TiDBHost = (*dbConnInfo).DBHost
+	tplSysbenchParam.TiDBPort = (*dbConnInfo).DBPort
+	tplSysbenchParam.TiDBUser = (*dbConnInfo).DBUser
+	tplSysbenchParam.TiDBPassword = (*dbConnInfo).DBPassword
+
+	if err = task.TransferToWorkstation(workstation, "templates/config/sysbench.toml.tpl", "/opt/aurora-sysbench.toml", "0644", tplSysbenchParam); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/aurora-sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	for _, file := range []string{"tidb_common.lua", "tidb_oltp_insert.lua", "tidb_oltp_point_select.lua", "tidb_oltp_read_write.lua", "tidb_oltp_insert_simple.lua", "tidb_oltp_point_select_simple.lua", "tidb_oltp_read_write_simple.lua"} {
+		if err = task.TransferToWorkstation(workstation, fmt.Sprintf("templates/scripts/sysbench/%s", file), fmt.Sprintf("/usr/share/sysbench/%s", file), "0644", []string{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}
+
+func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	clusterType := "ohmytiup-aurora2tidbcloud"
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = context.WithValue(ctx, "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
+
+	// ctx = context.WithValue(ctx, "clusterName", clusterName)
+	// ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	var sysbenchResult [][]string
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	t1 := task.NewBuilder().RunSysbench(&sexecutor, &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+	envInitTasks = append(envInitTasks, t1)
+
+	builder := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running sysbench against Aurora "), false, envInitTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
+		if errorx.Cast(err) != nil {
+			return err
+		}
+		return err
+	}
+
+	tui.PrintTable(sysbenchResult, true)
+	timer.Take("Sysbench Execution")
+
+	type DisplayDMCluster struct {
+		ClusterMeta struct {
+			ClusterType    string `json:"cluster_type"`
+			ClusterName    string `json:"cluster_name"`
+			ClusterVersion string `json:"cluster_version"`
+			DeployUser     string `json:"deploy_user"`
+			SshType        string `json:"ssh_type"`
+			TlsEnabled     bool   `json:"tls_enabled"`
+		} `json:"cluster_meta"`
+		Instances []struct {
+			ID            string `json:"id"`
+			Role          string `json:"role"`
+			Host          string `json:"host"`
+			Ports         string `json:"ports"`
+			OsArch        string `json:"os_arch"`
+			Status        string `json:"status"`
+			Since         string `json:"since"`
+			DataDir       string `json:"data_dir"`
+			DeployDir     string `json:"deploy_dir"`
+			ComponentName string `json:"ComponentName"`
+			Port          int    `json:"Port"`
+		} `json:"instances"`
+	}
+
+	ctx = context.Background()
+	ctx = context.WithValue(ctx, "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
+	if err != nil {
+		return err
+	}
+	var displayDMCluster DisplayDMCluster
+	if err = json.Unmarshal(stdout, &displayDMCluster); err != nil {
+		return err
+	}
+
+	masterNode := ""
+	for _, node := range displayDMCluster.Instances {
+		if node.Role == "dm-master" && node.Status == "Healthy" {
+			masterNode = fmt.Sprintf("%s:%d", node.Host, node.Port)
+		}
+	}
+
+	if masterNode == "" {
+		return errors.New("No healthy master node found")
+	}
+
+	timer.Take("Take DM Master Node")
+	type DMTaskDetail struct {
+		Result  bool   `json:"result"`
+		Msg     string `json:"msg"`
+		Sources []struct {
+			Result       bool   `json:"result"`
+			Msg          string `json:"msg"`
+			SourceStatus struct {
+				Source      string `json:"source"`
+				Worker      string `json:"worker"`
+				Result      string `json:"result"`
+				RelayStatus string `json:"relayStatus"`
+			} `json:"sourceStatus"`
+			SubTaskStatus []struct {
+				Name                string `json:"name"`
+				Stage               string `json:"stage"`
+				Unit                string `json:"unit"`
+				Result              string `json:"result"`
+				UnresolvedDDLLockID string `json:"unresolvedDDLLockID"`
+				Sync                struct {
+					TotalEvents         string   `json:"totalEvents"`
+					TotalTps            string   `json:"totalTps"`
+					RecentTps           string   `json:"recentTps"`
+					MasterBinlog        string   `json:"masterBinlog"`
+					MasterBinlogGtid    string   `json:"masterBinlogGtid"`
+					SyncerBinlog        string   `json:"syncerBinlog"`
+					SyncerBinlogGtid    string   `json:"syncerBinlogGtid"`
+					BlockingDDLs        []string `json:"blockingDDLs"`
+					UnresolvedGroups    []string `json:"unresolvedGroups"`
+					Synced              bool     `json:"synced"`
+					BinlogType          string   `json:"binlogType"`
+					SecondsBehindMaster string   `json:"secondsBehindMaster"`
+					BlockDDLOwner       string   `json:"blockDDLOwner"`
+					ConflictMsg         string   `json:"conflictMsg"`
+				} `json:"sync"`
+			} `json:"subTaskStatus"`
+		} `json:"sources"`
+	}
+
+	var dmTaskDetail DMTaskDetail
+
+	hasSynced := true
+
+	tableSyncStatus := [][]string{}
+	tableSyncStatus = append(tableSyncStatus, []string{"Sync Flag", "Aurora binlog", "Synced binlog"})
+	tui.PrintTable(tableSyncStatus, true)
+
+	for idx := 0; idx < 1000; idx++ {
+		time.Sleep(10 * time.Second)
+		hasSynced = true
+
+		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
+		if err != nil {
+			return err
+		}
+		if err = json.Unmarshal(stdout, &dmTaskDetail); err != nil {
+			return err
+		}
+
+		for _, source := range dmTaskDetail.Sources {
+			for _, subTaskStatus := range source.SubTaskStatus {
+				tableSyncStatus = [][]string{}
+				tableSyncStatus = append(tableSyncStatus, []string{strconv.FormatBool(subTaskStatus.Sync.Synced), subTaskStatus.Sync.MasterBinlog, subTaskStatus.Sync.SyncerBinlog})
+				tui.PrintTable(tableSyncStatus, true)
+				// fmt.Printf("The sync info is <%#v>\n", subTaskStatus.Sync.Synced)
+				// fmt.Printf("The sync info is <%s>\n", subTaskStatus.Sync.MasterBinlog)
+				// fmt.Printf("The sync info is <%s>\n", subTaskStatus.Sync.SyncerBinlog)
+				if subTaskStatus.Sync.Synced == false {
+					hasSynced = false
+					break
+				}
+
+			}
+		}
+		if hasSynced == true {
+			break
+		}
+	}
+	timer.Take("Wait data sync completion")
+	// fmt.Printf("The syncd flag is <%#v>\n", hasSynced)
+
+	cyan := color.New(color.FgCyan, color.Bold)
+	stdout, _, err = (*workstation).Execute(ctx, "/home/admin/.tiup/bin/sync_diff_inspector --config=/opt/dm-sync-diff-check.toml ", false)
+	if err != nil {
+		fmt.Printf("Data comparison:      %s\n", cyan.Sprint("Different"))
+		fmt.Printf("Data comparison:      %s\n", "Please check the log /tmp/output/sync_diff.log")
+		return err
+	}
+
+	fmt.Printf("Data comparison:      %s\n", cyan.Sprint("SAME"))
+	timer.Take("Data comparison")
+
+	timer.Print()
 
 	return nil
 }

@@ -43,6 +43,8 @@ func newAurora2TiDBCloudCmd() *cobra.Command {
 		newVPCPeeringAurora2TiDBCloudCmd(),
 		newVPCPeeringAcceptAurora2TiDBCloudCmd(),
 		newStartSyncAurora2TiDBCloudCmd(),
+		newAurora2TiDBCloudMeasurementCmd(),
+		newAurora2TiDBCloudDataDiffCmd(),
 	)
 	return cmd
 }
@@ -207,6 +209,114 @@ You can retain some nodes and roles data when destroy cluster, eg:
 	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataNodes, "retain-node-data", nil, "Specify the nodes or hosts whose data will be retained")
 	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataRoles, "retain-role-data", nil, "Specify the roles whose data will be retained")
 	cmd.Flags().BoolVar(&destroyOpt.Force, "force", false, "Force will ignore remote error while destroy the cluster")
+
+	return cmd
+}
+
+func newAurora2TiDBCloudMeasurementCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "measure-latency <sub_command>",
+		Short: "Run measure latency against tidb",
+	}
+
+	cmd.AddCommand(
+		newAurora2TiDBCloudMeasurementPrepareCmd(),
+		newAurora2TiDBCloudMeasurementRunCmd(),
+	)
+	return cmd
+}
+
+func newAurora2TiDBCloudMeasurementPrepareCmd() *cobra.Command {
+
+	opt := operator.LatencyWhenBatchOptions{
+		TiKVMode: "simple",
+	}
+
+	cmd := &cobra.Command{
+		Use:   "prepare <cluster-name>",
+		Short: "Prepare resource for test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.Aurora2TiDBCloudPrepareCluster(clusterName, opt, gOpt)
+		},
+	}
+
+	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
+	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10, "sysbench: --table-size")
+	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")
+	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "oltp_point_select", "sysbench: oltp_point_select")
+
+	cmd.Flags().Int64Var(&opt.SysbenchExecutionTime, "sysbench-execution-time", 600, "sysbench: --execution-time")
+	cmd.Flags().IntVar(&opt.SysbenchThread, "sysbench-thread", 4, "sysbench: --thread")
+	cmd.Flags().IntVar(&opt.SysbenchReportInterval, "sysbench-report-interval", 10, "sysbench: --report-interval")
+
+	return cmd
+}
+
+func newAurora2TiDBCloudMeasurementRunCmd() *cobra.Command {
+
+	opt := operator.LatencyWhenBatchOptions{
+		TransInterval: 2,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "run <cluster-name>",
+		Short: "Run the query for latency performance test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.Aurora2TiDBCloudRunCluster(clusterName, opt, gOpt)
+		},
+	}
+
+	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
+	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
+	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "tidb_oltp_insert_simple", "sysbench: oltp_point_select")
+	cmd.Flags().Int64Var(&opt.SysbenchExecutionTime, "sysbench-execution-time", 600, "sysbench: --execution-time")
+
+	return cmd
+}
+
+func newAurora2TiDBCloudDataDiffCmd() *cobra.Command {
+
+	opt := operator.LatencyWhenBatchOptions{
+		TransInterval: 2,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "run <cluster-name>",
+		Short: "Diff the data between TiDB Cloud and aurora",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.Aurora2TiDBCloudRunCluster(clusterName, opt, gOpt)
+		},
+	}
 
 	return cmd
 }

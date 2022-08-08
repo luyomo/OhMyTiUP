@@ -144,6 +144,16 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		return err
 	}
 
+	var dbInfo DBInfo
+	dbInfo.DBHost = c.tidbCloudConnInfo.Host
+	dbInfo.DBPort = int64(c.tidbCloudConnInfo.Port)
+	dbInfo.DBUser = c.tidbCloudConnInfo.User
+	dbInfo.DBPassword = c.tidbCloudConnInfo.Password
+
+	if err = TransferToWorkstation(workstation, "templates/config/db-info.yml.tpl", "/opt/tidbcloud-info.yml", "0644", dbInfo); err != nil {
+		return err
+	}
+
 	// 4. Deploy all tidb templates
 	configFiles := []string{"dm-task.yml", "dm-cluster.yml"}
 	for _, configFile := range configFiles {
@@ -222,14 +232,14 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	}
 
 	if dmClusterInfo == nil {
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm deploy %s %s %s -y", "aurora2tidbcloudtest01", "v6.1.0", "/opt/tidb/dm-cluster.yml"), false)
+		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm deploy %s %s %s -y", clusterName, "v6.1.0", "/opt/tidb/dm-cluster.yml"), false)
 		if err != nil {
 			fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 			return err
 		}
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm start %s", "aurora2tidbcloudtest01"), false)
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm start %s", clusterName), false)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
@@ -259,13 +269,49 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		return err
 	}
 	sourceData.SourceName = clusterName
-	fmt.Printf("The parameteers are <%#v> \n\n\n\n", sourceData)
+
 	err = (*workstation).TransferTemplate(ctx, "templates/config/dm-source.yml.tpl", "/tmp/dm-source.yml", "0644", sourceData, true, 0)
 	if err != nil {
 		return err
 	}
 
 	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/dm-source.yml /opt/tidb/", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "wget https://download.pingcap.org/tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "tar xvf tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "mv tidb-community-toolkit-v6.1.0-linux-amd64/sync_diff_inspector /home/admin/.tiup/bin/", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "rm -rf tidb-community-toolkit-v6.1.0-linux-amd64; rm tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true); err != nil {
+		return err
+	}
+
+	type SyncDiffCheck struct {
+		CheckThreadCount int
+		MasterNode       string
+		DMTaskName       string
+		DMOutputDir      string
+		Databases        []string
+	}
+
+	syncDiffCheck := SyncDiffCheck{
+		CheckThreadCount: 4,
+		MasterNode:       fmt.Sprintf("%s:%d", tplDMData.DMMaster[0], 8261),
+		DMTaskName:       clusterName,
+		DMOutputDir:      "/tmp/output",
+		Databases:        c.tidbCloudConnInfo.Databases,
+	}
+
+	if err = TransferToWorkstation(workstation, "templates/config/dm-sync-diff-check.toml.tpl", "/opt/dm-sync-diff-check.toml", "0644", syncDiffCheck); err != nil {
 		return err
 	}
 

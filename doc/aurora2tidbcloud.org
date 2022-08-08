@@ -42,3 +42,25 @@ ORDER BY (data_length + index_length) DESC;
    3. Accept the VPC Peering from command and add route
    4. Check the DB connection.
    5. Register the TiDB Cloud connection info
+   6. Delete VPC peering in the drop
+
+** Flow
+     - 01. ok-> Create Aurora and load 200GB data 
+     - 02. ok-> Create TiDB Cluster
+     - 03. ok-> Create DM Cluster and other components/setting
+     - 04. ok-> Invite workstation/DM/Aurora VPC Peering
+     - 05. ok-> Accept VPC connection peering from DM
+     - 06. ok-> Get the binlog position, take the snapshot and export the data to parquet in the S3
+           todo: Get the binlog/position and store it to /opt/aurora/binlogInfo.yaml
+           mysqldump --no-data -d test01 -h ar1q6nri6vbgx0k.cxmxisy1o2a2.us-east-1.rds.amazonaws.com -u admin -p > /tmp/test01.ddl
+           mysqldump --no-data -d test02 -h ar1q6nri6vbgx0k.cxmxisy1o2a2.us-east-1.rds.amazonaws.com -u admin -p > /tmp/test02.ddl
+     - 07. Create DM source and task to start the sync
+           todo: tiup dmctl --master-addr 172.83.1.16:8261 start-task /opt/tidb/dm-task.yml
+     - 08. Check the status using command to see the source and target
+     - 09. Stop data insert into aurora and check the data sync completeness
+     - 10. Take the data compareness
+     - 11.Start the TiCDC sync from TiDB to Aurora
+
+
+       
+

@@ -175,42 +175,31 @@ type DestroyVpcPeering struct {
 }
 
 func (c *DestroyVpcPeering) Execute(ctx context.Context) error {
-	// clusterName := ctx.Value("clusterName").(string)
-	// clusterType := ctx.Value("clusterType").(string)
+
+	vpcPeeringConnections, err := searchVPCPeering(ctx, []string{"dm", "workstation", "aurora"})
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	client := ec2.NewFromConfig(cfg)
+
+	for _, vpcPeeringConnection := range *vpcPeeringConnections {
+		// clusterName := ctx.Value("clusterName").(string)
+		// clusterType := ctx.Value("clusterType").(string)
+		if vpcPeeringConnection.Status == "Active" {
+			deleteVpcPeeringConnectionInput := &ec2.DeleteVpcPeeringConnectionInput{VpcPeeringConnectionId: aws.String(vpcPeeringConnection.VpcConnectionId)}
+			if _, err := client.DeleteVpcPeeringConnection(context.TODO(), deleteVpcPeeringConnectionInput); err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
-
-	// vpcs, err := getVPCInfos(*(c.pexecutor), ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType})
-	// if err != nil {
-	// 	return err
-	// }
-
-	// var arrVpcs []string
-	// for _, vpc := range (*vpcs).Vpcs {
-	// 	arrVpcs = append(arrVpcs, vpc.VpcId)
-	// }
-
-	// command := fmt.Sprintf("aws ec2 describe-vpc-peering-connections --filters \"Name=accepter-vpc-info.vpc-id,Values=%s\" ", strings.Join(arrVpcs, ","))
-	// stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
-	// if err != nil {
-	// 	return nil
-	// }
-	// var vpcPeerings VPCPeeringConnections
-	// if err := json.Unmarshal(stdout, &vpcPeerings); err != nil {
-	// 	zap.L().Debug("The error to parse the string ", zap.Error(err))
-	// 	return nil
-	// }
-
-	// for _, pcx := range vpcPeerings.VpcPeeringConnections {
-
-	// 	command := fmt.Sprintf("aws ec2 delete-vpc-peering-connection --vpc-peering-connection-id %s", pcx.VpcPeeringConnectionId)
-	// 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// return nil
 }
 
 // Rollback implements the Task interface
@@ -326,7 +315,9 @@ func searchVPCPeering(ctx context.Context, subClusterTypes []string) (*[]VPCPeer
 			vpcPeeringConnection.VpcConnectionId = *(vpcPeering.VpcPeeringConnectionId)
 			vpcPeeringConnection.Status = string(vpcPeering.Status.Code)
 			vpcPeeringConnection.RequesterVpcId = *(vpcPeering.RequesterVpcInfo.VpcId)
-			vpcPeeringConnection.RequesterVpcCIDR = *(vpcPeering.RequesterVpcInfo.CidrBlock)
+			if vpcPeering.RequesterVpcInfo.CidrBlock != nil {
+				vpcPeeringConnection.RequesterVpcCIDR = *(vpcPeering.RequesterVpcInfo.CidrBlock)
+			}
 			vpcPeeringConnection.AcceptorVpcId = *(vpcPeering.AccepterVpcInfo.VpcId)
 			vpcPeeringConnection.AcceptorVpcCIDR = *(vpc.CidrBlock)
 			vpcPeeringConnection.AcceptorVpcName = vpcName

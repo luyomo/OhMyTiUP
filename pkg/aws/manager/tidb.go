@@ -598,7 +598,7 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, opt opera
 	}
 
 	// Fetch the TiDB connection info
-	tidbConnInfo, err := task.ReadTiDBConntionInfo(workstation)
+	dbConnInfo, err := task.ReadTiDBConntionInfo(workstation, "tidb-db-info.yml")
 	if err != nil {
 		return err
 	}
@@ -615,10 +615,10 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, opt opera
 	}
 
 	tplSysbenchParam := TplSysbenchParam{
-		TiDBHost:       (*tidbConnInfo).TiDBHost,
-		TiDBPort:       (*tidbConnInfo).TiDBPort,
-		TiDBUser:       (*tidbConnInfo).TiDBUser,
-		TiDBPassword:   (*tidbConnInfo).TiDBPassword,
+		TiDBHost:       (*dbConnInfo).DBHost,
+		TiDBPort:       (*dbConnInfo).DBPort,
+		TiDBUser:       (*dbConnInfo).DBUser,
+		TiDBPassword:   (*dbConnInfo).DBPassword,
 		TiDBDBName:     opt.SysbenchDBName,
 		ExecutionTime:  opt.SysbenchExecutionTime,
 		Thread:         opt.SysbenchThread,

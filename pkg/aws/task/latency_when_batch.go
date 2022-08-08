@@ -109,7 +109,7 @@ func (c *RunSysbench) Execute(ctx context.Context) error {
 		return err
 	}
 
-	stdout, _, err := (*workstation).Execute(context.Background(), `sysbench --config-file=/opt/sysbench.toml tidb_oltp_insert_simple --tables=8 --table-size=100000 run`, false, 5*time.Hour)
+	stdout, _, err := (*workstation).Execute(context.Background(), fmt.Sprintf(`sysbench --config-file=%s %s --tables=%d --table-size=%d run`, "/opt/aurora-sysbench.toml", (*c.opt).SysbenchPluginName, (*c.opt).SysbenchNumTables, (*c.opt).SysbenchNumRows), false, 5*time.Hour)
 
 	if err != nil {
 		return err

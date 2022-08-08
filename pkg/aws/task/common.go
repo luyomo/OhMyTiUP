@@ -510,8 +510,6 @@ func getDMClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterNam
 		return nil, err
 	}
 
-	fmt.Printf("Found dm clusters: <%#v> \n\n\n", dmClustersInfo)
-
 	for _, clusterInfo := range dmClustersInfo.Clusters {
 		if clusterInfo.Name == clusterName {
 			return &clusterInfo, nil
@@ -774,32 +772,33 @@ func containsInArray(s []string, searchterm string) bool {
 	return i < len(s) && s[i] == searchterm
 }
 
-type TiDBConnectInfo struct {
-	TiDBHost     string `yaml:"Host"`
-	TiDBPort     int    `yaml:"Port"`
-	TiDBUser     string `yaml:"User"`
-	TiDBPassword string `yaml:"Password"`
+type DBConnectInfo struct {
+	DBHost     string `yaml:"Host"`
+	DBPort     int    `yaml:"Port"`
+	DBUser     string `yaml:"User"`
+	DBPassword string `yaml:"Password"`
 }
 
-func ReadTiDBConntionInfo(workstation *ctxt.Executor) (*TiDBConnectInfo, error) {
+func ReadTiDBConntionInfo(workstation *ctxt.Executor, fileName string) (*DBConnectInfo, error) {
 
 	// 02. Get the TiDB connection info
-	if err := (*workstation).Transfer(context.Background(), "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
+	// if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/tidb-db-info.yml"), "/tmp/tidb-db-info.yml", true, 1024); err != nil {
+	if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/%s", fileName), fmt.Sprintf("/tmp/%s", fileName), true, 1024); err != nil {
 		return nil, err
 	}
 
-	tidbConnectInfo := TiDBConnectInfo{}
+	dbConnectInfo := DBConnectInfo{}
 
-	yfile, err := ioutil.ReadFile("/tmp/tidb-db-info.yml")
+	yfile, err := ioutil.ReadFile(fmt.Sprintf("/tmp/%s", fileName))
 	if err != nil {
 		return nil, err
 	}
 
-	if err = yaml.Unmarshal(yfile, &tidbConnectInfo); err != nil {
+	if err = yaml.Unmarshal(yfile, &dbConnectInfo); err != nil {
 		return nil, err
 	}
 
-	return &tidbConnectInfo, nil
+	return &dbConnectInfo, nil
 }
 func TransferToWorkstation(workstation *ctxt.Executor, sourceFile, destFile, mode string, params interface{}) error {
 
