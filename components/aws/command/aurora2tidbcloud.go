@@ -43,6 +43,8 @@ func newAurora2TiDBCloudCmd() *cobra.Command {
 		newVPCPeeringAurora2TiDBCloudCmd(),
 		newVPCPeeringAcceptAurora2TiDBCloudCmd(),
 		newStartSyncAurora2TiDBCloudCmd(),
+		newQuerySyncStatusAurora2TiDBCloudCmd(),
+		newStopSyncTaskAurora2TiDBCloudCmd(),
 		newAurora2TiDBCloudMeasurementCmd(),
 		newAurora2TiDBCloudDataDiffCmd(),
 	)
@@ -172,6 +174,50 @@ func newStartSyncAurora2TiDBCloudCmd() *cobra.Command {
 	return cmd
 }
 
+func newQuerySyncStatusAurora2TiDBCloudCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "query-status <cluster-name>",
+		Short: "Create the DM's source and task",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.QuerySyncStatusAurora2TiDBCloudCluster(clusterName, gOpt)
+		},
+	}
+
+	return cmd
+}
+
+func newStopSyncTaskAurora2TiDBCloudCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "stop-task <cluster-name>",
+		Short: "Stop DM's task",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.StopSyncTaskAurora2TiDBCloudCluster(clusterName, gOpt)
+		},
+	}
+
+	return cmd
+}
+
 func newDestroyAurora2TiDBCloudCmd() *cobra.Command {
 	destroyOpt := operator.Options{}
 	cmd := &cobra.Command{
@@ -222,6 +268,7 @@ func newAurora2TiDBCloudMeasurementCmd() *cobra.Command {
 	cmd.AddCommand(
 		newAurora2TiDBCloudMeasurementPrepareCmd(),
 		newAurora2TiDBCloudMeasurementRunCmd(),
+		newAurora2TiDBCloudMeasurementRunTiDBCloudCmd(),
 	)
 	return cmd
 }
@@ -283,6 +330,38 @@ func newAurora2TiDBCloudMeasurementRunCmd() *cobra.Command {
 			clusterName := args[0]
 
 			return cm.Aurora2TiDBCloudRunCluster(clusterName, opt, gOpt)
+		},
+	}
+
+	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
+	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
+	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "tidb_oltp_insert_simple", "sysbench: oltp_point_select")
+	cmd.Flags().Int64Var(&opt.SysbenchExecutionTime, "sysbench-execution-time", 600, "sysbench: --execution-time")
+
+	return cmd
+}
+
+func newAurora2TiDBCloudMeasurementRunTiDBCloudCmd() *cobra.Command {
+
+	opt := operator.LatencyWhenBatchOptions{
+		TransInterval: 2,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "run-tidbcloud <cluster-name>",
+		Short: "Run the query for latency performance test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.Aurora2TiDBCloudRunTiDBCloudCluster(clusterName, opt, gOpt)
 		},
 	}
 

@@ -91,9 +91,10 @@ func (c *RunOntimeBatchInsert) String() string {
 
 // ------ ----- ----- RunSysbench
 type RunSysbench struct {
-	pexecutor *ctxt.Executor
-	gOpt      *operator.Options
-	opt       *operator.LatencyWhenBatchOptions
+	pexecutor          *ctxt.Executor
+	gOpt               *operator.Options
+	opt                *operator.LatencyWhenBatchOptions
+	sysbenchConfigFile string
 
 	sysbenchResult *[][]string
 	cancelCtx      *context.CancelFunc
@@ -109,7 +110,7 @@ func (c *RunSysbench) Execute(ctx context.Context) error {
 		return err
 	}
 
-	stdout, _, err := (*workstation).Execute(context.Background(), fmt.Sprintf(`sysbench --config-file=%s %s --tables=%d --table-size=%d run`, "/opt/aurora-sysbench.toml", (*c.opt).SysbenchPluginName, (*c.opt).SysbenchNumTables, (*c.opt).SysbenchNumRows), false, 5*time.Hour)
+	stdout, _, err := (*workstation).Execute(context.Background(), fmt.Sprintf(`sysbench --config-file=%s %s --tables=%d --table-size=%d run`, c.sysbenchConfigFile, (*c.opt).SysbenchPluginName, (*c.opt).SysbenchNumTables, (*c.opt).SysbenchNumRows), false, 5*time.Hour)
 
 	if err != nil {
 		return err

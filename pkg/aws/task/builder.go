@@ -1562,13 +1562,14 @@ func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, opt *operator.L
 	return b
 }
 
-func (b *Builder) RunSysbench(pexecutor *ctxt.Executor, sysbenchResult *[][]string, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, cancelCtx *context.CancelFunc) *Builder {
+func (b *Builder) RunSysbench(pexecutor *ctxt.Executor, sysbenchConfigFile string, sysbenchResult *[][]string, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, cancelCtx *context.CancelFunc) *Builder {
 	b.tasks = append(b.tasks, &RunSysbench{
-		pexecutor:      pexecutor,
-		gOpt:           gOpt,
-		opt:            opt,
-		sysbenchResult: sysbenchResult,
-		cancelCtx:      cancelCtx,
+		pexecutor:          pexecutor,
+		gOpt:               gOpt,
+		opt:                opt,
+		sysbenchConfigFile: sysbenchConfigFile,
+		sysbenchResult:     sysbenchResult,
+		cancelCtx:          cancelCtx,
 	})
 	return b
 }

@@ -232,6 +232,68 @@ type CreateVpcPeering struct {
 	targetVPC ResourceTag
 }
 
+type DMTaskDetail struct {
+	Result  bool   `json:"result"`
+	Msg     string `json:"msg"`
+	Sources []struct {
+		Result       bool   `json:"result"`
+		Msg          string `json:"msg"`
+		SourceStatus struct {
+			Source      string `json:"source"`
+			Worker      string `json:"worker"`
+			Result      string `json:"result"`
+			RelayStatus string `json:"relayStatus"`
+		} `json:"sourceStatus"`
+		SubTaskStatus []struct {
+			Name                string `json:"name"`
+			Stage               string `json:"stage"`
+			Unit                string `json:"unit"`
+			Result              string `json:"result"`
+			UnresolvedDDLLockID string `json:"unresolvedDDLLockID"`
+			Sync                struct {
+				TotalEvents         string   `json:"totalEvents"`
+				TotalTps            string   `json:"totalTps"`
+				RecentTps           string   `json:"recentTps"`
+				MasterBinlog        string   `json:"masterBinlog"`
+				MasterBinlogGtid    string   `json:"masterBinlogGtid"`
+				SyncerBinlog        string   `json:"syncerBinlog"`
+				SyncerBinlogGtid    string   `json:"syncerBinlogGtid"`
+				BlockingDDLs        []string `json:"blockingDDLs"`
+				UnresolvedGroups    []string `json:"unresolvedGroups"`
+				Synced              bool     `json:"synced"`
+				BinlogType          string   `json:"binlogType"`
+				SecondsBehindMaster string   `json:"secondsBehindMaster"`
+				BlockDDLOwner       string   `json:"blockDDLOwner"`
+				ConflictMsg         string   `json:"conflictMsg"`
+			} `json:"sync"`
+		} `json:"subTaskStatus"`
+	} `json:"sources"`
+}
+
+type DisplayDMCluster struct {
+	ClusterMeta struct {
+		ClusterType    string `json:"cluster_type"`
+		ClusterName    string `json:"cluster_name"`
+		ClusterVersion string `json:"cluster_version"`
+		DeployUser     string `json:"deploy_user"`
+		SshType        string `json:"ssh_type"`
+		TlsEnabled     bool   `json:"tls_enabled"`
+	} `json:"cluster_meta"`
+	Instances []struct {
+		ID            string `json:"id"`
+		Role          string `json:"role"`
+		Host          string `json:"host"`
+		Ports         string `json:"ports"`
+		OsArch        string `json:"os_arch"`
+		Status        string `json:"status"`
+		Since         string `json:"since"`
+		DataDir       string `json:"data_dir"`
+		DeployDir     string `json:"deploy_dir"`
+		ComponentName string `json:"ComponentName"`
+		Port          int    `json:"Port"`
+	} `json:"instances"`
+}
+
 func contains(s *[]map[string]string, str string) bool {
 	for _, v := range *s {
 		if v["Cluster"] == str {

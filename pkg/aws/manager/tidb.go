@@ -666,7 +666,7 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName string, opt operator.
 
 			var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-			t1 := task.NewBuilder().RunSysbench(&sexecutor, &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+			t1 := task.NewBuilder().RunSysbench(&sexecutor, "/opt/sysbench.toml", &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
 			envInitTasks = append(envInitTasks, t1)
 
 			if batchSize != "x" {
