@@ -333,6 +333,8 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2kafka2pg")
 
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
 	// 01. Get the workstation executor
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
@@ -355,6 +357,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	if err != nil {
 		return err
 	}
+	timer.Take("Postgres DB creation")
 
 	commands := []string{
 		"create table test01(col01 bigint PRIMARY KEY, col02 int, tidb_timestamp timestamp, pg_timestamp timestamp default current_timestamp)",
@@ -366,6 +369,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 			return err
 		}
 	}
+	timer.Take("Postgres Table Creation")
 
 	// 03. Create TiDB objects(Databse and tables)
 	commands = []string{
@@ -379,6 +383,8 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 			return err
 		}
 	}
+
+	timer.Take("TiDB Table Creation")
 
 	// 04. Deploy the ticdc source connector
 	err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2pg/source.toml.tpl", "/tmp/source.toml", "0644", []string{}, true, 0)
@@ -394,6 +400,8 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	if err != nil {
 		return err
 	}
+
+	timer.Take("Kafka topic creation")
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string
@@ -423,6 +431,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 			connectorIP = row[5]
 		}
 	}
+	timer.Take("Kafka component IP")
 
 	if stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --pd=http://%s:2379 2>/dev/null", pdIP), false); err != nil {
 		return err
@@ -458,6 +467,8 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 		}
 	}
 
+	timer.Take("Changefeed creation")
+
 	// 05. Deploy the sink connector for kafka
 	if err = (*workstation).Transfer(ctx, "/opt/db-info.yml", "/tmp/db-info.yml", true, 1024); err != nil {
 		return err
@@ -489,7 +500,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	pgSinkData.TableName = "test01"
 	pgSinkData.SchemaRegistry = schemaRegistryIP
 
-	fmt.Printf("The data is <%#v> \n\n\n", pgSinkData)
+	// fmt.Printf("The data is <%#v> \n\n\n", pgSinkData)
 
 	err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.sink.json", "/tmp/kafka.sink.json", "0644", pgSinkData, true, 0)
 	if err != nil {
@@ -503,6 +514,9 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/kafka.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
 		return err
 	}
+	timer.Take("Sink preparation")
+
+	timer.Print()
 
 	return nil
 }
@@ -511,6 +525,9 @@ func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gO
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2kafka2pg")
+
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
 
 	// 01. Get the workstation executor
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
@@ -545,6 +562,7 @@ func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gO
 	if err != nil {
 		return err
 	}
+	timer.Take("TiDB Conn info")
 
 	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "drop database if exists mysqlslap"), false, 1*time.Hour)
 	if err != nil {
@@ -566,6 +584,7 @@ func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gO
 	if err != nil {
 		return err
 	}
+	timer.Take("mysqlslap running")
 
 	// 04. Wait the data sync to postgres
 	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
@@ -586,6 +605,8 @@ func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gO
 			break
 		}
 	}
+
+	timer.Take("Wait until data sync completion")
 
 	// 05. Calculate the QPS and latency
 	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)

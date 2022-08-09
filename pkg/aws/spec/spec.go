@@ -221,7 +221,7 @@ type (
 
 	TiDBCloudConnInfo struct {
 		Host      string   `yaml:"host"`
-		Port      int      `yaml:"port"`
+		Port      int      `yaml:"port" default: 4000`
 		User      string   `yaml:"user"`
 		Password  string   `yaml:"password"`
 		Databases []string `yaml:"databases"`
@@ -278,7 +278,7 @@ type (
 		AwsMSConfigs             AwsMSConfigs             `yaml:"sqlserver,omitempty"`
 		AwsDMSConfigs            AwsDMSConfigs            `yaml:"dms,omitempty"`
 		AwsCloudFormationConfigs AwsCloudFormationConfigs `yaml:"aws_cloud_formation_configs"`
-		TiDBCloudConnInfo        TiDBCloudConnInfo        `yaml:"tidb_cloud"`
+		TiDBCloudConnInfo        TiDBCloudConnInfo        `yaml:"tidb_cloud,omitempty"`
 		DrainerReplicate         DrainerReplicate         `yaml:"drainer_replicate,omitempty"`
 		TiDBServers              []*TiDBSpec              `yaml:"tidb_servers"`
 		TiKVServers              []*TiKVSpec              `yaml:"tikv_servers"`

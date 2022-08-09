@@ -70,6 +70,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsWSConfigs.VolumeSize)
 	}
 	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=workstation}]\"", c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType, c.awsWSConfigs.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, deviceStmt, clusterName, clusterType, c.subClusterType)
+
 	zap.L().Debug("Command", zap.String("run-instances", command))
 	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
@@ -337,36 +338,26 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 
 	command := fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create user if not exists %s identified by \"%s\"'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBUser, tidbConn.TiDBPass)
 	if _, _, err := (*workstation).Execute(ctx, command, true); err != nil {
-		// fmt.Printf("The command is <%s> \n\n\n", command)
-		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBName)
 	if _, _, err = (*workstation).Execute(ctx, command, true); err != nil {
-		// fmt.Printf("The command is <%s> \n\n\n", command)
-		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'grant all on %s.* to %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBName, tidbConn.TiDBUser)
 	if _, _, err = (*workstation).Execute(ctx, command, true); err != nil {
-		// fmt.Printf("The command is <%s> \n\n\n", command)
-		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", "pdns")
 	if _, _, err = (*workstation).Execute(ctx, command, true); err != nil {
-		// fmt.Printf("The command is <%s> \n\n\n", command)
-		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'grant all on %s.* to %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", "pdns", tidbConn.TiDBUser)
 	if _, _, err = (*workstation).Execute(ctx, command, true); err != nil {
-		// fmt.Printf("The command is <%s> \n\n\n", command)
-		// fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
@@ -573,8 +564,6 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 	// Run filtering. If the instances have been created in the AWS, reduce the number from the definition
 	FetchTiKVInstances(ctx, clusterName, clusterType, c.subClusterType, c.componentName, funFilter)
 
-	// fmt.Printf("The data is <%#v> \n\n\n", *ec2NodeConfigs)
-
 	// Define the tasks to generate the instance
 	var generateInstancesTask []Task
 
@@ -593,8 +582,6 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 				}
 				generateInstancesTask = append(generateInstancesTask, makeEc2Instance)
 			}
-			// fmt.Printf("The config is <%#v> \n", ec2NodeConfig)
-
 		}
 	}
 
@@ -605,6 +592,7 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 			subClusterType:    c.subClusterType,
 			componentName:     c.componentName,
 			clusterInfo:       c.clusterInfo,
+			awsTopoConfigs:    c.awsTopoConfigs,
 			awsGeneralConfigs: c.awsGeneralConfigs,
 			subnetID:          c.clusterInfo.privateSubnets[idx%len(c.clusterInfo.privateSubnets)], // Todo. How to decide the proper value
 		}
@@ -693,7 +681,8 @@ type MakeEC2Instance struct {
 
 	subnetID string
 
-	// awsTopoConfigs    *spec.AwsNodeModal
+	awsTopoConfigs *spec.AwsTiKVModal
+	//	awsTopoConfigs    *spec.AwsNodeModal
 	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
 }
 
@@ -740,42 +729,66 @@ func (c *MakeEC2Instance) Execute(ctx context.Context) error {
 		},
 	}
 
-	//command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --ebs-optimized --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=%s}]\"", c.awsGeneralConfigs.ImageId, c.awsTopoConfigs.InstanceType, c.awsGeneralConfigs.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType, c.componentName)
-	//deviceStmt = fmt.Sprintf(" --block-device-mappings \"DeviceName=/dev/xvda,Ebs={VolumeSize=%d,VolumeType=%s,Iops=%d}\"", c.awsTopoConfigs.VolumeSize, c.awsTopoConfigs.VolumeType, c.awsTopoConfigs.Iops)
+	var runInstancesInput *ec2.RunInstancesInput
 
-	runInstancesInput := &ec2.RunInstancesInput{
-
-		ImageId:           aws.String(c.awsGeneralConfigs.ImageId),
-		InstanceType:      types.InstanceType(c.ec2NodeConfig.InstanceType),
-		TagSpecifications: tagSpecifications,
-		KeyName:           aws.String(c.awsGeneralConfigs.KeyName),
-		SecurityGroupIds:  []string{c.clusterInfo.privateSecurityGroupId},
-		MaxCount:          aws.Int32(1),
-		MinCount:          aws.Int32(1),
-		SubnetId:          aws.String(c.subnetID),
-	}
-
-	if c.ec2NodeConfig.VolumeType != "" {
-		blockDeviceMapping := types.BlockDeviceMapping{
-			DeviceName: aws.String("/dev/xvda"),
-			Ebs: &types.EbsBlockDevice{
-				DeleteOnTermination: aws.Bool(true),
-				Iops:                aws.Int32(int32(c.ec2NodeConfig.Iops)),
-				VolumeSize:          aws.Int32(int32(c.ec2NodeConfig.VolumeSize)),
-				VolumeType:          types.VolumeType(c.ec2NodeConfig.VolumeType),
-			},
+	if c.ec2NodeConfig.InstanceType != "" {
+		runInstancesInput = &ec2.RunInstancesInput{
+			ImageId:           aws.String(c.awsGeneralConfigs.ImageId),
+			InstanceType:      types.InstanceType(c.ec2NodeConfig.InstanceType),
+			TagSpecifications: tagSpecifications,
+			KeyName:           aws.String(c.awsGeneralConfigs.KeyName),
+			SecurityGroupIds:  []string{c.clusterInfo.privateSecurityGroupId},
+			MaxCount:          aws.Int32(1),
+			MinCount:          aws.Int32(1),
+			SubnetId:          aws.String(c.subnetID),
 		}
 
-		runInstancesInput.EbsOptimized = aws.Bool(true)
-		runInstancesInput.BlockDeviceMappings = []types.BlockDeviceMapping{blockDeviceMapping}
+		if c.ec2NodeConfig.VolumeType != "" {
+			blockDeviceMapping := types.BlockDeviceMapping{
+				DeviceName: aws.String("/dev/xvda"),
+				Ebs: &types.EbsBlockDevice{
+					DeleteOnTermination: aws.Bool(true),
+					Iops:                aws.Int32(int32(c.ec2NodeConfig.Iops)),
+					VolumeSize:          aws.Int32(int32(c.ec2NodeConfig.VolumeSize)),
+					VolumeType:          types.VolumeType(c.ec2NodeConfig.VolumeType),
+				},
+			}
+
+			runInstancesInput.EbsOptimized = aws.Bool(true)
+			runInstancesInput.BlockDeviceMappings = []types.BlockDeviceMapping{blockDeviceMapping}
+		}
+	} else {
+		runInstancesInput = &ec2.RunInstancesInput{
+			ImageId:           aws.String(c.awsGeneralConfigs.ImageId),
+			InstanceType:      types.InstanceType((*c.awsTopoConfigs).InstanceType),
+			TagSpecifications: tagSpecifications,
+			KeyName:           aws.String((*c.awsGeneralConfigs).KeyName),
+			SecurityGroupIds:  []string{c.clusterInfo.privateSecurityGroupId},
+			MaxCount:          aws.Int32(1),
+			MinCount:          aws.Int32(1),
+			SubnetId:          aws.String(c.subnetID),
+		}
+
+		if (*c.awsTopoConfigs).VolumeType != "" {
+			blockDeviceMapping := types.BlockDeviceMapping{
+				DeviceName: aws.String("/dev/xvda"),
+				Ebs: &types.EbsBlockDevice{
+					DeleteOnTermination: aws.Bool(true),
+					Iops:                aws.Int32(int32((*c.awsTopoConfigs).Iops)),
+					VolumeSize:          aws.Int32(int32((*c.awsTopoConfigs).VolumeSize)),
+					VolumeType:          types.VolumeType((*c.awsTopoConfigs).VolumeType),
+				},
+			}
+
+			runInstancesInput.EbsOptimized = aws.Bool(true)
+			runInstancesInput.BlockDeviceMappings = []types.BlockDeviceMapping{blockDeviceMapping}
+		}
 	}
 
 	retInstance, err := client.RunInstances(context.TODO(), runInstancesInput)
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("The instance state is <%#v> \n\n\n\n\n\n", retInstance.Instances[0].State.Name)
-	// fmt.Printf("The instance state is <%#v> \n\n\n\n\n\n", *(retInstance.Instances[0].InstanceId))
 
 	isRunning, err := WaitInstanceRunnung(ctx, *(retInstance.Instances[0].InstanceId))
 	if err != nil {
@@ -839,7 +852,6 @@ func FetchTiKVInstances(ctx context.Context, clusterName, clusterType, subCluste
 
 	for _, reservation := range result.Reservations {
 		for _, instance := range reservation.Instances {
-			// fmt.Printf("The instance id is <%s>, state: <%s>, tags: <%#v> \n\n\n", *instance.InstanceId, instance.State.Name, instance.Tags)
 			funcTags(instance.Tags)
 		}
 
@@ -877,8 +889,6 @@ func WaitInstanceRunnung(ctx context.Context, instanceId string) (bool, error) {
 			return false, err
 		}
 
-		// fmt.Printf("Waiting for the instance to become running \n\n")
-		// fmt.Printf("The node info is <%#v> \n\n\n", result)
 		if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
 			return true, nil
 		}

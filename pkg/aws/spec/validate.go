@@ -557,7 +557,7 @@ func (s *Specification) portInvalidDetect() error {
 		for i := 0; i < compSpec.NumField(); i++ {
 			if strings.HasSuffix(compSpec.Type().Field(i).Name, "Port") {
 				port := int(compSpec.Field(i).Int())
-				if port <= 0 || port >= 65535 {
+				if port < 0 || port >= 65535 {
 					portField := strings.Split(compSpec.Type().Field(i).Tag.Get("yaml"), ",")[0]
 					return errors.Errorf("`%s` of %s=%d is invalid, port should be in the range [0, 65535]", cfg, portField, port)
 				}
