@@ -156,7 +156,7 @@ func newPerfPrepareTiDB2Kafka2Pg() *cobra.Command {
 	}
 	cmd := &cobra.Command{
 		Use:          "perf-prepare <cluster-name>",
-		Short:        "perf performance test",
+		Short:        "perf performance test preparation",
 		Long:         "Performance measurement against kafka cluster",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

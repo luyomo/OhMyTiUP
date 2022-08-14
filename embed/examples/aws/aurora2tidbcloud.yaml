@@ -1,6 +1,7 @@
 workstation:
   cidr: 172.82.0.0/16
-  instance_type: m5.2xlarge
+  #instance_type: m5.2xlarge
+  instance_type: c5.2xlarge
   keyname: jay-us-east-01
   keyfile: /home/pi/.ssh/jay-us-east-01.pem
   username: admin
@@ -29,13 +30,13 @@ aws_topo_configs:
       - us-east-1e
     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
   dm-master:
-    instance_type: c5.2xlarge                     # Instance type for PD component
-    count: 3                                      # Number of PD node to be deployed
+    instance_type: c5.2xlarge                     # Instance type for dm master
+    count: 3                                      # Number of dm master node to be deployed
   dm-worker:
-    instance_type: c5.2xlarge                     # Instance type for PD component
-    count: 1                                      # Number of PD node to be deployed
+    instance_type: c5.2xlarge                     # Instance type for dm worker
+    count: 3                                      # Number of dm worker node to be deployed
 tidb_cloud:
-  host: private-tidb.nrpdszb7r1h.clusters.tidb-cloud.com
+  host: private-tidb.fdfxwtbbd0o.clusters.tidb-cloud.com
   port: 4000
   user: root
   password: 1234Abcd

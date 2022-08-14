@@ -1,220 +1,85 @@
 * Architecture
 [[./png/tidb2kafka2pg/tidb2kafka2pg.png]]
 * Deployment
-** Config file
-    #+BEGIN_SRC
- workstation:
-   imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
-   keyname: jay-us-east-01                         # Public key for workstation instance deployment
-   keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
-   volumeSize: 100                                 # disk size in the workstation
- aws_kafka_topo_configs:
-   general:
-     # debian os
-     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
-     keyname: jay-us-east-01                       # Public key to access the EC2 instance
-     keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
-     cidr: 172.83.0.0/16                           # The cidr for the VPC
-     instance_type: m5.2xlarge                     # Default instance type
-     tidb_version: v6.1.0                          # TiDB version
-     excluded_az:                                  # The AZ to be excluded for the subnets
-       - us-east-1e
-     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
-   zookeeper:
-     instance_type: c5.xlarge                      # Instance type for zookeeper component
-     count: 3                                      # Number of zookeeper node to be deployed
-   schema_registry:
-     instance_type: c5.xlarge                      # Instance type of schema registry
-     count: 1                                      # Number of schema registry node to be deployed
-   connector:
-     instance_type: c5.2xlarge                     # Instance type of connector
-     count: 2                                      # Number of connector node to be deployed
-   rest_service:
-     instance_type: c5.2xlarge                     # Instance type of rest service
-     count: 1                                      # Number of rest service node to be deployed
-   broker:
-     instance_type: c5.xlarge                      # Instance type of broker
-     count: 3                                      # Number of TiKV nodes to be deployed
-     volumeSize: 100                               # Storage size for TiKV nodes (GB)
-     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
-     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
- aws_topo_configs:
-   general:
-     # debian os
-     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
-     keyname: jay-us-east-01                       # Public key to access the EC2 instance
-     keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
-     cidr: 182.83.0.0/16                           # The cidr for the VPC
-     instance_type: m5.2xlarge                     # Default instance type
-     tidb_version: v6.1.0                          # TiDB version
-     excluded_az:                                  # The AZ to be excluded for the subnets
-       - us-east-1e
-     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
-   pd:
-     instance_type: c5.2xlarge                     # Instance type for PD component
-     count: 3                                      # Number of PD node to be deployed
-   tidb:
-     instance_type: c5.2xlarge                     # Instance type of tidb
-     count: 2                                      # Number of TiDB node to be deployed
-   tikv:
-     instance_type: c5.4xlarge                     # Instance type of TiKV
-     count: 3                                      # Number of TiKV nodes to be deployed
-     volumeSize: 100                               # Storage size for TiKV nodes (GB)
-     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
-     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
-   ticdc:
-     instance_type: c5.2xlarge                     # Instance type of ticdc
-     count: 2                                      # Number of TiDB node to be deployed
- postgres:
-   cidr: 172.84.0.0/16
-   instance_type: db.r5.large
-   db_parameter_family_group: postgres11
-   engine: postgres
-   engine_version: 11.14
-   db_size: 10
-   db_username: kafkauser
-   db_password: 1234Abcd
-   public_accessible_flag: false
-    #+END_SRC
+** [[../embed/examples/aws/aws-nodes-tidb2kafka2pg.yaml][Config File]]
+   Please refer to the [[../embed/examples/aws/aws-nodes-tidb2kafka2pg.yaml][Config File]] for your reference. It containes the below resources definition.
+   + TiDB Cluster
+   + Kafka cluster
+   + Postgres DB
+   [[./png/tidb2kafka2pg/01.01.png]]
+   [[./png/tidb2kafka2pg/01.02.png]]
 
 ** Deployment
-   [[./png/tidb2kafka2pg/tidb2kafka2pg.01.png]]
-   [[./png/tidb2kafka2pg/tidb2kafka2pg.02.png]]
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb2kafka2pg 
+Run commands for syncing the data to pg from tidb through kafka
+
+Usage:
+  aws [command]
+
+Available Commands:
+  deploy       Deploy an Kafka Cluster on aws
+  list         List all clusters or cluster of aurora db
+  destroy      Destroy a specified cluster
+  perf-prepare perf performance test preparation
+  perf         perf performance test
+  perf-clean   clean perf performance test
+
+Flags:
+  -h, --help   help for tidb2kafka2pg
+
+Global Flags:
+      --aws-access-key-id string       The access key used to operate against AWS resource
+      --aws-region string              The default aws region 
+      --aws-secret-access-key string   The secret access key used to operate against AWS resource
+  -c, --concurrency int                max number of parallel tasks allowed (default 5)
+      --identity-file string           The identity file for natijve ssh
+      --ssh string                     (EXPERIMENTAL) The executor type: 'builtin', 'system', 'none'.
+      --ssh-timeout uint               Timeout in seconds to connect host via SSH, ignored for operations that don't need an SSH connection. (default 5)
+      --ssh-user string                The user for native ssh
+      --wait-timeout uint              Timeout in seconds to wait for an operation to complete, ignored for operations that don't fit. (default 120)
+  -y, --yes                            Skip all confirmations and assumes 'yes'
+
+Use "aws help [command]" for more information about a command.
+
+OhMyTiUP$./bin/aws tidb2kafka2pg deploy avrotest embed/examples/aws/aws-nodes-tidb2kafka2pg.yaml
+... ...
+Please refer to below screenshot for output reference
+   #+END_SRC
+   [[./png/tidb2kafka2pg/02.01.png]]
+   [[./png/tidb2kafka2pg/02.02.png]]
 ** Resource confirmation
-   [[./png/tidb2kafka2pg/tidb2kafka2pg.03.png]]
-   [[./png/tidb2kafka2pg/tidb2kafka2pg.04.png]]
-   [[./png/tidb2kafka2pg/tidb2kafka2pg.05.png]]
-* READEME
-  #+BEGIN_SRC
-  tiup cdc cli changefeed create --pd=http://182.83.1.91:2379 --changefeed-id="kafka-avro" --sink-uri="kafka://172.83.2.95:9092/topic-name?protocol=avro" --schema-registry=http://172.83.1.144:8081 --config /tmp/sink.toml
-kafka-topics --list --bootstrap-server 172.83.1.149:9092,172.83.3.190:9092,172.83.2.95:9092
-kafka-run-class kafka.tools.GetOffsetShell --broker-list 172.83.1.149:9092,172.83.3.190:9092,172.83.2.95:9092 --topic _schemas --time -1
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb2kafka2pg list avrotest
+   #+END_SRC
+   [[./png/tidb2kafka2pg/03.01.png]]
+   [[./png/tidb2kafka2pg/03.02.png]]
+   [[./png/tidb2kafka2pg/03.03.png]]
+** Prepare kafka sync resource and tables
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb2kafka2pg perf-prepare avrotest --partitions 3 --num-of-records 100000 --bytes-of-record 1024 --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+   #+END_SRC
 
-kafka-topics --list --bootstrap-server=172.83.2.111:9092
-
-tiup cdc cli changefeed create --pd=http://182.83.1.162:2379 --changefeed-id="kafka-avro" --sink-uri="kafka://172.83.2.111:9092/topic-name?protocol=avro" --schema-registry=http://172.83.1.60:8081 --config
- /tmp/sink.toml
-  #+END_SRC
-
-  #+BEGIN_SRC
-$ more sink.config.json
-{
-    "name": "JDBCTEST",
-    "config": {
-        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
-        "connection.url": "jdbc:postgresql://172.84.0.69:5432/test",
-        "connection.user": "kafkauser",
-        "connection.password": "1234Abcd",
-        "topics": "test_test01",
-        "insert.mode": "upsert",
-        "dialect.name":"PostgreSqlDatabaseDialect",
-        "table.name.format":"public.test01",
-        "key.converter": "io.confluent.connect.avro.AvroConverter",
-        "value.converter": "io.confluent.connect.avro.AvroConverter",
-        "key.converter.schema.registry.url": "http://172.83.1.60:8081",
-        "value.converter.schema.registry.url": "http://172.83.1.60:8081",
-        "key.converter.schemas.enable": "true",
-        "value.converter.schemas.enable": "true",
-        "pk.mode": "record_key",
-        "auto.create":"false",
-        "auto.evolve":"false",
-        "transforms": "timestamp",
-        "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
-        "transforms.timestamp.target.type": "Timestamp",
-        "transforms.timestamp.field":"timestamp",
-        "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss"
-    }
-}
-
-$ curl -d @"jdbc.json" -H "Content-Type: application/json" -X POST http://172.83.2.111:8083/connectors
-  #+END_SRC
-
-* TODO
-  + Add conlfuent rest api to installation
-  + Add connect api
-  + Install Jdbc connect
-     sudo confluent-hub install confluentinc/kafka-connect-jdbc:10.0.0
-
-     curl -d @"jdbc.json" -H "Content-Type: application/json" -X POST http://172.83.2.111:8083/connectors
-
-** KAFKA message check
-
-
-
-+ Check schema registry contents
-  https://docs.confluent.io/platform/current/schema-registry/develop/using.html
-
-
-** TiDB
-#+BEGIN_SRC
-$/opt/scripts/run_tidb_query test "create table test01(col01 int primary key, col02 int , tidb_timestamp timestamp default current_timestamp)"
-$/opt/scripts/run_pg_query postgres "create database test"
-$/opt/scripts/run_pg_query test "create table test01(col01 int primary key, col02 int, tidb_timestamp timestamp, pg_timestamp timestamp default current_timestamp)"
-
-$ more sink.toml
-[sink]
-dispatchers = [
- {matcher = ['*.*'], topic = "{schema}_{table}", partition = "ts"},
-]
-$ # the topic can not be used as other format since the subject is fixed as schema_table
-
-$ tiup cdc cli changefeed create --pd=http://182.83.1.91:2379 --changefeed-id="kafka-avro" --sink-uri="kafka://172.83.2.95:9092/topic-name?protocol=avro" --schema-registry=http://172.83.1.144:8081 --config /tmp/sink.toml
-$ tiup cdc cli changefeed query -c kafka-avro --pd=http://182.83.1.162:2379
-$ kafka-topics --list --bootstrap-server=172.83.1.84:9092,172.83.2.140:9092,172.83.3.234:9092
-tidb $  insert into test01(col01 , col02 ) values(1,1);
-tidb $ insert into test01(col01 , col02 ) values(2,2);
-$ kafka-topics --list --bootstrap-server=172.83.1.84:9092,172.83.2.140:9092,172.83.3.234:9092
-$ kafka-run-class kafka.tools.GetOffsetShell --broker-list 172.83.1.84:9092,172.83.2.140:9092,172.83.3.234:9092 --topic test_test01 --time -1
-#+END_SRC
-
-** PG
-#+BEGIN_SRC
-postgres=> create database test;
-postgres=> create table test01(col01 int primary key, col02 int, tidb_timestamp timestamp, pg_timestamp timestamp default current_timestamp);
-$ more sink.json 
-{
-    "name": "JDBCTEST",
-    "config": {
-        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
-        "connection.url": "jdbc:postgresql://avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com:5432/test",
-        "connection.user": "kafkauser",
-        "connection.password": "1234Abcd",
-        "topics": "test_test01",
-        "insert.mode": "upsert",
-        "dialect.name":"PostgreSqlDatabaseDialect",
-        "table.name.format":"public.test01",
-        "key.converter": "io.confluent.connect.avro.AvroConverter",
-        "value.converter": "io.confluent.connect.avro.AvroConverter",
-        "key.converter.schema.registry.url": "http://172.83.1.59:8081",
-        "value.converter.schema.registry.url": "http://172.83.1.59:8081",
-        "key.converter.schemas.enable": "true",
-        "value.converter.schemas.enable": "true",
-        "pk.mode": "record_key",
-        "auto.create":"false",
-        "auto.evolve":"false",
-        "transforms": "timestamp",
-        "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
-        "transforms.timestamp.target.type": "Timestamp",
-        "transforms.timestamp.field":"timestamp",
-        "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss"
-    }
-}
-
-$ kafka-avro-console-consumer --bootstrap-server 172.83.1.84:9092 --from-beginning --topic test_test01 --property schema.registry.url=http://172.83.1.59:8081
-
-$ curl -d @"sink.json" -H "Content-Type: application/json" -X POST http://172.83.1.174:8083/connectors
-
-$ curl http://172.83.1.174:8083/connectors/JDBCTEST/status | jq 
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100   105  100   105    0     0  35000      0 --:--:-- --:--:-- --:--:-- 35000
-{
-  "name": "JDBCTEST",
-  "connector": {
-    "state": "RUNNING",
-    "worker_id": "127.0.1.1:8083"
-  },
-  "tasks": [],
-  "type": "sink"
-}
-#+END_SRC
+    #+CAPTION: Parameters
+    #+ATTR_HTML: :border 2 :rules all :frame border
+   | Parameter       | Comment                                                                                                 |
+   |-----------------+---------------------------------------------------------------------------------------------------------|
+   | partitions      | Number of partitions definition in the kafka which push data into multiple partitions for parallel test |
+   | num-of-records  | Number of records to be inserted into TiDB for data sync test                                           |
+   | bytes-of-record | Number of bytes for each record                                                                         |
+   | ssh-user        | The user to access to the workstation                                                                   |
+   | identity-file   | The ssh priviate key                                                                                    |
+   [[./png/tidb2kafka2pg/04.png]]
+** Run the data sync
+   Run the test to insert the data into TiDB to check the whole data flow.
+   #+CAPTION: Parameters
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | Column Name         | Comment                                  |
+   |---------------------+------------------------------------------|
+   | Count               | The number of records inserted into TiDB |
+   | DB QPS              | QPS to insert into TiDB                  |
+   | TiDB 2 PG Latency   | Average endpoint to endpoint latency     |
+   | QPS from TiDB to PG | The QPS to sync the data from TiDB to PG |
+   [[./png/tidb2kafka2pg/05.png]]
+** Clean up the resources
+   [[./png/tidb2kafka2pg/06.01.png]]
