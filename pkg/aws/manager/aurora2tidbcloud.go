@@ -714,9 +714,6 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	// ctx = context.WithValue(ctx, "clusterName", clusterName)
-	// ctx = context.WithValue(ctx, "clusterType", clusterType)
-
 	// 01. Get the workstation executor
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
@@ -732,8 +729,14 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-	t1 := task.NewBuilder().RunSysbench(&sexecutor, "/opt/aurora-sysbench.toml", &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
-	envInitTasks = append(envInitTasks, t1)
+	if opt.SysbenchTargetInstance == "TiDBCloud" {
+		t1 := task.NewBuilder().RunSysbench(&sexecutor, "/opt/tidbcloud-sysbench.toml", &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running sysbench against TiDB Cloud"))
+		envInitTasks = append(envInitTasks, t1)
+	} else {
+
+		t1 := task.NewBuilder().RunSysbench(&sexecutor, "/opt/aurora-sysbench.toml", &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running sysbench against Aurora"))
+		envInitTasks = append(envInitTasks, t1)
+	}
 
 	builder := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running sysbench against Aurora "), false, envInitTasks...)
 
@@ -749,104 +752,106 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 	tui.PrintTable(sysbenchResult, true)
 	timer.Take("Sysbench Execution")
 
-	type DisplayDMCluster struct {
-		ClusterMeta struct {
-			ClusterType    string `json:"cluster_type"`
-			ClusterName    string `json:"cluster_name"`
-			ClusterVersion string `json:"cluster_version"`
-			DeployUser     string `json:"deploy_user"`
-			SshType        string `json:"ssh_type"`
-			TlsEnabled     bool   `json:"tls_enabled"`
-		} `json:"cluster_meta"`
-		Instances []struct {
-			ID            string `json:"id"`
-			Role          string `json:"role"`
-			Host          string `json:"host"`
-			Ports         string `json:"ports"`
-			OsArch        string `json:"os_arch"`
-			Status        string `json:"status"`
-			Since         string `json:"since"`
-			DataDir       string `json:"data_dir"`
-			DeployDir     string `json:"deploy_dir"`
-			ComponentName string `json:"ComponentName"`
-			Port          int    `json:"Port"`
-		} `json:"instances"`
-	}
-
-	ctx = context.Background()
-	ctx = context.WithValue(ctx, "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
-	if err != nil {
-		return err
-	}
-	var displayDMCluster DisplayDMCluster
-	if err = json.Unmarshal(stdout, &displayDMCluster); err != nil {
-		return err
-	}
-
-	masterNode := ""
-	for _, node := range displayDMCluster.Instances {
-		if node.Role == "dm-master" && node.Status == "Healthy" {
-			masterNode = fmt.Sprintf("%s:%d", node.Host, node.Port)
+	if opt.SysbenchTargetInstance == "Aurora" {
+		type DisplayDMCluster struct {
+			ClusterMeta struct {
+				ClusterType    string `json:"cluster_type"`
+				ClusterName    string `json:"cluster_name"`
+				ClusterVersion string `json:"cluster_version"`
+				DeployUser     string `json:"deploy_user"`
+				SshType        string `json:"ssh_type"`
+				TlsEnabled     bool   `json:"tls_enabled"`
+			} `json:"cluster_meta"`
+			Instances []struct {
+				ID            string `json:"id"`
+				Role          string `json:"role"`
+				Host          string `json:"host"`
+				Ports         string `json:"ports"`
+				OsArch        string `json:"os_arch"`
+				Status        string `json:"status"`
+				Since         string `json:"since"`
+				DataDir       string `json:"data_dir"`
+				DeployDir     string `json:"deploy_dir"`
+				ComponentName string `json:"ComponentName"`
+				Port          int    `json:"Port"`
+			} `json:"instances"`
 		}
-	}
 
-	if masterNode == "" {
-		return errors.New("No healthy master node found")
-	}
+		ctx = context.Background()
+		ctx = context.WithValue(ctx, "clusterName", clusterName)
+		ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	timer.Take("Take DM Master Node")
-	var dmTaskDetail task.DMTaskDetail
-
-	hasSynced := true
-
-	tableSyncStatus := [][]string{}
-	tableSyncStatus = append(tableSyncStatus, []string{"Sync Flag", "Aurora binlog", "Synced binlog"})
-	tui.PrintTable(tableSyncStatus, true)
-
-	for idx := 0; idx < 1000; idx++ {
-		time.Sleep(10 * time.Second)
-		hasSynced = true
-
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
+		stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(stdout, &dmTaskDetail); err != nil {
+		var displayDMCluster DisplayDMCluster
+		if err = json.Unmarshal(stdout, &displayDMCluster); err != nil {
 			return err
 		}
 
-		for _, source := range dmTaskDetail.Sources {
-			for _, subTaskStatus := range source.SubTaskStatus {
-				tableSyncStatus = [][]string{}
-				tableSyncStatus = append(tableSyncStatus, []string{strconv.FormatBool(subTaskStatus.Sync.Synced), subTaskStatus.Sync.MasterBinlog, subTaskStatus.Sync.SyncerBinlog})
-				tui.PrintTable(tableSyncStatus, true)
-				if subTaskStatus.Sync.Synced == false {
-					hasSynced = false
-					break
-				}
-
+		masterNode := ""
+		for _, node := range displayDMCluster.Instances {
+			if node.Role == "dm-master" && node.Status == "Healthy" {
+				masterNode = fmt.Sprintf("%s:%d", node.Host, node.Port)
 			}
 		}
-		if hasSynced == true {
-			break
+
+		if masterNode == "" {
+			return errors.New("No healthy master node found")
 		}
-	}
-	timer.Take("Wait data sync completion")
-	// fmt.Printf("The syncd flag is <%#v>\n", hasSynced)
 
-	cyan := color.New(color.FgCyan, color.Bold)
-	stdout, _, err = (*workstation).Execute(ctx, "/home/admin/.tiup/bin/sync_diff_inspector --config=/opt/dm-sync-diff-check.toml ", false)
-	if err != nil {
-		fmt.Printf("Data comparison:      %s\n", cyan.Sprint("Different"))
-		fmt.Printf("Data comparison:      %s\n", "Please check the log /tmp/output/sync_diff.log")
-		return err
-	}
+		timer.Take("Take DM Master Node")
+		var dmTaskDetail task.DMTaskDetail
 
-	fmt.Printf("Data comparison:      %s\n", cyan.Sprint("SAME"))
-	timer.Take("Data comparison")
+		hasSynced := true
+
+		tableSyncStatus := [][]string{}
+		tableSyncStatus = append(tableSyncStatus, []string{"Sync Flag", "Aurora binlog", "Synced binlog"})
+		tui.PrintTable(tableSyncStatus, true)
+
+		for idx := 0; idx < 1000; idx++ {
+			time.Sleep(10 * time.Second)
+			hasSynced = true
+
+			stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
+			if err != nil {
+				return err
+			}
+			if err = json.Unmarshal(stdout, &dmTaskDetail); err != nil {
+				return err
+			}
+
+			for _, source := range dmTaskDetail.Sources {
+				for _, subTaskStatus := range source.SubTaskStatus {
+					tableSyncStatus = [][]string{}
+					tableSyncStatus = append(tableSyncStatus, []string{strconv.FormatBool(subTaskStatus.Sync.Synced), subTaskStatus.Sync.MasterBinlog, subTaskStatus.Sync.SyncerBinlog})
+					tui.PrintTable(tableSyncStatus, true)
+					if subTaskStatus.Sync.Synced == false {
+						hasSynced = false
+						break
+					}
+
+				}
+			}
+			if hasSynced == true {
+				break
+			}
+		}
+		timer.Take("Wait data sync completion")
+		// fmt.Printf("The syncd flag is <%#v>\n", hasSynced)
+
+		cyan := color.New(color.FgCyan, color.Bold)
+		stdout, _, err = (*workstation).Execute(ctx, "/home/admin/.tiup/bin/sync_diff_inspector --config=/opt/dm-sync-diff-check.toml ", false)
+		if err != nil {
+			fmt.Printf("Data comparison:      %s\n", cyan.Sprint("Different"))
+			fmt.Printf("Data comparison:      %s\n", "Please check the log /tmp/output/sync_diff.log")
+			return err
+		}
+
+		fmt.Printf("Data comparison:      %s\n", cyan.Sprint("SAME"))
+		timer.Take("Data comparison")
+	}
 
 	timer.Print()
 

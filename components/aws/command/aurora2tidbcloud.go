@@ -335,6 +335,7 @@ func newAurora2TiDBCloudMeasurementRunCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
 	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
+	cmd.Flags().StringVarP(&opt.SysbenchTargetInstance, "sysbench-db-cluster", "t", "Aurora", "sysbench target: TiDBCloud or Aurora")
 	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "tidb_oltp_insert_simple", "sysbench: oltp_point_select")
 	cmd.Flags().Int64Var(&opt.SysbenchExecutionTime, "sysbench-execution-time", 600, "sysbench: --execution-time")
 
@@ -343,9 +344,7 @@ func newAurora2TiDBCloudMeasurementRunCmd() *cobra.Command {
 
 func newAurora2TiDBCloudMeasurementRunTiDBCloudCmd() *cobra.Command {
 
-	opt := operator.LatencyWhenBatchOptions{
-		TransInterval: 2,
-	}
+	opt := operator.LatencyWhenBatchOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "run-tidbcloud <cluster-name>",
@@ -382,6 +381,34 @@ func newAurora2TiDBCloudDataDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run <cluster-name>",
 		Short: "Diff the data between TiDB Cloud and aurora",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.Aurora2TiDBCloudRunCluster(clusterName, opt, gOpt)
+		},
+	}
+
+	return cmd
+}
+
+func newAurora2TiDBCloudExportCmd() *cobra.Command {
+
+	// Buckname/
+	opt := operator.LatencyWhenBatchOptions{
+		TransInterval: 2,
+	}
+
+	cmd := &cobra.Command{
+		Use:   "export-aurora <cluster-name>",
+		Short: "Export aurora data to S3 ",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
 			if err != nil {

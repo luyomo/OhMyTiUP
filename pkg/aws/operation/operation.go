@@ -153,6 +153,7 @@ type LatencyWhenBatchOptions struct {
 
 	TiKVMode string
 
+	SysbenchTargetInstance string
 	SysbenchDBName         string
 	SysbenchNumTables      int
 	SysbenchNumRows        int
