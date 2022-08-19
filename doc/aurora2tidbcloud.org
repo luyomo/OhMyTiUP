@@ -10,43 +10,44 @@
   [[./png/aurora2tidbcloud/Aurora2TiDBCloud.01.png]]
   [[./png/aurora2tidbcloud/Aurora2TiDBCloud.02.png]]
 
-
 * Aurora environment
 ** binlog is enabled
+   Make sure that the binlog is enabled in the aurora for the incremental replication.
  [[./png/aurora2tidbcloud/01.aurora.01.png]]
+   Memo the binlog position from which DM starts the replication.
  [[./png/aurora2tidbcloud/01.aurora.02.png]]
 ** DB Size
  [[./png/aurora2tidbcloud/01.aurora.03.png]]
  [[./png/aurora2tidbcloud/01.aurora.04.png]]
 * Take aurora snapshot and export to S3
 ** IAM preparation for data export
-   Please refer to the [[https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-export-snapshot.html][official]] document for IAM preparation which is required by data export.
+   Please refer to the [[https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-export-snapshot.html][official document]] for IAM preparation which is required by data export to S3.
 *** policy
-    #+BEGIN_SRC
-OhMyTiUP$aws iam create-policy  --policy-name Aurora2TiDBCloud-policy --policy-document '{
-    "Version": "2012-10-17",                                                                                                                         
-    "Statement": [
-        {
-            "Sid": "ExportPolicy",
-            "Effect": "Allow",
-            "Action": [
-                "s3:PutObject*",
-                "s3:ListBucket",
-                "s3:GetObject*",
-                "s3:DeleteObject*",
-                "s3:GetBucketLocation"
-            ],
-            "Resource": [
-                "arn:aws:s3:::ossinsight-data",
-                "arn:aws:s3:::ossinsight-data/migration2tidbcloud/*"
-            ]
-        }
-    ]
-}'
-
+    #+BEGIN_SRC sh
+      OhMyTiUP$aws iam create-policy  --policy-name Aurora2TiDBCloud-policy --policy-document '{
+          "Version": "2012-10-17",                                                                                                                         
+          "Statement": [
+              {
+                  "Sid": "ExportPolicy",
+                  "Effect": "Allow",
+                  "Action": [
+                      "s3:PutObject*",
+                      "s3:ListBucket",
+                      "s3:GetObject*",
+                      "s3:DeleteObject*",
+                      "s3:GetBucketLocation"
+                  ],
+                  "Resource": [
+                      "arn:aws:s3:::ossinsight-data",
+                      "arn:aws:s3:::ossinsight-data/migration2tidbcloud/*"
+                  ]
+              }
+          ]
+      }'
+      
     #+END_SRC
 *** Role
-   #+BEGIN_SRC
+   #+BEGIN_SRC sh
 OhMyTiUP$aws iam create-role  --role-name Aurora2TiDBCloud-role --assume-role-policy-document '{            
      "Version": "2012-10-17",
      "Statement": [
@@ -62,8 +63,8 @@ OhMyTiUP$aws iam create-role  --role-name Aurora2TiDBCloud-role --assume-role-po
 
    #+END_SRC
 *** Policy attachment
-   #+BEGIN_SRC
-OhMyTiUP$aws iam attach-role-policy  --policy-arn arn:aws:iam::729581434105:policy/Aurora2TiDBCloud-policy  --role-name Aurora2TiDBCloud-role
+   #+BEGIN_SRC sh
+OhMyTiUP$aws iam attach-role-policy  --policy-arn arn:aws:iam::123456789098:policy/Aurora2TiDBCloud-policy  --role-name Aurora2TiDBCloud-role
    #+END_SRC
 ** Data export to S3
  [[./png/aurora2tidbcloud/02.aurora.snapshot.01.png]]
@@ -79,7 +80,7 @@ OhMyTiUP$aws iam attach-role-policy  --policy-arn arn:aws:iam::729581434105:poli
 ** TiDB setup
    Here the process how to setup the TiDB is skiped. 
  [[./png/aurora2tidbcloud/03.tidbcloud.01.png]]
-** Setup VPC Peering between TiDB Cloud and workstation/DM Cluster and Aurora
+** Setup VPC Peering between TiDB Cloud and workstation/DM Cluster/Aurora
    + workstation is used to general operation like schema copy/data comparision and DM setup etc. Workstation has to access TiDB Cloud, Aurora and DM Clusters
    + DM cluster is used to sync the data from Aurora to TiDB Cloud. So the DM has to access both TiDB Cloud and Aurora.
  [[./png/aurora2tidbcloud/03.tidbcloud.02.png]]
@@ -143,7 +144,7 @@ aws iam attach-role-policy  --policy-arn arn:aws:iam::729581434105:policy/Aurora
  [[./png/aurora2tidbcloud/05.tidbcloud.import.03.png]]
  [[./png/aurora2tidbcloud/05.tidbcloud.import.04.png]]
 ** Data comparison between TiDB Cloud and Aurora snapshot
-   Here it's not the prod aurora, data comparison between Aurora is done. For PROD, the snapshot needs to be restore for the comparison.
+   In this example, the data comparison is done between Aurora and TiDB Cloud directly. In the prod migration phase, not to impact the application, recommend to restore the snapshot to new instance for data comparison.
  [[./png/aurora2tidbcloud/05.tidbcloud.import.05.png]]
  [[./png/aurora2tidbcloud/05.tidbcloud.import.06.png]]
 * Start DM SYNC process
@@ -160,6 +161,7 @@ aws iam attach-role-policy  --policy-arn arn:aws:iam::729581434105:policy/Aurora
 * Run the sysbench against Aurora
  [[./png/aurora2tidbcloud/07.dm.sync.01.png]]
 ** Compare the data between Aurora and TiDB Cloud after DM sync
+   This step is optional for prod migration. If the app needs to switch to new DB ASAP, this step can be taken only for testing. Recommend users to figure out some business query to verify the data bewteen TiDB Cloud and aurora.
  [[./png/aurora2tidbcloud/07.dm.sync.02.png]]
 * Stop the DM sync task from Aurora to TiDB Cloud
  [[./png/aurora2tidbcloud/07.dm.sync.03.png]]
