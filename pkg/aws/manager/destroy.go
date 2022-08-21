@@ -56,7 +56,7 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 	t := task.NewBuilder().
 		DestroyEC(&sexecutor, "test").
 		DestroySecurityGroup(&sexecutor, "test").
-		DestroyVpcPeering(&sexecutor).
+		// DestroyVpcPeering(&sexecutor).
 		DestroyNetwork(&sexecutor, "test").
 		DestroyRouteTable(&sexecutor, "test").
 		DestroyInternetGateway(&sexecutor, "test").

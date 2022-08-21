@@ -1,0 +1,10 @@
+workstation:
+  cidr: 172.82.0.0/16
+  #instance_type: m5.2xlarge
+  instance_type: c5.4xlarge
+  keyname: jay-us-east-01
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem
+  username: admin
+  imageid: ami-07d02ee1eeb0c996c
+  volumeSize: 100
+  #shared: false

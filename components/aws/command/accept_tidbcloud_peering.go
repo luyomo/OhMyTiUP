@@ -48,7 +48,7 @@ Convert the pending status to active, eg:
 			ctx := context.WithValue(context.Background(), "clusterName", args[0])
 			ctx = context.WithValue(ctx, "clusterType", args[1])
 			t1 := task.NewBuilder().
-				AcceptVPCPeering(&sexecutor).
+				AcceptVPCPeering(&sexecutor, []string{}).
 				BuildAsStep(fmt.Sprintf("  - Accept all the vpc peerings from tidb cloud"))
 
 			builder := task.NewBuilder().

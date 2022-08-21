@@ -204,7 +204,7 @@ func (m *Manager) ListAurora2TiDBCloudCluster(clusterName string, opt DeployOpti
 	}
 
 	var accountID string
-	t0 := task.NewBuilder().ListAccount(&sexecutor, &accountID).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
+	t0 := task.NewBuilder().ListAccount(&sexecutor, &accountID).BuildAsStep(fmt.Sprintf("  - List Account"))
 	listTasks = append(listTasks, t0)
 
 	// 001. VPC listing
@@ -289,99 +289,6 @@ func (m *Manager) ListAurora2TiDBCloudCluster(clusterName string, opt DeployOpti
 
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
 	tui.PrintTable(tableAurora, true)
-
-	return nil
-}
-
-func (m *Manager) ShowVPCPeeringAurora2TiDBCloudCluster(clusterName string) error {
-	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora2tidbcloud")
-
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
-
-	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
-
-	vpcPeeringInfo := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
-	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation", "aurora"}, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
-	listTasks = append(listTasks, t9)
-
-	// *********************************************************************
-	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
-
-	t := builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
-		return err
-	}
-
-	titleFont := color.New(color.FgRed, color.Bold)
-	fmt.Printf("Account ID   :      %s\n", titleFont.Sprint("VPC Peering Info"))
-	tui.PrintTable(vpcPeeringInfo, true)
-
-	return nil
-}
-
-func (m *Manager) AcceptVPCPeeringAurora2TiDBCloudCluster(clusterName string) error {
-	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora2tidbcloud")
-
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
-
-	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
-
-	vpcPeeringInfo := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
-	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation", "aurora"}, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
-	listTasks = append(listTasks, t9)
-
-	// *********************************************************************
-	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
-
-	t := builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
-		return err
-	}
-
-	titleFont := color.New(color.FgRed, color.Bold)
-	fmt.Printf("Account ID before Acceptance   :      %s\n", titleFont.Sprint("VPC Peering Info"))
-	tui.PrintTable(vpcPeeringInfo, true)
-
-	// 02. Accept the VPC Peering
-	var acceptTasks []*task.StepDisplay // tasks which are used to initialize environment
-
-	t2 := task.NewBuilder().AcceptVPCPeering(&sexecutor).BuildAsStep(fmt.Sprintf("  - Accepting VPC Peering"))
-	acceptTasks = append(acceptTasks, t2)
-
-	// *********************************************************************
-	builder = task.NewBuilder().ParallelStep("+ Accepting aws resources", false, acceptTasks...)
-
-	t = builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
-		return err
-	}
-
-	vpcPeeringInfo01 := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
-	t9 = task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation", "aurora"}, &vpcPeeringInfo01).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
-	listTasks = append(listTasks, t9)
-
-	// *********************************************************************
-	builder = task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
-
-	t = builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
-		return err
-	}
-
-	fmt.Printf("Account ID after Acceptance   :      %s\n", titleFont.Sprint("VPC Peering Info"))
-	tui.PrintTable(vpcPeeringInfo01, true)
 
 	return nil
 }
@@ -521,7 +428,7 @@ func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt oper
 	// 02. Accept the VPC Peering
 	var acceptTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-	t2 := task.NewBuilder().AcceptVPCPeering(&sexecutor).BuildAsStep(fmt.Sprintf("  - Accepting VPC Peering"))
+	t2 := task.NewBuilder().AcceptVPCPeering(&sexecutor, []string{"workstation", "dm", "aurora"}).BuildAsStep(fmt.Sprintf("  - Accepting VPC Peering"))
 	acceptTasks = append(acceptTasks, t2)
 
 	// *********************************************************************
@@ -554,7 +461,7 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 
 	t0 := task.NewBuilder().
 		DestroyTransitGateways(&sexecutor).
-		DestroyVpcPeering(&sexecutor).
+		DestroyVpcPeering(&sexecutor, []string{"workstation", "dm", "aurora"}).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().

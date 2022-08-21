@@ -1,5 +1,34 @@
-* Procedures
-  apt-get install nodejs npm cmake
-  git clone https://github.com/billchurch/webssh2.git
-  cd app
-  npm install
+* Yaml file confirmation
+  #+BEGIN_SRC org
+OhMyTiUP$ more
+workstation: more embed/examples/aws/workstation.yaml
+workstation:    
+  cidr: 172.82.0.0/16
+  instance_type: m5.2xlarge
+  keyname: key-name
+  keyfile: /home/pi/.ssh/private-key.pem
+  username: admin
+  imageid: ami-07d02ee1eeb0c996c
+  volumeSize: 100
+  #+END_SRC
+** Deployment
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws workstation deploy wstest embed/examples/aws/workstation.yaml
+   #+END_SRC
+  [[./png/workstation/ws.001.png]]
+** Resource list
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws workstation list wstest
+   #+END_SRC
+  [[./png/workstation/ws.002.png]]
+** Create the VPC Peering
+** Show the pending VPC Peering
+  [[./png/workstation/ws.003.png]]
+** Accept the pending VPC Peering
+  [[./png/workstation/ws.004.png]]
+** Confirm the DB connection
+   #+BEGIN_SRC
+OhMyTiUP$sudo apt-get update
+OhMyTiUP$apt-get install mariadb-server
+   #+END_SRC
+  [[./png/workstation/ws.005.png]]

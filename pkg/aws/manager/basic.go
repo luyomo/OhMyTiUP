@@ -25,9 +25,11 @@ import (
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
 	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
 )
 
@@ -221,5 +223,98 @@ func (m *Manager) RestartCluster(name string, gOpt operator.Options, skipConfirm
 	}
 
 	log.Infof("Restarted cluster `%s` successfully", name)
+	return nil
+}
+
+func (m *Manager) ShowVPCPeering(clusterName, clusterType string, listComponent []string) error {
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	vpcPeeringInfo := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
+	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, listComponent, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
+	listTasks = append(listTasks, t9)
+
+	// *********************************************************************
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	titleFont := color.New(color.FgRed, color.Bold)
+	fmt.Printf(titleFont.Sprint("\nVPC Peering Info:\n"))
+	tui.PrintTable(vpcPeeringInfo, true)
+
+	return nil
+}
+
+func (m *Manager) AcceptVPCPeering(clusterName, clusterType string, listComponent []string) error {
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	vpcPeeringInfo := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
+	t9 := task.NewBuilder().ListVpcPeering(&sexecutor, listComponent, &vpcPeeringInfo).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
+	listTasks = append(listTasks, t9)
+
+	// *********************************************************************
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	titleFont := color.New(color.FgRed, color.Bold)
+	fmt.Printf(titleFont.Sprint("VPC Peering Info:"))
+	tui.PrintTable(vpcPeeringInfo, true)
+
+	// 02. Accept the VPC Peering
+	var acceptTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	t2 := task.NewBuilder().AcceptVPCPeering(&sexecutor, []string{"dm", "workstation", "aurora"}).BuildAsStep(fmt.Sprintf("  - Accepting VPC Peering"))
+	acceptTasks = append(acceptTasks, t2)
+
+	// *********************************************************************
+	builder = task.NewBuilder().ParallelStep("+ Accepting aws resources", false, acceptTasks...)
+
+	t = builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	vpcPeeringInfo01 := [][]string{{"VPC Peering ID", "Status", "Requestor VPC ID", "Requestor CIDR", "Acceptor VPC ID", "Acceptor CIDR"}}
+	t9 = task.NewBuilder().ListVpcPeering(&sexecutor, []string{"dm", "workstation", "aurora"}, &vpcPeeringInfo01).BuildAsStep(fmt.Sprintf("  - Listing VPC Peering"))
+	listTasks = append(listTasks, t9)
+
+	// *********************************************************************
+	builder = task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t = builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	fmt.Printf(titleFont.Sprint("\nVPC Peering Info:\n"))
+	tui.PrintTable(vpcPeeringInfo01, true)
+
 	return nil
 }

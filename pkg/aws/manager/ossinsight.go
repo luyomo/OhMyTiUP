@@ -544,7 +544,7 @@ func (m *Manager) DestroyOssInsight(name string, gOpt operator.Options, destroyO
 
 	t0 := task.NewBuilder().
 		DestroyTransitGateways(&sexecutor).
-		DestroyVpcPeering(&sexecutor).
+		// DestroyVpcPeering(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().

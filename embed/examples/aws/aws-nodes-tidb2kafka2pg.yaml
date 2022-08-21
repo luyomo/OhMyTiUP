@@ -1,8 +1,11 @@
 workstation:
+  cidr: 172.82.0.0/16
   imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
   keyname: jay-us-east-01                         # Public key for workstation instance deployment
   keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+  instance_type: c5.2xlarge
   volumeSize: 100                                 # disk size in the workstation
+  username: admin
 aws_kafka_topo_configs:
   general:
     # debian os
@@ -22,15 +25,15 @@ aws_kafka_topo_configs:
     instance_type: c5.xlarge                      # Instance type of schema registry
     count: 1                                      # Number of schema registry node to be deployed
   connector:
-    instance_type: c5.2xlarge                     # Instance type of connector
+    instance_type: c5.xlarge                      # Instance type of connector
     count: 2                                      # Number of connector node to be deployed
   rest_service:
-    instance_type: c5.2xlarge                     # Instance type of rest service
+    instance_type: c5.xlarge                      # Instance type of rest service
     count: 1                                      # Number of rest service node to be deployed
   broker:
     instance_type: c5.xlarge                      # Instance type of broker
     count: 3                                      # Number of TiKV nodes to be deployed
-    volumeSize: 100                               # Storage size for TiKV nodes (GB)
+    volumeSize: 50                                # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
 aws_topo_configs:
@@ -46,19 +49,19 @@ aws_topo_configs:
       - us-east-1e
     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
   pd:
-    instance_type: c5.2xlarge                     # Instance type for PD component
+    instance_type: c5.xlarge                      # Instance type for PD component
     count: 3                                      # Number of PD node to be deployed
   tidb:
-    instance_type: c5.2xlarge                     # Instance type of tidb
+    instance_type: c5.xlarge                      # Instance type of tidb
     count: 2                                      # Number of TiDB node to be deployed
   tikv:
-    instance_type: c5.4xlarge                     # Instance type of TiKV
+    instance_type: c5.xlarge                      # Instance type of TiKV
     count: 3                                      # Number of TiKV nodes to be deployed
-    volumeSize: 100                               # Storage size for TiKV nodes (GB)
+    volumeSize: 50                                # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
   ticdc:
-    instance_type: c5.2xlarge                     # Instance type of ticdc
+    instance_type: c5.xlarge                      # Instance type of ticdc
     count: 2                                      # Number of TiDB node to be deployed
 postgres:
   cidr: 172.84.0.0/16

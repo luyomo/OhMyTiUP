@@ -61,7 +61,7 @@ func (m *Manager) DestroyTiDB2AuroraCluster(name string, gOpt operator.Options, 
 		DestroyDBClusterParameterGroup(&sexecutor, "test").
 		DestroyDBSubnetGroup(&sexecutor, "test").
 		DestroySecurityGroup(&sexecutor, "test").
-		DestroyVpcPeering(&sexecutor).
+		// DestroyVpcPeering(&sexecutor).
 		DestroyNetwork(&sexecutor, "test").
 		DestroyRouteTable(&sexecutor, "test").
 		DestroyInternetGateway(&sexecutor, "test").

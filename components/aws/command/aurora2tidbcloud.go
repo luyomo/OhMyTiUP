@@ -123,7 +123,7 @@ func newVPCPeeringAurora2TiDBCloudCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.ShowVPCPeeringAurora2TiDBCloudCluster(clusterName)
+			return cm.ShowVPCPeering(clusterName, "ohmytiup-aurora2tidbcloud", []string{"workstation", "aurora", "dm"})
 		},
 	}
 
@@ -145,7 +145,7 @@ func newVPCPeeringAcceptAurora2TiDBCloudCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.AcceptVPCPeeringAurora2TiDBCloudCluster(clusterName)
+			return cm.AcceptVPCPeering(clusterName, "ohmytiup-aurora2tidbcloud", []string{"workstation", "aurora", "dm"})
 		},
 	}
 

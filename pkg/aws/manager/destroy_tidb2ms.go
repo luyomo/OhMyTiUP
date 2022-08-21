@@ -53,7 +53,7 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 	t0 := task.NewBuilder().
 		DestroyTransitGateways(&sexecutor).
 		DestroyDMSService(&sexecutor, "dmsservice").
-		DestroyVpcPeering(&sexecutor).
+		// DestroyVpcPeering(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().

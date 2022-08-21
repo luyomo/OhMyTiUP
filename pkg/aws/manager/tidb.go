@@ -243,7 +243,7 @@ func (m *Manager) DestroyTiDBCluster(name string, gOpt operator.Options, destroy
 
 	t0 := task.NewBuilder().
 		DestroyTransitGateways(&sexecutor).
-		DestroyVpcPeering(&sexecutor).
+		DestroyVpcPeering(&sexecutor, []string{"workstation"}).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
 	builder := task.NewBuilder().

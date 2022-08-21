@@ -177,6 +177,55 @@ aws iam attach-role-policy  --policy-arn arn:aws:iam::729581434105:policy/Aurora
 
 
 * Reference
+** Cluster installation
+   #+BEGIN_SRC sh
+OhMyTiUP$embed/examples/aws/aurora2tidbcloud.yaml
+workstation:
+  cidr: 172.82.0.0/16
+  #instance_type: m5.2xlarge
+  instance_type: c5.4xlarge
+  keyname: jay-us-east-01
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem
+  username: admin
+  imageid: ami-07d02ee1eeb0c996c
+  volumeSize: 100
+  #shared: false
+aurora:
+  cidr: 172.84.0.0/16
+  instance_type: db.r5.large
+  db_parameter_family_group: aurora-mysql5.7
+  engine: aurora-mysql
+  engine_version: 5.7.mysql_aurora.2.10.1
+  db_username: admin
+  db_password: 1234Abcd
+  public_accessible_flag: false
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 172.83.0.0/16                           # The cidr for the VPC
+    instance_type: m5.2xlarge                     # Default instance type
+    tidb_version: v6.1.0                          # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+  dm-master:
+    instance_type: c5.2xlarge                     # Instance type for dm master
+    count: 3                                      # Number of dm master node to be deployed
+  dm-worker:
+    instance_type: c5.2xlarge                     # Instance type for dm worker
+    count: 3                                      # Number of dm worker node to be deployed
+tidb_cloud:
+  host: private-tidb.ixezxfbrz7x.clusters.tidb-cloud.com
+  port: 4000
+  user: root
+  password: 1234Abcd
+  databases:
+    - test01
+    - test02
+   #+END_SRC
 ** Deploy Aurora DB
    #+BEGIN_SRC
 ./bin/aws aurora deploy aurora2tidbtest embed/examples/aws/aurora.yaml

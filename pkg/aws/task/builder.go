@@ -716,9 +716,10 @@ func (b *Builder) CreateInternetGateway(pexecutor *ctxt.Executor, subClusterType
 	return b
 }
 
-func (b *Builder) AcceptVPCPeering(pexecutor *ctxt.Executor) *Builder {
+func (b *Builder) AcceptVPCPeering(pexecutor *ctxt.Executor, listComponent []string) *Builder {
 	b.tasks = append(b.tasks, &AcceptVPCPeering{
-		pexecutor: pexecutor,
+		pexecutor:     pexecutor,
+		listComponent: listComponent,
 	})
 	return b
 }
@@ -779,9 +780,10 @@ func (b *Builder) DestroySecurityGroup(pexecutor *ctxt.Executor, subClusterType 
 	return b
 }
 
-func (b *Builder) DestroyVpcPeering(pexecutor *ctxt.Executor) *Builder {
+func (b *Builder) DestroyVpcPeering(pexecutor *ctxt.Executor, listComponent []string) *Builder {
 	b.tasks = append(b.tasks, &DestroyVpcPeering{
-		pexecutor: pexecutor,
+		pexecutor:     pexecutor,
+		listComponent: listComponent,
 	})
 	return b
 }

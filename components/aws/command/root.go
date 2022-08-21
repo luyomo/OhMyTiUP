@@ -174,6 +174,7 @@ func init() {
 
 	rootCmd.AddCommand(
 		newTiDBCmd(),
+		newWorkstationCmd(),
 		newKafkaCmd(),
 		newAuroraCmd(),
 		newPostgresCmd(),

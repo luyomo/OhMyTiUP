@@ -70,12 +70,13 @@ type VPCPeeringConnection struct {
 // }
 
 type AcceptVPCPeering struct {
-	pexecutor *ctxt.Executor
+	pexecutor     *ctxt.Executor
+	listComponent []string
 }
 
 // Execute implements the Task interface
 func (c *AcceptVPCPeering) Execute(ctx context.Context) error {
-	vpcPeeringConnections, err := searchVPCPeering(ctx, []string{"dm", "workstation", "aurora"})
+	vpcPeeringConnections, err := searchVPCPeering(ctx, c.listComponent)
 	if err != nil {
 		return err
 	}
@@ -171,12 +172,13 @@ func (c *AcceptVPCPeering) String() string {
 /******************************************************************************/
 
 type DestroyVpcPeering struct {
-	pexecutor *ctxt.Executor
+	pexecutor     *ctxt.Executor
+	listComponent []string
 }
 
 func (c *DestroyVpcPeering) Execute(ctx context.Context) error {
 
-	vpcPeeringConnections, err := searchVPCPeering(ctx, []string{"dm", "workstation", "aurora"})
+	vpcPeeringConnections, err := searchVPCPeering(ctx, c.listComponent)
 	if err != nil {
 		return err
 	}
@@ -189,9 +191,7 @@ func (c *DestroyVpcPeering) Execute(ctx context.Context) error {
 	client := ec2.NewFromConfig(cfg)
 
 	for _, vpcPeeringConnection := range *vpcPeeringConnections {
-		// clusterName := ctx.Value("clusterName").(string)
-		// clusterType := ctx.Value("clusterType").(string)
-		if vpcPeeringConnection.Status == "Active" {
+		if vpcPeeringConnection.Status == "active" {
 			deleteVpcPeeringConnectionInput := &ec2.DeleteVpcPeeringConnectionInput{VpcPeeringConnectionId: aws.String(vpcPeeringConnection.VpcConnectionId)}
 			if _, err := client.DeleteVpcPeeringConnection(context.TODO(), deleteVpcPeeringConnectionInput); err != nil {
 				return err
