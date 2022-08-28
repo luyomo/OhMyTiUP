@@ -24,7 +24,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
-	// "github.com/luyomo/tisample/pkg/aws/clusterutil"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/aws/task"
@@ -32,13 +31,11 @@ import (
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
-	// "github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
-	// "os"
 )
 
 // DeployOptions contains the options for scale out.
@@ -328,7 +325,56 @@ func (m *Manager) ListTiDB2Kafka2PgCluster(clusterName string, opt DeployOptions
 	return nil
 }
 
+type MapTiDB2PG struct {
+	TiDB2PG []struct {
+		TiDB struct {
+			DataType string `yaml:"DataType"`
+			Def      string `yaml:"Def"`
+		} `yaml:"TiDB"`
+		PG struct {
+			DataType string `yaml:"DataType"`
+			Def      string `yaml:"Def"`
+		} `yaml:"PG"`
+		Value string `yaml:"Value"`
+	} `yaml:"MapTiDB2PG"`
+}
+
 func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+
+	mapFile, err := ioutil.ReadFile("embed/templates/config/tidb2kafka2pg/ColumnMapping.yml")
+	if err != nil {
+		return err
+	}
+
+	var mapTiDB2PG MapTiDB2PG
+	err = yaml.Unmarshal(mapFile, &mapTiDB2PG)
+	if err != nil {
+		return err
+	}
+
+	var arrTiDBTblDataDef []string
+	var arrPGTblDataDef []string
+	var arrCols []string
+	var arrData []string
+	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "pk_col BIGINT PRIMARY KEY AUTO_RANDOM")
+	arrPGTblDataDef = append(arrPGTblDataDef, "pk_col bigint PRIMARY KEY")
+	for _, _dataType := range perfOpt.DataTypeDtr {
+		for _, _mapItem := range mapTiDB2PG.TiDB2PG {
+			if _dataType == _mapItem.TiDB.DataType {
+				arrTiDBTblDataDef = append(arrTiDBTblDataDef, _mapItem.TiDB.Def)
+				arrPGTblDataDef = append(arrPGTblDataDef, _mapItem.PG.Def)
+				arrCols = append(arrCols, strings.Split(_mapItem.TiDB.Def, " ")[0])
+				arrData = append(arrData, strings.Replace(strings.Replace(_mapItem.Value, "<<<<", "'", 1), ">>>>", "'", 1))
+			}
+
+		}
+
+	}
+	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "tidb_timestamp timestamp default current_timestamp")
+	arrPGTblDataDef = append(arrPGTblDataDef, "tidb_timestamp timestamp")
+	arrPGTblDataDef = append(arrPGTblDataDef, "pg_timestamp timestamp default current_timestamp")
+
+	strInsQuery := fmt.Sprintf("insert into test.test01(%s) values(%s)", strings.Join(arrCols, ","), strings.Join(arrData, ","))
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2kafka2pg")
@@ -346,6 +392,18 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 		return err
 	}
 
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("echo '%s'> /tmp/query.sql", strInsQuery), true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/query.sql /opt/kafka/", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "chmod 777 /opt/kafka/query.sql", true); err != nil {
+		return err
+	}
+
 	// 02. Create the postgres objects(Database and tables)
 	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query postgres '%s'", "drop database if exists test"), false, 1*time.Hour)
 	if err != nil {
@@ -357,10 +415,10 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	if err != nil {
 		return err
 	}
-	timer.Take("Postgres DB creation")
+	timer.Take("01. Postgres DB creation")
 
 	commands := []string{
-		"create table test01(col01 bigint PRIMARY KEY, col02 int, tidb_timestamp timestamp, pg_timestamp timestamp default current_timestamp)",
+		fmt.Sprintf("create table test01(%s)", strings.Join(arrPGTblDataDef, ",")),
 	}
 
 	for _, command := range commands {
@@ -369,12 +427,12 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 			return err
 		}
 	}
-	timer.Take("Postgres Table Creation")
+	timer.Take("02. Table Creation in the postgres")
 
 	// 03. Create TiDB objects(Databse and tables)
 	commands = []string{
 		"drop table if exists test01",
-		"create table test01(col01 bigint PRIMARY KEY AUTO_INCREMENT, col02 int , tidb_timestamp timestamp default current_timestamp)",
+		fmt.Sprintf("create table test01(%s)", strings.Join(arrTiDBTblDataDef, ",")),
 	}
 
 	for _, command := range commands {
@@ -384,11 +442,10 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 		}
 	}
 
-	timer.Take("TiDB Table Creation")
+	timer.Take("03. Table creation in the TiDB")
 
 	// 04. Deploy the ticdc source connector
-	err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2pg/source.toml.tpl", "/tmp/source.toml", "0644", []string{}, true, 0)
-	if err != nil {
+	if err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2pg/source.toml.tpl", "/tmp/source.toml", "0644", []string{}, true, 0); err != nil {
 		return err
 	}
 
@@ -401,7 +458,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 		return err
 	}
 
-	timer.Take("Kafka topic creation")
+	timer.Take("04. Create kafka topic in advanced for multiple parations per table - /opt/kafka/source.toml")
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string
@@ -416,10 +473,10 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 		return err
 	}
 
-	var pdIP, schemaRegistryIP, brokerIP, connectorIP string
+	var cdcIP, schemaRegistryIP, brokerIP, connectorIP string
 	for _, row := range tableECs {
-		if row[0] == "pd" {
-			pdIP = row[5]
+		if row[0] == "ticdc" {
+			cdcIP = row[5]
 		}
 		if row[0] == "broker" {
 			brokerIP = row[5]
@@ -431,9 +488,9 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 			connectorIP = row[5]
 		}
 	}
-	timer.Take("Kafka component IP")
+	timer.Take("05. Get required info - pd/broker/schemaRegistry/connector")
 
-	if stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --pd=http://%s:2379 2>/dev/null", pdIP), false); err != nil {
+	if stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false); err != nil {
 		return err
 	}
 
@@ -462,12 +519,12 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	}
 
 	if changeFeedHasExisted == false {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed create --pd=http://%s:2379 --changefeed-id='%s' --sink-uri='kafka://%s:9092/%s?protocol=avro' --schema-registry=http://%s:8081 --config %s", pdIP, "kafka-avro", brokerIP, "topic-name", schemaRegistryIP, "/opt/kafka/source.toml"), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed create --server http://%s:8300 --changefeed-id='%s' --sink-uri='kafka://%s:9092/%s?protocol=avro' --schema-registry=http://%s:8081 --config %s", cdcIP, "kafka-avro", brokerIP, "topic-name", schemaRegistryIP, "/opt/kafka/source.toml"), false); err != nil {
 			return err
 		}
 	}
 
-	timer.Take("Changefeed creation")
+	timer.Take("06. Create if not exists changefeed of TiCDC")
 
 	// 05. Deploy the sink connector for kafka
 	if err = (*workstation).Transfer(ctx, "/opt/db-info.yml", "/tmp/db-info.yml", true, 1024); err != nil {
@@ -500,10 +557,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	pgSinkData.TableName = "test01"
 	pgSinkData.SchemaRegistry = schemaRegistryIP
 
-	// fmt.Printf("The data is <%#v> \n\n\n", pgSinkData)
-
-	err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.sink.json", "/tmp/kafka.sink.json", "0644", pgSinkData, true, 0)
-	if err != nil {
+	if err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.sink.json", "/tmp/kafka.sink.json", "0644", pgSinkData, true, 0); err != nil {
 		return err
 	}
 
@@ -514,7 +568,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/kafka.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
 		return err
 	}
-	timer.Take("Sink preparation")
+	timer.Take("07. Create the kafka sink to postgres")
 
 	timer.Print()
 
@@ -580,7 +634,7 @@ func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gO
 		return err
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("mysqlslap --no-defaults -h %s -P %d --user=%s --query='%s' --concurrency=%d --iterations=%d --number-of-queries=%d --create='drop database if exists test02;create schema test02' --no-drop", tidbConnectInfo.TiDBHost, tidbConnectInfo.TiDBPort, tidbConnectInfo.TiDBUser, "insert into test.test01(col02) values(1)", 10, 1, perfOpt.NumOfRecords), true, 1*time.Hour)
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("mysqlslap --no-defaults -h %s -P %d --user=%s --query=/opt/kafka/query.sql --concurrency=%d --iterations=%d --number-of-queries=%d --create='drop database if exists test02;create schema test02' --no-drop", tidbConnectInfo.TiDBHost, tidbConnectInfo.TiDBPort, tidbConnectInfo.TiDBUser, 10, 1, perfOpt.NumOfRecords), true, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -615,7 +669,7 @@ func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gO
 	}
 	cnt := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*)/EXTRACT(EPOCH FROM max(tidb_timestamp) - min(tidb_timestamp))::int from test01"), false, 1*time.Hour)
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*)/(EXTRACT(EPOCH FROM max(tidb_timestamp) - min(tidb_timestamp))::int + 1) from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -671,10 +725,10 @@ func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName string, gOpt operator.Optio
 		return err
 	}
 
-	var pdIP, connectorIP string
+	var cdcIP, connectorIP string
 	for _, row := range tableECs {
-		if row[0] == "pd" {
-			pdIP = row[5]
+		if row[0] == "ticdc" {
+			cdcIP = row[5]
 		}
 
 		if row[0] == "connector" {
@@ -688,7 +742,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName string, gOpt operator.Optio
 	}
 
 	// Remove the changefeed
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --pd=http://%s:2379 2>/dev/null", pdIP), false)
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false)
 	if err != nil {
 		return err
 	}
@@ -697,7 +751,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName string, gOpt operator.Optio
 		return err
 	}
 	if changeFeedExist == true {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed remove --pd=http://%s:2379 --changefeed-id='%s'", pdIP, "kafka-avro"), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed remove --server http://%s:8300 --changefeed-id='%s'", cdcIP, "kafka-avro"), false); err != nil {
 			return err
 		}
 	}

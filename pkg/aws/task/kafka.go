@@ -18,12 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-	// "os"
-	// "path"
-	// "strings"
-	// "text/template"
 
-	// "github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"go.uber.org/zap"

@@ -1,0 +1,218 @@
+MapTiDB2PG:
+  - TiDB:
+      DataType: BOOL
+      Def: t_bool BOOL
+    PG:
+      DataType: BOOL
+      Def: t_bool BOOL
+    Value: true
+  - TiDB:
+      DataType: TINYINT
+      Def: t_tinyint TINYINT DEFAULT 10
+    PG:
+      DataType: SMALLINT
+      Def: t_tinyint SMALLINT
+    Value: 1
+  - TiDB:
+      DataType: SMALLINT
+      Def: t_smallint SMALLINT UNSIGNED
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: MEDIUMINT
+      Def: t_mediumint MEDIUMINT NOT NULL default 10
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: INT
+      Def: t_int INT
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: BIGINT
+      Def: t_bigint BIGINT
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: BIGINT UNSIGNED 
+      Def: t_bigint_unsigned BIGINT UNSIGNED
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: TINYBLOB
+      Def: t_tinyblob TINYBLOB
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: BLOB
+      Def: t_blob BLOB
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: MEDIUMBLOB
+      Def: t_mediumblob MEDIUMBLOB
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: LONGBLOB
+      Def: t_longblob LONGBLOB
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: BINARY
+      Def: t_binary BINARY
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: VARBINARY
+      Def: t_varbinary VARBINARY(256)
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: TINYTEXT
+      Def: t_tinytext TINYTEXT
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: TEXT
+      Def: t_text TEXT
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: MEDIUMTEXT
+      Def: t_mediumtext MEDIUMTEXT NOT NULL
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: LONGTEXT
+      Def: t_longtext LONGTEXT
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: CHAR
+      Def: t_char CHAR
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: VARCHAR
+      Def: t_varchar VARCHAR(255) NOT NULL
+    PG:
+      DataType: VARCHAR
+      Def: t_varchar VARCHAR(255) NOT NULL
+    Value: <<<<a>>>>
+  - TiDB:
+      DataType: FLOAT 
+      Def: t_float FLOAT
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: DOUBLE
+      Def: t_double DOUBLE
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: DATETIME
+      Def: t_datetime DATETIME
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: DATE
+      Def: t_date DATE
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: TIMESTAMP
+      Def: t_timestamp TIMESTAMP
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: TIME
+      Def: t_time TIME
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: YEAR
+      Def: t_year YEAR
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: BIT
+      Def: t_bit BIT
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: JSON
+      Def: t_json JSON
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: ENUM
+      Def: t_enum ENUM('a', 'b', 'c')
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: SET
+      Def: t_set SET('a', 'b', 'c')
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO
+  - TiDB:
+      DataType: DECIMAL
+      Def: t_decimal DECIMAL
+    PG:
+      DataType: TODO
+      Def: TODO
+    Value: TODO

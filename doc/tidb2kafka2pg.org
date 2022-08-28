@@ -83,3 +83,65 @@ OhMyTiUP$./bin/aws tidb2kafka2pg perf-prepare avrotest --partitions 3 --num-of-r
    [[./png/tidb2kafka2pg/05.png]]
 ** Clean up the resources
    [[./png/tidb2kafka2pg/06.01.png]]
+
+* Todo
+** Data type sync verification
+   #+CAPTION: Data Type conversion
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | TiDB Data Type      | OK/NG | PG Data Type | Comment |
+   |---------------------+-------+--------------+---------|
+   | INT                 |       |              |         |
+   | BOOL                |       |              |         |
+   | TINYINT             | OK    | SmallInt     |         |
+   | SMALLINT            |       |              |         |
+   | MEDIUMINT           |       |              |         |
+   | INT                 |       |              |         |
+   | BIGINT              |       |              |         |
+   | BIGINT UNSIGNED     |       |              |         |
+   | TINYBLOB            |       |              |         |
+   | BLOB                |       |              |         |
+   | MEDIUMBLOB          |       |              |         |
+   | LONGBLOB            |       |              |         |
+   | BINARY              |       |              |         |
+   | VARBINARY(256)      |       |              |         |
+   | TINYTEXT            |       |              |         |
+   | TEXT                |       |              |         |
+   | MEDIUMTEXT          |       |              |         |
+   | LONGTEXT            |       |              |         |
+   | CHAR                |       |              |         |
+   | VARCHAR(255)        |       |              |         |
+   | FLOAT               |       |              |         |
+   | DOUBLE              |       |              |         |
+   | DATETIME            |       |              |         |
+   | DATE                |       |              |         |
+   | TIMESTAMP           |       |              |         |
+   | TIME                |       |              |         |
+   | YEAR                |       |              |         |
+   | BIT                 |       |              |         |
+   | JSON                |       |              |         |
+   | ENUM('a', 'b', 'c') |       |              |         |
+   | SET('a', 'b', 'c')  |       |              |         |
+   | DECIMAL             |       |              |         |
+
+
+* Summary
+** Issues
+  + The new version seeems not to support the TiCDC command. The pd configuration is decommissioned while the server(cdc) is supported.
+    Please take a look of the documentation. https://docs.pingcap.com/tidb/dev/manage-ticdc
+     #+BEGIN_SRC
+  cdc cli changefeed list [flags]
+
+Flags:
+  -a, --all    List all replication tasks(including removed and finished)
+  -h, --help   help for list
+
+Global Flags:
+      --ca string          CA certificate path for TLS connection to CDC server
+      --cert string        Certificate path for TLS connection to CDC server
+  -i, --interact           Run cdc cli with readline
+      --key string         Private key path for TLS connection to CDC server
+      --log-level string   log level (etc: debug|info|warn|error) (default "warn")
+      --pd string          PD address, use ',' to separate multiple PDs, Parameter --pd is deprecated, please use parameter --server instead.
+      --server string      CDC server address
+
+     #+END_SRC

@@ -38,11 +38,21 @@ func newTiDB2Kafka2PgCmd() *cobra.Command {
 		newTiDB2Kafka2PgDeploy(),
 		newListTiDB2Kafka2PgCmd(),
 		newDestroyTiDB2Kafka2PgCmd(),
+		newTiDB2Kafka2PGPerfCmd(),
+	)
+	return cmd
+}
+
+func newTiDB2Kafka2PGPerfCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "perf <sub_command>",
+		Short: "Run measure latency against tidb",
+	}
+
+	cmd.AddCommand(
 		newPerfPrepareTiDB2Kafka2Pg(),
 		newPerfTiDB2Kafka2Pg(),
 		newPerfCleanTiDB2Kafka2Pg(),
-		// // newKafkaScale(),
-		// newPerfTiDB2Kafka2Pg(),
 	)
 	return cmd
 }
@@ -155,7 +165,7 @@ func newPerfPrepareTiDB2Kafka2Pg() *cobra.Command {
 		BytesOfRecord: 1024,
 	}
 	cmd := &cobra.Command{
-		Use:          "perf-prepare <cluster-name>",
+		Use:          "prepare <cluster-name>",
 		Short:        "perf performance test preparation",
 		Long:         "Performance measurement against kafka cluster",
 		SilenceUsage: true,
@@ -177,6 +187,7 @@ func newPerfPrepareTiDB2Kafka2Pg() *cobra.Command {
 	cmd.Flags().IntVar(&perfOpt.Partitions, "partitions", 16, "The partition number of the topic to be tested.")
 	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
 	cmd.Flags().IntVar(&perfOpt.BytesOfRecord, "bytes-of-record", 1024, "Bytes of records to be tested")
+	cmd.Flags().StringArrayVar(&perfOpt.DataTypeDtr, "data-type", nil, "Specify all the data types to be tested")
 
 	return cmd
 }
@@ -186,7 +197,7 @@ func newPerfTiDB2Kafka2Pg() *cobra.Command {
 		NumOfRecords: 100000,
 	}
 	cmd := &cobra.Command{
-		Use:          "perf <cluster-name>",
+		Use:          "run <cluster-name>",
 		Short:        "perf performance test",
 		Long:         "Performance measurement against kafka cluster",
 		SilenceUsage: true,
@@ -212,7 +223,7 @@ func newPerfTiDB2Kafka2Pg() *cobra.Command {
 
 func newPerfCleanTiDB2Kafka2Pg() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "perf-clean <cluster-name>",
+		Use:          "clean <cluster-name>",
 		Short:        "clean perf performance test",
 		Long:         "Performance measurement against kafka cluster",
 		SilenceUsage: true,

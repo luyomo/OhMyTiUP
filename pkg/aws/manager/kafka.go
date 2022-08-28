@@ -445,6 +445,9 @@ type KafkaPerfOpt struct {
 
 	// End 2 End performance test
 	ProducerAcks string
+
+	// DataType
+	DataTypeDtr []string
 }
 
 func (m *Manager) PerfKafkaPC(clusterName string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
