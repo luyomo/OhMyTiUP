@@ -6,7 +6,7 @@ then
   echo "kafka-util.sh list-topic"
   echo "kafka-util.sh topic-offset"
   echo "kafka-util.sh sink-status sink-name"
-  echo "kafka-util.sh remove-topic sink-name"
+  echo "kafka-util.sh remove-topic topic-name"
   exit 1
 fi
 
@@ -19,7 +19,7 @@ list-topic)
 remove-topic)
   kafka-topics --delete --topic $2 --bootstrap-server=$brokerList;;
 topic-offset)
-  kafka-run-class kafka.tools.GetOffsetShell --broker-list $brokerList --topic test_test01 --time -1;;
+  kafka-run-class kafka.tools.GetOffsetShell --broker-list $brokerList --topic $2 --time -1;;
 sink-status)
   curl http://$connectorIP:8083/connectors/$2/status | jq;;
 esac

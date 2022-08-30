@@ -392,7 +392,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("echo '%s'> /tmp/query.sql", strInsQuery), true); err != nil {
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("echo \\\"%s\\\" > /tmp/query.sql", strInsQuery), true); err != nil {
 		return err
 	}
 
@@ -725,7 +725,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName string, gOpt operator.Optio
 		return err
 	}
 
-	var cdcIP, connectorIP string
+	var cdcIP, connectorIP, schemaRegistryIP string
 	for _, row := range tableECs {
 		if row[0] == "ticdc" {
 			cdcIP = row[5]
@@ -734,6 +734,10 @@ func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName string, gOpt operator.Optio
 		if row[0] == "connector" {
 			connectorIP = row[5]
 		}
+		if row[0] == "schemaRegistry" {
+			schemaRegistryIP = row[5]
+		}
+
 	}
 
 	// Remove the sink connector
@@ -757,10 +761,19 @@ func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName string, gOpt operator.Optio
 	}
 
 	// Remove the topic
-	for _, topicName := range []string{"topic-name", "test_test01"} {
+
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl stop confluent-schema-registry"), false, 600*time.Second); err != nil {
+		return err
+	}
+
+	for _, topicName := range []string{"topic-name", "test_test01", "_schemas"} {
 		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka-util.sh remove-topic %s", topicName), false); err != nil {
-			return err
+			logger.OutputDebugLog(err.Error())
+			//return err
 		}
+	}
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl start confluent-schema-registry"), false, 600*time.Second); err != nil {
+		return err
 	}
 
 	// Remove the Postgres db and table

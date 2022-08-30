@@ -86,6 +86,7 @@ OhMyTiUP$./bin/aws tidb2kafka2pg perf-prepare avrotest --partitions 3 --num-of-r
 
 * Todo
 ** Data type sync verification
+   TiDB mapping to Postgres: https://www.convert-in.com/mysql-to-postgres-types-mapping.htm
    #+CAPTION: Data Type conversion
    #+ATTR_HTML: :border 2 :rules all :frame border
    | TiDB Data Type      | OK/NG | PG Data Type | Comment                                                                                                                                 |
@@ -111,16 +112,16 @@ OhMyTiUP$./bin/aws tidb2kafka2pg perf-prepare avrotest --partitions 3 --num-of-r
    | VARCHAR(255)        | OK    | VARCHAR(255) |                                                                                                                                         |
    | FLOAT               | NG    | NEMERIC      | [10.123457] <-> [10.1234569549561]                                                                                                      |
    | DOUBLE              | OK    | NUMERIC      |                                                                                                                                         |
-   | DATETIME            |       |   TIMESTAMP  |                                                                                                                                         |
+   | DATETIME            | OK    | TIMESTAMP    | Need transformation from TiDB DATETIME to PG timestamp                                                                                  |
    | DATE                | OK    | DATE         |                                                                                                                                         |
    | TIMESTAMP           | OK    | TIMESTAMP    | Need to add [timestamp] transformation                                                                                                  |
-   | TIME                |       |              |                                                                                                                                         |
-   | YEAR                |       |              |                                                                                                                                         |
-   | BIT                 |       |              |                                                                                                                                         |
-   | JSON                |       |              |                                                                                                                                         |
+   | TIME                | OK    | TIME         |                                                                                                                                         |
+   | YEAR                | OK    | SMALLINT     |                                                                                                                                         |
+   | BIT                 | NG    |              | Todo. No idea how to sync so far                                                                                                        |
+   | JSON                | OK    |JSON          |                                                                                                                                         |
    | ENUM('a', 'b', 'c') |       |              |                                                                                                                                         |
    | SET('a', 'b', 'c')  |       |              |                                                                                                                                         |
-   | DECIMAL             |       |              |                                                                                                                                         |
+   | DECIMAL             | OK    | DECIMAL      |                                                                                                                                         |
 
 
 * Summary

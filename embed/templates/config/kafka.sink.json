@@ -18,10 +18,12 @@
         "pk.mode": "record_key",
         "auto.create":"false",
         "auto.evolve":"false",
-        "transforms": "timestamp",
+        "transforms": "timestamp, Cast",
         "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
         "transforms.timestamp.target.type": "Timestamp",
-        "transforms.timestamp.field":"timestamp",
-        "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss"
+        "transforms.timestamp.field":"timestamp,t_datetime",
+        "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss",
+        "transforms.Cast.type": "org.apache.kafka.connect.transforms.Cast$Value",
+        "transforms.Cast.spec": "t_bool:boolean"
     }
 }

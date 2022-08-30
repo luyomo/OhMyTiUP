@@ -17,44 +17,44 @@ MapTiDB2PG:
       DataType: SMALLINT
       Def: t_smallint SMALLINT UNSIGNED
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: INT
+      Def: t_smallint INT
+    Value: 1000
   - TiDB:
       DataType: MEDIUMINT
       Def: t_mediumint MEDIUMINT NOT NULL default 10
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: INT
+      Def: t_mediumint INT
+    Value: 1000
   - TiDB:
       DataType: INT
       Def: t_int INT
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: INT
+      Def: t_int INT
+    Value: 1000
   - TiDB:
       DataType: BIGINT
       Def: t_bigint BIGINT
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: BIGINT
+      Def: t_bigint BIGINT
+    Value: 10000
   - TiDB:
       DataType: BIGINT UNSIGNED 
       Def: t_bigint_unsigned BIGINT UNSIGNED
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: BIGINT
+      Def: t_bigint BIGINT
+    Value: 10000
   - TiDB:
       DataType: TINYBLOB
       Def: t_tinyblob TINYBLOB
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: text
+      Def: t_tinyblob text
+    Value: <<<<This is the test>>>>
   - TiDB:
       DataType: BLOB
       Def: t_blob BLOB
@@ -94,37 +94,37 @@ MapTiDB2PG:
       DataType: TINYTEXT
       Def: t_tinytext TINYTEXT
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: TEXT
+      Def: t_tinytext TEXT
+    Value: <<<<This is TiNYTEXT>>>>
   - TiDB:
       DataType: TEXT
       Def: t_text TEXT
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: TEXT
+      Def: t_text TEXT
+    Value: <<<<This is TEXT>>>>
   - TiDB:
       DataType: MEDIUMTEXT
       Def: t_mediumtext MEDIUMTEXT NOT NULL
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: TEXT
+      Def: t_mediumtext TEXT NOT NULL
+    Value: <<<<This is medium text>>>>
   - TiDB:
       DataType: LONGTEXT
       Def: t_longtext LONGTEXT
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: TEXT
+      Def: t_longtext TEXT
+    Value: <<<<This is long text>>>>
   - TiDB:
       DataType: CHAR
       Def: t_char CHAR
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: CHAR
+      Def: t_char char
+    Value: <<<<a>>>>
   - TiDB:
       DataType: VARCHAR
       Def: t_varchar VARCHAR(255) NOT NULL
@@ -136,30 +136,30 @@ MapTiDB2PG:
       DataType: FLOAT 
       Def: t_float FLOAT
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: NUMERIC
+      Def: t_float NUMERIC
+    Value: 10.123456789
   - TiDB:
       DataType: DOUBLE
       Def: t_double DOUBLE
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: NUMERIC
+      Def: t_double NUMERIC
+    Value: 10.123456789
   - TiDB:
       DataType: DATETIME
       Def: t_datetime DATETIME
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: TIMESTAMP
+      Def: t_datetime TIMESTAMP
+    Value: <<<<2022-08-01 11:34:56>>>>
   - TiDB:
       DataType: DATE
       Def: t_date DATE
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: DATE
+      Def: t_date DATE
+    Value: <<<<2022-08-01>>>>
   - TiDB:
       DataType: TIMESTAMP
       Def: t_timestamp TIMESTAMP
@@ -171,30 +171,30 @@ MapTiDB2PG:
       DataType: TIME
       Def: t_time TIME
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: TIME
+      Def: t_time TIME
+    Value: <<<<11:23:09>>>>
   - TiDB:
       DataType: YEAR
       Def: t_year YEAR
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: SMALLINT
+      Def: t_year SMALLINT
+    Value: 2022
   - TiDB:
       DataType: BIT
       Def: t_bit BIT
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: BIT
+      Def: t_bit BIT
+    Value: 1
   - TiDB:
       DataType: JSON
       Def: t_json JSON
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: JSON
+      Def: t_json json
+    Value: <<<<{\\\"testKey\\\":\\\"testValue\\\"}>>>>
   - TiDB:
       DataType: ENUM
       Def: t_enum ENUM('a', 'b', 'c')
@@ -211,8 +211,8 @@ MapTiDB2PG:
     Value: TODO
   - TiDB:
       DataType: DECIMAL
-      Def: t_decimal DECIMAL
+      Def: t_decimal DECIMAL(20, 10)
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: DECIMAL
+      Def: t_decimal DECIMAL(20, 10)
+    Value: 10.123456789
