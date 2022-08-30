@@ -88,40 +88,39 @@ OhMyTiUP$./bin/aws tidb2kafka2pg perf-prepare avrotest --partitions 3 --num-of-r
 ** Data type sync verification
    #+CAPTION: Data Type conversion
    #+ATTR_HTML: :border 2 :rules all :frame border
-   | TiDB Data Type      | OK/NG | PG Data Type | Comment |
-   |---------------------+-------+--------------+---------|
-   | INT                 |       |              |         |
-   | BOOL                |       |              |         |
-   | TINYINT             | OK    | SmallInt     |         |
-   | SMALLINT            |       |              |         |
-   | MEDIUMINT           |       |              |         |
-   | INT                 |       |              |         |
-   | BIGINT              |       |              |         |
-   | BIGINT UNSIGNED     |       |              |         |
-   | TINYBLOB            |       |              |         |
-   | BLOB                |       |              |         |
-   | MEDIUMBLOB          |       |              |         |
-   | LONGBLOB            |       |              |         |
-   | BINARY              |       |              |         |
-   | VARBINARY(256)      |       |              |         |
-   | TINYTEXT            |       |              |         |
-   | TEXT                |       |              |         |
-   | MEDIUMTEXT          |       |              |         |
-   | LONGTEXT            |       |              |         |
-   | CHAR                |       |              |         |
-   | VARCHAR(255)        |       |              |         |
-   | FLOAT               |       |              |         |
-   | DOUBLE              |       |              |         |
-   | DATETIME            |       |              |         |
-   | DATE                |       |              |         |
-   | TIMESTAMP           |       |              |         |
-   | TIME                |       |              |         |
-   | YEAR                |       |              |         |
-   | BIT                 |       |              |         |
-   | JSON                |       |              |         |
-   | ENUM('a', 'b', 'c') |       |              |         |
-   | SET('a', 'b', 'c')  |       |              |         |
-   | DECIMAL             |       |              |         |
+   | TiDB Data Type      | OK/NG | PG Data Type | Comment                                                                                                                                 |
+   |---------------------+-------+--------------+-----------------------------------------------------------------------------------------------------------------------------------------|
+   | BOOL                | OK    | Boolean      | Need to add [Cast] transformation config                                                                                                |
+   | TINYINT             | OK    | SmallInt     |                                                                                                                                         |
+   | SMALLINT            | OK    | INT          |                                                                                                                                         |
+   | MEDIUMINT           | OK    | INT          |                                                                                                                                         |
+   | INT                 | OK    | INT          |                                                                                                                                         |
+   | BIGINT              | OK    | BIGINT       |                                                                                                                                         |
+   | BIGINT UNSIGNED     | OK    | BIGINT       |                                                                                                                                         |
+   | TINYBLOB            | NG    | TEXT         | Succeeded to sync. But from TiDB the value is [This is the test] while postgres keep the data like [\x54686973206973207468652074657374] |
+   | BLOB                |       |              |                                                                                                                                         |
+   | MEDIUMBLOB          |       |              |                                                                                                                                         |
+   | LONGBLOB            |       |              |                                                                                                                                         |
+   | BINARY              |       |              |                                                                                                                                         |
+   | VARBINARY(256)      |       |              |                                                                                                                                         |
+   | TINYTEXT            | OK    | TEXT         |                                                                                                                                         |
+   | TEXT                | OK    | TEXT         |                                                                                                                                         |
+   | MEDIUMTEXT          | OK    | TEXT         |                                                                                                                                         |
+   | LONGTEXT            | OK    | TEXT         |                                                                                                                                         |
+   | CHAR                | OK    | char         |                                                                                                                                         |
+   | VARCHAR(255)        | OK    | VARCHAR(255) |                                                                                                                                         |
+   | FLOAT               | NG    | NEMERIC      | [10.123457] <-> [10.1234569549561]                                                                                                      |
+   | DOUBLE              | OK    | NUMERIC      |                                                                                                                                         |
+   | DATETIME            |       |   TIMESTAMP  |                                                                                                                                         |
+   | DATE                | OK    | DATE         |                                                                                                                                         |
+   | TIMESTAMP           | OK    | TIMESTAMP    | Need to add [timestamp] transformation                                                                                                  |
+   | TIME                |       |              |                                                                                                                                         |
+   | YEAR                |       |              |                                                                                                                                         |
+   | BIT                 |       |              |                                                                                                                                         |
+   | JSON                |       |              |                                                                                                                                         |
+   | ENUM('a', 'b', 'c') |       |              |                                                                                                                                         |
+   | SET('a', 'b', 'c')  |       |              |                                                                                                                                         |
+   | DECIMAL             |       |              |                                                                                                                                         |
 
 
 * Summary
