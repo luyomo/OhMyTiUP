@@ -7,4 +7,8 @@ then
 fi
 dbName=$1
 shift
-PGPASSWORD={{.DBPassword}} psql -q -t -h {{.DBHost}} -U {{.DBUser}} -p{{.DBPort}} -d $dbName -c "$@"
+PGPASSWORD={{.DBPassword}} psql -q -t -h {{.DBHost}} -U {{.DBUser}} -v "ON_ERROR_STOP=1" -p{{.DBPort}} -d $dbName << EOF
+$@
+EOF
+
+exit $?

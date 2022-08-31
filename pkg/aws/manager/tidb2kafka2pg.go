@@ -328,12 +328,14 @@ func (m *Manager) ListTiDB2Kafka2PgCluster(clusterName string, opt DeployOptions
 type MapTiDB2PG struct {
 	TiDB2PG []struct {
 		TiDB struct {
-			DataType string `yaml:"DataType"`
-			Def      string `yaml:"Def"`
+			DataType string   `yaml:"DataType"`
+			Def      string   `yaml:"Def"`
+			Queries  []string `yaml:"Query,omitempty"`
 		} `yaml:"TiDB"`
 		PG struct {
-			DataType string `yaml:"DataType"`
-			Def      string `yaml:"Def"`
+			DataType string   `yaml:"DataType"`
+			Def      string   `yaml:"Def"`
+			Queries  []string `yaml:"Query,omitempty"`
 		} `yaml:"PG"`
 		Value string `yaml:"Value"`
 	} `yaml:"MapTiDB2PG"`
@@ -356,6 +358,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	var arrPGTblDataDef []string
 	var arrCols []string
 	var arrData []string
+	var pgPreQueries []string
 	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "pk_col BIGINT PRIMARY KEY AUTO_RANDOM")
 	arrPGTblDataDef = append(arrPGTblDataDef, "pk_col bigint PRIMARY KEY")
 	for _, _dataType := range perfOpt.DataTypeDtr {
@@ -365,6 +368,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 				arrPGTblDataDef = append(arrPGTblDataDef, _mapItem.PG.Def)
 				arrCols = append(arrCols, strings.Split(_mapItem.TiDB.Def, " ")[0])
 				arrData = append(arrData, strings.Replace(strings.Replace(_mapItem.Value, "<<<<", "'", 1), ">>>>", "'", 1))
+				pgPreQueries = append(pgPreQueries, _mapItem.PG.Queries...)
 			}
 
 		}
@@ -417,13 +421,23 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	}
 	timer.Take("01. Postgres DB creation")
 
+	for _, query := range pgPreQueries {
+		fmt.Printf("the query is <%s> \n\n\n", query)
+		_, stderr, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query test '%s'", query), false, 1*time.Hour)
+		if err != nil {
+			logger.OutputDebugLog(string(stderr))
+			return err
+		}
+	}
+
 	commands := []string{
 		fmt.Sprintf("create table test01(%s)", strings.Join(arrPGTblDataDef, ",")),
 	}
 
 	for _, command := range commands {
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query test '%s'", command), false, 1*time.Hour)
+		_, stderr, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query test '%s'", command), false, 1*time.Hour)
 		if err != nil {
+			logger.OutputDebugLog(string(stderr))
 			return err
 		}
 	}

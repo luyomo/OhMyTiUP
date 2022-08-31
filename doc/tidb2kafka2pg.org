@@ -98,12 +98,12 @@ OhMyTiUP$./bin/aws tidb2kafka2pg perf-prepare avrotest --partitions 3 --num-of-r
    | INT                 | OK    | INT          |                                                                                                                                         |
    | BIGINT              | OK    | BIGINT       |                                                                                                                                         |
    | BIGINT UNSIGNED     | OK    | BIGINT       |                                                                                                                                         |
-   | TINYBLOB            | NG    | TEXT         | Succeeded to sync. But from TiDB the value is [This is the test] while postgres keep the data like [\x54686973206973207468652074657374] |
-   | BLOB                |       |              |                                                                                                                                         |
-   | MEDIUMBLOB          |       |              |                                                                                                                                         |
-   | LONGBLOB            |       |              |                                                                                                                                         |
-   | BINARY              |       |              |                                                                                                                                         |
-   | VARBINARY(256)      |       |              |                                                                                                                                         |
+   | TINYBLOB            | NG    | BYTEA        | Succeeded to sync. But from TiDB the value is [This is the test] while postgres keep the data like [\x54686973206973207468652074657374] |
+   | BLOB                | NG    | BYTEA        | Same problem as TINYBLOB                                                                                                                |
+   | MEDIUMBLOB          | NG    | BYTEA        | Same problem as TINYBLOB                                                                                                                |
+   | LONGBLOB            | NG    | BYTEA        | Same problem as TINYBLOB                                                                                                                |
+   | BINARY              | NG    | BYTEA        | MySQL: "t" Postgres: "\x74"                                                                                                             |
+   | VARBINARY(256)      | NG    | BYTEA        | MySQL: "This is the barbinary message"  Postgres: "\x54686973206973207468652062617262696e617279206d657373616765"                        |
    | TINYTEXT            | OK    | TEXT         |                                                                                                                                         |
    | TEXT                | OK    | TEXT         |                                                                                                                                         |
    | MEDIUMTEXT          | OK    | TEXT         |                                                                                                                                         |
@@ -118,10 +118,22 @@ OhMyTiUP$./bin/aws tidb2kafka2pg perf-prepare avrotest --partitions 3 --num-of-r
    | TIME                | OK    | TIME         |                                                                                                                                         |
    | YEAR                | OK    | SMALLINT     |                                                                                                                                         |
    | BIT                 | NG    |              | Todo. No idea how to sync so far                                                                                                        |
-   | JSON                | OK    |JSON          |                                                                                                                                         |
-   | ENUM('a', 'b', 'c') |       |              |                                                                                                                                         |
-   | SET('a', 'b', 'c')  |       |              |                                                                                                                                         |
+   | JSON                | OK    | JSON         |                                                                                                                                         |
+   | ENUM('a', 'b', 'c') | OK    | varchar      |                                                                                                                                         |
+   |                     | OK    | ENUM         |                                                                                                                                         |
+   | SET('a', 'b', 'c')  | NG    | ENUM[]       |                                                                                                                                         |
    | DECIMAL             | OK    | DECIMAL      |                                                                                                                                         |
+
+** SET
+The data extracted from TiDB is the format like <value01,value02> while the enum[] requires the format like <{value01,value02}>
+  #+BEGIN_SRC
+{
+  "subject": "test_test01-value",
+  "version": 1,
+  "id": 1,
+  "schema": "{\"type\":\"record\",\"name\":\"test01\",\"namespace\":\"default.test\",\"fields\":[{\"name\":\"pk_col\",\"type\":{\"type\":\"long\",\"connect.parameters\":{\"tidb_type\":\"BIGINT\"}}},{\"name\":\"t_set\",\"type\":[\"null\",{\"type\":\"string\",\"connect.parameters\":{\"allowed\":\"a,b,c\",\"tidb_type\":\"SET\"}}],\"default\":null},{\"name\":\"tidb_timestamp\",\"type\":[{\"type\":\"string\",\"connect.parameters\":{\"tidb_type\":\"TIMESTAMP\"}},\"null\"],\"default\":\"CURRENT_TIMESTAMP\"}]}"
+}
+   #+END_SRC
 
 
 * Summary
@@ -145,3 +157,20 @@ Global Flags:
       --server string      CDC server address
 
      #+END_SRC
+
+** How to run the test case
+*** Clean the resources
+#+BEGIN_SRC
+OhMyTiUP$ ./bin/aws tidb2kafka2pg perf clean avrotest --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+#+END_SRC
+*** Prepare the resources
+#+BEGIN_SRC
+OhMyTiUP$ ./bin/aws tidb2kafka2pg perf prepare avrotest --data-type TINYBLOB --partitions 3 --num-of-records 100000 --bytes-of-record 1024 --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+#+END_SRC
+*** Run the sysbench
+#+BEGIN_SRC
+OhMyTiUP$ ./bin/aws tidb2kafka2pg perf run avrotest --num-of-records 1000 --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+Count  DB QPS  TiDB 2 PG Latency  TiDB 2 PG QPS
+-----  ------  -----------------  -------------
+1000   500     12                 78
+#+END_SRC

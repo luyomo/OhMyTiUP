@@ -52,44 +52,46 @@ MapTiDB2PG:
       DataType: TINYBLOB
       Def: t_tinyblob TINYBLOB
     PG:
-      DataType: text
-      Def: t_tinyblob text
+      DataType: bytea
+      Def: t_tinyblob bytea
+      #      DataType: text
+      #      Def: t_tinyblob text
     Value: <<<<This is the test>>>>
   - TiDB:
       DataType: BLOB
       Def: t_blob BLOB
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: text
+      Def: t_blob text
+    Value: <<<<This is the blob test message>>>>
   - TiDB:
       DataType: MEDIUMBLOB
       Def: t_mediumblob MEDIUMBLOB
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: text
+      Def: t_mediumblob text
+    Value: <<<<This is the mediumblob message>>>>
   - TiDB:
       DataType: LONGBLOB
       Def: t_longblob LONGBLOB
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: text
+      Def: t_longblob text
+    Value: <<<<This is the longblob message>>>>
   - TiDB:
       DataType: BINARY
       Def: t_binary BINARY
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: bytea
+      Def: t_binary bytea
+    Value: <<<<t>>>>
   - TiDB:
       DataType: VARBINARY
       Def: t_varbinary VARBINARY(256)
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: BYTEA
+      Def: t_varbinary bytea
+    Value: <<<<This is the barbinary message>>>>
   - TiDB:
       DataType: TINYTEXT
       Def: t_tinytext TINYTEXT
@@ -197,18 +199,22 @@ MapTiDB2PG:
     Value: <<<<{\\\"testKey\\\":\\\"testValue\\\"}>>>>
   - TiDB:
       DataType: ENUM
-      Def: t_enum ENUM('a', 'b', 'c')
+      Def: t_enum enum("a", "b", "c")
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: VARCHAR
+      Def: t_enum t_enum_test
+      Query:
+        - create type t_enum_test as enum  ('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
+    Value: <<<<a>>>>
   - TiDB:
       DataType: SET
-      Def: t_set SET('a', 'b', 'c')
+      Def: t_set SET('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: ENUM
+      Def: t_set t_enum_test[]
+      Query:
+        - create type t_enum_test as enum  ('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
+    Value: <<<<a,b>>>>
   - TiDB:
       DataType: DECIMAL
       Def: t_decimal DECIMAL(20, 10)
