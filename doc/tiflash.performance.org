@@ -1,0 +1,90 @@
+* Tables
+  #+BEGIN_SRC
+create table payment(id bigint primary key auto_random, payer varchar(32), receiver varchar(32), pay_amount bigint);
+create table users (id bigint primary key auto_increment, name varchar(32));
+  #+END_SRC
+* Scripts
+** Generate Users
+  #+BEGIN_SRC sh
+#!/bin/bash
+
+cnt=$1
+
+/opt/scripts/run_tidb_query test "drop table users "
+/opt/scripts/run_tidb_query test "create table users (id bigint primary key auto_increment, name varchar(32))"
+
+for idx in $(seq -f "%08g" 1 $cnt); do
+        /opt/scripts/run_tidb_query test "insert into users(id, name) values($idx, 'user$idx')"
+done
+  #+END_SRC
+
+** Generate payment
+   #+BEGIN_SRC
+#!/bin/bash
+
+
+userCnt=$1
+cnt=$2
+function rand(){
+  min=$1
+  max=$(($2-$min+1))
+  num=$(cat /dev/urandom | head -n 10 | cksum | awk -F ' ' '{print $1}')
+  echo $(($num%$max+$min)) | awk '{printf "%08d\n", $0;}'
+}
+
+/opt/scripts/run_tidb_query test "truncate table payment"
+
+for idx in $(seq 1 $cnt); do
+    payer=$(rand 1 $userCnt)
+    receiver=$(rand 1 $userCnt)
+    amount=$(rand 1000 10000)
+
+    /opt/scripts/run_tidb_query test "insert into payment(payer, receiver, pay_amount) values('user$payer', 'user$receiver', $amount )"
+done
+
+exit 0
+
+   #+END_SRC
+
+** Query to test
+  #+BEGIN_SRC
+with recursive cte (idx, payer, receiver) as (
+    select 1 as idx, payer, receiver from payment where payer = 'user00000716' 
+    union all
+    select t1.idx+1 as idx, t2.payer, t2.receiver from payment t2
+    inner join cte t1
+    on t1.receiver = t2.payer
+    and t1.idx < 8
+) select count(*) from cte;
+  #+END_SRC
+
+* Todo
+  + Input: OhMyTiUP-component-name
+           Cluster Name
+** Create the command structure
+** Preparation
+*** Table preparation
+*** Data insert
+** run the test
+** Give out the result
+
+* Test
+
+#+CAPTION: Index of all topics on aws
+#+ATTR_HTML: :border 2 :rules all :frame border
+| Num of User | Number of Payment | Number of Recursive | TiKV/TiFlash(10 times) |   Cnt | Execution Time |
+|-------------+-------------------+---------------------+------------------------+-------+----------------|
+|         500 |             10000 |                   2 | TiKV                   |  5184 |          0.013 |
+|         500 |             10000 |                   3 | TiKV                   | 15006 |           0.08 |
+|         500 |             10000 |                   4 | TiKV                   | 24828 |            0.2 |
+|         500 |             10000 |                   5 | TiKV                   | 34650 |           0.35 |
+|         500 |             10000 |                   6 | TiKV                   | 44472 |          0.484 |
+|         500 |             10000 |                   7 | TiKV                   | 54294 |          0.605 |
+|         500 |             10000 |                   8 | TiKV                   | 64116 |          0.734 |
+|             |                   |                   2 | TiFlash                |  5184 |          0.055 |
+|             |                   |                   3 |                        |       |            0.1 |
+|             |                   |                   4 |                        |       |           0.23 |
+|             |                   |                   5 |                        |       |           0.36 |
+|             |                   |                   6 |                        |       |           0.48 |
+|             |                   |                   7 |                        |       |            0.6 |
+|             |                   |                   8 |                        |       |            0.7 |
