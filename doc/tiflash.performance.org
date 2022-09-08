@@ -88,3 +88,19 @@ with recursive cte (idx, payer, receiver) as (
 |             |                   |                   6 |                        |       |           0.48 |
 |             |                   |                   7 |                        |       |            0.6 |
 |             |                   |                   8 |                        |       |            0.7 |
+
+
+
+| Secnario                 | Data volume | Disk Size | Execution Time(s) | rows/s | Volumes/s |
+|--------------------------+-------------+-----------+-------------------+--------+-----------|
+| First test. Sinle thread |     5000000 | 223M      |               129 |  38800 | 1.7MB     |
+| parallel: 2              |    10000000 | 446M      |               140 |  77600 | 3.4MB     |
+| parallel: 10             |    50000000 | 2.3G      |               240 | 208000 | 9.8MB     |
+| parallel: 16             |    80000000 | 3.5G      |               433 | 184757 | 8.2MB     |
+
+
+* Performance test
+  [[./png/tiflash.performance/001.png]]
+  [[./png/tiflash.performance/002.png]]
+  [[./png/tiflash.performance/003.png]]
+  [[./png/tiflash.performance/004.png]]
