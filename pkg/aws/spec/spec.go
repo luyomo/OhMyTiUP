@@ -178,6 +178,7 @@ type (
 		PD       AwsNodeModal          `yaml:"pd"`
 		TiDB     AwsNodeModal          `yaml:"tidb"`
 		TiKV     AwsTiKVModal          `yaml:"tikv"`
+		TiFlash  AwsNodeModal          `yaml:"tiflash"`
 		DMMaster AwsNodeModal          `yaml:"dm-master"`
 		DMWorker AwsNodeModal          `yaml:"dm-worker"`
 		TiCDC    AwsNodeModal          `yaml:"ticdc"`

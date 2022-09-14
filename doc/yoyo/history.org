@@ -1,0 +1,8 @@
+* History
+#+BEGIN_SRC plantuml :file ./history.png
+@startmindmap
+ * 律令国家
+  ** 聖徳太子
+  ** 桓武天皇
+@endmindmap
+#+END_SRC

@@ -130,6 +130,10 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(spec.AwsTopoConfigs.TiKV.Count), spec.AwsTopoConfigs.TiKV.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
 
+		if spec.AwsTopoConfigs.TiFlash.Count > 0 {
+			clusterTable = append(clusterTable, []string{"TiFlash", strconv.Itoa(spec.AwsTopoConfigs.TiFlash.Count), spec.AwsTopoConfigs.TiFlash.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		}
+
 		if spec.AwsTopoConfigs.TiCDC.Count > 0 {
 			clusterTable = append(clusterTable, []string{"TiCDC", strconv.Itoa(spec.AwsTopoConfigs.TiCDC.Count), spec.AwsTopoConfigs.TiCDC.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}

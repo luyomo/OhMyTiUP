@@ -30,6 +30,12 @@ tidb_servers:
   - host: {{. }}
   {{- end }}
 {{ end }}
+{{ if gt (len .TiFlash) 0 }}
+tiflash_servers:
+  {{- range .TiFlash }}
+  - host: {{. }}
+  {{- end }}
+{{ end }}
 {{ if gt (len .TiKV) 0 }}
 tikv_servers:
   {{- range .TiKV }}

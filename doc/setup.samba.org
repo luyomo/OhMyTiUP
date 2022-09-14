@@ -1,0 +1,51 @@
+* Setup
+** Samba install
+   #+BEGIN_SRC
+OhMyTiUP$ sudo apt-get install samba
+OhMyTiUP$ sudo more /etc/samba/smb.conf
+[global]
+        workgroup = WORKGROUP
+        server string = Samba Server Version %v
+        security = user
+        passdb backend = tdbsam
+        load printers = yes
+        cups options = raw
+        create mode = 0777
+        force create mode = 0777
+        directory mode = 0777
+        force directory mode = 0777
+[ShareServer]
+        comment = share all
+        path = /tmp/cifs
+        writeable = yes
+        read only = no
+        browseable = yes
+        public = yes
+   #+END_SRC
+** User Preparation
+   + Prepare the user in the linux
+   + Add the user to samba system
+     #+BEGIN_SRC
+OhMyTiUP$sudo smbpasswd -a smbuser
+     #+END_SRC
+** Check the smb server status
+   #+BEGIN_SRC
+OhMyTiUP$ systemctl status smbd
+smbd.service - Samba SMB Daemon
+   Loaded: loaded (/lib/systemd/system/smbd.service; enabled; vendor preset: enabled)
+   Active: active (running) since Sun 2022-09-04 14:05:25 JST; 1h 39min ago
+     Docs: man:smbd(8)
+           man:samba(7)
+           man:smb.conf(5)
+  Process: 26118 ExecStartPre=/usr/share/samba/update-apparmor-samba-profile (code=exited, status=0/SUCCESS)
+ Main PID: 26119 (smbd)
+   Status: "smbd: ready to serve connections..."
+    Tasks: 7 (limit: 4915)
+   CGroup: /system.slice/smbd.service
+... ... 
+   #+END_SRC
+
+* Setup client in the mac
+  #+BEGIN_SRC
+MacClient$mount -t smbfs //smbuser:password@192.168.1.107/ShareServer /local-dir
+  #+END_SRC

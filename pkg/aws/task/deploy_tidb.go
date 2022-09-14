@@ -41,9 +41,9 @@ type TplTiKVData struct {
 }
 
 type TplTiupData struct {
-	PD   []string
-	TiDB []string
-	// TiKV    []string
+	PD      []string
+	TiDB    []string
+	TiFlash []string
 	TiKV    []TplTiKVData
 	TiCDC   []string
 	DM      []string
@@ -55,7 +55,7 @@ type TplTiupData struct {
 }
 
 func (t TplTiupData) String() string {
-	return fmt.Sprintf("PD: %s  |  TiDB: %   |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s ", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","))
+	return fmt.Sprintf("PD: %s  |  TiDB: %s | TiFlash: %s   |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s ", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiFlash, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","))
 }
 
 // Execute implements the Task interface
@@ -92,6 +92,9 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 				}
 				if tag["Key"] == "Component" && tag["Value"] == "tidb" {
 					tplData.TiDB = append(tplData.TiDB, instance.PrivateIpAddress)
+				}
+				if tag["Key"] == "Component" && tag["Value"] == "tiflash" {
+					tplData.TiFlash = append(tplData.TiFlash, instance.PrivateIpAddress)
 				}
 				if tag["Key"] == "Component" && tag["Value"] == "tikv" {
 					// tplData.TiKV = append(tplData.TiKV, instance.PrivateIpAddress)
@@ -230,10 +233,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// stdout, _, err = (*workstation).Execute(ctx, `yum update`, true)
-	// if err != nil {
-	// 	return err
-	// }
 
 	if _, _, err = (*workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false); err != nil {
 		return err
@@ -242,16 +241,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	if err := installPKGs(workstation, ctx, []string{"mariadb-client-10.3"}); err != nil {
 		return err
 	}
-
-	// stdout, _, err = (*workstation).Execute(ctx, `apt-get install -y mariadb-client-10.3`, true)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// stdout, _, err = (*workstation).Execute(ctx, `yum install -y mariadb.x86_64`, true)
-	// if err != nil {
-	// 	return err
-	// }
 
 	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
 	if err != nil {

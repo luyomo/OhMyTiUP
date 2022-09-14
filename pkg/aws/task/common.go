@@ -23,7 +23,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -877,4 +879,42 @@ func TransferToWorkstation(workstation *ctxt.Executor, sourceFile, destFile, mod
 
 	return nil
 
+}
+
+func ParseRangeData(inputData string) (*[]int, error) {
+
+	var varRet []int
+
+	numberPattern := regexp.MustCompile(`^\d+$`)
+	rangePattern := regexp.MustCompile(`^(\d+)-(\d+)/(\d+)$`)
+
+	match := numberPattern.MatchString(inputData)
+	if match == false {
+		dataRange := rangePattern.FindStringSubmatch(inputData)
+
+		if dataRange == nil {
+			return nil, errors.New("Not match user num pattern")
+		}
+		num, _ := strconv.Atoi(dataRange[1])
+		endNum, _ := strconv.Atoi(dataRange[2])
+		interval, _ := strconv.Atoi(dataRange[3])
+
+		for {
+			if num > endNum {
+				break
+			}
+
+			varRet = append(varRet, num)
+			num += interval
+		}
+
+	} else {
+		intNum, err := strconv.Atoi(inputData)
+		if err != nil {
+			return nil, err
+		}
+		varRet = append(varRet, intNum)
+	}
+
+	return &varRet, nil
 }

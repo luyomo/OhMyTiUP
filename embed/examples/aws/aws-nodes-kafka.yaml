@@ -3,6 +3,9 @@ workstation:
   keyname: jay-us-east-01                         # Public key for workstation instance deployment
   keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
   volumeSize: 100                                 # disk size in the workstation
+  enable_monitoring: enabled                      # enable the moniroting on the workstation
+  instance_type: c5a.8xlarge
+  cidr: 172.81.0.0/16
 aws_kafka_topo_configs:
   general:
     # debian os

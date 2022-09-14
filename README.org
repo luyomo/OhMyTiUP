@@ -185,3 +185,17 @@ aws elbv2 register-targets --target-group-arn arn:aws:elasticloadbalancing:ap-no
 aws elbv2 create-load-balancer --name testtisample  --type network --subnets subnet-008d0786c982a0888 subnet-04f7f8418f6cf18d8 subnet-031e5e77fa0a5a975 --scheme internal
 
 aws elbv2 create-listener --load-balancer-arn arn:aws:elasticloadbalancing:ap-northeast-1:385595570414:loadbalancer/net/testtisample/228507d53f1808b9 --protocol TCP --port 4000 --default-actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:ap-northeast-1:385595570414:targetgroup/testtisample/b446a8cd70efca38
+
+
+
+
+
+* Todo
+** gh install
+   + Download tar.gz from the linux [[https://github.com/cli/cli/releases/tag/v2.15.0][gh bin]]
+   + Uncompress the bin file
+   + Copy the binary file to /opt/bin
+** golang install
+   + Download tar.gz from [[https://go.dev/dl/][golang bin]]
+     https://go.dev/dl/go1.18.6.linux-amd64.tar.gz
+   + Uncompress the bin file

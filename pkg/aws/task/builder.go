@@ -553,18 +553,6 @@ func (b *Builder) CreateTiDBNodes(pexecutor *ctxt.Executor, subClusterType strin
 	return b
 }
 
-// func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-// 	b.tasks = append(b.tasks, &CreateEC2Nodes{
-// 		pexecutor:         pexecutor,
-// 		awsTopoConfigs:    &awsTopoConfigs.TiKV,
-// 		awsGeneralConfigs: &awsTopoConfigs.General,
-// 		subClusterType:    subClusterType,
-// 		clusterInfo:       clusterInfo,
-// 		componentName:     "tikv",
-// 	})
-// 	return b
-// }
-
 func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateTiKVNodes{
 		pexecutor:         pexecutor,
@@ -573,6 +561,18 @@ func (b *Builder) CreateTiKVNodes(pexecutor *ctxt.Executor, subClusterType strin
 		subClusterType:    subClusterType,
 		clusterInfo:       clusterInfo,
 		componentName:     "tikv",
+	})
+	return b
+}
+
+func (b *Builder) CreateTiFlashNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.TiFlash,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "tiflash",
 	})
 	return b
 }
@@ -1128,10 +1128,11 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234}).Build()).
 		Step(fmt.Sprintf("%s : Creating PD Nodes ... ...", subClusterType), NewBuilder().CreatePDNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", subClusterType), NewBuilder().CreateTiDBNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating TiFlash Nodes ... ...", subClusterType), NewBuilder().CreateTiFlashNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMWorkerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).

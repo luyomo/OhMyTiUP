@@ -1,5 +1,13 @@
 * Architecture
   [[./png/kafka/kafka.architecture.png]]
+* Difference (Confluent / Kafka / MSK)
+** KAFKA vs MSK
+   No. Difference. The kafka is deployed in the AWS as one service.
+** Confluent KAFKA = KAFKA(Open source) + Peripherals service(KSQL/Schema registry/Connectors/etc)
+  [[https://www.confluent.io/blog/license-changes-confluent-platform/][Confluent licencing]]
+*** Supported connector of Confluent
+  [[https://docs.confluent.io/kafka-connectors/self-managed/overview.html#connectors-to-kafka][connector]]
+
 * Deployment
 ** Config file preparation
    #+BEGIN_SRC

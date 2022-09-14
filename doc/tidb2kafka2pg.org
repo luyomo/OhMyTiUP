@@ -57,7 +57,7 @@ OhMyTiUP$./bin/aws tidb2kafka2pg list avrotest
    [[./png/tidb2kafka2pg/03.03.png]]
 ** Prepare kafka sync resource and tables
    #+BEGIN_SRC
-OhMyTiUP$./bin/aws tidb2kafka2pg perf-prepare avrotest --partitions 3 --num-of-records 100000 --bytes-of-record 1024 --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+OhMyTiUP$./bin/aws tidb2kafka2pg perf prepare avrotest --data-type INT --partitions 3 --num-of-records 100000 --bytes-of-record 1024 --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
    #+END_SRC
 
     #+CAPTION: Parameters

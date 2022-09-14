@@ -39,7 +39,7 @@ func newTiDBCmd() *cobra.Command {
 		newListTiDBCmd(),
 		newDestroyTiDBCmd(),
 		newTiDBScale(),
-		newTiDBLatencyMeasurementCmd(),
+		newTiDBPerfCmd(),
 	)
 	return cmd
 }
@@ -180,11 +180,24 @@ func newTiDBScale() *cobra.Command {
 	return cmd
 }
 
+func newTiDBPerfCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "perf <sub_command>",
+		Short: "Run measure latency against tidb",
+	}
+
+	cmd.AddCommand(
+		newTiDBLatencyMeasurementCmd(),
+		newTiDBPerfRecursiveCmd(),
+	)
+	return cmd
+}
+
 // -- latency measurement
 func newTiDBLatencyMeasurementCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "measure-latency <sub_command>",
-		Short: "Run measure latency against tidb",
+		Use:   "resource-isolation <sub_command>",
+		Short: "Run measure latency against tidb: placement rule for resource isolation test",
 	}
 
 	cmd.AddCommand(
@@ -281,6 +294,109 @@ func newTiDBLatencyMeasurementCleanupCmd() *cobra.Command {
 			clusterName := args[0]
 
 			return cm.TiDBMeasureLatencyCleanupCluster(clusterName, gOpt)
+		},
+	}
+
+	return cmd
+}
+
+func newTiDBPerfRecursiveCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "recursive <sub_command>",
+		Short: "Test recursive query on TiFlash",
+	}
+
+	cmd.AddCommand(
+		newTiDBPerfRecursivePrepareCmd(),
+		newTiDBPerfRecursiveRunCmd(),
+		newTiDBPerfRecursiveCleanupCmd(),
+	)
+	return cmd
+}
+
+func newTiDBPerfRecursivePrepareCmd() *cobra.Command {
+
+	opt := operator.LatencyWhenBatchOptions{
+		TiKVMode: "simple",
+	}
+
+	cmd := &cobra.Command{
+		Use:   "prepare <cluster-name>",
+		Short: "Prepare resource for test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBRecursivePrepareCluster(clusterName, opt, gOpt)
+		},
+	}
+
+	// One parameter to decide the test case - TiKV partition/Simple
+	cmd.Flags().StringVarP(&opt.TiKVMode, "tikv-mode", "m", "simple", "simple: No partition for TiKV nodes.  partition: Group the TiKV to online/batch. Batch query to batch TiKV nodes, sysbench to online TiKV nodes")
+	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
+	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
+	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")
+	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "oltp_point_select", "sysbench: oltp_point_select")
+
+	cmd.Flags().Int64Var(&opt.SysbenchExecutionTime, "sysbench-execution-time", 600, "sysbench: --execution-time")
+	cmd.Flags().IntVar(&opt.SysbenchThread, "sysbench-thread", 4, "sysbench: --thread")
+	cmd.Flags().IntVar(&opt.SysbenchReportInterval, "sysbench-report-interval", 10, "sysbench: --report-interval")
+
+	return cmd
+}
+
+func newTiDBPerfRecursiveRunCmd() *cobra.Command {
+
+	var numUsers, numPayments string
+
+	cmd := &cobra.Command{
+		Use:   "run <cluster-name>",
+		Short: "Run the query for recursive query on TiFlash",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBRecursiveRunCluster(clusterName, numUsers, numPayments, gOpt)
+		},
+	}
+
+	cmd.Flags().StringVarP(&numUsers, "num-users", "u", "1000-3000/1000", "Number of users to test, default is 1000, 2000, 3000")
+	cmd.Flags().StringVarP(&numPayments, "num-payments", "p", "10000-30000/10000", "Number of payment to test, default is 10000, 2000, 3000")
+
+	return cmd
+}
+
+func newTiDBPerfRecursiveCleanupCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "cleanup <cluster-name>",
+		Short: "Cleanup resource for test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBPerfRecursiveCleanupCluster(clusterName, gOpt)
 		},
 	}
 

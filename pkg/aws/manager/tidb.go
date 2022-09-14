@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +38,6 @@ import (
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
-	"os"
 )
 
 // To resolve:
@@ -96,19 +96,8 @@ func (m *Manager) TiDBDeploy(
 		return err
 	}
 
-	// spec.ExpandRelativeDir(topo)
-
 	base := topo.BaseTopo()
-	// fmt.Printf("The config is <%#v> \n\n\n", base.AwsTopoConfigs.TiKV)
-	// fmt.Printf("All the labels is <%#v> \n\n\n", base.AwsTopoConfigs.TiKV.Labels)
-	// for _, label := range base.AwsTopoConfigs.TiKV.Labels {
-	// 	fmt.Printf("The label is <%#v> \n\n\n", label)
-	// 	for _, nodeLabel := range label.Values {
-	// 		fmt.Printf("The node label is <%#v> \n\n\n", nodeLabel)
-	// 	}
-	// }
-	// fmt.Printf("All the modal type is <%#v> \n\n\n", base.AwsTopoConfigs.TiKV.ModalTypes)
-	// return nil
+
 	if sshType := gOpt.SSHType; sshType != "" {
 		base.GlobalOptions.SSHType = sshType
 	}
@@ -139,12 +128,6 @@ func (m *Manager) TiDBDeploy(
 		}
 	}
 
-	// if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
-	// 	return errorx.InitializationFailed.
-	// 		Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
-	// 		WithProperty(tui.SuggestionFromString("Please check file system permissions and try again."))
-	// }
-
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	globalOptions := base.GlobalOptions
@@ -171,10 +154,6 @@ func (m *Manager) TiDBDeploy(
 	}
 
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks...)
-
-	// if afterDeploy != nil {
-	// 	afterDeploy(builder, topo)
-	// }
 
 	t := builder.Build()
 
@@ -586,6 +565,7 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, opt opera
 
 	//  select DB_NAME, TABLE_NAME, STORE_ID, count(*) as cnt from TIKV_REGION_PEERS t1 inner join TIKV_REGION_STATUS t2 on t1.REGION_ID = t2.REGION_ID and t2.db_name in ('sbtest', 'latencytest') group by DB_NAME, TABLE_NAME, STORE_ID order by DB_NAME, TABLE_NAME, STORE_ID;
 
+	// - Data preparation
 	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh"} {
 		if err = task.TransferToWorkstation(workstation, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
@@ -702,6 +682,189 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName string, opt operator.
 }
 
 func (m *Manager) TiDBMeasureLatencyCleanupCluster(clusterName string, gOpt operator.Options) error {
+	fmt.Printf("Running in the clean phase ")
+	fmt.Printf("Remove the database")
+	return nil
+
+}
+
+// ------------- recursive query performance on TiFlash
+func (m *Manager) TiDBRecursivePrepareCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	clusterType := "ohmytiup-tidb"
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
+
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range []string{"generateUsers.sh", "generatePayment.sh", "generatePayment2CSV.sh"} {
+		if err = task.TransferToWorkstation(workstation, fmt.Sprintf("templates/scripts/recursive-on-tiflash/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
+			return err
+		}
+	}
+
+	queries := []string{
+		"drop table if exists users",
+		"drop table if exists payment",
+		"create table users (id bigint primary key auto_increment, name varchar(32))",
+		"create table payment(id bigint primary key auto_random, payer varchar(32), receiver varchar(32), pay_amount bigint)",
+	}
+
+	for _, command := range queries {
+		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", command), false, 1*time.Hour); err != nil {
+			return err
+		}
+	}
+
+	dbConnInfo, err := task.ReadTiDBConntionInfo(workstation, "tidb-db-info.yml")
+	if err != nil {
+		return err
+	}
+
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+	var tableECs [][]string
+	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	listTasks = append(listTasks, t1)
+
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	var pdIP, tidbIP string
+	for _, row := range tableECs {
+		if row[0] == "pd" {
+			pdIP = row[5]
+		}
+		if row[0] == "tidb" {
+			tidbIP = row[5]
+		}
+
+	}
+
+	type TplLightningParam struct {
+		TiDBHost     string
+		TiDBPort     int
+		TiDBUser     string
+		TiDBPassword string
+		TiDBDBName   string
+		PDIP         string
+	}
+
+	tplLightningParam := TplLightningParam{
+		TiDBHost:     tidbIP,
+		TiDBPort:     (*dbConnInfo).DBPort,
+		TiDBUser:     (*dbConnInfo).DBUser,
+		TiDBPassword: (*dbConnInfo).DBPassword,
+		TiDBDBName:   "test",
+		PDIP:         pdIP,
+	}
+
+	if err = task.TransferToWorkstation(workstation, "templates/scripts/recursive-on-tiflash/tidb-lightning.toml.tpl", "/opt/tidb-lightning.toml", "0644", tplLightningParam); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("wget -P /tmp https://download.pingcap.org/tidb-community-toolkit-%s-linux-amd64.tar.gz", "v6.2.0"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("tar -xf /tmp/tidb-community-toolkit-%s-linux-amd64.tar.gz -C /tmp", "v6.2.0"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, "mkdir -p /tmp/recursive-data", false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, "mkdir -p /opt/bin", true, 1*time.Hour); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("tar -xf /tmp/tidb-community-toolkit-%s-linux-amd64/tidb-lightning-v6.2.0-linux-amd64.tar.gz -C /opt/bin", "v6.2.0"), true, 1*time.Hour); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) TiDBRecursiveRunCluster(clusterName string, numUsers, numPayments string, gOpt operator.Options) error {
+	clusterType := "ohmytiup-tidb"
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
+
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	varNumUsers, err := task.ParseRangeData(numUsers)
+	fmt.Printf("The user is <%#v> \n", *varNumUsers)
+	if err != nil {
+		return err
+	}
+
+	varNumPayments, err := task.ParseRangeData(numPayments)
+	fmt.Printf("The user is <%#v> \n", *varNumPayments)
+	if err != nil {
+		return err
+	}
+
+	for _, userNum := range *varNumUsers {
+		fmt.Printf("The user number is <%d> \n", userNum)
+		// Create two tables
+		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "truncate table users"), false, 1*time.Hour); err != nil {
+			return err
+		}
+
+		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "truncate table payment"), false, 1*time.Hour); err != nil {
+			return err
+		}
+
+		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/generateUsers.sh %d", userNum), false, 1*time.Hour); err != nil {
+			return err
+		}
+
+		for _, paymentNum := range *varNumPayments {
+			if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/generatePayment2CSV.sh %d %d %s", userNum, paymentNum, "/tmp/recursive-data/test.payment.csv"), false, 1*time.Hour); err != nil {
+				return err
+			}
+
+			if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/bin/tidb-lightning --config=/opt/tidb-lightning.toml"), false, 1*time.Hour); err != nil {
+				return err
+			}
+
+			// if err = task.TransferToWorkstation(workstation, "templates/scripts/recursive-on-tiflash/recursive.sql.tpl", "/opt/recursive.sql", "0755", map[string]string{"RecursiveNum": "3"}); err != nil {
+			// 	return err
+			// }
+
+			// if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_from_file %s %s", "test", "/opt/recursive.sql"), false, 1*time.Hour); err != nil {
+			// 	return err
+			// }
+
+		}
+	}
+
+	return nil
+}
+
+func (m *Manager) TiDBPerfRecursiveCleanupCluster(clusterName string, gOpt operator.Options) error {
 	fmt.Printf("Running in the clean phase ")
 	fmt.Printf("Remove the database")
 	return nil
