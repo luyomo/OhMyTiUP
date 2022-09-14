@@ -98,13 +98,13 @@ func InitEnv(options repository.Options) (*Environment, error) {
 	}
 
 	var v1repo *repository.V1Repository
-	var err error
+	// var err error
 
 	var local v1manifest.LocalManifests
-	local, err = v1manifest.NewManifests(profile)
-	if err != nil {
-		return nil, errors.Annotatef(err, "initial repository from mirror(%s) failed", mirrorAddr)
-	}
+	local, _ = v1manifest.NewManifests(profile)
+	// if err != nil {
+	// 	return nil, errors.Annotatef(err, "initial repository from mirror(%s) failed", mirrorAddr)
+	// }
 	v1repo = repository.NewV1Repo(mirror, options, local)
 
 	log.Verbose("Initialize repository finished in %s", time.Since(initRepo))
