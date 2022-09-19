@@ -186,6 +186,7 @@ func init() {
 		newAcceptTiDBCloudPeering(),
 		newPDNS(),
 		newOssInsightCmd(),
+		newResourceMonitorCmd(),
 	)
 }
 

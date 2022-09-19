@@ -174,3 +174,26 @@ Count  DB QPS  TiDB 2 PG Latency  TiDB 2 PG QPS
 -----  ------  -----------------  -------------
 1000   500     12                 78
 #+END_SRC
+
+
+
+
+
+* Todo
+** aws init
+   .ohmytiup/config
+   #+BEGIN_SRC
+aws:
+  public_ssh_key: The aws public key name
+  private_ssh_key: The local private ssh key
+  os_username: The default user name of the os
+   #+END_SRC
+*** Implementation
+    + Open the default config file and read the data
+    + Show prompt to confim the value
+    + Write the data back to the config file
+** Added all the default data
+    Config file            -> Show all config -> start process
+    Default config value   -> Show all config -> process
+      Decide the default value according to the regions
+    Go through all prompts -> Show all config -> process

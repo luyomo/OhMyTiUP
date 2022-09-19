@@ -896,3 +896,101 @@ func WaitInstanceRunnung(ctx context.Context, instanceId string) (bool, error) {
 
 	return false, nil
 }
+
+type ListAllAwsEC2 struct {
+	pexecutor *ctxt.Executor
+	tableEC2  *[][]string
+}
+
+//func ListAllEC2(ctx context.Context, clusterName, clusterType, subClusterType, componentName string) error {
+func (c *ListAllAwsEC2) Execute(ctx context.Context) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	client := ec2.NewFromConfig(cfg)
+
+	var filters []types.Filter
+	// filters = append(filters, types.Filter{
+	// 	Name:   aws.String("tag:Name"),
+	// 	Values: []string{clusterName},
+	// })
+
+	// filters = append(filters, types.Filter{
+	// 	Name:   aws.String("tag:Cluster"),
+	// 	Values: []string{clusterType},
+	// })
+
+	// filters = append(filters, types.Filter{
+	// 	Name:   aws.String("tag:Component"),
+	// 	Values: []string{componentName},
+	// })
+
+	// filters = append(filters, types.Filter{
+	// 	Name:   aws.String("tag:Type"),
+	// 	Values: []string{subClusterType},
+	// })
+
+	filters = append(filters, types.Filter{
+		Name: aws.String("instance-state-name"),
+		//		Values: []string{"running", "pending", "stopping", "stopped"},
+		Values: []string{"running", "terminated"},
+	})
+
+	input := &ec2.DescribeInstancesInput{Filters: filters}
+
+	result, err := client.DescribeInstances(context.TODO(), input)
+	if err != nil {
+		return err
+	}
+
+	for _, reservation := range result.Reservations {
+		for _, instance := range reservation.Instances {
+			fmt.Printf("The data is <%#v> \n", instance.Tags)
+			fmt.Printf("The data is <%#v> \n", instance.InstanceType)
+
+			(*c.tableEC2) = append(*c.tableEC2, []string{
+				// instance.State.Name,
+				// instance.InstanceId,
+				string(instance.InstanceType),
+				string(*instance.KeyName),
+				string(instance.LaunchTime.String()),
+				string(instance.State.Name),
+				// string(instance.InstanceType),
+				// string(instance.InstanceType),
+				// string(instance.InstanceType),
+				// instance.PrivateIpAddress,
+				// instance.PublicIpAddress,
+				// instance.ImageId,
+			})
+
+			// (*c.tableEC2) = append(*c.tableEC2, []string{
+			// 	"test",
+			// 	"test",
+			// 	instance.State.Name,
+			// 	instance.InstanceId,
+			// 	instance.InstanceType,
+			// 	instance.PrivateIpAddress,
+			// 	instance.PublicIpAddress,
+			// 	instance.ImageId,
+			// })
+
+			fmt.Printf("The instance here is <%#v> \n\n\n", instance)
+			// funcTags(instance.Tags)
+		}
+
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListAllAwsEC2) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListAllAwsEC2) String() string {
+	return fmt.Sprintf("Echo: Deploying Workstation")
+}

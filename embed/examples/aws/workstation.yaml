@@ -5,7 +5,7 @@ workstation:
   keyname: jay-us-east-01
   keyfile: /home/pi/.ssh/jay-us-east-01.pem
   username: admin
-  #imageid: ami-07d02ee1eeb0c996c
-  imageid: ami-0729e439b6769d6ab
+  imageid: ami-07d02ee1eeb0c996c
+  #imageid: ami-0729e439b6769d6ab
   volumeSize: 100
   #shared: false

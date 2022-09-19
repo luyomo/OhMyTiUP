@@ -1576,3 +1576,11 @@ func (b *Builder) RunSysbench(pexecutor *ctxt.Executor, sysbenchConfigFile strin
 	})
 	return b
 }
+
+func (b *Builder) ListAwsEC2(pexecutor *ctxt.Executor, tableEC2 *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListAllAwsEC2{
+		pexecutor: pexecutor,
+		tableEC2:  tableEC2,
+	})
+	return b
+}
