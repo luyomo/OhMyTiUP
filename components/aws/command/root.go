@@ -163,6 +163,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&gOpt.AWSAccessKeyID, "aws-access-key-id", "", "The access key used to operate against AWS resource")
 	rootCmd.PersistentFlags().StringVar(&gOpt.AWSSecretAccessKey, "aws-secret-access-key", "", "The secret access key used to operate against AWS resource")
 	rootCmd.PersistentFlags().StringVar(&gOpt.AWSRegion, "aws-region", "", "The default aws region ")
+	rootCmd.PersistentFlags().StringVar(&gOpt.TagEmail, "tag-email", "", "The email address used to tag the resource")
+	rootCmd.PersistentFlags().StringVar(&gOpt.TagProject, "tag-project", "", "The project name used to tag the resource")
 
 	_ = rootCmd.PersistentFlags().MarkHidden("native-ssh")
 	_ = rootCmd.PersistentFlags().MarkHidden("ssh-proxy-host")

@@ -46,6 +46,8 @@ type CreateWorkstation struct {
 func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
+	tagEmail := ctx.Value("tagEmail").(string)
+	tagProject := ctx.Value("tagProject").(string)
 
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
@@ -69,7 +71,25 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	if c.awsWSConfigs.VolumeSize > 0 {
 		deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsWSConfigs.VolumeSize)
 	}
-	command = fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=workstation}]\"", c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType, c.awsWSConfigs.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, deviceStmt, clusterName, clusterType, c.subClusterType)
+	command = fmt.Sprintf(
+		"aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address "+
+			"--key-name %s --security-group-ids %s --subnet-id %s %s "+
+			"--tag-specifications \"ResourceType=instance,Tags=["+
+			"  {Key=Name,Value=%s},"+
+			"  {Key=Cluster,Value=%s},"+
+			"  {Key=Type,Value=%s},"+
+			"  {Key=Component,Value=workstation},"+
+			"  {Key=Email,Value=%s},"+
+			"  {Key=Project,Value=%s}"+
+			"]\"",
+		c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType,
+		c.awsWSConfigs.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, deviceStmt,
+		clusterName,
+		clusterType,
+		c.subClusterType,
+		tagEmail,
+		tagProject,
+	)
 
 	zap.L().Debug("Command", zap.String("run-instances", command))
 	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
@@ -425,6 +445,8 @@ type CreateEC2Nodes struct {
 func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
+	tagEmail := ctx.Value("tagEmail").(string)
+	tagProject := ctx.Value("tagProject").(string)
 
 	// Check whether the config is defined
 	if c.awsTopoConfigs.Count == 0 {
@@ -466,7 +488,26 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 		}
 
 		// Start the instance
-		command := fmt.Sprintf("aws ec2 run-instances --count 1 --image-id %s --ebs-optimized --instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s --tag-specifications \"ResourceType=instance,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Component,Value=%s}]\"", c.awsGeneralConfigs.ImageId, c.awsTopoConfigs.InstanceType, c.awsGeneralConfigs.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt, clusterName, clusterType, c.subClusterType, c.componentName)
+		command := fmt.Sprintf(
+			"aws ec2 run-instances --count 1 --image-id %s --ebs-optimized "+
+				"--instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s "+
+				"--tag-specifications \"ResourceType=instance,Tags=["+
+				"  {Key=Name,Value=%s},"+
+				"  {Key=Cluster,Value=%s},"+
+				"  {Key=Type,Value=%s},"+
+				"  {Key=Component,Value=%s},"+
+				"  {Key=Email,Value=%s},"+
+				"  {Key=Project,Value=%s}"+
+				"]\"",
+			c.awsGeneralConfigs.ImageId,
+			c.awsTopoConfigs.InstanceType, c.awsGeneralConfigs.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt,
+			clusterName,
+			clusterType,
+			c.subClusterType,
+			c.componentName,
+			tagEmail,
+			tagProject,
+		)
 		zap.L().Debug("Command", zap.String("run-instances", command))
 		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 		if err != nil {
@@ -513,6 +554,8 @@ type CreateTiKVNodes struct {
 func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
+	tagEmail := ctx.Value("tagEmail").(string)
+	tagProject := ctx.Value("tagProject").(string)
 
 	ec2NodeConfigs, err := ScanLabels(&(*c.awsTopoConfigs).Labels, &(*c.awsTopoConfigs).ModalTypes)
 	if err != nil {
@@ -574,6 +617,8 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 					ec2NodeConfig:     ec2NodeConfig,
 					clusterName:       clusterName,
 					clusterType:       clusterType,
+					tagEmail:          tagEmail,
+					tagProject:        tagProject,
 					subClusterType:    c.subClusterType,
 					componentName:     c.componentName,
 					clusterInfo:       c.clusterInfo,
@@ -676,6 +721,8 @@ type MakeEC2Instance struct {
 	clusterType    string
 	subClusterType string
 	componentName  string
+	tagEmail       string
+	tagProject     string
 
 	clusterInfo *ClusterInfo
 
