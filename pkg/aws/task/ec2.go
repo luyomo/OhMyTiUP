@@ -634,6 +634,8 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 		makeEc2Instance := &MakeEC2Instance{
 			clusterName:       clusterName,
 			clusterType:       clusterType,
+			tagEmail:          tagEmail,
+			tagProject:        tagProject,
 			subClusterType:    c.subClusterType,
 			componentName:     c.componentName,
 			clusterInfo:       c.clusterInfo,
@@ -757,6 +759,14 @@ func (c *MakeEC2Instance) Execute(ctx context.Context) error {
 		{
 			Key:   aws.String("Name"),
 			Value: aws.String(c.clusterName),
+		},
+		{
+			Key:   aws.String("Email"),
+			Value: aws.String(c.tagEmail),
+		},
+		{
+			Key:   aws.String("Project"),
+			Value: aws.String(c.tagProject),
 		},
 	}
 
