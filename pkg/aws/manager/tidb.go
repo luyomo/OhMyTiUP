@@ -159,6 +159,8 @@ func (m *Manager) TiDBDeploy(
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	ctx = context.WithValue(ctx, "tagEmail", gOpt.TagEmail)
+	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
@@ -457,6 +459,8 @@ func (m *Manager) TiDBScale(
 	}
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	ctx = context.WithValue(ctx, "tagEmail", gOpt.TagEmail)
+	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
 
 	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
 	if cntEC2Nodes > 0 {
