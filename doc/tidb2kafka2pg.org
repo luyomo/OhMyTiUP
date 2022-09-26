@@ -124,7 +124,7 @@ OhMyTiUP$./bin/aws tidb2kafka2pg perf prepare avrotest --data-type INT --partiti
    | SET('a', 'b', 'c')  | OK    | ENUM         |pg: CREATE TYPE TEST_SET AS ENUM ('a', 'b', 'c'); CREATE TABLE TEST02(col01 int primary key, col02 TEST_SET default null)                                                         |
    | DECIMAL             | OK    | DECIMAL      |                                                                                                                                         |
 
-   Please refer to [[BIT/ENUM TRANSFORMATION][git@github.com:luyomo/kafka-connect-tidb-transform.git]]
+   Please refer to [[https://github.com/luyomo/kafka-connect-tidb-transform][BIT TRANSFORMATION]]
 
 ** SET
 The data extracted from TiDB is the format like <value01,value02> while the enum[] requires the format like <{value01,value02}>
