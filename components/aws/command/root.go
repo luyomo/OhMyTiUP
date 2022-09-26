@@ -176,6 +176,7 @@ func init() {
 
 	rootCmd.AddCommand(
 		newTiDBCmd(),
+		newTiDBCloudCmd(),
 		newWorkstationCmd(),
 		newKafkaCmd(),
 		newAuroraCmd(),

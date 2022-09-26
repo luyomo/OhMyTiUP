@@ -1584,3 +1584,10 @@ func (b *Builder) ListAwsEC2(pexecutor *ctxt.Executor, tableEC2 *[][]string) *Bu
 	})
 	return b
 }
+
+func (b *Builder) CreateTiDBCloud(tidbCloud *spec.TiDBCloud) *Builder {
+	b.tasks = append(b.tasks, &CreateTiDBCloud{
+		tidbCloud: tidbCloud,
+	})
+	return b
+}

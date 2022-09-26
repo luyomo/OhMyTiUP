@@ -1,0 +1,16 @@
+aws_tidbcloud:
+  general:
+    project_id: 1372813089191811284    # project id
+    region: us-east-1                  # us-west-2/us-east-1/ap-south-1/ap-southeast-1/ap-northeast-1/eu-central-1
+    port: 4000
+    password: 1234Abcd
+  tidb:
+    node_size: 2C8G                    # 2C8G/4C16G/8C16G/16C32G
+    count: 2
+  tikv:
+    node_size: 2C8G                    # 2C8G/4C16G/8C32G/8C64G/16C64G
+    count: 3
+    Storage: 200
+    #tiflash:
+    #  node_size: 8C64G        # 8C64G/16C128G
+    #  count: 1

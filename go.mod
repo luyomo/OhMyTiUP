@@ -33,6 +33,7 @@ require (
 	github.com/fatih/color v1.12.0
 	github.com/gibson042/canonicaljson-go v1.0.3
 	github.com/go-ole/go-ole v1.2.5 // indirect
+	github.com/go-resty/resty/v2 v2.7.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gofrs/flock v0.8.0
 	github.com/gogo/protobuf v1.3.2
@@ -40,6 +41,7 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
+	github.com/icholy/digest v0.1.15 // indirect
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/joomcode/errorx v1.0.3
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
