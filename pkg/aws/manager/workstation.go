@@ -159,7 +159,7 @@ func (m *Manager) WorkstationDeploy(
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	ctx = context.WithValue(ctx, "tagEmail", gOpt.TagEmail)
+	ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
 	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
 
 	var workstationInfo task.ClusterInfo

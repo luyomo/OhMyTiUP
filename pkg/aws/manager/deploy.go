@@ -271,7 +271,7 @@ func (m *Manager) Deploy(
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
-	ctx = context.WithValue(ctx, "tagEmail", gOpt.TagEmail)
+	ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
 	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
 
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {

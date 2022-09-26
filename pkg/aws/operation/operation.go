@@ -56,7 +56,7 @@ type Options struct {
 	AWSRegion          string // AWS_REGION
 
 	// Tags for resource
-	TagEmail   string // email tag
+	TagOwner   string // owner(emailaddress) tag
 	TagProject string // project tag
 
 	// What type of things should we cleanup in clean command
