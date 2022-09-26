@@ -55,6 +55,10 @@ type Options struct {
 	AWSSecretAccessKey string // AWS_SECRET_ACCESS_KEY for aws cli
 	AWSRegion          string // AWS_REGION
 
+	// Tags for resource
+	TagEmail   string // email tag
+	TagProject string // project tag
+
 	// What type of things should we cleanup in clean command
 	CleanupData bool // should we cleanup data
 	CleanupLog  bool // should we clenaup log

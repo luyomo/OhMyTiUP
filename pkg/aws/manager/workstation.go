@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	// "strconv"
 	// "strings"
 	// "time"
@@ -31,6 +32,7 @@ import (
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
+
 	// "github.com/luyomo/tisample/pkg/logger/log"
 	"github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/set"
@@ -157,6 +159,8 @@ func (m *Manager) WorkstationDeploy(
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	ctx = context.WithValue(ctx, "tagEmail", gOpt.TagEmail)
+	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
 
 	var workstationInfo task.ClusterInfo
 

@@ -18,7 +18,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
 	//	"path/filepath"
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/tisample/pkg/aws/clusterutil"
@@ -30,7 +33,7 @@ import (
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
 	"go.uber.org/zap"
-	"strings"
+
 	//	"github.com/luyomo/tisample/pkg/environment"
 	"github.com/luyomo/tisample/pkg/logger/log"
 	//	"github.com/luyomo/tisample/pkg/meta"
@@ -268,6 +271,8 @@ func (m *Manager) Deploy(
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
+	ctx = context.WithValue(ctx, "tagEmail", gOpt.TagEmail)
+	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
 
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
