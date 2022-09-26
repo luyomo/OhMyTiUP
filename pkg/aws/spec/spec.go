@@ -121,24 +121,24 @@ type (
 		CIDR         string   `yaml:"cidr,omitempty"`
 		InstanceType string   `yaml:"instance_type,omitempty"`
 		TiDBVersion  string   `yaml:"tidb_version"`
-		ExcludedAZ   []string `yaml:"excluded_az",omitempty`
-		IncludedAZ   []string `yaml:"included_az",omitempty`
-		EnableNAT    string   `yaml:"enable_nat", default:"true"`
+		ExcludedAZ   []string `yaml:"excluded_az,omitempty"`
+		IncludedAZ   []string `yaml:"included_az,omitempty"`
+		EnableNAT    string   `yaml:"enable_nat" default:"true"`
 	}
 
 	AwsNodeVolume struct {
-		Size       int    `yaml:"size,omitempty"`
-		Iops       int    `yaml:"iops,omitempty"`
-		VolumeType string `yaml:"volume-type,omitempty"`
+		Size       int    `yaml:"size,omitempty" default:"100"`
+		Iops       int    `yaml:"iops,omitempty" default:"3000"`
+		VolumeType string `yaml:"volume-type,omitempty" default:"gp3"`
 		Throughput int    `yaml:"throughput,omitempty"`
 	}
 
 	AwsNodeModal struct {
 		InstanceType string `yaml:"instance_type"`
 		Count        int    `yaml:"count"`
-		VolumeSize   int    `yaml:"volumeSize,omitempty"`
-		VolumeType   string `yaml:"volumeType",omitempty`
-		Iops         int    `yaml:"iops", default:500`
+		VolumeSize   int    `yaml:"volumeSize,omitempty" default:"100"`
+		VolumeType   string `yaml:"volumeType,omitempty" default:"gp3"`
+		Iops         int    `yaml:"iops,omitempty" default:"3000"`
 	}
 
 	// TiKV nodes definition
@@ -161,9 +161,9 @@ type (
 	AwsTiKVModal struct {
 		InstanceType string         `yaml:"instance_type"`
 		Count        int            `yaml:"count"`
-		VolumeSize   int            `yaml:"volumeSize,omitempty"`
-		VolumeType   string         `yaml:"volumeType",omitempty`
-		Iops         int            `yaml:"iops", default:500`
+		VolumeSize   int            `yaml:"volumeSize,omitempty" default:"500"`
+		VolumeType   string         `yaml:"volumeType,omitempty" default:"gp3"`
+		Iops         int            `yaml:"iops,omitempty" default:"3000"`
 		Labels       []AwsTiKVLabel `yaml:"labels,omitempty"`
 
 		ModalTypes []AwsTiKVMachineType `yaml:"machine_types,omitempty"`
@@ -217,7 +217,7 @@ type (
 		DBSize                 string `yaml:"db_size"`
 		DBUserName             string `yaml:"db_username"`
 		DBPassword             string `yaml:"db_password"`
-		PubliclyAccessibleFlag bool   `yaml:"public_accessible_flag" default: false`
+		PubliclyAccessibleFlag bool   `yaml:"public_accessible_flag" default:"false"`
 	}
 
 	TiDBCloudConnInfo struct {
