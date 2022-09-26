@@ -13,31 +13,31 @@ aws_kafka_topo_configs:
     keyname: jay-us-east-01                       # Public key to access the EC2 instance
     keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
     cidr: 172.83.0.0/16                           # The cidr for the VPC
-    instance_type: m5.2xlarge                     # Default instance type
+    instance_type: c5.xlarge                      # Default instance type
     tidb_version: v6.2.0                          # TiDB version
     excluded_az:                                  # The AZ to be excluded for the subnets
       - us-east-1e
     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
   zookeeper:
-    instance_type: c5.xlarge                      # Instance type for zookeeper component
+    instance_type: c5.large                       # Instance type for zookeeper component
     count: 3                                      # Number of zookeeper node to be deployed
     volumeSize: 30                                # disk size in the workstation
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
   schema_registry:
-    instance_type: c5.xlarge                      # Instance type of schema registry
+    instance_type: c5.large                       # Instance type of schema registry
     count: 1                                      # Number of schema registry node to be deployed
     volumeSize: 30                                # disk size in the workstation
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
   connector:
     instance_type: c5.xlarge                      # Instance type of connector
-    count: 2                                      # Number of connector node to be deployed
+    count: 1                                      # Number of connector node to be deployed
     volumeSize: 30                                # disk size in the workstation
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
   rest_service:
-    instance_type: c5.xlarge                      # Instance type of rest service
+    instance_type: c5.large                       # Instance type of rest service
     count: 1                                      # Number of rest service node to be deployed
     volumeSize: 30                                # disk size in the workstation
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
@@ -61,7 +61,7 @@ aws_topo_configs:
       - us-east-1e
     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
   pd:
-    instance_type: c5.xlarge                      # Instance type for PD component
+    instance_type: c5.large                       # Instance type for PD component
     count: 3                                      # Number of PD node to be deployed
   tidb:
     instance_type: c5.xlarge                      # Instance type of tidb
@@ -74,7 +74,7 @@ aws_topo_configs:
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
   ticdc:
     instance_type: c5.xlarge                      # Instance type of ticdc
-    count: 2                                      # Number of TiDB node to be deployed
+    count: 1                                      # Number of TiDB node to be deployed
 postgres:
   cidr: 172.84.0.0/16
   instance_type: db.r5.large
