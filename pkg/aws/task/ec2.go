@@ -46,7 +46,7 @@ type CreateWorkstation struct {
 func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	tagEmail := ctx.Value("tagEmail").(string)
+	tagOwner := ctx.Value("tagOwner").(string)
 	tagProject := ctx.Value("tagProject").(string)
 
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
@@ -79,7 +79,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 			"  {Key=Cluster,Value=%s},"+
 			"  {Key=Type,Value=%s},"+
 			"  {Key=Component,Value=workstation},"+
-			"  {Key=Email,Value=%s},"+
+			"  {Key=Owner,Value=%s},"+
 			"  {Key=Project,Value=%s}"+
 			"]\"",
 		c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType,
@@ -87,7 +87,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		clusterName,
 		clusterType,
 		c.subClusterType,
-		tagEmail,
+		tagOwner,
 		tagProject,
 	)
 
@@ -445,7 +445,7 @@ type CreateEC2Nodes struct {
 func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	tagEmail := ctx.Value("tagEmail").(string)
+	tagOwner := ctx.Value("tagOwner").(string)
 	tagProject := ctx.Value("tagProject").(string)
 
 	// Check whether the config is defined
@@ -496,7 +496,7 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 				"  {Key=Cluster,Value=%s},"+
 				"  {Key=Type,Value=%s},"+
 				"  {Key=Component,Value=%s},"+
-				"  {Key=Email,Value=%s},"+
+				"  {Key=Owner,Value=%s},"+
 				"  {Key=Project,Value=%s}"+
 				"]\"",
 			c.awsGeneralConfigs.ImageId,
@@ -505,7 +505,7 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 			clusterType,
 			c.subClusterType,
 			c.componentName,
-			tagEmail,
+			tagOwner,
 			tagProject,
 		)
 		zap.L().Debug("Command", zap.String("run-instances", command))
@@ -554,8 +554,9 @@ type CreateTiKVNodes struct {
 func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	tagEmail := ctx.Value("tagEmail").(string)
+	tagOwner := ctx.Value("tagOwner").(string)
 	tagProject := ctx.Value("tagProject").(string)
+	zap.L().Debug(fmt.Sprintf("create EC2 nodes by SDK context info %s , %s , %s, %s", clusterName, clusterType, tagOwner, tagProject))
 
 	ec2NodeConfigs, err := ScanLabels(&(*c.awsTopoConfigs).Labels, &(*c.awsTopoConfigs).ModalTypes)
 	if err != nil {
@@ -617,7 +618,7 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 					ec2NodeConfig:     ec2NodeConfig,
 					clusterName:       clusterName,
 					clusterType:       clusterType,
-					tagEmail:          tagEmail,
+					tagOwner:          tagOwner,
 					tagProject:        tagProject,
 					subClusterType:    c.subClusterType,
 					componentName:     c.componentName,
@@ -634,7 +635,7 @@ func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 		makeEc2Instance := &MakeEC2Instance{
 			clusterName:       clusterName,
 			clusterType:       clusterType,
-			tagEmail:          tagEmail,
+			tagOwner:          tagOwner,
 			tagProject:        tagProject,
 			subClusterType:    c.subClusterType,
 			componentName:     c.componentName,
@@ -723,7 +724,7 @@ type MakeEC2Instance struct {
 	clusterType    string
 	subClusterType string
 	componentName  string
-	tagEmail       string
+	tagOwner       string
 	tagProject     string
 
 	clusterInfo *ClusterInfo
@@ -761,8 +762,8 @@ func (c *MakeEC2Instance) Execute(ctx context.Context) error {
 			Value: aws.String(c.clusterName),
 		},
 		{
-			Key:   aws.String("Email"),
-			Value: aws.String(c.tagEmail),
+			Key:   aws.String("Owner"),
+			Value: aws.String(c.tagOwner),
 		},
 		{
 			Key:   aws.String("Project"),
@@ -855,7 +856,8 @@ func (c *MakeEC2Instance) Execute(ctx context.Context) error {
 	if isRunning == false {
 		return errors.New("Failed to wait the instance to become running state")
 	}
-
+	zap.L().Debug("create EC2 nodes by SDK info", zap.String("clusterName", c.clusterName), zap.String("clusterType", c.clusterType), zap.String("subClusterType", c.subClusterType), zap.String("componentName", c.componentName), zap.String("tagOwner", c.tagOwner), zap.String("tagProject", c.tagProject), zap.String("subnetID", c.subnetID), zap.String("awsTopoConfigs", fmt.Sprintf("%+v", c.awsTopoConfigs)), zap.String("awsGeneralConfigs", fmt.Sprintf("%+v", c.awsGeneralConfigs)))
+	zap.L().Debug(fmt.Sprintf("EC2 tags : %+v", tagSpecifications))
 	return nil
 }
 func (c *MakeEC2Instance) Rollback(ctx context.Context) error {
