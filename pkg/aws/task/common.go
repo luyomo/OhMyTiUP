@@ -28,10 +28,12 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/luyomo/tisample/embed"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/tisample/pkg/tidbcloudapi"
 	"go.uber.org/zap"
 	//	"github.com/luyomo/tisample/pkg/executor"
 	//	"strings"
@@ -522,6 +524,15 @@ func containString(s []string, e string) bool {
 	return false
 }
 
+func containInt64(s []uint64, e uint64) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
 func installPKGs(wsexecutor *ctxt.Executor, ctx context.Context, packages []string) error {
 	stdout, _, err := (*wsexecutor).Execute(ctx, "lsb_release --id", true)
 	if err != nil {
@@ -917,4 +928,39 @@ func ParseRangeData(inputData string) (*[]int, error) {
 	}
 
 	return &varRet, nil
+}
+
+func ConvertEpochToString(strTimestamp string) string {
+
+	i, err := strconv.ParseInt(strTimestamp, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	t := time.Unix(i, 0)
+
+	strDate := t.Format("2006-01-02 15:04:05")
+	return strDate
+
+}
+
+func InitClientInstance() error {
+	// Get User/Password from variables
+	var (
+		publicKey  = os.Getenv("TIDBCLOUD_PUBLIC_KEY")
+		privateKey = os.Getenv("TIDBCLOUD_PRIVATE_KEY")
+	)
+	if publicKey == "" || privateKey == "" {
+		fmt.Printf("Please set TIDBCLOUD_PUBLIC_KEY(%s), TIDBCLOUD_PRIVATE_KEY(%s) in environment variable first\n", publicKey, privateKey)
+		return errors.New("Missed public/private key")
+	}
+
+	// Client initialization
+	err := tidbcloudapi.InitClient(publicKey, privateKey)
+	if err != nil {
+		fmt.Printf("Failed to init HTTP client\n")
+		return err
+	}
+
+	return nil
 }

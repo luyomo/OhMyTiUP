@@ -39,9 +39,8 @@ func doRequest(method, url string, payload, output interface{}) (*resty.Response
 
 	// execute the request
 	resp, err := request.Execute(method, url)
-	b, _ := json.Marshal(payload)
-	fmt.Printf("\npayload: %s\n", b)
-	fmt.Printf("\nRequest: method %s, url %s, response %s\n\n", method, url, resp)
+	// b, _ := json.Marshal(payload)
+	// fmt.Printf("\nRequest: method %s, url %s, response %s\n\n", method, url, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +58,7 @@ func doRequest(method, url string, payload, output interface{}) (*resty.Response
 	return resp, nil
 }
 
-func doGET(url string, payload, output interface{}) (*resty.Response, error) {
+func DoGET(url string, payload, output interface{}) (*resty.Response, error) {
 	return doRequest(resty.MethodGet, url, payload, output)
 }
 

@@ -15,7 +15,7 @@ func GetSpecifications() (*GetSpecificationsResp, error) {
 		result GetSpecificationsResp
 	)
 
-	_, err := doGET(url, nil, &result)
+	_, err := DoGET(url, nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -40,12 +40,40 @@ func GetAllProjects() ([]Project, error) {
 		result GetAllProjectsResp
 	)
 
-	_, err := doGET(url, nil, &result)
+	_, err := DoGET(url, nil, &result)
 	if err != nil {
 		return nil, err
 	}
 
 	return result.Items, nil
+}
+
+func GetProjectByName(projectName string) (*Project, error) {
+	_projects, err := GetAllProjects()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, _project := range _projects {
+		if _project.Name == projectName {
+			return &_project, nil
+		}
+	}
+	return nil, nil
+}
+
+func IsValidProjectID(projectID uint64) (bool, error) {
+	_projects, err := GetAllProjects()
+	if err != nil {
+		return false, err
+	}
+
+	for _, _project := range _projects {
+		if _project.ID == projectID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // createDedicatedCluster create a cluster in the given project
@@ -96,13 +124,13 @@ func CreateDedicatedCluster(projectID uint64, spec *Specification) (*CreateClust
 }
 
 // getClusterByID return detail status of given cluster
-func getClusterByID(projectID, clusterID uint64) (*GetClusterResp, error) {
+func getClusterByID(projectID, clusterID *uint64) (*Cluster, error) {
 	var (
 		url    = fmt.Sprintf("%s/api/v1beta/projects/%d/clusters/%d", Host, projectID, clusterID)
-		result GetClusterResp
+		result Cluster
 	)
 
-	_, err := doGET(url, nil, &result)
+	_, err := DoGET(url, nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +138,40 @@ func getClusterByID(projectID, clusterID uint64) (*GetClusterResp, error) {
 	return &result, nil
 }
 
+func GetClusterByName(projectID uint64, clusterName string) (*Cluster, error) {
+	var result GetAllClustersResp
+	var _arrProjects []uint64
+
+	if projectID == 0 {
+		_projects, err := GetAllProjects()
+		if err != nil {
+			return nil, err
+		}
+		for _, _project := range _projects {
+			_arrProjects = append(_arrProjects, _project.ID)
+		}
+	} else {
+		_arrProjects = append(_arrProjects, projectID)
+	}
+
+	for _, _projectID := range _arrProjects {
+		url := fmt.Sprintf("%s/api/v1beta/projects/%d/clusters", Host, _projectID)
+		_, err := DoGET(url, nil, &result)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, _item := range result.Items {
+			if _item.Name == clusterName {
+				return &_item, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 // deleteClusterByID delete a cluster
-func deleteClusterByID(projectID, clusterID uint64) error {
+func DeleteClusterByID(projectID, clusterID uint64) error {
 	url := fmt.Sprintf("%s/api/v1beta/projects/%d/clusters/%d", Host, projectID, clusterID)
 	_, err := doDELETE(url, nil, nil)
 	if err != nil {
@@ -121,3 +181,30 @@ func deleteClusterByID(projectID, clusterID uint64) error {
 	return nil
 }
 
+func ResumeClusterByID(projectID, clusterID uint64) error {
+	url := fmt.Sprintf("%s/api/v1beta/projects/%d/clusters/%d", Host, projectID, clusterID)
+
+	var payload ClusterPauseConfig
+	payload.Config.Paused = false
+
+	_, err := doPATCH(url, payload, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func PauseClusterByID(projectID, clusterID uint64) error {
+	url := fmt.Sprintf("%s/api/v1beta/projects/%d/clusters/%d", Host, projectID, clusterID)
+
+	var payload ClusterPauseConfig
+	payload.Config.Paused = true
+
+	_, err := doPATCH(url, payload, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

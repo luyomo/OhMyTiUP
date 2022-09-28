@@ -1,6 +1,5 @@
 package tidbcloudapi
 
-
 type Project struct {
 	ID              uint64 `json:"id,string"`
 	OrgID           uint64 `json:"org_id,string"`
@@ -47,8 +46,15 @@ type Components struct {
 type ClusterConfig struct {
 	RootPassword string     `json:"root_password"`
 	Port         int32      `json:"port"`
+	Paused       bool       `json:"paused"`
 	Components   Components `json:"components"`
 	IPAccessList []IPAccess `json:"ip_access_list"`
+}
+
+type ClusterPauseConfig struct {
+	Config struct {
+		Paused bool `json:"paused"`
+	} `json:"config"`
 }
 
 type ClusterStatus struct {
@@ -74,7 +80,7 @@ type GetAllProjectsResp struct {
 	Total int64     `json:"total"`
 }
 
-type GetClusterResp struct {
+type Cluster struct {
 	ID                uint64           `json:"id,string"`
 	ProjectID         uint64           `json:"project_id,string"`
 	Name              string           `json:"name"`
@@ -87,6 +93,11 @@ type GetClusterResp struct {
 	CreateTimestamp   string           `json:"create_timestamp"`
 	Config            ClusterConfig    `json:"config"`
 	ConnectionStrings ConnectionString `json:"connection_strings"`
+}
+
+type GetAllClustersResp struct {
+	Items []Cluster `json:"items"`
+	Total int64     `json:"total"`
 }
 
 type Specification struct {

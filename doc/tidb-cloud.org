@@ -1,0 +1,61 @@
+* Description
+  TiDB Cloud cli from OhMyTiUP. It use  [[https://docs.pingcap.com/tidbcloud/api/v1beta][TiDB Cloud rest API]] to implement the below operations.
+    + Cluster creation
+    + Cluster destroy
+    + Cluster list
+    + Cluster pause
+    + Cluster resume
+ At the same time, this module will be reused for PoC setup with less manual operations.
+* Commands
+** Preparation
+   #+BEGIN_SRC
+export TIDBCLOUD_PUBLIC_KEY=xXxXxXxX
+export TIDBCLOUD_PRIVATE_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   #+END_SRC
+** Cluster creation
+   #+BEGIN_SRC
+OhMyTiUP$more embed/examples/aws/aws-nodes-tidbcloud.yaml
+aws_tidbcloud:
+  general:
+    project_id: 1372813089191811284    # project id
+    region: us-east-1                  # us-west-2/us-east-1/ap-south-1/ap-southeast-1/ap-northeast-1/eu-central-1
+    port: 4000
+    password: 1234Abcd
+  tidb:
+    node_size: 8C16G                   # 2C8G/4C16G/8C16G/16C32G
+    count: 1
+  tikv:
+    node_size: 8C32G                   # 2C8G/4C16G/8C32G/8C64G/16C64G
+    count: 3
+    Storage: 500
+OhMyTiUP$./bin/aws tidb-cloud deploy jaytestticdc embed/examples/aws/aws-nodes-tidbcloud.yaml
+   #+END_SRC
+
+   [[./png/tidbcloud.cli/001.png]]
+   [[./png/tidbcloud.cli/002.png]]
+   [[./png/tidbcloud.cli/003.png]]
+
+** Cluster list
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb-cloud list jaytestticdc
+   #+END_SRC
+   [[./png/tidbcloud.cli/004.png]]
+   [[./png/tidbcloud.cli/006.png]]
+
+** Cluster pause
+    #+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb-cloud pause 1372813089191811284 jaytestticdc
+   #+END_SRC
+      [[./png/tidbcloud.cli/007.png]]
+
+** Cluster resume
+    #+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb-cloud resume 1372813089191811284 jaytestticdc
+   #+END_SRC
+    [[./png/tidbcloud.cli/008.png]]
+
+** Cluster destroy
+    #+BEGIN_SRC
+OhMyTiUP$./bin/aws tidb-cloud destroy 1372813089191811284 jaytestticdc
+   #+END_SRC
+    [[./png/tidbcloud.cli/009.png]]

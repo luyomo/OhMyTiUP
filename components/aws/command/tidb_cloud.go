@@ -17,14 +17,15 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 
 	"github.com/luyomo/tisample/pkg/aws/manager"
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/set"
+	//	operator "github.com/luyomo/tisample/pkg/aws/operation"
+	//"github.com/luyomo/tisample/pkg/aws/spec"
+	//"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
-	perrs "github.com/pingcap/errors"
+	//perrs "github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -37,6 +38,8 @@ func newTiDBCloudCmd() *cobra.Command {
 	cmd.AddCommand(
 		newTiDBCloudDeploy(),
 		newListTiDBCloudCmd(),
+		newPauseTiDBCloudCmd(),
+		newResumeTiDBCloudCmd(),
 		newDestroyTiDBCloudCmd(),
 		newTiDBCloudScale(),
 	)
@@ -77,14 +80,38 @@ func newTiDBCloudDeploy() *cobra.Command {
 }
 
 func newListTiDBCloudCmd() *cobra.Command {
-	opt := manager.DeployOptions{
-		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
-	}
+	var status string
+	var projectID uint64
+
 	cmd := &cobra.Command{
 		Use:   "list <cluster-name>",
-		Short: "List all clusters or cluster of aurora db",
+		Short: "List TiDB Cloud Cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			var clusterName string
+			if len(args) == 1 {
+				clusterName = args[0]
+			} else {
+				clusterName = ""
+			}
+
+			return cm.ListTiDBCloudCluster(projectID, clusterName, status)
+		},
+	}
+
+	cmd.Flags().StringVarP(&status, "status", "s", "ALL", "Cluster status: AVAILABLE/PAUSED/RESUMING")
+	cmd.PersistentFlags().Uint64Var(&projectID, "projectID", 0, "Project ID")
+
+	return cmd
+}
+
+func newDestroyTiDBCloudCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "destroy <project-id> <cluster-name>",
+		Short: "Destroy a specified cluster",
+		Long: `Destroy a specified cluster, which will clean the deployment binaries and data.
+  $ aws tidb-cloud destroy <cluster-name> --projectID=1111111111`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
 			if err != nil {
 				return err
 			}
@@ -92,54 +119,65 @@ func newListTiDBCloudCmd() *cobra.Command {
 				return nil
 			}
 
-			clusterName := args[0]
+			projectID, err := strconv.ParseUint(args[0], 10, 64)
 
-			return cm.ListTiDBCluster(clusterName, opt)
+			clusterName := args[1]
+
+			return cm.DestroyTiDBCloudCluster(projectID, clusterName)
 		},
 	}
-
-	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
 
 	return cmd
 }
 
-func newDestroyTiDBCloudCmd() *cobra.Command {
-	destroyOpt := operator.Options{}
+func newPauseTiDBCloudCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "destroy <cluster-name>",
-		Short: "Destroy a specified cluster",
-		Long: `Destroy a specified cluster, which will clean the deployment binaries and data.
-You can retain some nodes and roles data when destroy cluster, eg:
-
-  $ tiup cluster destroy <cluster-name> --retain-role-data prometheus
-  $ tiup cluster destroy <cluster-name> --retain-node-data 172.16.13.11:9000
-  $ tiup cluster destroy <cluster-name> --retain-node-data 172.16.13.12`,
+		Use:   "pause <project-id> <cluster-name>",
+		Short: "Pause a specified cluster",
+		Long: `Pause a specified cluster, which will clean the deployment binaries and data.
+  $ aws tidb-cloud destroy <cluster-name> --projectID=1111111111`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return cmd.Help()
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
 			}
 
-			clusterName := args[0]
-			clusterReport.ID = scrubClusterName(clusterName)
-			teleCommand = append(teleCommand, scrubClusterName(clusterName))
+			projectID, err := strconv.ParseUint(args[0], 10, 64)
 
-			// Validate the retained roles to prevent unexpected deleting data
-			if len(destroyOpt.RetainDataRoles) > 0 {
-				validRoles := set.NewStringSet(spec.AllComponentNames()...)
-				for _, role := range destroyOpt.RetainDataRoles {
-					if !validRoles.Exist(role) {
-						return perrs.Errorf("role name `%s` invalid", role)
-					}
-				}
-			}
+			clusterName := args[1]
 
-			return cm.DestroyTiDBCluster(clusterName, gOpt, destroyOpt, skipConfirm)
+			return cm.PauseTiDBCloudCluster(projectID, clusterName)
 		},
 	}
 
-	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataNodes, "retain-node-data", nil, "Specify the nodes or hosts whose data will be retained")
-	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataRoles, "retain-role-data", nil, "Specify the roles whose data will be retained")
-	cmd.Flags().BoolVar(&destroyOpt.Force, "force", false, "Force will ignore remote error while destroy the cluster")
+	return cmd
+}
+
+func newResumeTiDBCloudCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resume <project-id> <cluster-name>",
+		Short: "Resume a specified cluster",
+		Long: `Resume a specified cluster, which will clean the deployment binaries and data.
+  $ aws tidb-cloud resume <project-id> <cluster-name>`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 2)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			projectID, err := strconv.ParseUint(args[0], 10, 64)
+
+			clusterName := args[1]
+
+			return cm.ResumeTiDBCloudCluster(projectID, clusterName)
+		},
+	}
 
 	return cmd
 }

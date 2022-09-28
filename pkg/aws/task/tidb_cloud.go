@@ -15,20 +15,13 @@ package task
 
 import (
 	"context"
-	// "errors"
+	"errors"
 	"fmt"
-	"os"
-	// "strconv"
-	// "time"
+	// "os"
+	"strconv"
 
-	// "github.com/aws/aws-sdk-go-v2/aws"
-	// "github.com/aws/aws-sdk-go-v2/config"
-	// "github.com/aws/aws-sdk-go-v2/service/cloudformation"
-	// "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/luyomo/tisample/pkg/aws/spec"
-	// "github.com/luyomo/tisample/pkg/aws/utils"
 	"github.com/luyomo/tisample/pkg/ctxt"
-	// "io/ioutil"
 	"github.com/luyomo/tisample/pkg/tidbcloudapi"
 )
 
@@ -39,23 +32,14 @@ type CreateTiDBCloud struct {
 
 // Execute implements the Task interface
 func (c *CreateTiDBCloud) Execute(ctx context.Context) error {
+	// Get ClusterName from context
 	clusterName := ctx.Value("clusterName").(string)
 
-	var (
-		publicKey  = os.Getenv("TIDBCLOUD_PUBLIC_KEY")
-		privateKey = os.Getenv("TIDBCLOUD_PRIVATE_KEY")
-	)
-	if publicKey == "" || privateKey == "" {
-		fmt.Printf("Please set TIDBCLOUD_PUBLIC_KEY(%s), TIDBCLOUD_PRIVATE_KEY(%s) in environment variable first\n", publicKey, privateKey)
-		return nil
-	}
-
-	err := tidbcloudapi.InitClient(publicKey, privateKey)
-	if err != nil {
-		fmt.Printf("Failed to init HTTP client\n")
+	if err := InitClientInstance(); err != nil {
 		return err
 	}
 
+	// Create the cluster
 	_url := fmt.Sprintf("%s/api/v1beta/projects/%d/clusters", tidbcloudapi.Host, c.tidbCloud.General.ProjectID)
 	payload := tidbcloudapi.CreateClusterReq{
 		Name:          clusterName,
@@ -85,12 +69,11 @@ func (c *CreateTiDBCloud) Execute(ctx context.Context) error {
 		},
 	}
 
-	var result tidbcloudapi.GetClusterResp
-	_, err = tidbcloudapi.DoPOST(_url, payload, &result)
+	var result tidbcloudapi.Cluster
+	_, err := tidbcloudapi.DoPOST(_url, payload, &result)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The res is <%#v> \n", result)
 
 	return nil
 }
@@ -130,15 +113,104 @@ func (c *DestroyTiDBCloud) String() string {
 }
 
 type ListTiDBCloud struct {
-	pexecutor      *ctxt.Executor
-	tableTiDBCloud *[][]string
+	tableClusters *[][]string
+	tableNodes    *[][]string
+
+	projectID   uint64
+	clusterType string // Dedicated/Dev
+	status      string // PAUSED/AVAILABLE
 }
 
 // Execute implements the Task interface
 func (c *ListTiDBCloud) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 
-	fmt.Printf("The cluster name is <%s> \n\n\n", clusterName)
+	if err := InitClientInstance(); err != nil {
+		return err
+	}
+
+	_theProjects, err := tidbcloudapi.GetAllProjects()
+	if err != nil {
+		return err
+	}
+
+	var _projects []uint64
+	// fmt.Printf("The projects are %#v \n\n\n", test)
+	for _, _item := range _theProjects {
+		_projects = append(_projects, _item.ID)
+	}
+
+	if c.projectID != 0 {
+		if containInt64(_projects, c.projectID) == false {
+			return errors.New("Invalid project ID")
+		}
+		_projects = []uint64{c.projectID}
+	}
+
+	// fmt.Printf("Proejct is %#v \n\n\n", c.projectID)
+	for _, _projectID := range _projects {
+		var (
+			url    = fmt.Sprintf("%s/api/v1beta/projects/%d/clusters", tidbcloudapi.Host, _projectID)
+			result tidbcloudapi.GetAllClustersResp
+		)
+
+		_, err := tidbcloudapi.DoGET(url, nil, &result)
+		if err != nil {
+			return err
+		}
+
+		for _, _item := range result.Items {
+			if clusterName != "" && _item.Name != clusterName {
+				continue
+			}
+
+			if c.status != "ALL" && c.status != _item.Status.ClusterStatus {
+				continue
+			}
+
+			*(c.tableClusters) = append(*(c.tableClusters), []string{
+				strconv.FormatUint(_item.ProjectID, 10),
+				_item.Name,
+				_item.ClusterType,
+				_item.Status.TidbVersion,
+				_item.Status.ClusterStatus,
+				_item.CloudProvider,
+				_item.Region,
+				ConvertEpochToString(_item.CreateTimestamp),
+			})
+			// TiDB
+			*(c.tableNodes) = append(*(c.tableNodes), []string{
+				strconv.FormatUint(_item.ProjectID, 10),
+				_item.Name,
+				"TiDB",
+				_item.Config.Components.TiDB.NodeSize,
+				strconv.FormatInt(int64(_item.Config.Components.TiDB.NodeQuantity), 10),
+				"-",
+			})
+
+			// TiKV
+			*(c.tableNodes) = append(*(c.tableNodes), []string{
+				" - ",
+				" - ",
+				"TiKV",
+				_item.Config.Components.TiKV.NodeSize,
+				strconv.FormatInt(int64(_item.Config.Components.TiKV.NodeQuantity), 10),
+				strconv.FormatInt(int64(_item.Config.Components.TiKV.StorageSizeGib), 10),
+			})
+
+			// TiFlash
+			if _item.Config.Components.TiFlash != nil {
+				*(c.tableNodes) = append(*(c.tableNodes), []string{
+					" - ",
+					" - ",
+					"TiFlash",
+					_item.Config.Components.TiFlash.NodeSize,
+					strconv.FormatInt(int64(_item.Config.Components.TiFlash.NodeQuantity), 10),
+					"-",
+				})
+			}
+		}
+	}
 
 	return nil
 }
@@ -150,5 +222,5 @@ func (c *ListTiDBCloud) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *ListTiDBCloud) String() string {
-	return fmt.Sprintf("Echo: List Aurora ")
+	return fmt.Sprintf("Echo: List TiDB Cluster ")
 }

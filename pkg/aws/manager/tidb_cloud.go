@@ -15,9 +15,10 @@ package manager
 
 import (
 	"context"
-	"errors"
+	// "errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -28,12 +29,12 @@ import (
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/meta"
+	// "github.com/luyomo/tisample/pkg/meta"
 	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/tisample/pkg/tidbcloudapi"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
-
-	perrs "github.com/pingcap/errors"
+	// perrs "github.com/pingcap/errors"
 )
 
 func (m *Manager) TiDBCloudDeploy(
@@ -53,40 +54,23 @@ func (m *Manager) TiDBCloudDeploy(
 
 	base := topo.BaseTopo()
 
-	fmt.Printf("The change dfata is %#v \n", base.TiDBCloud)
+	if err := task.InitClientInstance(); err != nil {
+		return err
+	}
 
-	fmt.Printf("Step 0: initialize HTTP client\n")
+	cluster, err := tidbcloudapi.GetClusterByName(uint64(base.TiDBCloud.General.ProjectID), name)
+	if err != nil {
+		return err
+	}
+	if cluster != nil {
+		m.ListTiDBCloudCluster(uint64(base.TiDBCloud.General.ProjectID), name, "ALL")
 
-	// // Step 1: query all the projects in current organization
-	// // fmt.Printf("Step 1: get all projects\n")
-	// specs, err := tidbcloudapi.GetSpecifications()
-	// if err != nil {
-	// 	fmt.Printf("Failed to get specifications: %s\n", err)
-	// 	return err
-	// }
-	// // fmt.Printf("Spec: %#v", specs)
+		tui.Prompt("Please confirm the project and cluster.")
 
-	// projects, err := tidbcloudapi.GetAllProjects()
-	// if err != nil {
-	// 	fmt.Printf("Failed to get all projects: %s\n", err)
-	// 	return nil
-	// }
-	// fmt.Printf("The project is %#v\n", projects)
+		return nil
+	}
 
-	// dedicatedSpec, err := tidbcloudapi.GetDedicatedSpec(specs)
-	// if err != nil {
-	// 	fmt.Printf("Failed to get dedicated specification: %s\n", err)
-	// 	return nil
-	// }
-	// // fmt.Printf("The dedicated specification: %#v \n", dedicatedSpec.Tidb[0])
-	// fmt.Printf("Cluster Type: %s \n", dedicatedSpec.ClusterType)
-	// fmt.Printf("Cloud Provider: %s \n", dedicatedSpec.CloudProvider)
-	// fmt.Printf("Region: %s \n", dedicatedSpec.Region)
-	// fmt.Printf("TiDB Node size: %s \n", dedicatedSpec.Tidb[0].NodeSize)
-	// fmt.Printf("Storage size: %d \n", dedicatedSpec.Tidb[0].NodeQuantityRange.Min)
-	// fmt.Printf("TiDB Node size: %s \n ", dedicatedSpec.Tikv[0].NodeSize)
-	// fmt.Printf("Storage size: %d \n", dedicatedSpec.Tikv[0].StorageSizeGibRange.Min)
-	// fmt.Printf("Quantity Size: %d \n", dedicatedSpec.Tikv[0].NodeQuantityRange.Min)
+	m.confirmTiDBCloudTopology(name, base.TiDBCloud)
 
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 	t1 := task.NewBuilder().CreateTiDBCloud(base.TiDBCloud).
@@ -110,132 +94,99 @@ func (m *Manager) TiDBCloudDeploy(
 }
 
 // DestroyCluster destroy the cluster.
-func (m *Manager) DestroyTiDBCloudCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
-	_, err := m.meta(name)
-	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
-		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
-		!errors.Is(perrs.Cause(err), spec.ErrMultipleTiSparkMaster) &&
-		!errors.Is(perrs.Cause(err), spec.ErrMultipleTisparkWorker) {
-		return err
-	}
-
-	clusterType := "ohmytiup-tidb"
-
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+func (m *Manager) DestroyTiDBCloudCluster(projectID uint64, name string) error {
+	err := m.findClusterToRun(projectID, name, "delete", tidbcloudapi.DeleteClusterByID)
 	if err != nil {
 		return err
 	}
-
-	t0 := task.NewBuilder().
-		DestroyTransitGateways(&sexecutor).
-		DestroyVpcPeering(&sexecutor, []string{"workstation"}).
-		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
-
-	builder := task.NewBuilder().
-		ParallelStep("+ Destroying tidb solution service ... ...", false, t0)
-	t := builder.Build()
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
-			return err
-		}
-		return err
-	}
-
-	var destroyTasks []*task.StepDisplay
-
-	t1 := task.NewBuilder().
-		DestroyNAT(&sexecutor, "tidb").
-		DestroyEC2Nodes(&sexecutor, "tidb").
-		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
-
-	destroyTasks = append(destroyTasks, t1)
-
-	t4 := task.NewBuilder().
-		DestroyEC2Nodes(&sexecutor, "workstation").
-		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
-
-	destroyTasks = append(destroyTasks, t4)
-
-	t5 := task.NewBuilder().
-		DestroyCloudFormation(&sexecutor).
-		BuildAsStep(fmt.Sprintf("  - Destroying cloudformation %s ", name))
-
-	destroyTasks = append(destroyTasks, t5)
-
-	builder = task.NewBuilder().
-		ParallelStep("+ Destroying all the componets", false, destroyTasks...)
-
-	t = builder.Build()
-
-	tailctx := context.WithValue(context.Background(), "clusterName", name)
-	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
-	if err := t.Execute(ctxt.New(tailctx, 5)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
-			return err
-		}
-		return err
-	}
-
 	return nil
+}
+
+func (m *Manager) ResumeTiDBCloudCluster(projectID uint64, name string) error {
+	err := m.findClusterToRun(projectID, name, "resume", tidbcloudapi.ResumeClusterByID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DestroyCluster destroy the cluster.
+func (m *Manager) PauseTiDBCloudCluster(projectID uint64, name string) error {
+	err := m.findClusterToRun(projectID, name, "pause", tidbcloudapi.PauseClusterByID)
+	if err != nil {
+		return err
+	}
+	return nil
+
+	// if err := task.InitClientInstance(); err != nil {
+	// 	return err
+	// }
+
+	// var cluster *tidbcloudapi.Cluster
+
+	// // 01. Check whether the project id is valid.
+	// isValid, err := tidbcloudapi.IsValidProjectID(projectID)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if isValid == true {
+	// 	//02 Get the TiDB cluster info from project id and name
+	// 	cluster, err = tidbcloudapi.GetClusterByName(projectID, name)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	// if cluster == nil {
+	// 	// If no cluster found, try to find the cluster using cluster name without project id
+	// 	cluster, err = tidbcloudapi.GetClusterByName(0, name)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	if cluster != nil {
+	// 		// Ask user for confirmation. List the cluster infomation
+	// 		m.ListTiDBCloudCluster(0, name, "ALL")
+
+	// 		ret, _ := tui.PromptForConfirmYes("Do you want to pause the above cluster?")
+	// 		if ret == false {
+	// 			return nil
+	// 		}
+
+	// 	} else {
+	// 		// No cluster name found, exit
+	// 		tui.Prompt(fmt.Sprintf("No cluster <%s> found in the organization/project"))
+	// 		return nil
+	// 	}
+
+	// }
+
+	// projectID = cluster.ProjectID
+	// clusterID := cluster.ID
+
+	// ret, _ := tui.PromptForConfirmYes(fmt.Sprintf("Are you sure to pause the cluster: (%d:%s) ?", projectID, name))
+	// if ret == true {
+	// 	tidbcloudapi.PauseClusterByName(projectID, clusterID)
+	// }
+
+	// return nil
 }
 
 // Cluster represents a clsuter
 // ListCluster list the clusters.
-func (m *Manager) ListTiDBCloudCluster(clusterName string, opt DeployOptions) error {
+func (m *Manager) ListTiDBCloudCluster(projectID uint64, clusterName, status string) error {
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
-
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
 
 	// 001. VPC listing
-	tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
-	t1 := task.NewBuilder().ListVpc(&sexecutor, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
+	tableClusters := [][]string{{"Project", "Cluster Name", "Cluster Type", "Version", "Status", "Cloud Provider", "Region", "Create Timestamp"}}
+
+	tableNodes := [][]string{{"Project", "Cluster Name", "Component Type", "Node Size", "Count", "Storage Size"}}
+	t1 := task.NewBuilder().ListTiDBCloud(projectID, status, "DEDICATED", &tableClusters, &tableNodes).BuildAsStep(fmt.Sprintf("  - Listing TiDB Cloud"))
 	listTasks = append(listTasks, t1)
-
-	// 002. subnets
-	tableSubnets := [][]string{{"Component Name", "Zone", "Subnet ID", "CIDR", "State", "VPC ID"}}
-	t2 := task.NewBuilder().ListNetwork(&sexecutor, &tableSubnets).BuildAsStep(fmt.Sprintf("  - Listing Subnets"))
-	listTasks = append(listTasks, t2)
-
-	// 003. subnets
-	tableRouteTables := [][]string{{"Component Name", "Route Table ID", "DestinationCidrBlock", "TransitGatewayId", "GatewayId", "State", "Origin"}}
-	t3 := task.NewBuilder().ListRouteTable(&sexecutor, &tableRouteTables).BuildAsStep(fmt.Sprintf("  - Listing Route Tables"))
-	listTasks = append(listTasks, t3)
-
-	// 004. Security Groups
-	tableSecurityGroups := [][]string{{"Component Name", "Ip Protocol", "Source Ip Range", "From Port", "To Port"}}
-	t4 := task.NewBuilder().ListSecurityGroup(&sexecutor, &tableSecurityGroups).BuildAsStep(fmt.Sprintf("  - Listing Security Groups"))
-	listTasks = append(listTasks, t4)
-
-	// 005. Transit gateway
-	var transitGateway task.TransitGateway
-	t5 := task.NewBuilder().ListTransitGateway(&sexecutor, &transitGateway).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway "))
-	listTasks = append(listTasks, t5)
-
-	// 006. Transit gateway vpc attachment
-	tableTransitGatewayVpcAttachments := [][]string{{"Component Name", "VPC ID", "State"}}
-	t6 := task.NewBuilder().ListTransitGatewayVpcAttachment(&sexecutor, &tableTransitGatewayVpcAttachments).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway vpc attachment"))
-	listTasks = append(listTasks, t6)
-
-	// 007. EC2
-	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Preivate IP", "Public IP", "Image ID"}}
-	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
-	listTasks = append(listTasks, t7)
-
-	// 008. NLB
-	var nlb task.LoadBalancer
-	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
-	listTasks = append(listTasks, t8)
 
 	// *********************************************************************
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
@@ -247,29 +198,15 @@ func (m *Manager) ListTiDBCloudCluster(clusterName string, opt DeployOptions) er
 	}
 
 	titleFont := color.New(color.FgRed, color.Bold)
-	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("ohmytiup-tidb"))
+	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("TiDB Cloud"))
 	fmt.Printf("Cluster Name :      %s\n\n", titleFont.Sprint(clusterName))
 
 	cyan := color.New(color.FgCyan, color.Bold)
-	fmt.Printf("Resource Type:      %s\n", cyan.Sprint("VPC"))
-	tui.PrintTable(tableVPC, true)
+	fmt.Printf("Resource Type:      %s\n", cyan.Sprint("Meta Data"))
+	tui.PrintTable(tableClusters, true)
 
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Subnet"))
-	tui.PrintTable(tableSubnets, true)
-
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Route Table"))
-	tui.PrintTable(tableRouteTables, true)
-
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Security Group"))
-	tui.PrintTable(tableSecurityGroups, true)
-
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Transit Gateway"))
-	fmt.Printf("Resource ID  :      %s    State: %s \n", cyan.Sprint(transitGateway.TransitGatewayId), cyan.Sprint(transitGateway.State))
-	tui.PrintTable(tableTransitGatewayVpcAttachments, true)
-
-	fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(nlb.DNSName))
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
-	tui.PrintTable(tableECs, true)
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Node Info"))
+	tui.PrintTable(tableNodes, true)
 
 	return nil
 }
@@ -398,5 +335,94 @@ func (m *Manager) TiDBCloudScale(
 	}
 
 	log.Infof("Cluster `%s` scaled successfully ", name)
+	return nil
+}
+
+func (m *Manager) confirmTiDBCloudTopology(name string, specTiDBCloud *spec.TiDBCloud) error {
+	log.Infof("Please confirm your TiDB Cloud topology:")
+
+	cyan := color.New(color.FgCyan, color.Bold)
+	fmt.Printf("Project ID:      %s\n", cyan.Sprint(strconv.FormatInt((*specTiDBCloud).General.ProjectID, 10)))
+	fmt.Printf("Region    :      %s\n", cyan.Sprint((*specTiDBCloud).General.Region))
+	fmt.Printf("Port      :      %s\n", cyan.Sprint(strconv.FormatInt(int64((*specTiDBCloud).General.Port), 10)))
+
+	clusterTable := [][]string{
+		// Header
+		{"Component", "# of nodes", "Node Size", "Storage Size"},
+	}
+
+	clusterTable = append(clusterTable, []string{"TiDB", strconv.FormatInt(int64((*specTiDBCloud).TiDB.Count), 10), (*specTiDBCloud).TiDB.NodeSize, "-"})
+	clusterTable = append(clusterTable, []string{"TiKV", strconv.FormatInt(int64((*specTiDBCloud).TiKV.Count), 10), (*specTiDBCloud).TiKV.NodeSize, strconv.FormatInt(int64((*specTiDBCloud).TiKV.Storage), 10)})
+	clusterTable = append(clusterTable, []string{"TiFlash", strconv.FormatInt(int64((*specTiDBCloud).TiFlash.Count), 10), (*specTiDBCloud).TiFlash.NodeSize, "-"})
+
+	tui.PrintTable(clusterTable, true)
+
+	log.Warnf("Attention:")
+	log.Warnf("    1. If the topology is not what you expected, check your yaml file.")
+	log.Warnf("    2. Please confirm there is no port/directory conflicts in same host.")
+
+	return tui.PromptForConfirmOrAbortError("Do you want to continue? [y/N]: ")
+
+}
+
+// ---------- ---------- ---------- ---------- ---------- ----------
+func (m *Manager) findClusterToRun(projectID uint64, clusterName, operation string, funcOp func(uint64, uint64) error) error {
+	if err := task.InitClientInstance(); err != nil {
+		return err
+	}
+
+	var cluster *tidbcloudapi.Cluster
+
+	// 01. Check whether the project id is valid.
+	isValid, err := tidbcloudapi.IsValidProjectID(projectID)
+	if err != nil {
+		return err
+	}
+
+	if isValid == true {
+		//02 Get the TiDB cluster info from project id and name
+		cluster, err = tidbcloudapi.GetClusterByName(projectID, clusterName)
+		if err != nil {
+			return err
+		}
+	}
+
+	if cluster == nil {
+		// If no cluster found, try to find the cluster using cluster name without project id
+		cluster, err = tidbcloudapi.GetClusterByName(0, clusterName)
+		if err != nil {
+			return err
+		}
+
+		if cluster != nil {
+			// Ask user for confirmation. List the cluster infomation
+			m.ListTiDBCloudCluster(0, clusterName, "ALL")
+
+			ret, _ := tui.PromptForConfirmYes(fmt.Sprintf("Do you want to %s the above cluster?", operation))
+			if ret == false {
+				return nil
+			}
+
+		} else {
+			// No cluster name found, exit
+			tui.Prompt(fmt.Sprintf("No cluster <%s> found in the organization/project", clusterName))
+			return nil
+		}
+
+	}
+
+	projectID = cluster.ProjectID
+	clusterID := cluster.ID
+
+	ret, _ := tui.PromptForConfirmYes(fmt.Sprintf("Are you sure to %s the cluster: (%d:%s) ?", operation, projectID, clusterName))
+	if ret == true {
+		if err = funcOp(projectID, clusterID); err != nil {
+			return err
+		}
+		m.ListTiDBCloudCluster(projectID, clusterName, "ALL")
+
+		// tidbcloudapi.PauseClusterByName(projectID, clusterID)
+	}
+
 	return nil
 }
