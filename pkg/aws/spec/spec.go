@@ -259,6 +259,26 @@ type (
 		ReplicateDB string `yaml:"replicate_db"`
 	}
 
+	TiDBCloudGeneral struct {
+		ProjectID int64  `yaml:"project_id"`
+		Region    string `yaml:"region"`
+		Port      int32  `yaml:"port"`
+		Password  string `yaml:"password"`
+	}
+
+	TiDBCloudNode struct {
+		NodeSize string `yaml:"node_size"`
+		Count    int    `yaml:"count"`
+		Storage  int    `yaml:"Storage,omitempty"` // Only useful for TiKV
+	}
+
+	TiDBCloud struct {
+		General TiDBCloudGeneral `yaml:general`
+		TiDB    TiDBCloudNode    `yaml:tidb`
+		TiKV    TiDBCloudNode    `yaml:tikv`
+		TiFlash TiDBCloudNode    `yaml:tiflash`
+	}
+
 	AwsCloudFormationConfigs struct {
 		Parameters           map[string]string `yaml:"parameters"`
 		TemplateBodyFilePath string            `yaml:"template_body_file_path"`
@@ -280,6 +300,7 @@ type (
 		AwsDMSConfigs            AwsDMSConfigs            `yaml:"dms,omitempty"`
 		AwsCloudFormationConfigs AwsCloudFormationConfigs `yaml:"aws_cloud_formation_configs"`
 		TiDBCloudConnInfo        TiDBCloudConnInfo        `yaml:"tidb_cloud,omitempty"`
+		TiDBCloud                TiDBCloud                `yaml:"aws_tidbcloud,omitempty"`
 		DrainerReplicate         DrainerReplicate         `yaml:"drainer_replicate,omitempty"`
 		TiDBServers              []*TiDBSpec              `yaml:"tidb_servers"`
 		TiKVServers              []*TiKVSpec              `yaml:"tikv_servers"`
@@ -311,6 +332,7 @@ type BaseTopo struct {
 	AwsDMSConfigs            *AwsDMSConfigs
 	AwsCloudFormationConfigs *AwsCloudFormationConfigs
 	TiDBCloudConnInfo        *TiDBCloudConnInfo
+	TiDBCloud                *TiDBCloud
 	DrainerReplicate         *DrainerReplicate
 	MasterList               []string
 
@@ -390,6 +412,7 @@ func (s *Specification) NewPart() Topology {
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
 		TiDBCloudConnInfo:        s.TiDBCloudConnInfo,
+		TiDBCloud:                s.TiDBCloud,
 		DrainerReplicate:         s.DrainerReplicate,
 	}
 }
@@ -437,6 +460,7 @@ func (s *Specification) BaseTopo() *BaseTopo {
 		AwsDMSConfigs:            &s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: &s.AwsCloudFormationConfigs,
 		TiDBCloudConnInfo:        &s.TiDBCloudConnInfo,
+		TiDBCloud:                &s.TiDBCloud,
 		DrainerReplicate:         &s.DrainerReplicate,
 		MasterList:               s.GetPDList(),
 		Monitors:                 s.Monitors,
@@ -649,6 +673,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
 		TiDBCloudConnInfo:        s.TiDBCloudConnInfo,
+		TiDBCloud:                s.TiDBCloud,
 		DrainerReplicate:         s.DrainerReplicate,
 		TiDBServers:              append(s.TiDBServers, spec.TiDBServers...),
 		TiKVServers:              append(s.TiKVServers, spec.TiKVServers...),
@@ -695,13 +720,14 @@ var (
 	awsDMSConfigsTypeName            = reflect.TypeOf(AwsDMSConfigs{}).Name()
 	awsCloudFormationConfigsTypeName = reflect.TypeOf(AwsCloudFormationConfigs{}).Name()
 	tidbCloudConnInfo                = reflect.TypeOf(TiDBCloudConnInfo{}).Name()
+	tidbCloud                        = reflect.TypeOf(TiDBCloud{}).Name()
 	drainerReplicate                 = reflect.TypeOf(DrainerReplicate{}).Name()
 )
 
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConnInfo || tp == drainerReplicate
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConnInfo || tp == drainerReplicate || tp == tidbCloud
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {
