@@ -17,7 +17,7 @@
  | Link                                                              | Comment                                                                                                           | Source |
  |-------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+--------|
  | [[./tidb-on-aws.org][TiDB installation on AWS]]                                          | Deploy TiDB Cluster on the AWS using TiUP                                                                         |        |
- | [[./doc/tidb-cloud.org][TiDB Cloud Cli]]                                                    | TiDB Cloud cli using RESTAPI implementation                                                                       |        |
+ | [[./tidb-cloud.org][TiDB Cloud Cli]]                                                    | TiDB Cloud cli using RESTAPI implementation                                                                       |        |
  | [[./doc/workstation.org][Workstation preparation]]                                           | Prepare the workstation to access TiDB Cloud                                                                      |        |
  | [[./copyDataTiDB2Aurora.org][Data Migration from TiDB Cloud To Aurora MySQL]]                    | data copy from TiDB Cloud to Aurora through S3                                                                    |        |
  | [[./tidb2aurora.org][Incremental Replication from TiDB Cloud To Aurora]]                 | TiDB Cloud -> TiCDC -> Aurora                                                                                     |        |
