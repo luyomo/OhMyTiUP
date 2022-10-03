@@ -35,8 +35,9 @@ import (
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/tidbcloudapi"
 	"go.uber.org/zap"
-	//	"github.com/luyomo/tisample/pkg/executor"
-	//	"strings"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 type Vpc struct {
@@ -963,4 +964,31 @@ func InitClientInstance() error {
 	}
 
 	return nil
+}
+
+func GetCallerUser(ctx context.Context) (string, error) {
+	if ctx.Value("tagOwner") != nil {
+		return ctx.Value("tagOwner").(string), nil
+	}
+
+	_ctx := context.TODO()
+	cfg, err := config.LoadDefaultConfig(_ctx)
+	if err != nil {
+		return "", err
+	}
+
+	_client := sts.NewFromConfig(cfg)
+
+	var _getCallerIdentityInput *sts.GetCallerIdentityInput
+
+	_caller, err := _client.GetCallerIdentity(ctx, _getCallerIdentityInput)
+
+	return strings.Split((*_caller.Arn), "/")[1], nil
+}
+
+func GetProject(ctx context.Context) string {
+	if ctx.Value("tagProject") != nil {
+		return ctx.Value("tagProject").(string)
+	}
+	return ctx.Value("clusterName").(string)
 }

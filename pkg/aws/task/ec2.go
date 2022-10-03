@@ -46,8 +46,12 @@ type CreateWorkstation struct {
 func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	tagOwner := ctx.Value("tagOwner").(string)
-	tagProject := ctx.Value("tagProject").(string)
+
+	tagProject := GetProject(ctx)
+	tagOwner, err := GetCallerUser(ctx)
+	if err != nil {
+		return err
+	}
 
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instances", command))
@@ -445,8 +449,12 @@ type CreateEC2Nodes struct {
 func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	tagOwner := ctx.Value("tagOwner").(string)
-	tagProject := ctx.Value("tagProject").(string)
+
+	tagProject := GetProject(ctx)
+	tagOwner, err := GetCallerUser(ctx)
+	if err != nil {
+		return err
+	}
 
 	// Check whether the config is defined
 	if c.awsTopoConfigs.Count == 0 {
@@ -554,8 +562,13 @@ type CreateTiKVNodes struct {
 func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	tagOwner := ctx.Value("tagOwner").(string)
-	tagProject := ctx.Value("tagProject").(string)
+
+	tagProject := GetProject(ctx)
+	tagOwner, err := GetCallerUser(ctx)
+	if err != nil {
+		return err
+	}
+
 	zap.L().Debug(fmt.Sprintf("create EC2 nodes by SDK context info %s , %s , %s, %s", clusterName, clusterType, tagOwner, tagProject))
 
 	ec2NodeConfigs, err := ScanLabels(&(*c.awsTopoConfigs).Labels, &(*c.awsTopoConfigs).ModalTypes)
