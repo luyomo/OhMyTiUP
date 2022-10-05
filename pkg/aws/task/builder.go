@@ -637,6 +637,42 @@ func (b *Builder) CreateDrainerNodes(pexecutor *ctxt.Executor, subClusterType st
 	return b
 }
 
+func (b *Builder) CreateMonitorNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.Monitor,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "montior",
+	})
+	return b
+}
+
+func (b *Builder) CreateGrafanaNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.Grafana,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "grafana",
+	})
+	return b
+}
+
+func (b *Builder) CreateAlertManagerNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsTopoConfigs.AlertManager,
+		awsGeneralConfigs: &awsTopoConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "alert-manager",
+	})
+	return b
+}
+
 func (b *Builder) CreateZookeeperNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
 		pexecutor:         pexecutor,
@@ -1128,7 +1164,7 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234}).Build()).
 		Step(fmt.Sprintf("%s : Creating PD Nodes ... ...", subClusterType), NewBuilder().CreatePDNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", subClusterType), NewBuilder().CreateTiDBNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
@@ -1138,6 +1174,9 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Pump Nodes ... ...", subClusterType), NewBuilder().CreatePumpNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Drainer Nodes ... ...", subClusterType), NewBuilder().CreateDrainerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Monitor Nodes ... ...", subClusterType), NewBuilder().CreateMonitorNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Grafana Nodes ... ...", subClusterType), NewBuilder().CreateGrafanaNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Alert Manager Nodes ... ...", subClusterType), NewBuilder().CreateAlertManagerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).

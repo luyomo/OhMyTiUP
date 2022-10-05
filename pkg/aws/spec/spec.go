@@ -174,16 +174,19 @@ type (
 	}
 
 	AwsTopoConfigs struct {
-		General  AwsTopoConfigsGeneral `yaml:"general"`
-		PD       AwsNodeModal          `yaml:"pd"`
-		TiDB     AwsNodeModal          `yaml:"tidb"`
-		TiKV     AwsTiKVModal          `yaml:"tikv"`
-		TiFlash  AwsNodeModal          `yaml:"tiflash"`
-		DMMaster AwsNodeModal          `yaml:"dm-master"`
-		DMWorker AwsNodeModal          `yaml:"dm-worker"`
-		TiCDC    AwsNodeModal          `yaml:"ticdc"`
-		Pump     AwsNodeModal          `yaml:"pump"`
-		Drainer  AwsNodeModal          `yaml:"drainer"`
+		General      AwsTopoConfigsGeneral `yaml:"general"`
+		PD           AwsNodeModal          `yaml:"pd"`
+		TiDB         AwsNodeModal          `yaml:"tidb"`
+		TiKV         AwsTiKVModal          `yaml:"tikv"`
+		TiFlash      AwsNodeModal          `yaml:"tiflash"`
+		Monitor      AwsNodeModal          `yaml:"monitor"`
+		Grafana      AwsNodeModal          `yaml:"grafana"`
+		AlertManager AwsNodeModal          `yaml:"alert-manager"`
+		DMMaster     AwsNodeModal          `yaml:"dm-master"`
+		DMWorker     AwsNodeModal          `yaml:"dm-worker"`
+		TiCDC        AwsNodeModal          `yaml:"ticdc"`
+		Pump         AwsNodeModal          `yaml:"pump"`
+		Drainer      AwsNodeModal          `yaml:"drainer"`
 	}
 
 	AwsWSConfigs struct {

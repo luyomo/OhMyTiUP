@@ -195,6 +195,153 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 	return tui.PromptForConfirmOrAbortError("Do you want to continue? [y/N]: ")
 }
 
+func (m *Manager) confirmKafkaTopology(name string, topo spec.Topology) error {
+	log.Infof("Please confirm your kafka topology:")
+
+	cyan := color.New(color.FgCyan, color.Bold)
+
+	if spec, ok := topo.(*spec.Specification); ok {
+		fmt.Printf("Cluster type:    %s\n", cyan.Sprint(m.sysName))
+		fmt.Printf("Cluster name:    %s\n", cyan.Sprint(name))
+		fmt.Printf("Cluster version: %s\n", cyan.Sprint(spec.AwsKafkaTopoConfigs.General.TiDBVersion))
+		fmt.Printf("\n")
+
+		clusterTable := [][]string{
+			// Header
+			{"Component", "# of nodes", "Instance Type", "Image Name", "CIDR", "User", "Placement rule labels"},
+		}
+		if spec.AwsWSConfigs.InstanceType != "" {
+			clusterTable = append(clusterTable, []string{"Workstation", "1", spec.AwsWSConfigs.InstanceType, spec.AwsWSConfigs.ImageId, spec.AwsWSConfigs.CIDR, "admin"})
+		}
+
+		if spec.AwsKafkaTopoConfigs.Zookeeper.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Zookeeper", strconv.Itoa(spec.AwsKafkaTopoConfigs.Zookeeper.Count), spec.AwsKafkaTopoConfigs.Zookeeper.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsKafkaTopoConfigs.Broker.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Broker", strconv.Itoa(spec.AwsKafkaTopoConfigs.Broker.Count), spec.AwsKafkaTopoConfigs.Broker.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsKafkaTopoConfigs.SchemaRegistry.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Schema Registry", strconv.Itoa(spec.AwsKafkaTopoConfigs.SchemaRegistry.Count), spec.AwsKafkaTopoConfigs.SchemaRegistry.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsKafkaTopoConfigs.RestService.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Rest Service", strconv.Itoa(spec.AwsKafkaTopoConfigs.RestService.Count), spec.AwsKafkaTopoConfigs.RestService.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsKafkaTopoConfigs.Connector.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Connector", strconv.Itoa(spec.AwsKafkaTopoConfigs.Connector.Count), spec.AwsKafkaTopoConfigs.Connector.InstanceType, spec.AwsKafkaTopoConfigs.General.ImageId, spec.AwsKafkaTopoConfigs.General.CIDR, "master"})
+		}
+
+		tui.PrintTable(clusterTable, true)
+	}
+
+	log.Warnf("Attention:")
+	log.Warnf("    1. If the topology is not what you expected, check your yaml file.")
+	log.Warnf("    2. Please confirm there is no port/directory conflicts in same host.")
+
+	return tui.PromptForConfirmOrAbortError("Do you want to continue? [y/N]: ")
+}
+
+func (m *Manager) confirmTiDBTopology(name string, topo spec.Topology) error {
+	log.Infof("Please confirm your TiDB topology:")
+
+	cyan := color.New(color.FgCyan, color.Bold)
+
+	if spec, ok := topo.(*spec.Specification); ok {
+		generalCfg := spec.AwsTopoConfigs.General
+		clusterCfg := spec.AwsTopoConfigs
+
+		fmt.Printf("AWS Region:      %s\n", cyan.Sprint(generalCfg.Region))
+		fmt.Printf("Cluster type:    %s\n", cyan.Sprint(m.sysName))
+		fmt.Printf("Cluster name:    %s\n", cyan.Sprint(name))
+		fmt.Printf("Cluster version: %s\n", cyan.Sprint(generalCfg.TiDBVersion))
+		fmt.Printf("User Name:       %s\n", cyan.Sprint(generalCfg.Name))
+		fmt.Printf("Key Name:        %s\n", cyan.Sprint(generalCfg.KeyName))
+		fmt.Printf("\n")
+
+		clusterTable := [][]string{
+			// Header
+			{"Component", "# of nodes", "Instance Type", "Image Name", "CIDR", "User", "Placement rule labels"},
+		}
+		if spec.AwsWSConfigs.InstanceType != "" {
+			clusterTable = append(clusterTable, []string{"Workstation", "1", spec.AwsWSConfigs.InstanceType, spec.AwsWSConfigs.ImageId, spec.AwsWSConfigs.CIDR, "admin"})
+		}
+
+		if clusterCfg.TiDB.Count > 0 {
+			clusterTable = append(clusterTable, []string{"TiDB", strconv.Itoa(clusterCfg.TiDB.Count), clusterCfg.TiDB.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.PD.Count > 0 {
+			clusterTable = append(clusterTable, []string{"PD", strconv.Itoa(clusterCfg.PD.Count), clusterCfg.PD.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		ec2NodeConfigs, err := task.ScanLabels(&(clusterCfg.TiKV).Labels, &(clusterCfg.TiKV).ModalTypes)
+		if err != nil {
+			return err
+		}
+		if ec2NodeConfigs != nil {
+			for _, tikvNode := range *ec2NodeConfigs {
+				var arrLabels []string
+				for _, label := range tikvNode.Labels {
+					for key, value := range label {
+						arrLabels = append(arrLabels, fmt.Sprintf("%s=%s", strings.Replace(key, "label:", "", 1), value))
+					}
+				}
+				clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(tikvNode.Count), tikvNode.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master", strings.Join(arrLabels, ",")})
+			}
+		}
+
+		if clusterCfg.TiKV.Count > 0 {
+			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(clusterCfg.TiKV.Count), clusterCfg.TiKV.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.TiFlash.Count > 0 {
+			clusterTable = append(clusterTable, []string{"TiFlash", strconv.Itoa(clusterCfg.TiFlash.Count), clusterCfg.TiFlash.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.TiCDC.Count > 0 {
+			clusterTable = append(clusterTable, []string{"TiCDC", strconv.Itoa(clusterCfg.TiCDC.Count), clusterCfg.TiCDC.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.DMMaster.Count > 0 {
+			clusterTable = append(clusterTable, []string{"DM Master", strconv.Itoa(clusterCfg.DMMaster.Count), clusterCfg.DMMaster.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+		if clusterCfg.DMWorker.Count > 0 {
+			clusterTable = append(clusterTable, []string{"DM Worker", strconv.Itoa(clusterCfg.DMWorker.Count), clusterCfg.DMWorker.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.Pump.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Pump", strconv.Itoa(clusterCfg.Pump.Count), clusterCfg.Pump.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.Drainer.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Drainer", strconv.Itoa(clusterCfg.Drainer.Count), clusterCfg.Drainer.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.Monitor.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Monitor", strconv.Itoa(clusterCfg.Monitor.Count), clusterCfg.Monitor.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.Grafana.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Grafana", strconv.Itoa(clusterCfg.Grafana.Count), clusterCfg.Grafana.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		if clusterCfg.AlertManager.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Alert Manager", strconv.Itoa(clusterCfg.AlertManager.Count), clusterCfg.AlertManager.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		}
+
+		tui.PrintTable(clusterTable, true)
+	}
+
+	log.Warnf("Attention:")
+	log.Warnf("    1. If the topology is not what you expected, check your yaml file.")
+	log.Warnf("    2. Please confirm there is no port/directory conflicts in same host.")
+
+	return tui.PromptForConfirmOrAbortError("Do you want to continue? [y/N]: ")
+}
+
 func (m *Manager) sshTaskBuilder(name string, topo spec.Topology, user string, gOpt operator.Options) (*task.Builder, error) {
 	var p *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
 	if gOpt.SSHType != executor.SSHTypeNone && len(gOpt.SSHProxyHost) != 0 {

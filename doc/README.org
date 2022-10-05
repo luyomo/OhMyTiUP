@@ -33,6 +33,7 @@
  | Grant S3 bucket/folder permission to TiDB Cloud account           |                                                                                                                   |        |
  | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                                                                                   |        |
  | [[./prometheus2newrelic.org][Prometheus to Newrelic metrics]]                                    | Convert the Prometheus metrics to Newrelic                                                                        |        |
+ | [[./thanos.org][THANOS for prometheus HA]]                                          | THANOS deployment                                                                                                 |        |
  | [[./pg-kafka-tidb.org][Replication from Postgres to TiDB through kafka]]                   | Postgres -> Debezium source connector -> kafka -> jdbc sink connector -> TiDB Cloud                               |        |
 
 

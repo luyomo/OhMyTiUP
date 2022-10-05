@@ -41,15 +41,17 @@ type TplTiKVData struct {
 }
 
 type TplTiupData struct {
-	PD      []string
-	TiDB    []string
-	TiFlash []string
-	TiKV    []TplTiKVData
-	TiCDC   []string
-	DM      []string
-	Monitor []string
-	Pump    []string
-	Drainer []string
+	PD           []string
+	TiDB         []string
+	TiFlash      []string
+	TiKV         []TplTiKVData
+	TiCDC        []string
+	DM           []string
+	Monitor      []string
+	Grafana      []string
+	AlertManager []string
+	Pump         []string
+	Drainer      []string
 
 	Labels []string
 }
@@ -137,20 +139,40 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 					tplData.Drainer = append(tplData.Drainer, instance.PrivateIpAddress)
 				}
 
-				if tag["Key"] == "Component" && tag["Value"] == "workstation" {
+				if tag["Key"] == "Component" && tag["Value"] == "montior" {
 					tplData.Monitor = append(tplData.Monitor, instance.PrivateIpAddress)
+				}
+
+				if tag["Key"] == "Component" && tag["Value"] == "grafana" {
+					tplData.Grafana = append(tplData.Grafana, instance.PrivateIpAddress)
+
+				}
+
+				if tag["Key"] == "Component" && tag["Value"] == "alert-manager" {
+					tplData.AlertManager = append(tplData.AlertManager, instance.PrivateIpAddress)
 
 				}
 			}
 		}
 	}
+
 	zap.L().Debug("AWS WS Config:", zap.String("Monitoring", c.awsWSConfigs.EnableMonitoring))
 	if c.awsWSConfigs.EnableMonitoring == "enabled" {
 		workstation, err := getWorkstation(*c.pexecutor, ctx, clusterName, clusterType)
 		if err != nil {
 			return err
 		}
-		tplData.Monitor = append(tplData.Monitor, workstation.PrivateIpAddress)
+		if len(tplData.Grafana) == 0 {
+			tplData.Grafana = append(tplData.Grafana, workstation.PrivateIpAddress)
+		}
+
+		if len(tplData.Monitor) == 0 {
+			tplData.Monitor = append(tplData.Monitor, workstation.PrivateIpAddress)
+		}
+
+		if len(tplData.AlertManager) == 0 {
+			tplData.AlertManager = append(tplData.AlertManager, workstation.PrivateIpAddress)
+		}
 	}
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
 

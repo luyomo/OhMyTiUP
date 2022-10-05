@@ -68,12 +68,16 @@ monitoring_servers:
   {{- range .Monitor }}
   - host: {{. }}
   {{- end }}
+{{- end }}
+{{- if gt (len .Grafana) 0 }}
 grafana_servers:
-  {{- range .Monitor }}
+  {{- range .Grafana }}
   - host: {{. }}
   {{- end }}
+{{- end }}
+{{- if gt (len .AlertManager) 0 }}
 alertmanager_servers:
-  {{- range .Monitor }}
+  {{- range .AlertManager }}
   - host: {{. }}
   {{- end }}
 {{ end  }}

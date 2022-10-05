@@ -56,7 +56,7 @@ aws_topo_configs:
     keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
     cidr: 182.83.0.0/16                           # The cidr for the VPC
     instance_type: m5.2xlarge                     # Default instance type
-    tidb_version: v6.2.0                          # TiDB version
+    tidb_version: v6.3.0                          # TiDB version
     excluded_az:                                  # The AZ to be excluded for the subnets
       - us-east-1e
     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
@@ -74,6 +74,15 @@ aws_topo_configs:
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
   ticdc:
     instance_type: c5.xlarge                      # Instance type of ticdc
+    count: 1                                      # Number of TiDB node to be deployed
+  monitor:
+    instance_type: c5.large                       # Instance type for PD component
+    count: 1                                      # Number of TiDB node to be deployed
+  grafana:
+    instance_type: c5.large                       # Instance type for PD component
+    count: 1                                      # Number of TiDB node to be deployed
+  alert-manager:
+    instance_type: c5.large                       # Instance type for PD component
     count: 1                                      # Number of TiDB node to be deployed
 postgres:
   cidr: 172.84.0.0/16

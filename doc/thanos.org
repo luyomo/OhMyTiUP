@@ -1,0 +1,181 @@
+#+OPTIONS: ^:nil
+
+* thanos diagram
+  [[./png/thanos/diagram.png]]
+  #+BEGIN_COMMENT
+  #+BEGIN_SRC plantuml :file png/thanos/diagram.png
+left to right direction
+package "Metrics source" as data_source {
+usecase "Node Exporter" as ne
+usecase "TiDB" as tidb
+usecase "TiKV" as tikv
+usecase "PD" as pd
+usecase "ng-monitoring" as ng
+usecase "tidb_port_probe" as tp
+usecase "monitor_port_probe" as mp
+usecase "blackbox_exporter_probe" as bep
+}
+usecase "Prometheus" as prom
+usecase "Thanos Sidecar" as ths
+usecase "Thanos Store" as thst
+usecase "Thanos Query" as thq
+
+ne --> prom
+tidb --> prom
+tikv --> prom
+pd --> prom
+ng --> prom
+tp --> prom
+mp --> prom
+bep --> prom
+
+prom --> ths
+ths --> (S3)
+(S3) --> thst
+thst --> thq
+ths --> thq
+thq --> (grafana)
+  #+END_SRC
+  #+END_COMMENT
+* Prometheus
+** Source data
+   #+ATTR_HTML: :board 2 :rules all :frame boarder
+   | Name                    |  Port | Comment                                                |
+   |-------------------------+-------+--------------------------------------------------------|
+   | Node Exporter           |  9100 | CPU, Memory, Disk                                      |
+   | TiDB                    | 10080 | component metrics                                      |
+   | TiKV                    | 20180 | component metrics                                      |
+   | PD                      |  2379 | component metrics                                      |
+   | ticdc                   |  8300 | component metrics                                      |
+   |-------------------------+-------+--------------------------------------------------------|
+   | ng-monitoring           | 12020 | https://github.com/pingcap/ng-monitoring               |
+   |                         |       | TiDB Dashboard features - Continuous Profiling/Top SQL |
+   |                         |       | https://docs.pingcap.com/tidb/stable/dashboard-faq     |
+   |-------------------------+-------+--------------------------------------------------------|
+   | tidb_port_probe         |       | TiDB/TiKV/PD port probe                                |
+   | monitor_port_probe      |       | grafana/node_exporter/blackbox_exporter port probe     |
+   | blackbox_exporter_probe |       | HTTP, HTTPS, DNS, TCP, ICMP and gRPC                   |
+
+** Prometheus startup script
+   #+BEGIN_SRC
+OhMyTiUP$ more /home/admin/tidb/tidb-deploy/prometheus-9090/scripts/run_prometheus.sh
+#!/bin/bash
+set -e
+
+DEPLOY_DIR=/home/admin/tidb/tidb-deploy/prometheus-9090
+cd "${DEPLOY_DIR}" || exit 1
+
+# WARNING: This file was auto-generated. Do not edit!
+#          All your edit might be overwritten!
+
+if [ -e "bin/ng-monitoring-server" ]; then
+echo "#!/bin/bash
+
+# WARNING: This file was auto-generated to restart ng-monitoring when fail. 
+#          Do not edit! All your edit might be overwritten!
+
+while true
+do
+    bin/ng-monitoring-server \
+        --config /home/admin/tidb/tidb-deploy/prometheus-9090/conf/ngmonitoring.toml \
+        >/dev/null 2>&1
+    sleep 15s
+done" > scripts/ng-wrapper.sh
+fi
+/bin/bash scripts/ng-wrapper.sh &
+
+exec > >(tee -i -a "/home/admin/tidb/tidb-deploy/prometheus-9090/log/prometheus.log")
+exec 2>&1
+exec bin/prometheus/prometheus \
+    --config.file="/home/admin/tidb/tidb-deploy/prometheus-9090/conf/prometheus.yml" \
+    --web.listen-address=":9090" \
+    --web.external-url="http://182.83.1.120:9090/" \
+    --web.enable-admin-api \
+    --web.enable-lifecycle \
+    --log.level="info" \
+    --storage.tsdb.path="/home/admin/tidb/tidb-data/prometheus-9090" \
+    --storage.tsdb.retention="30d" \
+    --storage.tsdb.min-block-duration="2h" \
+    --storage.tsdb.max-block-duration="2h"
+   #+END_SRC
+
+
+* Thanos
+** Install
+  #+BEGIN_SRC
+OhMyTiUP$ wget https://github.com/thanos-io/thanos/releases/download/v0.28.0/thanos-0.28.0.linux-amd64.tar.gz
+  #+END_SRC
+
+** Start the thanos sidecar
+*** S3 config file
+    #+BEGIN_SRC
+type: S3
+config:
+  bucket: "jay-ticdc"
+  endpoint: "s3.us-west-2.amazonaws.com"
+  region: "us-west-2"
+  aws_sdk_auth: false
+  access_key: "XXXX2XXXXXX4XX4XXX7X"
+  insecure: false
+  signature_version2: false
+  secret_key: "XXxXXXXXxxxxxxXXXXXXXXXXxxxddddddXXXXxxxpUBy0QVr"
+  put_user_metadata: {}
+  part_size: 67108864
+    #+END_SRC
+*** thanos sidecar startup
+   #+BEGIN_SRC
+   ./thanos sidecar --objstore.config-file=etc/s3.yaml --tsdb.path=/home/admin/tidb/tidb-data/prometheus-9090
+   #+END_SRC
+
+** thanos store
+   #+BEGIN_SRC
+OhMyTiUP$ ./thanos store --grpc-address=0.0.0.0:10921 --http-address=0.0.0.0:10922 --objstore.config-file=etc/s3.yaml
+   #+END_SRC
+   
+** thanos query
+   #+BEGIN_SRC
+OhMyTiUP$ ./thanos query --grpc-address=0.0.0.0:10911 --store 0.0.0.0:10901 --store 0.0.0.0:10912
+   #+END_SRC
+
+* Grafana datasource update
+ #+BEGIN_SRC
+OhMyTiUP$ ls /home/admin/tidb/tidb-deploy/grafana-3000/provisioning/datasources
+datasource.yml
+OhMyTiUP
+OhMyTiUP$ more datasource.yml
+apiVersion: 1
+datasources:
+  - name: avrotest
+    type: prometheus
+    access: proxy
+    url: http://182.83.1.120:9090
+    withCredentials: false
+    isDefault: false
+    tlsAuth: false
+    tlsAuthWithCACert: false
+    version: 1
+    editable: true
+OhMyTiUP$ more datasource.yml
+apiVersion: 1
+datasources:
+  - name: avrotest
+    type: prometheus
+    access: proxy
+    url: http://182.83.1.120:10912
+    withCredentials: false
+    isDefault: false
+    tlsAuth: false
+    tlsAuthWithCACert: false
+    version: 1
+    editable: true
+ #+END_SRC
+
+** Grafana test
+*** S3 block
+   [[./png/thanos/0002.png]]
+   [[./png/thanos/0003.png]]
+   [[./png/thanos/0004.png]]
+*** thanos data source
+   [[./png/thanos/0005.png]]
+*** Grafana metrics
+   [[./png/thanos/0006.png]]

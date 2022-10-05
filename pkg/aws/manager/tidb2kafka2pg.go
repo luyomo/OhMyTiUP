@@ -32,7 +32,6 @@ import (
 	"github.com/luyomo/tisample/pkg/executor"
 	"github.com/luyomo/tisample/pkg/logger"
 	"github.com/luyomo/tisample/pkg/meta"
-	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
 	perrs "github.com/pingcap/errors"
@@ -73,7 +72,11 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 		base.GlobalOptions.SSHType = sshType
 	}
 
-	if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
+	if err := m.confirmTiDBTopology(name, topo); err != nil {
+		return err
+	}
+
+	if err := m.confirmKafkaTopology(name, topo); err != nil {
 		return err
 	}
 
