@@ -644,7 +644,7 @@ func (b *Builder) CreateMonitorNodes(pexecutor *ctxt.Executor, subClusterType st
 		awsGeneralConfigs: &awsTopoConfigs.General,
 		subClusterType:    subClusterType,
 		clusterInfo:       clusterInfo,
-		componentName:     "montior",
+		componentName:     "monitor",
 	})
 	return b
 }
@@ -1638,6 +1638,14 @@ func (b *Builder) ListTiDBCloud(projectID uint64, status, clusterType string, ta
 		clusterType:   clusterType,
 		tableClusters: tableClusters,
 		tableNodes:    tableNodes,
+	})
+	return b
+}
+
+func (b *Builder) DeployThanos(opt *operator.ThanosS3Config, gOpt *operator.Options) *Builder {
+	b.tasks = append(b.tasks, &DeployThanos{
+		opt:  opt,
+		gOpt: gOpt,
 	})
 	return b
 }

@@ -1066,3 +1066,41 @@ func (c *ListAllAwsEC2) Rollback(ctx context.Context) error {
 func (c *ListAllAwsEC2) String() string {
 	return fmt.Sprintf("Echo: Deploying Workstation")
 }
+
+func FetchInstances(ctx context.Context, tags *map[string]string, _func *func(types.Instance) error) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	client := ec2.NewFromConfig(cfg)
+
+	var filters []types.Filter
+	for _key, _value := range *tags {
+		filters = append(filters, types.Filter{
+			Name:   aws.String("tag:" + _key),
+			Values: []string{_value},
+		})
+	}
+
+	filters = append(filters, types.Filter{
+		Name:   aws.String("instance-state-name"),
+		Values: []string{"running", "pending", "stopping", "stopped"},
+	})
+
+	input := &ec2.DescribeInstancesInput{Filters: filters}
+
+	result, err := client.DescribeInstances(context.TODO(), input)
+	if err != nil {
+		return err
+	}
+
+	for _, reservation := range result.Reservations {
+		for _, instance := range reservation.Instances {
+			(*_func)(instance)
+			//			_arrIPs = append(_arrIPs, *instance.PrivateIpAddress)
+		}
+	}
+
+	return nil
+}

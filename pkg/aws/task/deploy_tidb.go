@@ -22,9 +22,12 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/luyomo/tisample/embed"
+	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
 	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/tisample/pkg/executor"
 	"go.uber.org/zap"
 )
 
@@ -145,7 +148,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 				if tag["Key"] == "Component" && tag["Value"] == "grafana" {
 					tplData.Grafana = append(tplData.Grafana, instance.PrivateIpAddress)
-
 				}
 
 				if tag["Key"] == "Component" && tag["Value"] == "alert-manager" {
@@ -162,6 +164,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+
 		if len(tplData.Grafana) == 0 {
 			tplData.Grafana = append(tplData.Grafana, workstation.PrivateIpAddress)
 		}
@@ -290,4 +293,142 @@ func (c *DeployTiDB) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *DeployTiDB) String() string {
 	return fmt.Sprintf("Echo: Deploying TiDB")
+}
+
+// Deploy thanos
+
+type DeployThanos struct {
+	opt  *operator.ThanosS3Config
+	gOpt *operator.Options
+}
+
+func (c *DeployThanos) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	mapFilters := make(map[string]string)
+	mapFilters["Name"] = clusterName
+	mapFilters["Cluster"] = clusterType
+	mapFilters["Component"] = "workstation"
+
+	fmt.Printf("The S3 option is <%#v> \n\n\n", *c.opt)
+
+	var _wsPublicIP *string
+	_funcGetWS := func(_instance types.Instance) error {
+		_wsPublicIP = _instance.PublicIpAddress
+		return nil
+	}
+	if err := FetchInstances(ctx, &mapFilters, &_funcGetWS); err != nil {
+		return err
+	}
+	fmt.Printf("Workstation public ip: <%s> \n\n\n\n", *_wsPublicIP)
+
+	mapFilters["Component"] = "monitor"
+
+	var tasks []Task
+
+	_func := func(_instance types.Instance) error {
+		tasks = append(tasks, &InstallThanos{
+			TargetServer: _instance.PrivateIpAddress,
+			ProxyServer:  _wsPublicIP,
+			User:         (*c.gOpt).SSHUser,
+			KeyFile:      (*c.gOpt).IdentityFile,
+			opt:          c.opt,
+		})
+		fmt.Printf("Starting to call monitor server <%s> \n\n\n", *(_instance.PrivateIpAddress))
+		return nil
+	}
+
+	if err := FetchInstances(ctx, &mapFilters, &_func); err != nil {
+		return err
+	}
+	// fmt.Printf("The ips are <%#v> \n\n\n\n", monitorIPs)
+
+	parallelExe := Parallel{ignoreError: false, inner: tasks}
+	if err := parallelExe.Execute(ctx); err != nil {
+		return err
+	}
+
+	// for _, _monitorServer := range *monitorIPs {
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DeployThanos) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DeployThanos) String() string {
+	return fmt.Sprintf("Echo: Deploying Thanos")
+}
+
+type InstallThanos struct {
+	TargetServer *string
+	ProxyServer  *string
+	User         string
+	KeyFile      string
+
+	opt *operator.ThanosS3Config
+}
+
+func (c *InstallThanos) Execute(ctx context.Context) error {
+	// 2. Install thanos
+	// 2.1 Download binary to workstation.
+	// 2.2 Move the binary to monitoring server
+
+	_promExe, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: *(c.TargetServer), User: c.User, KeyFile: c.KeyFile, Proxy: &executor.SSHConfig{Host: *(c.ProxyServer), User: c.User, Port: 22, KeyFile: c.KeyFile}}, []string{})
+
+	if err != nil {
+		return err
+	}
+	_, _, err = _promExe.Execute(ctx, "apt-get -y update", true)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = _promExe.Execute(ctx, "rm -f /tmp/thanos-0.28.0.linux-amd64.tar.gz", true)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = _promExe.Execute(ctx, "wget https://github.com/thanos-io/thanos/releases/download/v0.28.0/thanos-0.28.0.linux-amd64.tar.gz -P /tmp", false)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = _promExe.Execute(ctx, "tar xvf /tmp/thanos-0.28.0.linux-amd64.tar.gz --directory /opt", true)
+	if err != nil {
+		return err
+	}
+
+	// }
+
+	_, _, err = _promExe.Execute(ctx, "mkdir -p /opt/thanos/etc", true)
+	if err != nil {
+		return err
+	}
+
+	if err = _promExe.TransferTemplate(ctx, "templates/config/thanos/s3.config.yaml.tpl", "/opt/thanos/etc/s3.config.yaml", "0644", *c.opt, true, 20); err != nil {
+		fmt.Printf("Error: %#v \n\n\n", err)
+		return err
+	}
+
+	// 3. Install thanos to /opt/thanos
+	// 4. Install thanos sidecar in prometheus server
+	// 5. Install thanos store in the promethus server
+	// 6. Install thanos query in the promethus server
+	// 7. Replace grafana's data source in the first prometheus server
+
+	fmt.Printf("Installing thanos on the target server <%s>, proxy server: <%s>, user: <%s>, Identity file: <%s> \n\n\n\n", (*c.TargetServer), (*c.ProxyServer), c.User, c.KeyFile)
+	return nil
+}
+
+func (c *InstallThanos) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+func (c *InstallThanos) String() string {
+	return fmt.Sprintf("Echo: Deploying thanos on target server")
 }

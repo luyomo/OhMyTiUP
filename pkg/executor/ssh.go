@@ -256,6 +256,7 @@ func (e *NativeSSHExecutor) configArgs(args []string, isScp bool) []string {
 	}
 
 	proxy := e.Config.Proxy
+
 	if proxy != nil {
 		proxyArgs := []string{"ssh"}
 		if proxy.Timeout != 0 {
@@ -432,7 +433,7 @@ func (e *NativeSSHExecutor) Transfer(ctx context.Context, src, dst string, downl
 }
 
 func (e *NativeSSHExecutor) TransferTemplate(ctx context.Context, templateFile, dst, fileMode string, config interface{}, sudo bool, limit int) error {
-	tmpFile := fmt.Sprintf("/tmp/%d", os.Getpid())
+	tmpFile := fmt.Sprintf("/tmp/%d", time.Now().UnixNano())
 	fdFile, err := os.Create(tmpFile)
 	if err != nil {
 		return err

@@ -874,3 +874,29 @@ func (m *Manager) TiDBPerfRecursiveCleanupCluster(clusterName string, gOpt opera
 	return nil
 
 }
+
+func (m *Manager) InstallThanos(
+	clusterName string,
+	opt operator.ThanosS3Config,
+	gOpt operator.Options,
+) error {
+
+	clusterType := "ohmytiup-tidb"
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	// 03. prepare task
+	t1 := task.NewBuilder().DeployThanos(&opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Install thanos"))
+
+	// 04. Execute task
+	if err := t1.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
+
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
+	return nil
+}

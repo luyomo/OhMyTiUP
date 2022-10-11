@@ -966,8 +966,9 @@ func InitClientInstance() error {
 	return nil
 }
 
+// Get the user from increntials for resource tag addition
 func GetCallerUser(ctx context.Context) (string, error) {
-	if ctx.Value("tagOwner") != nil {
+	if ctx.Value("tagOwner") != nil && ctx.Value("tagOwner") != "" {
 		return ctx.Value("tagOwner").(string), nil
 	}
 
@@ -986,8 +987,9 @@ func GetCallerUser(ctx context.Context) (string, error) {
 	return strings.Split((*_caller.Arn), "/")[1], nil
 }
 
+// Get the project name. If it is not specified, user the cluster name as the project name
 func GetProject(ctx context.Context) string {
-	if ctx.Value("tagProject") != nil {
+	if ctx.Value("tagProject") != nil && ctx.Value("tagProject") != "" {
 		return ctx.Value("tagProject").(string)
 	}
 	return ctx.Value("clusterName").(string)

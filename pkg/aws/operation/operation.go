@@ -149,20 +149,29 @@ func FilterInstance(instances []spec.Instance, nodes set.StringSet) (res []spec.
 	return
 }
 
-type LatencyWhenBatchOptions struct {
-	BatchSize      int
-	BatchSizeArray string
-	RunCount       int
-	TransInterval  int
+type (
+	LatencyWhenBatchOptions struct {
+		BatchSize      int
+		BatchSizeArray string
+		RunCount       int
+		TransInterval  int
 
-	TiKVMode string
+		TiKVMode string
 
-	SysbenchTargetInstance string
-	SysbenchDBName         string
-	SysbenchNumTables      int
-	SysbenchNumRows        int
-	SysbenchPluginName     string
-	SysbenchExecutionTime  int64
-	SysbenchThread         int
-	SysbenchReportInterval int
-}
+		SysbenchTargetInstance string
+		SysbenchDBName         string
+		SysbenchNumTables      int
+		SysbenchNumRows        int
+		SysbenchPluginName     string
+		SysbenchExecutionTime  int64
+		SysbenchThread         int
+		SysbenchReportInterval int
+	}
+
+	ThanosS3Config struct {
+		Bucket    string
+		Region    string
+		AccessKey string
+		SecretKey string
+	}
+)

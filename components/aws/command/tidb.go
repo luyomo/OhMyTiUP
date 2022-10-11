@@ -40,6 +40,7 @@ func newTiDBCmd() *cobra.Command {
 		newDestroyTiDBCmd(),
 		newTiDBScale(),
 		newTiDBPerfCmd(),
+		newInstallThanos(),
 	)
 	return cmd
 }
@@ -273,6 +274,37 @@ func newTiDBLatencyMeasurementRunCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&opt.BatchSizeArray, "batch-size", "s", "x,10000", "Batch size: x,5000,10000,25000,50000 -> Loop the test as <no batch -> 5000 -> 10000 -> 25000 -> 50000>")
 	cmd.Flags().IntVar(&opt.RunCount, "repeats", 1, "Count to loop the test")
 	cmd.Flags().IntVar(&opt.TransInterval, "trans-interval", 2, "The interval to insert the transaction")
+
+	return cmd
+}
+
+func newInstallThanos() *cobra.Command {
+	opt := operator.ThanosS3Config{}
+
+	cmd := &cobra.Command{
+		Use:          "install-thanos <cluster-name>",
+		Short:        "Install thanos on the TiDB cluster",
+		Long:         "Install thanos on the TiDB cluster. SSH connection will be used to deploy files, as well as creating system users for running the service.",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.InstallThanos(clusterName, opt, gOpt)
+		},
+	}
+
+	cmd.Flags().StringVarP(&opt.Bucket, "bucket", "b", "", "Bucket name for promethus data export")
+	cmd.Flags().StringVarP(&opt.Region, "region", "r", "", "Region for promethus data export")
+	cmd.Flags().StringVarP(&opt.AccessKey, "access-key", "k", "", "Access Key for promethus data export. Default: crentials")
+	cmd.Flags().StringVarP(&opt.SecretKey, "secret-key", "s", "", "Secret Key for promethus data export. Default: crentials")
 
 	return cmd
 }
