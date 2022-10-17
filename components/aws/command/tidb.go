@@ -17,10 +17,12 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/luyomo/tisample/pkg/aws/manager"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/aws/spec"
+	awsutils "github.com/luyomo/tisample/pkg/aws/utils"
 	"github.com/luyomo/tisample/pkg/set"
 	"github.com/luyomo/tisample/pkg/tui"
 	"github.com/luyomo/tisample/pkg/utils"
@@ -297,14 +299,31 @@ func newInstallThanos() *cobra.Command {
 
 			clusterName := args[0]
 
+			// Fetch bucket region
+			opt.Region, err = awsutils.GetS3BucketLocation(opt.Bucket)
+			if err != nil {
+				if strings.HasSuffix(err.Error(), "api error AccessDenied: Access Denied") {
+					fmt.Printf("No S3 bucket <%s> found or no permission to access \n", opt.Bucket)
+				}
+				return err
+			}
+
+			// Fetch access key and secret key
+			_crentials, err := awsutils.GetAWSCrential()
+			if err != nil {
+				return err
+			}
+			opt.AccessKey = (*_crentials).AccessKeyID
+			opt.SecretKey = (*_crentials).SecretAccessKey
+
 			return cm.InstallThanos(clusterName, opt, gOpt)
 		},
 	}
 
 	cmd.Flags().StringVarP(&opt.Bucket, "bucket", "b", "", "Bucket name for promethus data export")
-	cmd.Flags().StringVarP(&opt.Region, "region", "r", "", "Region for promethus data export")
-	cmd.Flags().StringVarP(&opt.AccessKey, "access-key", "k", "", "Access Key for promethus data export. Default: crentials")
-	cmd.Flags().StringVarP(&opt.SecretKey, "secret-key", "s", "", "Secret Key for promethus data export. Default: crentials")
+	// cmd.Flags().StringVarP(&opt.Region, "region", "r", "", "Region for promethus data export")
+	// cmd.Flags().StringVarP(&opt.AccessKey, "access-key", "k", "", "Access Key for promethus data export. Default: crentials")
+	// cmd.Flags().StringVarP(&opt.SecretKey, "secret-key", "s", "", "Secret Key for promethus data export. Default: crentials")
 
 	return cmd
 }

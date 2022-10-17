@@ -36,7 +36,10 @@ import (
 	"github.com/luyomo/tisample/pkg/tidbcloudapi"
 	"go.uber.org/zap"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -985,6 +988,39 @@ func GetCallerUser(ctx context.Context) (string, error) {
 	_caller, err := _client.GetCallerIdentity(ctx, _getCallerIdentityInput)
 
 	return strings.Split((*_caller.Arn), "/")[1], nil
+}
+
+func GetAWSCrential(ctx context.Context) (*aws.Credentials, error) {
+	_ctx := context.TODO()
+	cfg, err := config.LoadDefaultConfig(_ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_crentials, err := cfg.Credentials.Retrieve(ctx)
+	return &_crentials, nil
+}
+
+func GetS3BucketLocation(ctx context.Context, bucketName string) error {
+	_ctx := context.TODO()
+	cfg, err := config.LoadDefaultConfig(_ctx)
+	if err != nil {
+		return err
+	}
+
+	client := s3.NewFromConfig(cfg)
+
+	getBucketLocationInput := &s3.GetBucketLocationInput{
+		Bucket: aws.String(bucketName),
+	}
+
+	getBucketLocationOutput, err := client.GetBucketLocation(context.TODO(), getBucketLocationInput)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The bucket information is <%#v> \n\n\n\n", getBucketLocationOutput)
+
+	return nil
 }
 
 // Get the project name. If it is not specified, user the cluster name as the project name

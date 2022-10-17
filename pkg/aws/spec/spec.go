@@ -124,6 +124,7 @@ type (
 		ExcludedAZ   []string `yaml:"excluded_az,omitempty"`
 		IncludedAZ   []string `yaml:"included_az,omitempty"`
 		EnableNAT    string   `yaml:"enable_nat" default:"true"`
+		EnableThanos string   `yaml:"enable_thanos", default:"disabled"` // enabled/disabled
 	}
 
 	AwsNodeVolume struct {

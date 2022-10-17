@@ -984,29 +984,9 @@ func (c *ListAllAwsEC2) Execute(ctx context.Context) error {
 	client := ec2.NewFromConfig(cfg)
 
 	var filters []types.Filter
-	// filters = append(filters, types.Filter{
-	// 	Name:   aws.String("tag:Name"),
-	// 	Values: []string{clusterName},
-	// })
-
-	// filters = append(filters, types.Filter{
-	// 	Name:   aws.String("tag:Cluster"),
-	// 	Values: []string{clusterType},
-	// })
-
-	// filters = append(filters, types.Filter{
-	// 	Name:   aws.String("tag:Component"),
-	// 	Values: []string{componentName},
-	// })
-
-	// filters = append(filters, types.Filter{
-	// 	Name:   aws.String("tag:Type"),
-	// 	Values: []string{subClusterType},
-	// })
 
 	filters = append(filters, types.Filter{
-		Name: aws.String("instance-state-name"),
-		//		Values: []string{"running", "pending", "stopping", "stopped"},
+		Name:   aws.String("instance-state-name"),
 		Values: []string{"running", "terminated"},
 	})
 
@@ -1029,27 +1009,7 @@ func (c *ListAllAwsEC2) Execute(ctx context.Context) error {
 				string(*instance.KeyName),
 				string(instance.LaunchTime.String()),
 				string(instance.State.Name),
-				// string(instance.InstanceType),
-				// string(instance.InstanceType),
-				// string(instance.InstanceType),
-				// instance.PrivateIpAddress,
-				// instance.PublicIpAddress,
-				// instance.ImageId,
 			})
-
-			// (*c.tableEC2) = append(*c.tableEC2, []string{
-			// 	"test",
-			// 	"test",
-			// 	instance.State.Name,
-			// 	instance.InstanceId,
-			// 	instance.InstanceType,
-			// 	instance.PrivateIpAddress,
-			// 	instance.PublicIpAddress,
-			// 	instance.ImageId,
-			// })
-
-			fmt.Printf("The instance here is <%#v> \n\n\n", instance)
-			// funcTags(instance.Tags)
 		}
 
 	}

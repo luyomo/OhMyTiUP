@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -60,7 +61,7 @@ type TplTiupData struct {
 }
 
 func (t TplTiupData) String() string {
-	return fmt.Sprintf("PD: %s  |  TiDB: %s | TiFlash: %s   |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s ", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiFlash, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","))
+	return fmt.Sprintf("PD: %s  |  TiDB: %s | TiFlash: %s   |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s | Grafana: %s | AlertManager: %s", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiFlash, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","), strings.Join(t.Grafana, ","), strings.Join(t.AlertManager, ","))
 }
 
 // Execute implements the Task interface
@@ -142,7 +143,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 					tplData.Drainer = append(tplData.Drainer, instance.PrivateIpAddress)
 				}
 
-				if tag["Key"] == "Component" && tag["Value"] == "montior" {
+				if tag["Key"] == "Component" && tag["Value"] == "monitor" {
 					tplData.Monitor = append(tplData.Monitor, instance.PrivateIpAddress)
 				}
 
@@ -159,6 +160,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 
 	zap.L().Debug("AWS WS Config:", zap.String("Monitoring", c.awsWSConfigs.EnableMonitoring))
+	zap.L().Debug("TiDB components:", zap.String("Componens", tplData.String()))
 	if c.awsWSConfigs.EnableMonitoring == "enabled" {
 		workstation, err := getWorkstation(*c.pexecutor, ctx, clusterName, clusterType)
 		if err != nil {
@@ -327,6 +329,17 @@ func (c *DeployThanos) Execute(ctx context.Context) error {
 
 	var tasks []Task
 
+	var _storeServers []string
+	_funcGetStores := func(_instance types.Instance) error {
+		_storeServers = append(_storeServers, *(_instance.PrivateIpAddress))
+		return nil
+	}
+
+	if err := FetchInstances(ctx, &mapFilters, &_funcGetStores); err != nil {
+		return err
+	}
+	fmt.Printf("All the store servers <%#v> \n\n\n\n", _storeServers)
+
 	_func := func(_instance types.Instance) error {
 		tasks = append(tasks, &InstallThanos{
 			TargetServer: _instance.PrivateIpAddress,
@@ -334,7 +347,9 @@ func (c *DeployThanos) Execute(ctx context.Context) error {
 			User:         (*c.gOpt).SSHUser,
 			KeyFile:      (*c.gOpt).IdentityFile,
 			opt:          c.opt,
+			StoreServers: &_storeServers,
 		})
+
 		fmt.Printf("Starting to call monitor server <%s> \n\n\n", *(_instance.PrivateIpAddress))
 		return nil
 	}
@@ -370,7 +385,8 @@ type InstallThanos struct {
 	User         string
 	KeyFile      string
 
-	opt *operator.ThanosS3Config
+	opt          *operator.ThanosS3Config
+	StoreServers *[]string
 }
 
 func (c *InstallThanos) Execute(ctx context.Context) error {
@@ -388,19 +404,34 @@ func (c *InstallThanos) Execute(ctx context.Context) error {
 		return err
 	}
 
-	_, _, err = _promExe.Execute(ctx, "rm -f /tmp/thanos-0.28.0.linux-amd64.tar.gz", true)
+	// Install thanos
+	stdout, _, err := _promExe.Execute(ctx, "which /opt/thanos-0.28.0.linux-amd64/thanos | wc -l", true)
+	if err != nil {
+		fmt.Printf("Error: %#v \n\n\n", err)
+		return err
+	}
+
+	_cnt, err := strconv.Atoi(strings.Replace(string(stdout), "\n", "", -1))
 	if err != nil {
 		return err
 	}
 
-	_, _, err = _promExe.Execute(ctx, "wget https://github.com/thanos-io/thanos/releases/download/v0.28.0/thanos-0.28.0.linux-amd64.tar.gz -P /tmp", false)
-	if err != nil {
-		return err
-	}
+	if _cnt == 0 {
 
-	_, _, err = _promExe.Execute(ctx, "tar xvf /tmp/thanos-0.28.0.linux-amd64.tar.gz --directory /opt", true)
-	if err != nil {
-		return err
+		_, _, err = _promExe.Execute(ctx, "rm -f /tmp/thanos-0.28.0.linux-amd64.tar.gz", true)
+		if err != nil {
+			return err
+		}
+
+		_, _, err = _promExe.Execute(ctx, "wget https://github.com/thanos-io/thanos/releases/download/v0.28.0/thanos-0.28.0.linux-amd64.tar.gz -P /tmp", false)
+		if err != nil {
+			return err
+		}
+
+		_, _, err = _promExe.Execute(ctx, "tar xvf /tmp/thanos-0.28.0.linux-amd64.tar.gz --directory /opt", true)
+		if err != nil {
+			return err
+		}
 	}
 
 	// }
@@ -410,8 +441,88 @@ func (c *InstallThanos) Execute(ctx context.Context) error {
 		return err
 	}
 
+	// To remove
+	// _awsCrential, err := GetAWSCrential(ctx)
+
+	// Render s3 config file
 	if err = _promExe.TransferTemplate(ctx, "templates/config/thanos/s3.config.yaml.tpl", "/opt/thanos/etc/s3.config.yaml", "0644", *c.opt, true, 20); err != nil {
 		fmt.Printf("Error: %#v \n\n\n", err)
+		return err
+	}
+
+	// Render thanos-sidecar
+	if err = _promExe.TransferTemplate(ctx, "templates/config/thanos/thanos-sidecar.service.tpl", "/etc/systemd/system/thanos-sidecar.service", "0644", *c.opt, true, 20); err != nil {
+		fmt.Printf("Error: %#v \n\n\n", err)
+		return err
+	}
+
+	// Added enable-lifecycle/min-block-duration/max-block-duration to run_prometheus
+	//   Check whether min-block-duration has existed in the file
+	stdout, _, err = _promExe.Execute(ctx, "grep 'storage.tsdb.min-block-duration' /home/admin/tidb/tidb-deploy/prometheus-9090/scripts/run_prometheus.sh  | wc -l", true)
+	if err != nil {
+		fmt.Printf("Error: %#v \n\n\n", err)
+		return err
+	}
+
+	_cnt, err = strconv.Atoi(strings.Replace(string(stdout), "\n", "", -1))
+	if err != nil {
+		return err
+	}
+
+	if _cnt == 0 {
+		if _, _, err = _promExe.Execute(ctx, "sed -i '\\$s/$/ \\\\\\\\/' /home/admin/tidb/tidb-deploy/prometheus-9090/scripts/run_prometheus.sh", true); err != nil {
+			fmt.Printf("Error: %#v \n\n\n", err)
+			return err
+		}
+
+		if _, _, err = _promExe.Execute(ctx, "echo '    --web.enable-lifecycle \\' >> /home/admin/tidb/tidb-deploy/prometheus-9090/scripts/run_prometheus.sh", true); err != nil {
+			fmt.Printf("Error: %#v \n\n\n", err)
+			return err
+		}
+
+		if _, _, err = _promExe.Execute(ctx, "echo '    --storage.tsdb.min-block-duration=\\\"2h\\\" \\' >> /home/admin/tidb/tidb-deploy/prometheus-9090/scripts/run_prometheus.sh", true); err != nil {
+			fmt.Printf("Error: %#v \n\n\n", err)
+			return err
+		}
+
+		if _, _, err = _promExe.Execute(ctx, "echo '    --storage.tsdb.max-block-duration=\\\"2h\\\"' >> /home/admin/tidb/tidb-deploy/prometheus-9090/scripts/run_prometheus.sh", true); err != nil {
+			fmt.Printf("Error: %#v \n\n\n", err)
+			return err
+		}
+
+	}
+
+	// Render thanos store template
+	if err = _promExe.TransferTemplate(ctx, "templates/config/thanos/thanos-store.service.tpl", "/etc/systemd/system/thanos-store.service", "0644", *c.opt, true, 20); err != nil {
+		return err
+	}
+
+	// Render thanos query template
+	if err = _promExe.TransferTemplate(ctx, "templates/config/thanos/thanos-query.service.tpl", "/etc/systemd/system/thanos-query.service", "0644", c, true, 20); err != nil {
+		return err
+	}
+
+	// #####################################################################
+	// # Restart prometheus / thanos-sidecar/ thanos-store / thanos-query service
+	// #####################################################################
+
+	if _, _, err = _promExe.Execute(ctx, "systemctl daemon-reload", true); err != nil {
+		return err
+	}
+
+	if _, _, err = _promExe.Execute(ctx, "systemctl restart prometheus-9090", true); err != nil {
+		return err
+	}
+
+	if _, _, err = _promExe.Execute(ctx, "systemctl restart thanos-sidecar", true); err != nil {
+		return err
+	}
+
+	if _, _, err = _promExe.Execute(ctx, "systemctl restart thanos-store", true); err != nil {
+		return err
+	}
+
+	if _, _, err = _promExe.Execute(ctx, "systemctl restart thanos-query", true); err != nil {
 		return err
 	}
 
