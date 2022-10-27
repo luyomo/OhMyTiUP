@@ -47,13 +47,11 @@ type TiDB2Kafka2PgDeployOptions struct {
 
 // Deploy a cluster.
 func (m *Manager) TiDB2Kafka2PgDeploy(
-	name string,
+	name, clusterType string,
 	topoFile string,
 	opt TiDB2Kafka2PgDeployOptions,
 	gOpt operator.Options,
 ) error {
-	clusterType := "ohmytiup-tidb2kafka2pg"
-
 	// 1. Preparation phase
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
@@ -167,8 +165,7 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 }
 
 // DestroyCluster destroy the cluster.
-func (m *Manager) DestroyTiDB2Kafka2PgCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
-	clusterType := "ohmytiup-tidb2kafka2pg"
+func (m *Manager) DestroyTiDB2Kafka2PgCluster(name, clusterType string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
 
 	_, err := m.meta(name)
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
@@ -239,12 +236,12 @@ func (m *Manager) DestroyTiDB2Kafka2PgCluster(name string, gOpt operator.Options
 
 // Cluster represents a clsuter
 // ListCluster list the clusters.
-func (m *Manager) ListTiDB2Kafka2PgCluster(clusterName string, opt DeployOptions) error {
+func (m *Manager) ListTiDB2Kafka2PgCluster(clusterName, clusterType string, opt DeployOptions) error {
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2kafka2pg")
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
@@ -344,7 +341,7 @@ type MapTiDB2PG struct {
 	} `yaml:"MapTiDB2PG"`
 }
 
-func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
 
 	mapFile, err := ioutil.ReadFile("embed/templates/config/tidb2kafka2pg/ColumnMapping.yml")
 	if err != nil {
@@ -384,7 +381,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	strInsQuery := fmt.Sprintf("insert into test.test01(%s) values(%s)", strings.Join(arrCols, ","), strings.Join(arrData, ","))
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2kafka2pg")
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
@@ -394,7 +391,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 		return err
 	}
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, "ohmytiup-tidb2kafka2pg", gOpt.SSHUser, gOpt.IdentityFile)
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
 	if err != nil {
 		return err
 	}
@@ -592,10 +589,10 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerf
 	return nil
 }
 
-func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+func (m *Manager) PerfTiDB2Kafka2PG(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2kafka2pg")
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
@@ -606,7 +603,7 @@ func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gO
 		return err
 	}
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, "ohmytiup-tidb2kafka2pg", gOpt.SSHUser, gOpt.IdentityFile)
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
 	if err != nil {
 		return err
 	}
@@ -712,10 +709,10 @@ func (m *Manager) PerfTiDB2Kafka2PG(clusterName string, perfOpt KafkaPerfOpt, gO
 	return nil
 }
 
-func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName string, gOpt operator.Options) error {
+func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName, clusterType string, gOpt operator.Options) error {
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb2kafka2pg")
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	// Get executor
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
@@ -723,7 +720,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2PG(clusterName string, gOpt operator.Optio
 		return err
 	}
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, "ohmytiup-tidb2kafka2pg", gOpt.SSHUser, gOpt.IdentityFile)
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
 	if err != nil {
 		return err
 	}

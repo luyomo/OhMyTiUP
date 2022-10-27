@@ -15,21 +15,11 @@ package task
 
 import (
 	"context"
-	// "encoding/json"
 	"fmt"
 	operator "github.com/luyomo/tisample/pkg/aws/operation"
 	"github.com/luyomo/tisample/pkg/ctxt"
 	"strings"
 	"time"
-	//	"github.com/luyomo/tisample/pkg/executor"
-	//	"github.com/luyomo/tisample/pkg/aws/spec"
-	// "github.com/aws/aws-sdk-go-v2/aws"
-	// "github.com/aws/aws-sdk-go-v2/config"
-	// "github.com/aws/aws-sdk-go-v2/service/ec2"
-	// "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	// "go.uber.org/zap"
-	// "strings"
-	//	"time"
 )
 
 type MetricsOfLatencyWhenBatch struct {
@@ -109,6 +99,7 @@ func (c *RunSysbench) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Staring to run the sysbench *****\n\n\n")
 
 	stdout, _, err := (*workstation).Execute(context.Background(), fmt.Sprintf(`sysbench --config-file=%s %s --tables=%d --table-size=%d run`, c.sysbenchConfigFile, (*c.opt).SysbenchPluginName, (*c.opt).SysbenchNumTables, (*c.opt).SysbenchNumRows), false, 5*time.Hour)
 

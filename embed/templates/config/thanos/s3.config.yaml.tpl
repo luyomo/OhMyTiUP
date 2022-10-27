@@ -7,6 +7,6 @@ config:
   access_key: "{{ .AccessKey }}"
   insecure: false
   signature_version2: false
-  secret_key: " {{ .SecretKey }} "
+  secret_key: "{{ .SecretKey }}"
   put_user_metadata: {}
   part_size: 67108864

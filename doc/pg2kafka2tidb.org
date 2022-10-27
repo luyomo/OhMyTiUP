@@ -1,0 +1,551 @@
+* Overview
+  This platform guide you to setup all components to replicate data from Postgres to TiDB through kafka. [[https://debezium.io/documentation/reference/stable/connectors/postgresql.html][kafka source connector]] is used to capture changes from postgres to kafka while [[https://docs.confluent.io/kafka-connectors/jdbc/current/index.html][confluent JDBC sink]] is used to populate the captured data into TiDB. To minimize data size in the kafka storage and network cost, [[https://docs.confluent.io/platform/current/schema-registry/index.html][confluent avro schema registry]] is used for data [de]serialization. The demo utilizes [[https://debezium.io/documentation/reference/stable/transformations/event-flattening.html][SMT]] to convert the data format from debezium to confluent.
+  #+ATTR_HTML: :width 1000px
+  [[./png/pg2kafka2tidb/pg2kafka2tidb.png]]
+* Manual install
+** TiDB and postgres deployment
+   + Deployment topo file
+     Please check [[../embed/examples/aws/aws-nodes-tidb2kafka2pg.yaml][deployment file for TiDB and kafka]] for detail.
+     #+attr_html: :width 1000px
+     [[./png/pg2kafka2tidb/pg2kafka2tidb.01.png]]
+   + Cluster generation
+     #+attr_html: :width 1000px
+     [[./png/pg2kafka2tidb/pg2kafka2tidb.02.png]]
+   #+BEGIN_SRC
+OhMyTiUP$./bin/aws pg2kafka2tidb deploy avrotest embed/examples/aws/aws-nodes-tidb2kafka2pg.yaml
+... ...
+OhMyTiUP$./bin/aws pg2kafka2tidb list avrotest
+... ...
+Load Balancer:      avrotest-a56a55d7ef009651.elb.us-east-1.amazonaws.com
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP   Public IP      Image ID
+--------------  -----------------  -----    -----------          -------------  -----------   ---------      --------
+alert-manager   tidb               running  i-0309e30865a56daf5  c5.large       182.83.1.243                 ami-07d02ee1eeb0c996c
+broker          kafka              running  i-097cf8767d9ebd73d  c5.xlarge      172.83.2.154                 ami-07d02ee1eeb0c996c
+broker          kafka              running  i-030ce6c2cbbffacfa  c5.xlarge      172.83.1.176                 ami-07d02ee1eeb0c996c
+broker          kafka              running  i-0d97b75de2338c009  c5.xlarge      172.83.3.162                 ami-07d02ee1eeb0c996c
+connector       kafka              running  i-0b37c7cb4e224ab17  c5.xlarge      172.83.1.186                 ami-07d02ee1eeb0c996c
+monitor         tidb               running  i-08faf5de486ee10ee  c5.large       182.83.2.10                  ami-07d02ee1eeb0c996c
+monitor         tidb               running  i-08bd674bf980338fb  c5.large       182.83.1.180                 ami-07d02ee1eeb0c996c
+pd              tidb               running  i-04efdc1d46e29980a  c5.large       182.83.1.236                 ami-07d02ee1eeb0c996c
+restService     kafka              running  i-0a4fc44d146b8a3d3  c5.large       172.83.1.4                   ami-07d02ee1eeb0c996c
+schemaRegistry  kafka              running  i-0e99f2f5acc24f32d  c5.large       172.83.1.200                 ami-07d02ee1eeb0c996c
+ticdc           tidb               running  i-095c14cb0b9e1f555  c5.xlarge      182.83.1.210                 ami-07d02ee1eeb0c996c
+tidb            tidb               running  i-0c66f72063b57eb99  c5.xlarge      182.83.1.51                  ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-030c327ba39ec45cd  c5.xlarge      182.83.3.223                 ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-09fb13ffba30f32b4  c5.xlarge      182.83.2.179                 ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-0872361380bcf14bc  c5.xlarge      182.83.1.92                  ami-07d02ee1eeb0c996c
+workstation     workstation        running  i-0910f69cabcc93f79  c5.2xlarge     172.82.11.85  3.215.175.247  ami-07d02ee1eeb0c996c
+zookeeper       kafka              running  i-05fb19cf30037352e  c5.large       172.83.1.135                 ami-07d02ee1eeb0c996c
+zookeeper       kafka              running  i-0b666601d983701ac  c5.large       172.83.3.44                  ami-07d02ee1eeb0c996c
+zookeeper       kafka              running  i-0d97c64ac6458750c  c5.large       172.83.2.167                 ami-07d02ee1eeb0c996c
+   #+END_SRC
+** MySQL driver install
+   Confluent JDBC Sink(MySQL) utilizes mysql driver to insert data into TiDB.
+#+BEGIN_SRC
+OhMyTiUP$ ssh 3.215.175.247
+Workstation$ ssh 172.83.1.186
+connector$ sudo apt-get update
+... ...
+connector$ wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz
+connector$ tar xvf mysql-connector-java-5.1.46.tar.gz
+connector$ sudo cp mysql-connector-java-5.1.46/*.jar /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/
+#+END_SRC
+
+** Postgres source connector deployment
+   Use confluent-hub to install the debezium connector postgres into kafka connect servers. The demo will use to capture the change data from postgres.
+#+BEGIN_SRC
+connector$sudo confluent-hub install debezium/debezium-connector-postgresql:1.9.6
+bash: warning: setlocale: LC_ALL: cannot change locale (ja_JP.UTF-8)
+The component can be installed in any of the following Confluent Platform installations: 
+  1. / (installed rpm/deb package) 
+  2. / (where this tool is installed) 
+Choose one of these to continue the installation (1-2): 1
+Do you want to install this into /usr/share/confluent-hub-components? (yN)y
+
+Component's license: 
+Apache 2.0 
+https://github.com/debezium/debezium/blob/master/LICENSE.txt 
+I agree to the software license agreement (yN)y
+
+You are about to install 'debezium-connector-postgresql' from Debezium Community, as published on Confluent Hub. 
+Do you want to continue? (yN)y
+
+Downloading component Debezium PostgreSQL CDC Connector 1.9.6, provided by Debezium Community from Confluent Hub and installing into /usr/share/confluent-hub-components 
+Detected Worker's configs: 
+  1. Standard: /etc/kafka/connect-distributed.properties 
+  2. Standard: /etc/kafka/connect-standalone.properties 
+  3. Standard: /etc/schema-registry/connect-avro-distributed.properties 
+  4. Standard: /etc/schema-registry/connect-avro-standalone.properties 
+  5. Used by Connect process with PID 17983: /etc/kafka/connect-distributed.properties 
+Do you want to update all detected configs? (yN)y
+
+
+Adding installation directory to plugin path in the following files: 
+  /etc/kafka/connect-distributed.properties 
+  /etc/kafka/connect-standalone.properties 
+  /etc/schema-registry/connect-avro-distributed.properties 
+  /etc/schema-registry/connect-avro-standalone.properties 
+  /etc/kafka/connect-distributed.properties 
+ 
+Completed 
+
+#+END_SRC
+** Restart connect service
+   Restart the service to make the postgres source connect and MySQL driver come to effect. If you define multiple connect workers, please restart all the service in all the connect workers
+#+BEGIN_SRC
+connector$ sudo systemctl restart confluent-kafka-connect
+#+END_SRC
+** Setup postgres source connector
+*** Postgres test db preparation
+    Please make sure you have completed the below setup.
+    + Set the wal level to logical. The [[https://www.postgresql.org/docs/14/view-pg-replication-slots.html][replication slot]] is used to capture the changes. If you setup the postgres as Master-Slave topo, you will have to consider how to replicate the slot as well. Otherwise the failover will stop the replication.
+    + create replication user with appropriate permissions. Please check [[https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-permissions][DEBEZIUM Postgres]] for user permission setup
+    #+BEGIN_SRC
+workstation$ psql -h avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com -U kafkauser -p 5432 postgres
+postgres=> show wal_level;
+ wal_level 
+-----------
+ logical
+(1 row)
+postgres=> create database test;
+CREATE DATABASE
+postgres=> grant all on database test to kafkauser;
+GRANT
+test=>exit
+workstation$ psql -h avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com -U kafkauser -p 5432 postgres test
+test=> create schema test;
+CREATE SCHEMA
+test=> create table test.test01(col01 int primary key, col02 int);
+CREATE TABLE
+    #+END_SRC
+*** Connector preparation
+    + Prepare connector configuration, in which replace the value according to your environment.
+      #+BEGIN_SRC
+workstation$ more /opt/db-info.yml                        <- Postgres connection info from OhMyTiUP
+Host: avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com
+Port: 5432
+User: kafkauser
+Password: 1234Abcd
+workstation$ more /opt/kafka/source.pg.yaml
+{
+  "name": "sourcepg",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com",             <- Postgres hostname
+    "database.port": "5432",                                                              <- Postgres port
+    "database.user": "kafkauser",                                                         <- Postgres user
+    "database.password": "1234Abcd",                                                      <- Postgres password
+    "database.dbname" : "test",                                                           <- Sync DB
+    "database.server.name": "sourcepg",
+    "plugin.name": "pgoutput",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.1.200:8081",                      <- Schema registry
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://172.83.1.200:8081",                    <- Schema registry
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstone": "true",
+    "transforms.unwrap.delete.handling.mode": "none"
+  }
+}
+      #+END_SRC
+    + Source connect preparation
+      #+BEGIN_SRC
+workstation$ curl -H 'Content-Type: Application/JSON' http://172.83.1.186:8083/connectors -d @'/opt/kafka/source.pg.yaml' | jq 
+{
+  "name": "sourcepg",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com",
+    "database.port": "5432",
+    "database.user": "kafkauser",
+    "database.password": "1234Abcd",
+    "database.dbname": "test",
+    "database.server.name": "sourcepg",
+    "plugin.name": "pgoutput",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.1.200:8081",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://172.83.1.200:8081",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstone": "true",
+    "transforms.unwrap.delete.handling.mode": "none",
+    "name": "sourcepg"
+  },
+  "tasks": [],
+  "type": "source"
+}
+
+workstation$ curl http://172.83.1.186:8083/connectors/sourcepg/status | jq 
+{
+  "name": "sourcepg",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "172.83.1.186:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "RUNNING",
+      "worker_id": "172.83.1.186:8083"
+    }
+  ],
+  "type": "source"
+}
+      #+END_SRC
+    + Check kafka topic
+      #+BEGIN_SRC
+$ kafka-topics --list --bootstrap-server 172.83.3.162:9092 
+__consumer_offsets
+_schemas
+connect-configs
+connect-offsets
+connect-status
+      #+END_SRC
+    + Insert test data into postgres
+      #+BEGIN_SRC
+test=> insert into test.test01 values(1,1);
+INSERT 0 1
+      #+END_SRC
+    + Check the generated topic and offset
+      #+BEGIN_SRC
+workstation$ kafka-topics --list --bootstrap-server 172.83.3.162:9092 
+__consumer_offsets
+_schemas
+connect-configs
+connect-offsets
+connect-status
+sourcepg.test.test01
+workstation$ kafka-run-class kafka.tools.GetOffsetShell --bootstrap-server 172.83.3.162:9092 --topic sourcepg.test.test01   
+sourcepg.test.test01:0:1
+      #+END_SRC
+    + Check the data structure inside the kafka
+      #+BEGIN_SRC
+workstation$ kafka-avro-console-consumer --bootstrap-server 172.83.3.162:9092 --topic sourcepg.test.test01 --partition 0 --from-beginning --property schema.registry
+.url="http://172.83.1.200:8081" --property print.key=true --property print.value=true
+{"col01":1}     {"col01":1,"col02":{"int":1}}
+      #+END_SRC
+** TiDB sink deployment
+*** Table preparation in the mysql
+   #+BEGIN_SRC
+$ mysql -h avrotest-a56a55d7ef009651.elb.us-east-1.amazonaws.com -u root -P 4000 test
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 1351
+Server version: 5.7.25-TiDB-v6.3.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 5.7 compatible
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [test]> create table test.test01(col01 int primary key, col02 int);
+Query OK, 0 rows affected (0.105 sec)
+
+MySQL [test]> 
+
+   #+END_SRC
+*** Sink connector preparation
+   #+BEGIN_SRC
+$ more /opt/tidb-db-info.yml 
+Host: avrotest-a56a55d7ef009651.elb.us-east-1.amazonaws.com
+Port: 4000
+User: root
+Password: 
+
+$ more /opt/kafka/sink.tidb.yaml
+{
+    "name": "SINKTiDB",
+    "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "connection.url": "jdbc:mysql://avrotest-a56a55d7ef009651.elb.us-east-1.amazonaws.com:4000/test?stringtype=unspecified",    <- TiDB connection string
+        "connection.user": "root",                                                                                                  <- TiDB user
+        "connection.password": "",                                                                                                  <- TiDB user password
+        "topics": "sourcepg.test.test01",                                                                                           <- source topic
+        "insert.mode": "upsert",
+        "delete.enabled": "true",
+        "dialect.name":"MySqlDatabaseDialect",
+        "table.name.format":"test.test01",                                                                                          <- table name
+        "key.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "key.converter.schema.registry.url": "http://172.83.1.200:8081",                                                            <- schema registry for key
+        "value.converter.schema.registry.url": "http://172.83.1.200:8081",                                                          <- schema registry for value
+        "key.converter.schemas.enable": "true",
+        "value.converter.schemas.enable": "true",
+        "pk.mode": "record_key",
+        "auto.create":"false",
+        "auto.evolve":"false"
+    }
+}
+   #+END_SRC
+
+** Verification
+*** Check the data in the MySQL
+    #+BEGIN_SRC
+MySQL [test]> select * from test.test01;
++-------+-------+
+| col01 | col02 |
++-------+-------+
+|     1 |     1 |
++-------+-------+
+1 row in set (0.002 sec)
+    #+END_SRC
+*** Replicate Insert Event
+    + Insert one row to postgres
+      #+BEGIN_SRC
+ test=> insert into test.test01 values(2,2);
+INSERT 0 1
+      #+END_SRC
+    + Check the inserted data in the TiDB
+      #+BEGIN_SRC
+MySQL [test]> select * from test.test01;
++-------+-------+
+| col01 | col02 |
++-------+-------+
+|     1 |     1 |
+|     2 |     2 |
++-------+-------+
+2 rows in set (0.002 sec)
+    #+END_SRC
+*** Replciate Update Event
+    + Update one row
+      #+BEGIN_SRC
+test=> update test.test01 set col02 = 20 where col01 = 2; 
+UPDATE 1
+      #+END_SRC
+    + Check the Update Value in the TiDB
+      #+BEGIN_SRC
+MySQL [test]> select * from test.test01;
++-------+-------+
+| col01 | col02 |
++-------+-------+
+|     1 |     1 |
+|     2 |    20 |
++-------+-------+
+2 rows in set (0.002 sec)
+      #+END_SRC
+*** Replicate Delete Event
+    + Delete one row from postgres
+      #+BEGIN_SRC
+test=> delete from test.test01 where col01 = 2; 
+DELETE 1
+      #+END_SRC
+    + Check the deleted row in the TiDB
+      #+BEGIN_SRC
+MySQL [test]> select * from test.test01;
++-------+-------+
+| col01 | col02 |
++-------+-------+
+|     1 |     1 |
++-------+-------+
+1 row in set (0.002 sec)
+      #+END_SRC
+
+* Other Replication
+** Debezium default CDC
+    #+BEGIN_SRC
+{
+  "name": "testpg",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com",
+    "database.port": "5432",
+    "database.user": "kafkauser",
+    "database.password": "1234Abcd",
+    "database.dbname" : "test",
+    "database.server.name": "fulfillment",
+    "plugin.name": "pgoutput",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.1.193:8081",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://172.83.1.193:8081"
+  }
+}
+    #+END_SRC
+*** CDC data format in the kafka
+    #+BEGIN_SRC
+insert into test01 values(4,4,current_timestamp, current_timestamp);  -->
+{"pk_col":4}    {"before":null,"after":{"pgsource01.public.test01.Value":{"pk_col":4,"t_int":{"int":4},"tidb_timestamp":{"long":1666708817526567},"pg_timestamp":{"long":1666708817526567}}},"source":{"version":"1.9.6.Final","connector":"postgresql","name":"pgsource01","ts_ms":1666708817526,"snapshot":{"string":"false"},"db":"test","sequence":{"string":"[\"13153346816\",\"13220446248\"]"},"schema":"public","table":"test01","txId":{"long":849},"lsn":{"long":13220446248},"xmin":null},"op":"c","ts_ms":{"long":1666708817969},"transaction":null}
+
+update test01 set t_int=10 where pk_col = 1152921504606846977;        -->
+{"pk_col":1152921504606846977}  {"before":null,"after":{"pgsource01.public.test01.Value":{"pk_col":1152921504606846977,"t_int":{"int":10},"tidb_timestamp":{"long":1666707909000000},"pg_timestamp":{"long":1666707912597157}}},"source":{"version":"1.9.6.Final","connector":"postgresql","name":"pgsource01","ts_ms":1666708919887,"snapshot":{"string":"false"},"db":"test","sequence":{"string":"[\"13220446448\",\"13220446728\"]"},"schema":"public","table":"test01","txId":{"long":850},"lsn":{"long":13220446728},"xmin":null},"op":"u","ts_ms":{"long":1666708920091},"transaction":null}
+
+delete from test01 where t_int = 10;                                  -->
+{"pk_col":1152921504606846977}  null
+    #+END_SRC
+      
+* TODO
+
+** PG SOURCE JSON CONFIG
+
+$ curl -H 'Content-Type: Application/JSON' http://172.83.1.186:8083/connectors -d @'/opt/kafka/sink.tidb.yaml' | jq 
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1825  100   848  100   977  31407  36185 --:--:-- --:--:-- --:--:-- 67592
+{
+  "name": "SINKTiDB",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "connection.url": "jdbc:mysql://avrotest-a56a55d7ef009651.elb.us-east-1.amazonaws.com:4000/test?stringtype=unspecified",
+    "connection.user": "root",
+    "connection.password": "",
+    "topics": "sourcepg.test.test01",
+    "insert.mode": "upsert",
+    "delete.enabled": "true",
+    "dialect.name": "MySqlDatabaseDialect",
+    "table.name.format": "test.test01",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.1.200:8081",
+    "value.converter.schema.registry.url": "http://172.83.1.200:8081",
+    "key.converter.schemas.enable": "true",
+    "value.converter.schemas.enable": "true",
+    "pk.mode": "record_key",
+    "auto.create": "false",
+    "auto.evolve": "false",
+    "name": "SINKTiDB"
+  },
+  "tasks": [],
+  "type": "sink"
+}
+
+$ curl http://172.83.1.186:8083/connectors/SINKTiDB/status | jq 
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   166  100   166    0     0  55333      0 --:--:-- --:--:-- --:--:-- 83000
+{
+  "name": "SINKTiDB",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "172.83.1.186:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "RUNNING",
+      "worker_id": "172.83.1.186:8083"
+    }
+  ],
+  "type": "sink"
+}
+
+
+* Wrong configuration
+*** debezium
+
+
+*** confluent JDBC requirement
+  #+BEGIN_SRC
+CREATE TABLE `test01` (
+  `pk_col` bigint(20) NOT NULL /*T![auto_rand] AUTO_RANDOM(5) */,
+  `t_int` int(11) DEFAULT NULL,
+  `tidb_timestamp` timestamp DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`pk_col`) /*T![clustered_index] CLUSTERED */
+)
+
+insert into test01(t_int, tidb_timestamp) values(1,current_timestamp);        -->
+{"pk_col":1152921504606846977}  {"pk_col":1152921504606846977,"t_int":{"int":1},"tidb_timestamp":{"string":"2022-10-25 14:25:09"}}
+
+delete from test01;                                                           -->
+{"pk_col":1152921504606846977}  null
+
+update test01 set pk_col = 2 where id = xxxx;                                 -->
+{"pk_col":5476377146882523139}  {"pk_col":5476377146882523139,"t_int":{"int":2},"tidb_timestamp":{"string":"2022-10-25 14:30:07"}}
+
+  #+End_sRC
+
+*** unwrap
+    #+BEGIN_SRC
+{"col01":1}     {"col01":1,"col02":{"int":1},"__deleted":{"string":"false"}}
+{"col01":2}     {"col01":2,"col02":{"int":2},"__deleted":{"string":"false"}}
+{"col01":1}     {"col01":1,"col02":null,"__deleted":{"string":"true"}}
+
+{
+  "name": "pgsource02",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com",
+    "database.port": "5432",
+    "database.user": "kafkauser",
+    "database.password": "1234Abcd",
+    "database.dbname" : "test",
+    "database.server.name": "pgsource02",
+    "plugin.name": "pgoutput",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.1.193:8081",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://172.83.1.193:8081",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.delete.handling.mode": "rewrite"
+  }
+}
+    #+END_SRC
+
+*** Reference
+ https://stackoverflow.com/questions/72430748/confluent-jdbc-sink-connector-cant-recognize-record-captured-by-debezium-connec
+
+
+*** source config
+#+BEGIN_SRC
+{
+  "name": "pgsource05",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com",
+    "database.port": "5432",
+    "database.user": "kafkauser",
+    "database.password": "1234Abcd",
+    "database.dbname" : "test",
+    "database.server.name": "pgsource05",
+    "plugin.name": "pgoutput",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.1.193:8081",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://172.83.1.193:8081",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstone": "true",
+    "transforms.unwrap.delete.handling.mode": "none"
+  }
+}
+#+END_SRC
+*** sink config
+#+BEGIN_SRC
+{
+    "name": "JDBCTEST01",
+    "config": {
+        "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+        "connection.url": "jdbc:mysql://avrotest-3780e8fd349b34df.elb.us-east-1.amazonaws.com:4000/test?stringtype=unspecified",
+        "connection.user": "root",
+        "connection.password": "",
+        "topics": "pgsource05.test.test02",
+        "insert.mode": "upsert",
+        "delete.enabled": "true",
+        "dialect.name":"MySqlDatabaseDialect",
+        "table.name.format":"test.test02",
+        "key.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "key.converter.schema.registry.url": "http://172.83.1.193:8081",
+        "value.converter.schema.registry.url": "http://172.83.1.193:8081",
+        "key.converter.schemas.enable": "true",
+        "value.converter.schemas.enable": "true",
+        "pk.mode": "record_key",
+        "auto.create":"false",
+        "auto.evolve":"false"
+    }
+}
+#+END_SRC
+
+
+*** Install mysql driver
+    
+    wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz
+
+*** Install source connector
+    sudo confluent-hub install debezium/debezium-connector-postgresql:1.9.6
+** Task
+   + Setup the structure
+   + Install jar file
+   + render the source config
+   + render the task config

@@ -1,0 +1,11 @@
+* rocksdb installation
+** Dependency install
+sudo apt-get install gcc g++ libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev libgflags-dev
+** ricksdb compilation
+   #+BEGIN_SRC
+   $git clone https://github.com/facebook/rocksdb.git
+   $cd crocksdb
+   $make shared_lib
+   $make static_lib
+   $sudo make install
+   #+END_SRC

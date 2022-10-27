@@ -6,6 +6,7 @@ workstation:
   instance_type: c5.2xlarge
   volumeSize: 100                                 # disk size in the workstation
   username: admin
+  enable_monitoring: enabled
 aws_kafka_topo_configs:
   general:
     # debian os
@@ -77,10 +78,7 @@ aws_topo_configs:
     count: 1                                      # Number of TiDB node to be deployed
   monitor:
     instance_type: c5.large                       # Instance type for PD component
-    count: 1                                      # Number of TiDB node to be deployed
-  grafana:
-    instance_type: c5.large                       # Instance type for PD component
-    count: 1                                      # Number of TiDB node to be deployed
+    count: 2                                      # Number of TiDB node to be deployed
   alert-manager:
     instance_type: c5.large                       # Instance type for PD component
     count: 1                                      # Number of TiDB node to be deployed

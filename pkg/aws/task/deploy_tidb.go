@@ -313,8 +313,6 @@ func (c *DeployThanos) Execute(ctx context.Context) error {
 	mapFilters["Cluster"] = clusterType
 	mapFilters["Component"] = "workstation"
 
-	fmt.Printf("The S3 option is <%#v> \n\n\n", *c.opt)
-
 	var _wsPublicIP *string
 	_funcGetWS := func(_instance types.Instance) error {
 		_wsPublicIP = _instance.PublicIpAddress
@@ -323,7 +321,6 @@ func (c *DeployThanos) Execute(ctx context.Context) error {
 	if err := FetchInstances(ctx, &mapFilters, &_funcGetWS); err != nil {
 		return err
 	}
-	fmt.Printf("Workstation public ip: <%s> \n\n\n\n", *_wsPublicIP)
 
 	mapFilters["Component"] = "monitor"
 
@@ -338,7 +335,6 @@ func (c *DeployThanos) Execute(ctx context.Context) error {
 	if err := FetchInstances(ctx, &mapFilters, &_funcGetStores); err != nil {
 		return err
 	}
-	fmt.Printf("All the store servers <%#v> \n\n\n\n", _storeServers)
 
 	_func := func(_instance types.Instance) error {
 		tasks = append(tasks, &InstallThanos{
@@ -350,7 +346,6 @@ func (c *DeployThanos) Execute(ctx context.Context) error {
 			StoreServers: &_storeServers,
 		})
 
-		fmt.Printf("Starting to call monitor server <%s> \n\n\n", *(_instance.PrivateIpAddress))
 		return nil
 	}
 
@@ -389,7 +384,15 @@ type InstallThanos struct {
 	StoreServers *[]string
 }
 
+// #####################################################################
+// # template render and update config
+// #####################################################################
 func (c *InstallThanos) Execute(ctx context.Context) error {
+
+	// #####################################################################
+	// # thanos install
+	// #####################################################################
+
 	// 2. Install thanos
 	// 2.1 Download binary to workstation.
 	// 2.2 Move the binary to monitoring server
@@ -434,15 +437,14 @@ func (c *InstallThanos) Execute(ctx context.Context) error {
 		}
 	}
 
-	// }
-
 	_, _, err = _promExe.Execute(ctx, "mkdir -p /opt/thanos/etc", true)
 	if err != nil {
 		return err
 	}
 
-	// To remove
-	// _awsCrential, err := GetAWSCrential(ctx)
+	// #####################################################################
+	// # template render and update config
+	// #####################################################################
 
 	// Render s3 config file
 	if err = _promExe.TransferTemplate(ctx, "templates/config/thanos/s3.config.yaml.tpl", "/opt/thanos/etc/s3.config.yaml", "0644", *c.opt, true, 20); err != nil {
@@ -526,13 +528,6 @@ func (c *InstallThanos) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// 3. Install thanos to /opt/thanos
-	// 4. Install thanos sidecar in prometheus server
-	// 5. Install thanos store in the promethus server
-	// 6. Install thanos query in the promethus server
-	// 7. Replace grafana's data source in the first prometheus server
-
-	fmt.Printf("Installing thanos on the target server <%s>, proxy server: <%s>, user: <%s>, Identity file: <%s> \n\n\n\n", (*c.TargetServer), (*c.ProxyServer), c.User, c.KeyFile)
 	return nil
 }
 

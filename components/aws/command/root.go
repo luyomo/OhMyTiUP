@@ -186,6 +186,7 @@ func init() {
 		newTiDB2MSCmd(),
 		newTiDB2OraCmd(),
 		newTiDB2Kafka2PgCmd(),
+		newPG2Kafka2TiDBCmd(),
 		newAcceptTiDBCloudPeering(),
 		newPDNS(),
 		newOssInsightCmd(),

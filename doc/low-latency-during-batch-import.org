@@ -94,12 +94,14 @@ OhMyTiUP$ ./bin/aws tidb list placementruletest
 ** Scenario: Common TiDB Cluster without resource isolation
 *** Preparation
 #+BEGIN_SRC
-OhMyTiUP$./bin/aws tidb measure-latency prepare placementruletest --sysbench-execution-time 40 --sysbench-num-tables 10  --tikv-mode simple --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
+OhMyTiUP$ ./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-num-tables 10  --tikv-mode simple --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+        
 #+END_SRC
 [[./png/placementrule/placementrule.07.png]]   
 *** Run test
 #+BEGIN_SRC
-./bin/aws tidb measure-latency run placementruletest --repeats 2 --trans-interval 200 --batch-size x,50000 --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
+
+OhMyTiUP$./bin/aws tidb perf resource-isolation run placementruletest --sysbench-num-tables 10 --batch-size x,50000 --repeats 10 --sysbench-plugin-name tidb_oltp_insert_simple --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
 #+END_SRC
 [[./png/placementrule/placementrule.08.png]]
 

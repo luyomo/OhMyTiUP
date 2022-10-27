@@ -28,36 +28,36 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newTiDB2Kafka2PgCmd() *cobra.Command {
+func newPG2Kafka2TiDBCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tidb2kafka2pg <sub_command>",
-		Short: "Run commands for syncing the data to pg from tidb through kafka",
+		Use:   "pg2kafka2tidb <sub_command>",
+		Short: "Run commands for syncing the data to tidb from pg through kafka",
 	}
 
 	cmd.AddCommand(
-		newTiDB2Kafka2PgDeploy(),
-		newListTiDB2Kafka2PgCmd(),
-		newDestroyTiDB2Kafka2PgCmd(),
-		newTiDB2Kafka2PGPerfCmd(),
+		newPG2Kafka2TiDBDeploy(),
+		newListPG2Kafka2TiDBCmd(),
+		newDestroyPG2Kafka2TiDBCmd(),
+		newPG2Kafka2TiDBPerfCmd(),
 	)
 	return cmd
 }
 
-func newTiDB2Kafka2PGPerfCmd() *cobra.Command {
+func newPG2Kafka2TiDBPerfCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "perf <sub_command>",
-		Short: "Run measure latency against tidb",
+		Short: "Run measure latency against postgres",
 	}
 
 	cmd.AddCommand(
-		newPerfPrepareTiDB2Kafka2Pg(),
-		newPerfTiDB2Kafka2Pg(),
-		newPerfCleanTiDB2Kafka2Pg(),
+		newPerfPreparePG2Kafka2TiDB(),
+		newPerfPG2Kafka2TiDB(),
+		newPerfCleanPG2Kafka2TiDB(),
 	)
 	return cmd
 }
 
-func newTiDB2Kafka2PgDeploy() *cobra.Command {
+func newPG2Kafka2TiDBDeploy() *cobra.Command {
 	opt := manager.TiDB2Kafka2PgDeployOptions{
 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
 	}
@@ -90,7 +90,7 @@ func newTiDB2Kafka2PgDeploy() *cobra.Command {
 	return cmd
 }
 
-func newListTiDB2Kafka2PgCmd() *cobra.Command {
+func newListPG2Kafka2TiDBCmd() *cobra.Command {
 	opt := manager.DeployOptions{
 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
 	}
@@ -117,7 +117,7 @@ func newListTiDB2Kafka2PgCmd() *cobra.Command {
 	return cmd
 }
 
-func newDestroyTiDB2Kafka2PgCmd() *cobra.Command {
+func newDestroyPG2Kafka2TiDBCmd() *cobra.Command {
 	destroyOpt := operator.Options{}
 	cmd := &cobra.Command{
 		Use:   "destroy <cluster-name>",
@@ -158,7 +158,7 @@ You can retain some nodes and roles data when destroy cluster, eg:
 	return cmd
 }
 
-func newPerfPrepareTiDB2Kafka2Pg() *cobra.Command {
+func newPerfPreparePG2Kafka2TiDB() *cobra.Command {
 	perfOpt := manager.KafkaPerfOpt{
 		Partitions:    1,
 		NumOfRecords:  100000,
@@ -192,7 +192,7 @@ func newPerfPrepareTiDB2Kafka2Pg() *cobra.Command {
 	return cmd
 }
 
-func newPerfTiDB2Kafka2Pg() *cobra.Command {
+func newPerfPG2Kafka2TiDB() *cobra.Command {
 	perfOpt := manager.KafkaPerfOpt{
 		NumOfRecords: 100000,
 	}
@@ -221,7 +221,7 @@ func newPerfTiDB2Kafka2Pg() *cobra.Command {
 	return cmd
 }
 
-func newPerfCleanTiDB2Kafka2Pg() *cobra.Command {
+func newPerfCleanPG2Kafka2TiDB() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "clean <cluster-name>",
 		Short:        "clean perf performance test",

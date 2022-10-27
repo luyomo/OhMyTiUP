@@ -383,16 +383,6 @@ func (m *Manager) TiDBScale(
 		return err
 	}
 
-	// exist, err := m.specManager.Exist(name)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if !exist {
-	// 	// FIXME: When change to use args, the suggestion text need to be updatem.
-	// 	return errors.New("cluster is not found")
-	// }
-
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
 
@@ -633,6 +623,8 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName string, opt operator.
 
 	ctx = context.WithValue(ctx, "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	fmt.Printf("The options is <%#v>", opt)
 
 	// 01. Get the workstation executor
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
