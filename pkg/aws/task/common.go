@@ -879,6 +879,24 @@ func ReadTiDBConntionInfo(workstation *ctxt.Executor, fileName string) (*DBConne
 
 	return &dbConnectInfo, nil
 }
+
+func ReadDBConntionInfo(workstation *ctxt.Executor, fileName string, connInfo interface{}) error {
+	if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/%s", fileName), fmt.Sprintf("/tmp/%s", fileName), true, 1024); err != nil {
+		return err
+	}
+
+	yfile, err := ioutil.ReadFile(fmt.Sprintf("/tmp/%s", fileName))
+	if err != nil {
+		return err
+	}
+
+	if err = yaml.Unmarshal(yfile, connInfo); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func TransferToWorkstation(workstation *ctxt.Executor, sourceFile, destFile, mode string, params interface{}) error {
 
 	ctx := context.Background()

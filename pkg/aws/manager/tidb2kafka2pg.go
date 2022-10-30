@@ -879,3 +879,283 @@ func changeFeedExist(inputStr []byte, changeFeedID string) (bool, error) {
 	return false, nil
 
 }
+
+// ***************************************** Postgres 2 TiDB **********************************************
+
+type MapPG2TiDB struct {
+	PG2TiDB []struct {
+		TiDB struct {
+			DataType string   `yaml:"DataType"`
+			Def      string   `yaml:"Def"`
+			Queries  []string `yaml:"Query,omitempty"`
+		} `yaml:"TiDB"`
+		PG struct {
+			DataType string   `yaml:"DataType"`
+			Def      string   `yaml:"Def"`
+			Queries  []string `yaml:"Query,omitempty"`
+		} `yaml:"PG"`
+		Value string `yaml:"Value"`
+	} `yaml:"MapPG2TiDB"`
+}
+
+/* *****************************************************************************
+Parameters:
+   perfOpt
+     -> DataTypeDtr: ["int", "varchar"]
+*/
+func (m *Manager) PerfPreparePG2Kafka2TiDB(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+
+	/* ********** ********** 001. Read the column mapping file to struct
+		   ColumnMapping.yml:
+		   MapTiDB2PG:
+		   - TiDB:
+		       DataType: BOOL
+		       Def: t_bool BOOL
+		     PG:
+		       DataType: BOOL
+		       Def: t_bool BOOL
+		    Value: true
+		    ... ...
+	           - TiDB:
+	               DataType: SET
+	               Def: t_set SET('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
+	             PG:
+	               DataType: ENUM
+	               Def: t_set t_enum_test[]
+	             Query:
+	               - create type t_enum_test as enum  ('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
+	*/
+	mapFile, err := ioutil.ReadFile("embed/templates/config/pg2kafka2tidb/ColumnMapping.yml")
+	if err != nil {
+		return err
+	}
+
+	var mapPG2TiDB MapPG2TiDB
+	err = yaml.Unmarshal(mapFile, &mapPG2TiDB)
+	if err != nil {
+		return err
+	}
+
+	/* ********** ********** 002. Prepare columns defintion to be executed into TiDB and postgres ********** ********** */
+	var arrTiDBTblDataDef []string // Array to keep tidb column definition. ex: ["pk_col BIGINT PRIMARY KEY AUTO_RANDOM", ... , "tidb_timestamp timestamp default current_timestamp"]
+	var arrPGTblDataDef []string   // Array to keep postgres column definition. ex: ["pk_col bigint PRIMARY KEY", ... ... "tidb_timestamp timestamp", "pg_timestamp timestamp default current_timestamp"]
+	var arrCols []string           // Array to keep all column names. ex: ["t_bool"]
+	var arrData []string           // Array to keep data to be inserted. ex: ["true"]
+	var pgPreQueries []string      // Array of queries to be executed in PG. ex: ["create type t_enum_test ..."]
+
+	/* 002.01 Prepare primary key column definition */
+	arrPGTblDataDef = append(arrPGTblDataDef, "pk_col BIGSERIAL PRIMARY KEY")
+	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "pk_col BIGINT PRIMARY KEY")
+
+	/* 002.02 Prepare column definition body */
+	for _, _dataType := range perfOpt.DataTypeDtr {
+		for _, _mapItem := range mapPG2TiDB.PG2TiDB {
+			if _dataType == _mapItem.PG.DataType {
+				arrPGTblDataDef = append(arrPGTblDataDef, _mapItem.PG.Def)
+				arrTiDBTblDataDef = append(arrTiDBTblDataDef, _mapItem.TiDB.Def)
+				arrCols = append(arrCols, strings.Split(_mapItem.PG.Def, " ")[0])
+				arrData = append(arrData, strings.Replace(strings.Replace(_mapItem.Value, "<<<<", "'", 1), ">>>>", "'", 1))
+				pgPreQueries = append(pgPreQueries, _mapItem.PG.Queries...)
+			}
+		}
+	}
+
+	/* 002.03 Prepare tail columns for both TiDB and postgres tables.*/
+	arrPGTblDataDef = append(arrPGTblDataDef, "pg_timestamp timestamp default current_timestamp")
+
+	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "pg_timestamp timestamp")
+	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "tidb_timestamp timestamp default current_timestamp")
+
+	/* ********** ********** 003. Prepare execution context **********/
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	/* ********** ********** 004 Prepare insert query to /opt/kafka/query.sql **********/
+	strInsQuery := fmt.Sprintf("insert into test.test01(%s) values(%s)", strings.Join(arrCols, ","), strings.Join(arrData, ","))
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("echo \\\"%s\\\" > /tmp/query.sql", strInsQuery), true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/query.sql /opt/kafka/", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "chmod 777 /opt/kafka/query.sql", true); err != nil {
+		return err
+	}
+
+	/* ********** ********** 005 Prepare postgres objects  **********/
+	// 005.01 Reset test database if exists
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query postgres '%s'", "drop database if exists test"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query postgres '%s'", "create database test"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query test '%s'", "create schema test"), false, 1*time.Hour); err != nil {
+		return err
+	}
+	timer.Take("01. Postgres DB creation")
+
+	// 005.02 Create postgres objects for test. Like enum
+	for _, query := range pgPreQueries {
+		fmt.Printf("the query is <%s> \n\n\n", query)
+		_, stderr, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query test '%s'", query), false, 1*time.Hour)
+		if err != nil {
+			logger.OutputDebugLog(string(stderr))
+			return err
+		}
+	}
+
+	// 005. 03 Create test table
+	commands := []string{
+		fmt.Sprintf("create table test.test01(%s)", strings.Join(arrPGTblDataDef, ",")),
+	}
+
+	for _, command := range commands {
+		_, stderr, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query test '%s'", command), false, 1*time.Hour)
+		if err != nil {
+			logger.OutputDebugLog(string(stderr))
+			return err
+		}
+	}
+	timer.Take("02. Table Creation in the postgres")
+
+	/* ********** ********** 006 Prepare postgres objects  **********/
+	// 006.01 Reset test01 test table
+	commands = []string{
+		"drop table if exists test01",
+		fmt.Sprintf("create table test01(%s)", strings.Join(arrTiDBTblDataDef, ",")),
+	}
+
+	for _, command := range commands {
+		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query test '%s'", command), false, 1*time.Hour); err != nil {
+			return err
+		}
+	}
+
+	timer.Take("03. Table creation in the TiDB")
+
+	/* ********** ********** 007 Prepare kafka related objects  **********/
+
+	timer.Take("04. Create kafka topic in advanced for multiple parations per table - /opt/kafka/source.toml")
+
+	/* ********** ********** 008 Extract server info(ticdc/broker/schema registry/ connector)   **********/
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+	var tableECs [][]string
+	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	listTasks = append(listTasks, t1)
+
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	// var cdcIP, schemaRegistryIP, brokerIP, connectorIP string
+	var schemaRegistryIP, connectorIP string
+	for _, row := range tableECs {
+		// 	if row[0] == "broker" {
+		// 		brokerIP = row[5]
+		// 	}
+		if row[0] == "schemaRegistry" {
+			schemaRegistryIP = row[5]
+		}
+		if row[0] == "connector" {
+			connectorIP = row[5]
+		}
+	}
+	timer.Take("05. Get required info - pd/broker/schemaRegistry/connector")
+
+	// if stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false); err != nil {
+	// 	return err
+	// }
+
+	/* ********** ********** 009 Prepare Postgres Source   **********/
+	// 009.01 Fetch TiDB connection infro from /opt/db-info.yml
+
+	// if err = (*workstation).Transfer(ctx, "/opt/db-info.yml", "/tmp/db-info.yml", true, 1024); err != nil {
+	// 	return err
+	// }
+	type PGSourceData struct {
+		PGHost         string `yaml:"Host"`
+		PGPort         int    `yaml:"Port"`
+		PGUser         string `yaml:"User"`
+		PGPassword     string `yaml:"Password"`
+		PGDBName       string
+		SchemaRegistry string
+	}
+
+	pgSourceData := PGSourceData{}
+	if err = task.ReadDBConntionInfo(workstation, "db-info.yml", &pgSourceData); err != nil {
+		return err
+	}
+
+	// yfile, err := ioutil.ReadFile("/tmp/db-info.yml")
+	// if err != nil {
+	// 	return err
+	// }
+
+	// err = yaml.Unmarshal(yfile, &pgSourceData)
+	// if err != nil {
+	// 	return err
+	// }
+
+	pgSourceData.SchemaRegistry = schemaRegistryIP
+	pgSourceData.PGDBName = "test"
+
+	// 008.01 TiCDC source config file
+	if err = (*workstation).TransferTemplate(ctx, "templates/config/pg2kafka2tidb/source.pg.tpl.json", "/tmp/source.pg.json", "0644", pgSourceData, true, 0); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/source.pg.json /opt/kafka/", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/source.pg.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
+		return err
+	}
+
+	type TiDBSinkData struct {
+		TiDBHost       string `yaml:"Host"`
+		TiDBPort       int    `yaml:"Port"`
+		TiDBUser       string `yaml:"User"`
+		TiDBPassword   string `yaml:"Password"`
+		TiDBDBName     string
+		SchemaRegistry string
+	}
+	var tidbSinkData TiDBSinkData
+
+	err = task.ReadDBConntionInfo(workstation, "tidb-db-info.yml", &tidbSinkData)
+
+	tidbSinkData.TiDBDBName = "test"
+	tidbSinkData.SchemaRegistry = schemaRegistryIP
+	if err = (*workstation).TransferTemplate(ctx, "templates/config/pg2kafka2tidb/sink.tidb.tpl.json", "/opt/kafka/sink.tidb.json", "0644", tidbSinkData, true, 0); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/sink.tidb.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
+		return err
+	}
+
+	return nil
+
+}

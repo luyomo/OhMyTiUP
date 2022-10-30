@@ -549,3 +549,57 @@ update test01 set pk_col = 2 where id = xxxx;                                 --
    + Install jar file
    + render the source config
    + render the task config
+
+** Issues
+*** Issue: Transform the epoch into target DATABASE
+**** Epoche: The DEBEZIUM CDC catch the datetime as the epochtime which failed to import to target database directly.
+   #+BEGIN_SRC
+org.apache.kafka.connect.errors.ConnectException: Exiting WorkerSinkTask due to unrecoverable exception.
+at org.apache.kafka.connect.runtime.WorkerSinkTask.delive rMessages(WorkerSinkTask.java:611)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:333)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.iteratio n(WorkerSinkTask.java:234)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:203)
+at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.  java:188)
+at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:243)
+at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)
+at ja va.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+at java.base/java .util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+at java.base/java.lang.Thread.run(Thread.java:829)\nCaused by: org.apache.kafka.connect.errors.Connect Exception: java.sql.SQLException: Exception chain:\njava.sql.BatchUpdateException: Data truncation: Incorrect timestamp value: '1667137970790403' for column 'pg_timestamp' at row 1\ ncom.mysql.jdbc.MysqlDataTruncation: Data truncation: Incorrect timestamp value: '1667137970790403' for column 'pg_timestamp' at row 1\n
+at io.confluent.connect.jdbc.sink.JdbcSin kTask.put(JdbcSinkTask.java:89)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:581)
+... 10 more\nCaused by: java.sql.SQLException: Exce ption chain:\njava.sql.BatchUpdateException: Data truncation: Incorrect timestamp value: '1667137970790403' for column 'pg_timestamp' at row 1\ncom.mysql.jdbc.MysqlDataTruncation: D ata truncation: Incorrect timestamp value: '1667137970790403' for column 'pg_timestamp' at row 1\n
+at io.confluent.connect.jdbc.sink.JdbcSinkTask.put(JdbcSinkTask.java:86)
+...  11 more\n
+   #+END_SRC
+   To resolve the issue, add the timestampe convert firstly. The options are added as below:
+   #+BEGIN_SRC
+     ... ...
+     "transforms": "timestamp",
+     "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+     "transforms.timestamp.target.type": "Timestamp",
+     "transforms.timestamp.field":"pg_timestamp",
+     "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss"
+   #+END_SRC
+**** Wrong conversion from epoch to timestamp
+   #+BEGIN_SRC
+org.apache.kafka.connect.errors.ConnectException: Exiting WorkerSinkTask due to unrecoverable exception.
+at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:611)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:333)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:234)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:203)
+at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:188)
+at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:243) 
+at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)
+at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+at java.base/java.lang.Thread.run(Thread.java:829)\nCaused by: org.apache.kafka.connect.errors.ConnectException: java.sql.SQLException: Exception chain:\njava.sql.BatchUpdateException: Data truncation: Incorrect timestamp value: '54799-07-02 08:46:30.403' for column 'pg_timestamp' at row 1\ncom.mysql.jdbc.MysqlDataTruncation: Data truncation: Incorrect timestamp value: '54799-07-02 08:46:30.403' for column 'pg_timestamp' at row 1\n
+at io.confluent.connect.jdbc.sink.JdbcSinkTask.put(JdbcSinkTask.java:89)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:581)
+... 10 more\nCaused by: java.sql.SQLException: Exception chain:\njava.sql.BatchUpdateException: Data truncation: Incorrect timestamp value: '54799-07-02 08:46:30.403' for column 'pg_timestamp' at row 1\ncom.mysql.jdbc.MysqlDataTruncation: Data truncation: Incorrect timestamp value: '54799-07-02 08:46:30.403' for column 'pg_timestamp' at row 1\n
+at io.confluent.connect.jdbc.sink.JdbcSinkTask.put(JdbcSinkTask.java:86)
+... 11 more\n
+   #+END_SRC
+
+   Found [[https://github.com/confluentinc/kafka-connect-jdbc/issues/674][kafka connect jdbc issue]]. And get another link [[https://github.com/oryanmoshe/debezium-timestamp-converter][debezium timestamp converter]] to resolve such kind of conversion issue. To do.

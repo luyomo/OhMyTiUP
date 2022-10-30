@@ -45,13 +45,14 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	// 1. Get all the workstation nodes
+	/* ********** ********** 001. Prepare execution context  **********/
+	// 001.01. Get all the workstation nodes
 	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
 	if err != nil {
 		return err
 	}
 
-	// 2. Send the access key to workstation
+	// 001.02. Send the access key to workstation
 	err = (*workstation).Transfer(ctx, c.clusterInfo.keyFile, "~/.ssh/id_rsa", false, 0)
 	if err != nil {
 		return err
@@ -67,6 +68,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		return err
 	}
 
+	/* ********** ********** 002. Get all the nodes infomation  **********/
 	// 3. Get all the nodes from tag definition
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
@@ -111,6 +113,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	}
 
+	/* ********** ********** 003. Install required package **********/
 	commands := []string{
 		"sudo apt-get update -y 1>/dev/null",
 		"sudo apt-get install -y gnupg2 software-properties-common openjdk-11-jdk jq 1>/dev/null 2>/dev/null",
@@ -128,12 +131,12 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		}
 	}
 
+	/* ********** ********** 004. Prepare kafka related resources  **********/
 	if _, _, err := (*workstation).Execute(ctx, "mkdir -p /opt/kafka/perf", true); err != nil {
 		return err
 	}
 
 	for _, file := range []string{"kafka.create.topic.sh", "kafka.producer.perf.sh", "kafka.consumer.perf.sh", "kafka.e2e.perf.sh", "kafka-util.sh"} {
-		fmt.Printf("The template file to parse <%s> \n\n\n", file)
 		err = (*workstation).TransferTemplate(ctx, fmt.Sprintf("templates/config/%s.tpl", file), fmt.Sprintf("/tmp/%s", file), "0755", kafkaNodes, true, 0)
 		if err != nil {
 			return err
@@ -144,6 +147,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		}
 	}
 
+	/* ********** ********** 005. Install required packages to all the kafka nodes  **********/
 	var pkgInstallTasks []Task
 	for _, node := range kafkaNodes.All {
 		pkgInstallTask := &KafkaInstallPkgTask{
@@ -159,6 +163,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		return err
 	}
 
+	/* ********** ********** 006. Setup zookeepers  **********/
 	err = (*workstation).TransferTemplate(ctx, "templates/config/zookeeper.properties.tpl", "/tmp/zookeeper.properties", "0644", kafkaNodes, true, 0)
 	if err != nil {
 		return err
@@ -192,6 +197,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		BrokerIP  string
 	}
 
+	/* ********** ********** 007. Setup all kafka brokers **********/
 	for idx, node := range kafkaNodes.Broker {
 		commands = []string{
 			"sudo mv /etc/kafka/server.properties /etc/kafka/server.properties.bak",
@@ -221,6 +227,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	}
 
+	/* ********** ********** 008. Setup schema registry **********/
 	for _, node := range kafkaNodes.SchemaRegistry {
 		commands = []string{
 			"sudo mv /etc/schema-registry/schema-registry.properties /etc/schema-registry/schema-registry.properties.bak",
@@ -246,6 +253,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	}
 
+	/* ********** ********** 008. Setup restful service **********/
 	err = (*workstation).TransferTemplate(ctx, "templates/config/kafka.rest.properties.tpl", "/tmp/kafka.rest.properties", "0644", kafkaNodes, true, 0)
 	if err != nil {
 		return err
@@ -270,6 +278,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	}
 
+	/* ********** ********** 008. Setup kafka conector **********/
 	type ConnectorData struct {
 		SchemaRegistry []string
 		ConnectorIP    string
@@ -285,9 +294,13 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		connectorData.ConnectorIP = node
 
 		commands = []string{
+			"wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz",
+			"tar xvf mysql-connector-java-5.1.46.tar.gz",
+			"sudo cp mysql-connector-java-5.1.46/*.jar /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/",
 			"sudo mv /etc/kafka/connect-distributed.properties /etc/kafka/connect-distributed.properties.bak",
 			"sudo mv /tmp/connect-distributed.properties /etc/kafka/connect-distributed.properties",
 			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.0.0",
+			"sudo confluent-hub install --no-prompt debezium/debezium-connector-postgresql:1.9.6",
 			"sudo systemctl restart confluent-kafka-connect",
 		}
 
