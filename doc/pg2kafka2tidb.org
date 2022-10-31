@@ -603,3 +603,82 @@ at io.confluent.connect.jdbc.sink.JdbcSinkTask.put(JdbcSinkTask.java:86)
    #+END_SRC
 
    Found [[https://github.com/confluentinc/kafka-connect-jdbc/issues/674][kafka connect jdbc issue]]. And get another link [[https://github.com/oryanmoshe/debezium-timestamp-converter][debezium timestamp converter]] to resolve such kind of conversion issue. To do.
+
+**** debezium timetamp convert installation
+***** Attempt 01
+      Tried to install the converter to plugins initially as follow:
+      #+BEGIN_SRC
+connector$ wget https://github.com/oryanmoshe/debezium-timestamp-converter/releases/download/v1.2.4/TimestampConverter-1.2.4-SNAPSHOT.jar
+connector$ sudo mv TimestampConverter-1.2.4-SNAPSHOT.jar /usr/share/java/kafka/
+connector$ more /var/log/kafka/connect.log
+... ...
+[2022-10-31 05:27:40,481] ERROR [SINKTiDB|task-0] WorkerSinkTask{id=SINKTiDB-0} Task threw an uncaught and unrecoverable exception. Task is being killed and will not recover until manually restarted (org.apache.kafka.connect.runtime.WorkerTask:195)
+org.apache.kafka.connect.errors.ConnectException: Tolerance exceeded in error handler
+        at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:206)
+        at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execute(RetryWithToleranceOperator.java:132)
+        at org.apache.kafka.connect.runtime.TransformationChain.apply(TransformationChain.java:50)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.convertAndTransformRecord(WorkerSinkTask.java:540)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.convertMessages(WorkerSinkTask.java:493)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:332)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:234)
+        at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:203)
+        at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:188)
+        at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:243)
+        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)
+        at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+        at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+        at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+        at java.base/java.lang.Thread.run(Thread.java:829)
+Caused by: org.apache.kafka.connect.errors.DataException: Could not parse timestamp: value (2022-10-31T05:16:31.552Z) does not match pattern (yyyy-MM-dd HH:mm:ss.SSS)
+        at org.apache.kafka.connect.transforms.TimestampConverter$1.toRaw(TimestampConverter.java:120)
+        at org.apache.kafka.connect.transforms.TimestampConverter.convertTimestamp(TimestampConverter.java:450)
+        at org.apache.kafka.connect.transforms.TimestampConverter.applyValueWithSchema(TimestampConverter.java:375)
+        at org.apache.kafka.connect.transforms.TimestampConverter.applyWithSchema(TimestampConverter.java:362)
+        at org.apache.kafka.connect.transforms.TimestampConverter.apply(TimestampConverter.java:279)
+        at org.apache.kafka.connect.runtime.TransformationChain.lambda$apply$0(TransformationChain.java:50)
+        at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndRetry(RetryWithToleranceOperator.java:156)
+        at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:190)
+        ... 14 more
+Caused by: java.text.ParseException: Unparseable date: "2022-10-31T05:16:31.552Z"
+        at java.base/java.text.DateFormat.parse(DateFormat.java:395)
+        at org.apache.kafka.connect.transforms.TimestampConverter$1.toRaw(TimestampConverter.java:117)
+        ... 21 more
+      #+END_SRC
+
+***** Attempt 02
+      Install the jar file to connector lib
+      #+BEGIN_SRC
+connector$ sudo wget https://github.com/oryanmoshe/debezium-timestamp-converter/releases/download/v1.2.4/TimestampConverter-1.2.4-SNAPSHOT.jar -P /usr/share/confluent-hub-components/debezium-debezium-connector-postgresql/lib/
+connector$ sudo systemctl restart confluent-kafka-connect
+workstation$ more /opt/kafka/source.pg.json
+{
+  "name": "sourcepg",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "avrotest.cxmxisy1o2a2.us-east-1.rds.amazonaws.com",
+    "database.port": "5432",
+    "database.user": "kafkauser",
+    "database.password": "1234Abcd",
+    "database.dbname" : "test",
+    "database.server.name": "sourcepg",
+    "plugin.name": "pgoutput",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.1.179:8081",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://172.83.1.179:8081",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstone": "true",
+    "transforms.unwrap.delete.handling.mode": "none",
+    "converters": "timestampConverter",
+    "timestampConverter.type": "oryanmoshe.kafka.connect.util.TimestampConverter",
+    "timestampConverter.format.time": "HH:mm:ss.SSS",
+    "Timestampconverter.format.date": "YYYY-MM-dd",
+    "timestampConverter.format.datetime": "YYYY-MM-dd HH:mm:ss.SSS",
+    "timestampConverter.debug": "false"
+  }
+}
+      #+END_SRC
+
+**** Issue
+     Use debezium Timestamp converter, I succeeded to replicate the timestamp from postgres to TiDB. The last issue is that the converter could not replicate microseconds to TiDB using Simple DateTime.

@@ -294,13 +294,14 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		connectorData.ConnectorIP = node
 
 		commands = []string{
-			"wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz",
-			"tar xvf mysql-connector-java-5.1.46.tar.gz",
-			"sudo cp mysql-connector-java-5.1.46/*.jar /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/",
 			"sudo mv /etc/kafka/connect-distributed.properties /etc/kafka/connect-distributed.properties.bak",
 			"sudo mv /tmp/connect-distributed.properties /etc/kafka/connect-distributed.properties",
 			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.0.0",
 			"sudo confluent-hub install --no-prompt debezium/debezium-connector-postgresql:1.9.6",
+			"wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz",
+			"tar xvf mysql-connector-java-5.1.46.tar.gz",
+			"sudo cp mysql-connector-java-5.1.46/*.jar /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/",
+			"sudo wget https://github.com/oryanmoshe/debezium-timestamp-converter/releases/download/v1.2.4/TimestampConverter-1.2.4-SNAPSHOT.jar -P /usr/share/confluent-hub-components/debezium-debezium-connector-postgresql/lib/",
 			"sudo systemctl restart confluent-kafka-connect",
 		}
 

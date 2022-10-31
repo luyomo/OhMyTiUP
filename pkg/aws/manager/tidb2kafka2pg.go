@@ -963,8 +963,8 @@ func (m *Manager) PerfPreparePG2Kafka2TiDB(clusterName, clusterType string, perf
 	/* 002.03 Prepare tail columns for both TiDB and postgres tables.*/
 	arrPGTblDataDef = append(arrPGTblDataDef, "pg_timestamp timestamp default current_timestamp")
 
-	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "pg_timestamp timestamp")
-	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "tidb_timestamp timestamp default current_timestamp")
+	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "pg_timestamp timestamp(6)")
+	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "tidb_timestamp timestamp(6) default current_timestamp(6)")
 
 	/* ********** ********** 003. Prepare execution context **********/
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
