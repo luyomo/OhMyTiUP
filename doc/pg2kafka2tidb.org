@@ -544,6 +544,56 @@ update test01 set pk_col = 2 where id = xxxx;                                 --
 
 *** Install source connector
     sudo confluent-hub install debezium/debezium-connector-postgresql:1.9.6
+** Data mapping
+   #+CAPTION: Data Type conversion
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | PG Data Type                  | OK/NG | TiDB Data Type              | Comment                                             |
+   |-------------------------------+-------+-----------------------------+-----------------------------------------------------|
+   | array                         |       | LONGTEXT                    |                                                     |
+   | bigint                        | OK    | BIGINT                      |                                                     |
+   | bigserial                     | OK    | BIGINT                      |                                                     |
+   | bit                           |       | BIT                         |                                                     |
+   | bit varying                   |       |                             |                                                     |
+   | boolean                       | OK    | TINYINT(1)                  |                                                     |
+   | box                           |       | POLYGON                     |                                                     |
+   | bytea                         |       | LONGBLOB                    |                                                     |
+   | character                     | OK    | CHAR/LONGTEXT               |                                                     |
+   | NATIONAL CHARACTER            |       | CHAR/LONGTEXT               |                                                     |
+   | character varying             | OK    | VARCHAR/MEDIUMTEXT/LONGTEXT |                                                     |
+   | cidr                          |       | VARCHAR(43)                 |                                                     |
+   | circle                        |       | POLYGON                     |                                                     |
+   | date                          | OK    | DATE                        |                                                     |
+   | DECIMAL                       |       | DECIMAL                     |                                                     |
+   | inet                          |       | VARCHAR(43)                 |                                                     |
+   | integer                       | OK    | INT                         |                                                     |
+   | interval                      |       | TIME                        |                                                     |
+   | json                          |       | LONGTEXT                    |                                                     |
+   | jsonb                         |       |                             |                                                     |
+   | line                          |       | LINESTRING                  |                                                     |
+   | lseg                          |       | LINESTRING                  |                                                     |
+   | macaddr                       |       | VARCHAR(17)                 |                                                     |
+   | macaddr8                      |       |                             |                                                     |
+   | money                         |       | DECIMAL(19,2)               |                                                     |
+   | numeric                       |       | DECIMAL                     |                                                     |
+   | path                          |       | LINESTRING                  |                                                     |
+   | pg_lsn                        |       |                             |                                                     |
+   | pg_snapshot                   |       |                             |                                                     |
+   | point                         |       | POINT                       |                                                     |
+   | polygon                       |       | POLYGON                     |                                                     |
+   | real                          |       | FLOAT                       |                                                     |
+   | smallint                      | OK    | SMALLINT                    |                                                     |
+   | smallserial                   | OK    | SMALLINT                    |                                                     |
+   | serial                        | OK    | INT                         |                                                     |
+   | text                          | OK    | LONGTEXT                    |                                                     |
+   | time (without time zone)      | OK    | TIME                        | Only replicate 3 digitals instead of 6 microseconds |
+   | time (with time zone)         | NG    | TIME                        |                                                     |
+   | timestamp (without time zone) | todo  | DATETIME                    |                                                     |
+   | timestamp (without time zone) | todo  | DATETIME                    |                                                     |
+   | tsquery                       |       | LONGTEXT                    |                                                     |
+   | tsvector                      |       | LONGTEXT                    |                                                     |
+   | txid_snapshot                 |       | VARCHAR                     |                                                     |
+   | uuid                          |       | VARCHAR(36)                 |                                                     |
+   | xml                           |       | LONGTEXT                    |                                                     |
 ** Task
    + Setup the structure
    + Install jar file
@@ -682,3 +732,10 @@ workstation$ more /opt/kafka/source.pg.json
 
 **** Issue
      Use debezium Timestamp converter, I succeeded to replicate the timestamp from postgres to TiDB. The last issue is that the converter could not replicate microseconds to TiDB using Simple DateTime.
+
+*** Issue 2: Does not support truncate operation
+* TODO
+  #+BEGIN_SRC
+sudo apt-get install postgresql-contrib
+  #+END_SRC
+     

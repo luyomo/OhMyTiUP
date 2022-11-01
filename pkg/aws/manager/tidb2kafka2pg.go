@@ -983,6 +983,11 @@ func (m *Manager) PerfPreparePG2Kafka2TiDB(clusterName, clusterType string, perf
 		return err
 	}
 
+	_, _, err = (*workstation).Execute(ctx, "apt-get install -y postgresql-contrib", true, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+
 	/* ********** ********** 004 Prepare insert query to /opt/kafka/query.sql **********/
 	strInsQuery := fmt.Sprintf("insert into test.test01(%s) values(%s)", strings.Join(arrCols, ","), strings.Join(arrData, ","))
 	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("echo \\\"%s\\\" > /tmp/query.sql", strInsQuery), true); err != nil {
@@ -1069,12 +1074,8 @@ func (m *Manager) PerfPreparePG2Kafka2TiDB(clusterName, clusterType string, perf
 		return err
 	}
 
-	// var cdcIP, schemaRegistryIP, brokerIP, connectorIP string
 	var schemaRegistryIP, connectorIP string
 	for _, row := range tableECs {
-		// 	if row[0] == "broker" {
-		// 		brokerIP = row[5]
-		// 	}
 		if row[0] == "schemaRegistry" {
 			schemaRegistryIP = row[5]
 		}
@@ -1084,16 +1085,6 @@ func (m *Manager) PerfPreparePG2Kafka2TiDB(clusterName, clusterType string, perf
 	}
 	timer.Take("05. Get required info - pd/broker/schemaRegistry/connector")
 
-	// if stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false); err != nil {
-	// 	return err
-	// }
-
-	/* ********** ********** 009 Prepare Postgres Source   **********/
-	// 009.01 Fetch TiDB connection infro from /opt/db-info.yml
-
-	// if err = (*workstation).Transfer(ctx, "/opt/db-info.yml", "/tmp/db-info.yml", true, 1024); err != nil {
-	// 	return err
-	// }
 	type PGSourceData struct {
 		PGHost         string `yaml:"Host"`
 		PGPort         int    `yaml:"Port"`
@@ -1107,16 +1098,6 @@ func (m *Manager) PerfPreparePG2Kafka2TiDB(clusterName, clusterType string, perf
 	if err = task.ReadDBConntionInfo(workstation, "db-info.yml", &pgSourceData); err != nil {
 		return err
 	}
-
-	// yfile, err := ioutil.ReadFile("/tmp/db-info.yml")
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = yaml.Unmarshal(yfile, &pgSourceData)
-	// if err != nil {
-	// 	return err
-	// }
 
 	pgSourceData.SchemaRegistry = schemaRegistryIP
 	pgSourceData.PGDBName = "test"
@@ -1158,4 +1139,165 @@ func (m *Manager) PerfPreparePG2Kafka2TiDB(clusterName, clusterType string, perf
 
 	return nil
 
+}
+
+func (m *Manager) PerfPG2Kafka2TiDB(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
+
+	// 01. Get the workstation executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	// 02. Get the TiDB connection info
+	type PGConnectInfo struct {
+		PGHost     string `yaml:"Host"`
+		PGPort     int    `yaml:"Port"`
+		PGUser     string `yaml:"User"`
+		PGPassword string `yaml:"Password"`
+	}
+
+	var pgConnectInfo PGConnectInfo
+
+	if err = task.ReadDBConntionInfo(workstation, "db-info.yml", &pgConnectInfo); err != nil {
+		return err
+	}
+
+	timer.Take("PG Conn info")
+
+	// 03. Prepare the query to insert data into TiDB
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "truncate table test.test01"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "truncate table test.test01"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("PGPASSWORD=%s pgbench -f /opt/kafka/query.sql -h %s -p %d -U %s -d test -j%d -T %d", pgConnectInfo.PGPassword, pgConnectInfo.PGHost, pgConnectInfo.PGPort, pgConnectInfo.PGUser, 10, 10), true, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	timer.Take("pgbench running")
+
+	// 04. Wait the data sync to postgres
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*) from test.test01"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	pgCnt := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
+
+	for cnt := 0; cnt < 20; cnt++ {
+		time.Sleep(10 * time.Second)
+		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select count(*) from test.test01"), false, 1*time.Hour)
+		if err != nil {
+			return err
+		}
+		tidbCnt := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
+
+		if pgCnt == tidbCnt {
+			break
+		}
+	}
+
+	timer.Take("Wait until data sync completion")
+
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select round(count(*)/((max(pg_timestamp) - min(pg_timestamp)) + 1)) from test.test01"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	tidbQPS := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
+
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select floor(sum(tidb_timestamp - pg_timestamp)/count(*)) from test.test01"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	latency := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
+
+	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select round(count(*)/(max(tidb_timestamp) - min(pg_timestamp))) as min_pg from test.test01"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	qps := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
+
+	perfMetrics := [][]string{{"Count", "PG DB QPS", "PG 2 TiDB Latency", "PG 2 TiDB QPS"}}
+	perfMetrics = append(perfMetrics, []string{pgCnt, tidbQPS, latency, qps})
+
+	tui.PrintTable(perfMetrics, true)
+
+	return nil
+}
+
+func (m *Manager) PerfCleanPG2Kafka2TiDB(clusterName, clusterType string, gOpt operator.Options) error {
+
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	// Get executor
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	if err != nil {
+		return err
+	}
+
+	// Get server info
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+	var tableECs [][]string
+	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	listTasks = append(listTasks, t1)
+
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+
+	t := builder.Build()
+
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
+
+	var connectorIP, schemaRegistryIP string
+	for _, row := range tableECs {
+		if row[0] == "connector" {
+			connectorIP = row[5]
+		}
+		if row[0] == "schemaRegistry" {
+			schemaRegistryIP = row[5]
+		}
+
+	}
+
+	// Remove the sink connector
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8083/connectors/%s", connectorIP, "SINKTiDB"), false); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8083/connectors/%s", connectorIP, "sourcepg"), false); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8081/subjects/sourcepg.test.test01-key", schemaRegistryIP), false); err != nil {
+		return err
+	}
+
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8081/subjects/sourcepg.test.test01-value", schemaRegistryIP), false); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -1,0 +1,106 @@
+MapPG2TiDB:
+  - PG:
+      DataType: INT
+      Def: t_int int
+    TiDB:
+      DataType: INT
+      Def: t_int int
+    Value: 1000
+  - PG:
+      DataType: BIGINT
+      Def: t_bigint bigint
+    TiDB:
+      DataType: BIGINT
+      Def: t_bigint bigint
+    Value: 1000
+  - PG:
+      DataType: BIGSERIAL
+      Def: t_bigserial bigserial
+    TiDB:
+      DataType: BIGINT
+      Def: t_bigserial bigint
+    Value: 1000
+  - PG:
+      DataType: BOOLEAN
+      Def: t_boolean boolean
+    TiDB:
+      DataType: TINYINT
+      Def: t_boolean tinyint(1)
+    Value: true
+  - PG:
+      DataType: CHAR
+      Def: t_char char
+    TiDB:
+      DataType: CHAR
+      Def: t_char char
+    Value: <<<<a>>>>
+  - PG:
+      DataType: VARCHAR
+      Def: t_varchar varchar(128)
+    TiDB:
+      DataType: VARCHAR
+      Def: t_varchar varchar(128)
+    Value: <<<<This is the pg2tidb varchar test>>>>
+  - PG:
+      DataType: DATE
+      Def: t_date date
+    TiDB:
+      DataType: DATE
+      Def: t_date date
+    Value: current_date
+  - PG:
+      DataType: DECIMAL
+      Def: t_decimal decimal(10, 2)
+    TiDB:
+      DataType: DECIMAL
+      Def: t_decimal decimal(10, 2)
+    Value: 10.22
+  - PG:
+      DataType: SMALLINT
+      Def: t_smallint smallint
+    TiDB:
+      DataType: SMALLINT
+      Def: t_smallint smallint
+    Value: 1000
+  - PG:
+      DataType: SMALLSERIAL
+      Def: t_smallserial smallserial
+    TiDB:
+      DataType: SMALLINT
+      Def: t_smallserial smallint
+    Value: 1000
+  - PG:
+      DataType: SERIAL
+      Def: t_serial serial
+    TiDB:
+      DataType: INT
+      Def: t_serial int
+    Value: 1000
+  - PG:
+      DataType: TEXT
+      Def: t_text text
+    TiDB:
+      DataType: LONGTEXT
+      Def: t_text longtext
+    Value: <<<<This is the pg2tidb text test>>>>
+  - PG:
+      DataType: TIME
+      Def: t_time time
+    TiDB:
+      DataType: TIME
+      Def: t_time time(6)
+    Value: current_time
+  - PG:
+      DataType: TIME_TIMEZONE
+      Def: t_time time with time zone
+    TiDB:
+      DataType: TIME
+      Def: t_time time(6)
+    Value: current_time
+  - PG:
+      DataType: TIMESTAMP
+      Def: t_timestamp timestamp
+    TiDB:
+      DataType: DATETIME
+      Def: t_timestamp datetime(6)
+    Value: current_timestamp
