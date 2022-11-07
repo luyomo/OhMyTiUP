@@ -1,5 +1,7 @@
+#+OPTIONS: ^:nil
+#+OPTIONS: \n:t
 * Overview
-  This platform guide you to setup all components to replicate data from Postgres to TiDB through kafka. [[https://debezium.io/documentation/reference/stable/connectors/postgresql.html][kafka source connector]] is used to capture changes from postgres to kafka while [[https://docs.confluent.io/kafka-connectors/jdbc/current/index.html][confluent JDBC sink]] is used to populate the captured data into TiDB. To minimize data size in the kafka storage and network cost, [[https://docs.confluent.io/platform/current/schema-registry/index.html][confluent avro schema registry]] is used for data [de]serialization. The demo utilizes [[https://debezium.io/documentation/reference/stable/transformations/event-flattening.html][SMT]] to convert the data format from debezium to confluent.
+  This platform guide you to setup all components to replicate data from Postgres to TiDB through kafka. [[https://debezium.io/documentation/reference/stable/connectors/postgresql.html][kafka source connector]] is used to capture changes from postgres to kafka while [[https://docs.confluent.io/kafka-connectors/jdbc/current/index.html][confluent JDBC sink]] is used to populate the captured data into TiDB. To minimize data size in the kafka storage and network cost, [[https://docs.confluent.io/platform/current/schema-registry/index.html][confluent avro schema registry]] is used for data [de]serialization. The demo utilizes [[https://debezium.io/documentation/reference/stable/transformations/event-flattening.html][SMT]] to convert the data format from debezium to confluent. Finally, [[https://github.com/luyomo/yomo-timestamp-converter][yomo debezium timstamp convert]] is developed to replicate timestamp's microseconds as well.
   #+ATTR_HTML: :width 1000px
   [[./png/pg2kafka2tidb/pg2kafka2tidb.png]]
 * Manual install
@@ -91,6 +93,10 @@ Adding installation directory to plugin path in the following files:
 Completed 
 
 #+END_SRC
+** Install [[https://debezium.io/documentation/reference/stable/development/converters.html][SPI]] to support microseconds replication
+   #+BEGIN_SRC
+connector$ sudo wget https://github.com/luyomo/yomo-timestamp-converter/releases/download/v0.0.1/YomoTimestampConverter-1.2.3-SNAPSHOT.jar -P /usr/share/confluent-hub-components/debezium-debezium-connector-postgresql/lib/
+   #+END_SRC
 ** Restart connect service
    Restart the service to make the postgres source connect and MySQL driver come to effect. If you define multiple connect workers, please restart all the service in all the connect workers
 #+BEGIN_SRC
@@ -146,7 +152,13 @@ workstation$ more /opt/kafka/source.pg.yaml
     "transforms": "unwrap",
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstone": "true",
-    "transforms.unwrap.delete.handling.mode": "none"
+    "transforms.unwrap.delete.handling.mode": "none",
+    "converters": "timestampConverter",
+    "timestampConverter.type": "yomo.kafka.connect.util.TimestampConverter",
+    "timestampConverter.format.time": "HH:mm:ss.SSSSSS",
+    "timestampConverter.format.date": "YYYY-MM-dd",
+    "timestampConverter.format.datetime": "YYYY-MM-dd HH:mm:ss.SSSSSS",
+    "timestampConverter.debug": "false"
   }
 }
       #+END_SRC
@@ -172,7 +184,13 @@ workstation$ curl -H 'Content-Type: Application/JSON' http://172.83.1.186:8083/c
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstone": "true",
     "transforms.unwrap.delete.handling.mode": "none",
-    "name": "sourcepg"
+    "name": "sourcepg",
+    "converters": "timestampConverter",
+    "timestampConverter.type": "yomo.kafka.connect.util.TimestampConverter",
+    "timestampConverter.format.time": "HH:mm:ss.SSSSSS",
+    "timestampConverter.format.date": "YYYY-MM-dd",
+    "timestampConverter.format.datetime": "YYYY-MM-dd HH:mm:ss.SSSSSS",
+    "timestampConverter.debug": "false"
   },
   "tasks": [],
   "type": "source"
@@ -282,13 +300,13 @@ $ more /opt/kafka/sink.tidb.yaml
 ** Verification
 *** Check the data in the MySQL
     #+BEGIN_SRC
-MySQL [test]> select * from test.test01;
-+-------+-------+
-| col01 | col02 |
-+-------+-------+
-|     1 |     1 |
-+-------+-------+
-1 row in set (0.002 sec)
+      MySQL [test]> select * from test.test01;
+      +-------+-------+
+      | col01 | col02 |
+      +-------+-------+
+      |     1 |     1 |
+      +-------+-------+
+      1 row in set (0.002 sec)
     #+END_SRC
 *** Replicate Insert Event
     + Insert one row to postgres
@@ -298,14 +316,14 @@ INSERT 0 1
       #+END_SRC
     + Check the inserted data in the TiDB
       #+BEGIN_SRC
-MySQL [test]> select * from test.test01;
-+-------+-------+
-| col01 | col02 |
-+-------+-------+
-|     1 |     1 |
-|     2 |     2 |
-+-------+-------+
-2 rows in set (0.002 sec)
+      MySQL [test]> select * from test.test01;
+      +-------+-------+
+      | col01 | col02 |
+      +-------+-------+
+      |     1 |     1 |
+      |     2 |     2 |
+      +-------+-------+
+      2 rows in set (0.002 sec)
     #+END_SRC
 *** Replciate Update Event
     + Update one row
@@ -315,14 +333,14 @@ UPDATE 1
       #+END_SRC
     + Check the Update Value in the TiDB
       #+BEGIN_SRC
-MySQL [test]> select * from test.test01;
-+-------+-------+
-| col01 | col02 |
-+-------+-------+
-|     1 |     1 |
-|     2 |    20 |
-+-------+-------+
-2 rows in set (0.002 sec)
+      MySQL [test]> select * from test.test01;
+      +-------+-------+
+      | col01 | col02 |
+      +-------+-------+
+      |     1 |     1 |
+      |     2 |    20 |
+      +-------+-------+
+      2 rows in set (0.002 sec)
       #+END_SRC
 *** Replicate Delete Event
     + Delete one row from postgres
@@ -332,16 +350,74 @@ DELETE 1
       #+END_SRC
     + Check the deleted row in the TiDB
       #+BEGIN_SRC
-MySQL [test]> select * from test.test01;
-+-------+-------+
-| col01 | col02 |
-+-------+-------+
-|     1 |     1 |
-+-------+-------+
-1 row in set (0.002 sec)
+      MySQL [test]> select * from test.test01;
+      +-------+-------+
+      | col01 | col02 |
+      +-------+-------+
+      |     1 |     1 |
+      +-------+-------+
+      1 row in set (0.002 sec)
       #+END_SRC
 
-* Other Replication
+* Data Mapping
+     #+CAPTION: Data Type conversion
+     #+ATTR_HTML: :border 2 :rules all :frame border
+     | PG Data Type                  | OK/NG | TiDB Data Type              | Comment                                              | priority     |
+     |-------------------------------+-------+-----------------------------+------------------------------------------------------+--------------|
+     | bigint                        | OK    | BIGINT                      |                                                      |              |
+     | bigserial                     | OK    | BIGINT                      |                                                      |              |
+     | bit                           | OK    | BIT                         |                                                      |              |
+     | bit varying                   | OK    | BIT(m)                      |                                                      |              |
+     | boolean                       | OK    | TINYINT(1)                  |                                                      |              |
+     | bytea                         | OK    | LONGBLOB                    |                                                      |              |
+     | character                     | OK    | CHAR/LONGTEXT               |                                                      |              |
+     | NATIONAL CHARACTER            |       | CHAR/LONGTEXT               |                                                      |              |
+     | character varying             | OK    | VARCHAR/MEDIUMTEXT/LONGTEXT |                                                      |              |
+     | DECIMAL                       | OK    | DECIMAL                     |                                                      |              |
+     | integer                       | OK    | INT                         |                                                      |              |
+     | money                         | OK    | DECIMAL(19,2)               |                                                      |              |
+     | numeric                       | NG    | DECIMAL                     |                                                      |              |
+     | real                          |       | FLOAT                       |                                                      |              |
+     | smallint                      | OK    | SMALLINT                    |                                                      |              |
+     | smallserial                   | OK    | SMALLINT                    |                                                      |              |
+     | serial                        | OK    | INT                         |                                                      |              |
+     | text                          | OK    | LONGTEXT                    |                                                      |              |
+     | uuid                          | OK    | VARCHAR(36)                 |                                                      |              |
+     |-------------------------------+-------+-----------------------------+------------------------------------------------------+--------------|
+     | time (without time zone)      | OK    | TIME                        | Use [[https://github.com/luyomo/yomo-timestamp-converter][custom convert]] to replicate microseconds from PG |              |
+     | time (with time zone)         | NG    | TIME                        |                                                      |              |
+     | timestamp (without time zone) | OK    | DATETIME                    | Use [[https://github.com/luyomo/yomo-timestamp-converter][custom convert]] to replicate microseconds from PG |              |
+     | timestamp (with time zone)    | NG    | DATETIME                    |                                                      |              |
+     | interval                      | NG    | TIME                        | Please check issue                                   |              |
+     | date                          | OK    | DATE                        |                                                      |              |
+     |-------------------------------+-------+-----------------------------+------------------------------------------------------+--------------|
+     | array                         | NG    | LONGTEXT                    | Unsupported                                          |              |
+     | xml                           |       | LONGTEXT                    |                                                      |              |
+     | json                          | OK    | JSON                        |                                                      |              |
+     | jsonb                         | OK    | JSON                        |                                                      |              |
+     |-------------------------------+-------+-----------------------------+------------------------------------------------------+--------------|
+     | cidr                          | NG    | VARCHAR(43)                 |                                                      | low priority |
+     | inet                          |       | VARCHAR(43)                 |                                                      |              |
+     | macaddr                       |       | VARCHAR(17)                 |                                                      |              |
+     | macaddr8                      |       |                             |                                                      |              |
+     |-------------------------------+-------+-----------------------------+------------------------------------------------------+--------------|
+     | box                           | NG    | POLYGON                     |                                                      | low priority |
+     | point                         |       | POINT                       |                                                      |              |
+     | polygon                       |       | POLYGON                     |                                                      |              |
+     | circle                        |       | POLYGON                     |                                                      |              |
+     | line                          |       | LINESTRING                  |                                                      |              |
+     | path                          |       | LINESTRING                  |                                                      |              |
+     | lseg                          |       | LINESTRING                  |                                                      |              |
+     |-------------------------------+-------+-----------------------------+------------------------------------------------------+--------------|
+     | pg_lsn                        |       |                             |                                                      |              |
+     | pg_snapshot                   |       |                             |                                                      |              |
+     | txid_snapshot                 |       | VARCHAR                     |                                                      |              |
+     |-------------------------------+-------+-----------------------------+------------------------------------------------------+--------------|
+     | tsquery                       |       | LONGTEXT                    |                                                      |              |
+     | tsvector                      |       | LONGTEXT                    |                                                      |              |
+     |-------------------------------+-------+-----------------------------+------------------------------------------------------+--------------|
+
+* Default replication event format
 ** Debezium default CDC
     #+BEGIN_SRC
 {
@@ -365,76 +441,19 @@ MySQL [test]> select * from test.test01;
 *** CDC data format in the kafka
     #+BEGIN_SRC
 insert into test01 values(4,4,current_timestamp, current_timestamp);  -->
-{"pk_col":4}    {"before":null,"after":{"pgsource01.public.test01.Value":{"pk_col":4,"t_int":{"int":4},"tidb_timestamp":{"long":1666708817526567},"pg_timestamp":{"long":1666708817526567}}},"source":{"version":"1.9.6.Final","connector":"postgresql","name":"pgsource01","ts_ms":1666708817526,"snapshot":{"string":"false"},"db":"test","sequence":{"string":"[\"13153346816\",\"13220446248\"]"},"schema":"public","table":"test01","txId":{"long":849},"lsn":{"long":13220446248},"xmin":null},"op":"c","ts_ms":{"long":1666708817969},"transaction":null}
+kafka event: {"pk_col":4}    
 
 update test01 set t_int=10 where pk_col = 1152921504606846977;        -->
-{"pk_col":1152921504606846977}  {"before":null,"after":{"pgsource01.public.test01.Value":{"pk_col":1152921504606846977,"t_int":{"int":10},"tidb_timestamp":{"long":1666707909000000},"pg_timestamp":{"long":1666707912597157}}},"source":{"version":"1.9.6.Final","connector":"postgresql","name":"pgsource01","ts_ms":1666708919887,"snapshot":{"string":"false"},"db":"test","sequence":{"string":"[\"13220446448\",\"13220446728\"]"},"schema":"public","table":"test01","txId":{"long":850},"lsn":{"long":13220446728},"xmin":null},"op":"u","ts_ms":{"long":1666708920091},"transaction":null}
+kafka event: {"pk_col":1152921504606846977}  {"before":null,"after":{"pgsource01.public.test01.Value":{"pk_col":1152921504606846977,"t_int":{"int":10},"tidb_timestamp":{"long":1666707909000000},"pg_timestamp":{"long":1666707912597157}}},"source":{"version":"1.9.6.Final","connector":"postgresql","name":"pgsource01","ts_ms":1666708919887,"snapshot":{"string":"false"},"db":"test","sequence":{"string":"[\"13220446448\",\"13220446728\"]"},"schema":"public","table":"test01","txId":{"long":850},"lsn":{"long":13220446728},"xmin":null},"op":"u","ts_ms":{"long":1666708920091},"transaction":null}
 
 delete from test01 where t_int = 10;                                  -->
-{"pk_col":1152921504606846977}  null
+kafka event: {"pk_col":1152921504606846977}  null
     #+END_SRC
+
       
-* TODO
-
-** PG SOURCE JSON CONFIG
-
-$ curl -H 'Content-Type: Application/JSON' http://172.83.1.186:8083/connectors -d @'/opt/kafka/sink.tidb.yaml' | jq 
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100  1825  100   848  100   977  31407  36185 --:--:-- --:--:-- --:--:-- 67592
-{
-  "name": "SINKTiDB",
-  "config": {
-    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
-    "connection.url": "jdbc:mysql://avrotest-a56a55d7ef009651.elb.us-east-1.amazonaws.com:4000/test?stringtype=unspecified",
-    "connection.user": "root",
-    "connection.password": "",
-    "topics": "sourcepg.test.test01",
-    "insert.mode": "upsert",
-    "delete.enabled": "true",
-    "dialect.name": "MySqlDatabaseDialect",
-    "table.name.format": "test.test01",
-    "key.converter": "io.confluent.connect.avro.AvroConverter",
-    "value.converter": "io.confluent.connect.avro.AvroConverter",
-    "key.converter.schema.registry.url": "http://172.83.1.200:8081",
-    "value.converter.schema.registry.url": "http://172.83.1.200:8081",
-    "key.converter.schemas.enable": "true",
-    "value.converter.schemas.enable": "true",
-    "pk.mode": "record_key",
-    "auto.create": "false",
-    "auto.evolve": "false",
-    "name": "SINKTiDB"
-  },
-  "tasks": [],
-  "type": "sink"
-}
-
-$ curl http://172.83.1.186:8083/connectors/SINKTiDB/status | jq 
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100   166  100   166    0     0  55333      0 --:--:-- --:--:-- --:--:-- 83000
-{
-  "name": "SINKTiDB",
-  "connector": {
-    "state": "RUNNING",
-    "worker_id": "172.83.1.186:8083"
-  },
-  "tasks": [
-    {
-      "id": 0,
-      "state": "RUNNING",
-      "worker_id": "172.83.1.186:8083"
-    }
-  ],
-  "type": "sink"
-}
-
-
-* Wrong configuration
-*** debezium
-
-
-*** confluent JDBC requirement
+* Issues
+*** confluent JDBC Sink events format requirement
+    The confluent JDBC Sink is used to fetch the data from kafka and populate it into TiDB. The data format is as below:
   #+BEGIN_SRC
 CREATE TABLE `test01` (
   `pk_col` bigint(20) NOT NULL /*T![auto_rand] AUTO_RANDOM(5) */,
@@ -454,7 +473,8 @@ update test01 set pk_col = 2 where id = xxxx;                                 --
 
   #+End_sRC
 
-*** unwrap
+**** unwrap the message in the pg source connect
+     To unwrap the message from CDC, use transforms to unwrap the message. But the additional column [__deleted] is generated to show the event operation which could not be replicated into TiDB.
     #+BEGIN_SRC
 {"col01":1}     {"col01":1,"col02":{"int":1},"__deleted":{"string":"false"}}
 {"col01":2}     {"col01":2,"col02":{"int":2},"__deleted":{"string":"false"}}
@@ -481,13 +501,11 @@ update test01 set pk_col = 2 where id = xxxx;                                 --
   }
 }
     #+END_SRC
+    https://stackoverflow.com/questions/72430748/confluent-jdbc-sink-connector-cant-recognize-record-captured-by-debezium-connec
 
-*** Reference
- https://stackoverflow.com/questions/72430748/confluent-jdbc-sink-connector-cant-recognize-record-captured-by-debezium-connec
-
-
-*** source config
-#+BEGIN_SRC
+**** Use ExtractNewRecordState wrap with [delete.handling.mode] as none
+     + source config
+       #+BEGIN_SRC
 {
   "name": "pgsource05",
   "config": {
@@ -509,9 +527,9 @@ update test01 set pk_col = 2 where id = xxxx;                                 --
     "transforms.unwrap.delete.handling.mode": "none"
   }
 }
-#+END_SRC
-*** sink config
-#+BEGIN_SRC
+       #+END_SRC
+     + sink config
+       #+BEGIN_SRC
 {
     "name": "JDBCTEST01",
     "config": {
@@ -535,75 +553,10 @@ update test01 set pk_col = 2 where id = xxxx;                                 --
         "auto.evolve":"false"
     }
 }
-#+END_SRC
-
-
-*** Install mysql driver
-    
-    wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz
-
-*** Install source connector
-    sudo confluent-hub install debezium/debezium-connector-postgresql:1.9.6
-** Data mapping
-   #+CAPTION: Data Type conversion
-   #+ATTR_HTML: :border 2 :rules all :frame border
-   | PG Data Type                  | OK/NG | TiDB Data Type              | Comment                                             |
-   |-------------------------------+-------+-----------------------------+-----------------------------------------------------|
-   | array                         |       | LONGTEXT                    |                                                     |
-   | bigint                        | OK    | BIGINT                      |                                                     |
-   | bigserial                     | OK    | BIGINT                      |                                                     |
-   | bit                           |       | BIT                         |                                                     |
-   | bit varying                   |       |                             |                                                     |
-   | boolean                       | OK    | TINYINT(1)                  |                                                     |
-   | box                           |       | POLYGON                     |                                                     |
-   | bytea                         |       | LONGBLOB                    |                                                     |
-   | character                     | OK    | CHAR/LONGTEXT               |                                                     |
-   | NATIONAL CHARACTER            |       | CHAR/LONGTEXT               |                                                     |
-   | character varying             | OK    | VARCHAR/MEDIUMTEXT/LONGTEXT |                                                     |
-   | cidr                          |       | VARCHAR(43)                 |                                                     |
-   | circle                        |       | POLYGON                     |                                                     |
-   | date                          | OK    | DATE                        |                                                     |
-   | DECIMAL                       |       | DECIMAL                     |                                                     |
-   | inet                          |       | VARCHAR(43)                 |                                                     |
-   | integer                       | OK    | INT                         |                                                     |
-   | interval                      |       | TIME                        |                                                     |
-   | json                          |       | LONGTEXT                    |                                                     |
-   | jsonb                         |       |                             |                                                     |
-   | line                          |       | LINESTRING                  |                                                     |
-   | lseg                          |       | LINESTRING                  |                                                     |
-   | macaddr                       |       | VARCHAR(17)                 |                                                     |
-   | macaddr8                      |       |                             |                                                     |
-   | money                         |       | DECIMAL(19,2)               |                                                     |
-   | numeric                       |       | DECIMAL                     |                                                     |
-   | path                          |       | LINESTRING                  |                                                     |
-   | pg_lsn                        |       |                             |                                                     |
-   | pg_snapshot                   |       |                             |                                                     |
-   | point                         |       | POINT                       |                                                     |
-   | polygon                       |       | POLYGON                     |                                                     |
-   | real                          |       | FLOAT                       |                                                     |
-   | smallint                      | OK    | SMALLINT                    |                                                     |
-   | smallserial                   | OK    | SMALLINT                    |                                                     |
-   | serial                        | OK    | INT                         |                                                     |
-   | text                          | OK    | LONGTEXT                    |                                                     |
-   | time (without time zone)      | OK    | TIME                        | Only replicate 3 digitals instead of 6 microseconds |
-   | time (with time zone)         | NG    | TIME                        |                                                     |
-   | timestamp (without time zone) | todo  | DATETIME                    |                                                     |
-   | timestamp (without time zone) | todo  | DATETIME                    |                                                     |
-   | tsquery                       |       | LONGTEXT                    |                                                     |
-   | tsvector                      |       | LONGTEXT                    |                                                     |
-   | txid_snapshot                 |       | VARCHAR                     |                                                     |
-   | uuid                          |       | VARCHAR(36)                 |                                                     |
-   | xml                           |       | LONGTEXT                    |                                                     |
-** Task
-   + Setup the structure
-   + Install jar file
-   + render the source config
-   + render the task config
-
-** Issues
-*** Issue: Transform the epoch into target DATABASE
+      #+END_SRC
+*** Issue: Failed to transform epoch into target DATABASE in the sink connect
 **** Epoche: The DEBEZIUM CDC catch the datetime as the epochtime which failed to import to target database directly.
-   #+BEGIN_SRC
+    #+BEGIN_SRC
 org.apache.kafka.connect.errors.ConnectException: Exiting WorkerSinkTask due to unrecoverable exception.
 at org.apache.kafka.connect.runtime.WorkerSinkTask.delive rMessages(WorkerSinkTask.java:611)
 at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:333)
@@ -621,18 +574,18 @@ at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTas
 ... 10 more\nCaused by: java.sql.SQLException: Exce ption chain:\njava.sql.BatchUpdateException: Data truncation: Incorrect timestamp value: '1667137970790403' for column 'pg_timestamp' at row 1\ncom.mysql.jdbc.MysqlDataTruncation: D ata truncation: Incorrect timestamp value: '1667137970790403' for column 'pg_timestamp' at row 1\n
 at io.confluent.connect.jdbc.sink.JdbcSinkTask.put(JdbcSinkTask.java:86)
 ...  11 more\n
-   #+END_SRC
-   To resolve the issue, add the timestampe convert firstly. The options are added as below:
-   #+BEGIN_SRC
-     ... ...
-     "transforms": "timestamp",
-     "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
-     "transforms.timestamp.target.type": "Timestamp",
-     "transforms.timestamp.field":"pg_timestamp",
-     "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss"
-   #+END_SRC
-**** Wrong conversion from epoch to timestamp
-   #+BEGIN_SRC
+     #+END_SRC
+**** Resolution 01: To resolve the issue, add the timestampe convert firstly. The options are added as below:
+     #+BEGIN_SRC
+       ... ...
+       "transforms": "timestamp",
+       "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+       "transforms.timestamp.target.type": "Timestamp",
+       "transforms.timestamp.field":"pg_timestamp",
+       "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss"
+     #+END_SRC
+***** Wrong conversion from epoch to timestamp
+     #+BEGIN_SRC
 org.apache.kafka.connect.errors.ConnectException: Exiting WorkerSinkTask due to unrecoverable exception.
 at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:611)
 at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:333)
@@ -650,14 +603,11 @@ at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTas
 ... 10 more\nCaused by: java.sql.SQLException: Exception chain:\njava.sql.BatchUpdateException: Data truncation: Incorrect timestamp value: '54799-07-02 08:46:30.403' for column 'pg_timestamp' at row 1\ncom.mysql.jdbc.MysqlDataTruncation: Data truncation: Incorrect timestamp value: '54799-07-02 08:46:30.403' for column 'pg_timestamp' at row 1\n
 at io.confluent.connect.jdbc.sink.JdbcSinkTask.put(JdbcSinkTask.java:86)
 ... 11 more\n
-   #+END_SRC
-
-   Found [[https://github.com/confluentinc/kafka-connect-jdbc/issues/674][kafka connect jdbc issue]]. And get another link [[https://github.com/oryanmoshe/debezium-timestamp-converter][debezium timestamp converter]] to resolve such kind of conversion issue. To do.
-
-**** debezium timetamp convert installation
-***** Attempt 01
+     #+END_SRC
+**** Resolution 02:  Found [[https://github.com/confluentinc/kafka-connect-jdbc/issues/674][kafka connect jdbc issue]]. And get another link [[https://github.com/oryanmoshe/debezium-timestamp-converter][debezium timestamp converter]] to resolve such kind of conversion issue. To do.
       Tried to install the converter to plugins initially as follow:
-      #+BEGIN_SRC
+      + Attempt 01
+        #+BEGIN_SRC
 connector$ wget https://github.com/oryanmoshe/debezium-timestamp-converter/releases/download/v1.2.4/TimestampConverter-1.2.4-SNAPSHOT.jar
 connector$ sudo mv TimestampConverter-1.2.4-SNAPSHOT.jar /usr/share/java/kafka/
 connector$ more /var/log/kafka/connect.log
@@ -693,11 +643,10 @@ Caused by: java.text.ParseException: Unparseable date: "2022-10-31T05:16:31.552Z
         at java.base/java.text.DateFormat.parse(DateFormat.java:395)
         at org.apache.kafka.connect.transforms.TimestampConverter$1.toRaw(TimestampConverter.java:117)
         ... 21 more
-      #+END_SRC
-
-***** Attempt 02
-      Install the jar file to connector lib
-      #+BEGIN_SRC
+        #+END_SRC
+      + Attempt 02
+        Install the jar file to connector lib
+        #+BEGIN_SRC
 connector$ sudo wget https://github.com/oryanmoshe/debezium-timestamp-converter/releases/download/v1.2.4/TimestampConverter-1.2.4-SNAPSHOT.jar -P /usr/share/confluent-hub-components/debezium-debezium-connector-postgresql/lib/
 connector$ sudo systemctl restart confluent-kafka-connect
 workstation$ more /opt/kafka/source.pg.json
@@ -728,14 +677,215 @@ workstation$ more /opt/kafka/source.pg.json
     "timestampConverter.debug": "false"
   }
 }
-      #+END_SRC
+        #+END_SRC
 
-**** Issue
+*** Issue: Microseconds are truncated during replication
      Use debezium Timestamp converter, I succeeded to replicate the timestamp from postgres to TiDB. The last issue is that the converter could not replicate microseconds to TiDB using Simple DateTime.
+    + Resolution: Prepared one custom [[SPI][https://github.com/luyomo/yomo-timestamp-converter]] plugin to convert the data in the source connect
 
-*** Issue 2: Does not support truncate operation
-* TODO
-  #+BEGIN_SRC
-sudo apt-get install postgresql-contrib
-  #+END_SRC
-     
+*** Issue: Does not support truncate operation
+*** Issue: Interval conversion
+#+BEGIN_SRC
+org.apache.kafka.connect.errors.ConnectException: Tolerance exceeded in error handler
+at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:206)
+at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execute(RetryWithToleranceOperator.java:132)
+at org.apache.kafka.connect.runtime.WorkerSourceTask.convertTransformedRecord(WorkerSourceTask.java:326)
+at org.apache.kafka.connect.runtime.WorkerSourceTask.sendRecords(WorkerSourceTask.java:355)
+at org.apache.kafka.connect.runtime.WorkerSourceTask.execute(WorkerSourceTask.java:257)
+at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:188)
+at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:243)
+at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)
+at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+at java.base/java.lang.Thread.run(Thread.java:829)\nCaused by: org.apache.kafka.connect.errors.DataException: Failed to serialize Avro data from topic sourcepg.test.test01 :
+at io.confluent.connect.avro.AvroConverter.fromConnectData(AvroConverter.java:93)
+at org.apache.kafka.connect.storage.Converter.fromConnectData(Converter.java:63)
+at org.apache.kafka.connect.runtime.WorkerSourceTask.lambda$convertTransformedRecord$2(WorkerSourceTask.java:326)
+at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndRetry(RetryWithToleranceOperator.java:156)
+at org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:190)
+... 11 more\nCaused by: org.apache.kafka.common.errors.SerializationException: Error registering Avro schema{\"type\":\"record\",\"name\":\"Key\",\"namespace\":\"sourcepg.test.test01\",\"fields\":[{\"name\":\"pk_col\",\"type\":{\"type\":\"long\",\"connect.default\":0},\"default\":0}],\"connect.name\":\"sourcepg.test.test01.Key\"}
+at io.confluent.kafka.serializers.AbstractKafkaSchemaSerDe.toKafkaException(AbstractKafkaSchemaSerDe.java:261)
+at io.confluent.kafka.serializers.AbstractKafkaAvroSerializer.serializeImpl(AbstractKafkaAvroSerializer.java:168)
+at io.confluent.connect.avro.AvroConverter$Serializer.serialize(AvroConverter.java:153)
+at io.confluent.connect.avro.AvroConverter.fromConnectData(AvroConverter.java:86)
+... 15 more\nCaused by: io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException: Register schema operation failed while writing to the Kafka store; error code: 50001
+at io.confluent.kafka.schemaregistry.client.rest.RestService.sendHttpRequest(RestService.java:301)
+at io.confluent.kafka.schemaregistry.client.rest.RestService.httpRequest(RestService.java:371)
+at io.confluent.kafka.schemaregistry.client.rest.RestService.registerSchema(RestService.java:548)
+at io.confluent.kafka.schemaregistry.client.rest.RestService.registerSchema(RestService.java:536)
+at io.confluent.kafka.schemaregistry.client.rest.RestService.registerSchema(RestService.java:494)
+at io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient.registerAndGetId(CachedSchemaRegistryClient.java:275)
+at io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient.register(CachedSchemaRegistryClient.java:382)
+at io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient.register(CachedSchemaRegistryClient.java:355)
+at io.confluent.kafka.serializers.AbstractKafkaAvroSerializer.serializeImpl(AbstractKafkaAvroSerializer.java:125)
+... 17 more\n
+#+END_SRC
+*** Issue: array unsupport
+    #+BEGIN_SRC
+org.apache.kafka.connect.errors.ConnectException: Exiting WorkerSinkTask due to unrecoverable exception.
+at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:611)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:333)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:234)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:203)
+at org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:188)
+at org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:243)
+at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)
+at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+at java.base/java.lang.Thread.run(Thread.java:829)
+Caused by: org.apache.kafka.connect.errors.ConnectException: Unsupported source data type: ARRAY
+at io.confluent.connect.jdbc.dialect.GenericDatabaseDialect.bindField(GenericDatabaseDialect.java:1569)
+at io.confluent.connect.jdbc.sink.PreparedStatementBinder.bindField(PreparedStatementBinder.java:149)
+at io.confluent.connect.jdbc.sink.PreparedStatementBinder.bindNonKeyFields(PreparedStatementBinder.java:143)
+at io.confluent.connect.jdbc.sink.PreparedStatementBinder.bindRecord(PreparedStatementBinder.java:78)
+at io.confluent.connect.jdbc.sink.BufferedRecords.flush(BufferedRecords.java:182)
+at io.confluent.connect.jdbc.sink.JdbcDbWriter.write(JdbcDbWriter.java:79)
+at io.confluent.connect.jdbc.sink.JdbcSinkTask.put(JdbcSinkTask.java:74)
+at org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:581)
+... 10 more
+    #+END_SRC
+*** box not support
+    Failed to catch the b_box field.
+    #+BEGIN_SRC
+{"pk_col":10753}        {"pk_col":10753,"pg_timestamp":{"string":"2022-11-02 10:43:21.534"}}
+{"pk_col":10754}        {"pk_col":10754,"pg_timestamp":{"string":"2022-11-02 10:43:21.535"}}
+{"pk_col":10755}        {"pk_col":10755,"pg_timestamp":{"string":"2022-11-02 10:43:21.536"}}
+{"pk_col":10756}        {"pk_col":10756,"pg_timestamp":{"string":"2022-11-02 10:43:21.537"}}
+{"pk_col":10757}        {"pk_col":10757,"pg_timestamp":{"string":"2022-11-02 10:43:21.538"}}
+{"pk_col":10758}        {"pk_col":10758,"pg_timestamp":{"string":"2022-11-02 10:43:21.538"}}
+{"pk_col":10759}        {"pk_col":10759,"pg_timestamp":{"string":"2022-11-02 10:43:21.539"}}
+{"pk_col":10760}        {"pk_col":10760,"pg_timestamp":{"string":"2022-11-02 10:43:21.540"}}
+{"pk_col":10761}        {"pk_col":10761,"pg_timestamp":{"string":"2022-11-02 10:43:21.541"}}
+{"pk_col":10762}        {"pk_col":10762,"pg_timestamp":{"string":"2022-11-02 10:43:21.542"}}
+{"pk_col":10763}        {"pk_col":10763,"pg_timestamp":{"string":"2022-11-02 10:43:21.542"}}
+{"pk_col":10764}        {"pk_col":10764,"pg_timestamp":{"string":"2022-11-02 10:43:21.543"}}
+{"pk_col":10765}        {"pk_col":10765,"pg_timestamp":{"string":"2022-11-02 10:43:21.544"}}
+    #+END_SRC
+*** CIDR conversion
+    #+BEGIN_SRC
+org.apache.kafka.connect.errors.ConnectException: Tolerance exceeded in error handler
+\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:206)
+\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execute(RetryWithToleranceOperator.java:132)
+\tat org.apache.kafka.connect.runtime.WorkerSourceTask.convertTransformedRecord(WorkerSourceTask.java:326)
+\tat org.apache.kafka.connect.runtime.WorkerSourceTask.sendRecords(WorkerSourceTask.java:355)
+\tat org.apache.kafka.connect.runtime.WorkerSourceTask.execute(WorkerSourceTask.java:257)
+\tat org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:188)
+\tat org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:243)
+\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)
+\tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+\tat java.base/java.lang.Thread.run(Thread.java:829)
+Caused by: org.apache.kafka.connect.errors.DataException: Failed to serialize Avro data from topic sourcepg.test.test01 :
+\tat io.confluent.connect.avro.AvroConverter.fromConnectData(AvroConverter.java:93)
+\tat org.apache.kafka.connect.storage.Converter.fromConnectData(Converter.java:63)
+\tat org.apache.kafka.connect.runtime.WorkerSourceTask.lambda$convertTransformedRecord$2(WorkerSourceTask.java:326)
+\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndRetry(RetryWithToleranceOperator.java:156)
+\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:190)
+\t... 11 more
+Caused by: org.apache.kafka.common.errors.SerializationException: Error registering Avro schema{\"type\":\"record\",\"name\":\"Key\",\"namespace\":\"sourcepg.test.test01\",\"fields\":[{\"name\":\"pk_col\",\"type\":{\"type\":\"long\",\"connect.default\":0},\"default\":0}],\"connect.name\":\"sourcepg.test.test01.Key\"}
+\tat io.confluent.kafka.serializers.AbstractKafkaSchemaSerDe.toKafkaException(AbstractKafkaSchemaSerDe.java:261)
+\tat io.confluent.kafka.serializers.AbstractKafkaAvroSerializer.serializeImpl(AbstractKafkaAvroSerializer.java:168)
+\tat io.confluent.connect.avro.AvroConverter$Serializer.serialize(AvroConverter.java:153)
+\tat io.confluent.connect.avro.AvroConverter.fromConnectData(AvroConverter.java:86)
+\t... 15 more
+Caused by: io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException: Register schema operation failed while writing to the Kafka store; error code: 50001
+\tat io.confluent.kafka.schemaregistry.client.rest.RestService.sendHttpRequest(RestService.java:301)
+\tat io.confluent.kafka.schemaregistry.client.rest.RestService.httpRequest(RestService.java:371)
+\tat io.confluent.kafka.schemaregistry.client.rest.RestService.registerSchema(RestService.java:548)
+\tat io.confluent.kafka.schemaregistry.client.rest.RestService.registerSchema(RestService.java:536)
+\tat io.confluent.kafka.schemaregistry.client.rest.RestService.registerSchema(RestService.java:494)
+\tat io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient.registerAndGetId(CachedSchemaRegistryClient.java:275)
+\tat io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient.register(CachedSchemaRegistryClient.java:382)
+\tat io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient.register(CachedSchemaRegistryClient.java:355)
+\tat io.confluent.kafka.serializers.AbstractKafkaAvroSerializer.serializeImpl(AbstractKafkaAvroSerializer.java:125)
+\t... 17 more\
+    #+END_SRC
+*** issue: numeric conversion
+    #+BEGIN_SRC
+org.apache.kafka.connect.errors.ConnectException: Exiting WorkerSinkTask due to unrecoverable exception.
+\tat org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:611)
+\tat org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:333)
+\tat org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:234)
+\tat org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:203)
+\tat org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:188)
+\tat org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:243)
+\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)
+\tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+\tat java.base/java.lang.Thread.run(Thread.java:829)
+Caused by: org.apache.kafka.connect.errors.ConnectException: Unsupported source data type: STRUCT
+\tat io.confluent.connect.jdbc.dialect.GenericDatabaseDialect.bindField(GenericDatabaseDialect.java:1569)
+\tat io.confluent.connect.jdbc.sink.PreparedStatementBinder.bindField(PreparedStatementBinder.java:149)
+\tat io.confluent.connect.jdbc.sink.PreparedStatementBinder.bindNonKeyFields(PreparedStatementBinder.java:143)
+\tat io.confluent.connect.jdbc.sink.PreparedStatementBinder.bindRecord(PreparedStatementBinder.java:78)
+\tat io.confluent.connect.jdbc.sink.BufferedRecords.flush(BufferedRecords.java:182)
+\tat io.confluent.connect.jdbc.sink.JdbcDbWriter.write(JdbcDbWriter.java:79)
+\tat io.confluent.connect.jdbc.sink.JdbcSinkTask.put(JdbcSinkTask.java:74)
+\tat org.apache.kafka.connect.runtime.WorkerSinkTask.deliverMessages(WorkerSinkTask.java:581)
+\t... 10 more
+    #+END_SRC
+
+* Reference
+  https://github.com/kyleconroy/pgoutput
+  https://mykidong.medium.com/howto-kafka-connect-153dcbd53d4a
+
+** PG SOURCE JSON CONFIG
+   + Create connect
+     #+BEGIN_SRC
+$ curl -H 'Content-Type: Application/JSON' http://172.83.1.186:8083/connectors -d @'/opt/kafka/sink.tidb.yaml' | jq 
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1825  100   848  100   977  31407  36185 --:--:-- --:--:-- --:--:-- 67592
+{
+  "name": "SINKTiDB",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "connection.url": "jdbc:mysql://avrotest-a56a55d7ef009651.elb.us-east-1.amazonaws.com:4000/test?stringtype=unspecified",
+    "connection.user": "root",
+    "connection.password": "",
+    "topics": "sourcepg.test.test01",
+    "insert.mode": "upsert",
+    "delete.enabled": "true",
+    "dialect.name": "MySqlDatabaseDialect",
+    "table.name.format": "test.test01",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.1.200:8081",
+    "value.converter.schema.registry.url": "http://172.83.1.200:8081",
+    "key.converter.schemas.enable": "true",
+    "value.converter.schemas.enable": "true",
+    "pk.mode": "record_key",
+    "auto.create": "false",
+    "auto.evolve": "false",
+    "name": "SINKTiDB"
+  },
+  "tasks": [],
+  "type": "sink"
+}
+    #+END_SRC
+  + Status check
+    #+BEGIN_SRC
+$ curl http://172.83.1.186:8083/connectors/SINKTiDB/status | jq 
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   166  100   166    0     0  55333      0 --:--:-- --:--:-- --:--:-- 83000
+{
+  "name": "SINKTiDB",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "172.83.1.186:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "RUNNING",
+      "worker_id": "172.83.1.186:8083"
+    }
+  ],
+  "type": "sink"
+}
+    #+END_SRC

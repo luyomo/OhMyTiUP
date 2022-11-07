@@ -56,6 +56,20 @@ MapPG2TiDB:
       Def: t_decimal decimal(10, 2)
     Value: 10.22
   - PG:
+      DataType: NUMERIC
+      Def: t_numeric numeric
+    TiDB:
+      DataType: DECIMAL
+      Def: t_numeric decimal
+    Value: 10.22
+  - PG:
+      DataType: MONEY
+      Def: t_money money
+    TiDB:
+      DataType: DECIMAL
+      Def: t_money decimal(19, 2)
+    Value: 10.22
+  - PG:
       DataType: SMALLINT
       Def: t_smallint smallint
     TiDB:
@@ -104,3 +118,80 @@ MapPG2TiDB:
       DataType: DATETIME
       Def: t_timestamp datetime(6)
     Value: current_timestamp
+  - PG:
+      DataType: JSON
+      Def: t_json json
+    TiDB:
+      DataType: JSON
+      Def: t_json json
+    Value: <<<<{\\\"testKey\\\":\\\"testValue\\\"}>>>>
+  - PG:
+      DataType: JSONB
+      Def: t_jsonb jsonb
+    TiDB:
+      DataType: JSON
+      Def: t_jsonb json
+    Value: <<<<{\\\"testKey\\\":\\\"testValue\\\"}>>>>
+  - PG:
+      DataType: INTERVAL
+      Def: t_interval interval
+    TiDB:
+      DataType: TIME
+      Def: t_interval time(6)
+    Value: <<<<40:00:00>>>>
+  - PG:
+      DataType: ARRAY_INT
+      Def: t_array_int integer ARRAY[4]
+    TiDB:
+      DataType: TIME
+      Def: t_array_int longtext
+    Value: <<<<{1, 2, 3, 4}>>>>
+  - PG:
+      DataType: BIT
+      Def: t_bit BIT
+    TiDB:
+      DataType: BIT
+      Def: t_bit BIT
+    Value: b'1'
+  - PG:
+      DataType: BIT_VARYING
+      Def: t_bit_varying bit varying(16)
+    TiDB:
+      DataType: BIT
+      Def: t_bit_varying BIT(16)
+    Value: b'1010101010'
+  - PG:
+      DataType: BOX
+      Def: t_box box
+    TiDB:
+      DataType: LONGTEXT
+      Def: t_box longtext
+    Value: <<<<((1,1), (10,10))>>>>
+  - PG:
+      DataType: BYTEA
+      Def: t_bytea bytea
+    TiDB:
+      DataType: LONGBLOB
+      Def: t_bytea longblob
+    Value: <<<<This is the test>>>>
+  - PG:
+      DataType: CIDR
+      Def: t_cidr cidr
+    TiDB:
+      DataType: VARCHAR
+      Def: t_cidr varchar(43)
+    Value: <<<<192.168.1.1>>>>
+  - PG:
+      DataType: UUID
+      Def: t_uuid uuid
+    TiDB:
+      DataType: VARCHAR
+      Def: t_uuid varchar(36)
+    Value: uuid_in(md5(random()::text || random()::text)::cstring)
+  - PG:
+      DataType: REAL
+      Def: t_real real
+    TiDB:
+      DataType: FLOAT
+      Def: t_real float
+    Value: 1.23456

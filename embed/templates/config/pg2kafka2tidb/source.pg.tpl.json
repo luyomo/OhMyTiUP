@@ -18,10 +18,10 @@
     "transforms.unwrap.drop.tombstone": "true",
     "transforms.unwrap.delete.handling.mode": "none",
     "converters": "timestampConverter",
-    "timestampConverter.type": "oryanmoshe.kafka.connect.util.TimestampConverter",
-    "timestampConverter.format.time": "HH:mm:ss.SSS",
+    "timestampConverter.type": "yomo.kafka.connect.util.TimestampConverter",
+    "timestampConverter.format.time": "HH:mm:ss.SSSSSS",
     "timestampConverter.format.date": "YYYY-MM-dd",
-    "timestampConverter.format.datetime": "YYYY-MM-dd HH:mm:ss.SSS",
+    "timestampConverter.format.datetime": "YYYY-MM-dd HH:mm:ss.SSSSSS",
     "timestampConverter.debug": "false"
   }
 }

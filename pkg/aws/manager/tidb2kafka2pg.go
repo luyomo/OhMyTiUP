@@ -1271,8 +1271,11 @@ func (m *Manager) PerfCleanPG2Kafka2TiDB(clusterName, clusterType string, gOpt o
 		return err
 	}
 
-	var connectorIP, schemaRegistryIP string
+	var connectorIP, schemaRegistryIP, brokerIP string
 	for _, row := range tableECs {
+		if row[0] == "broker" {
+			brokerIP = row[5]
+		}
 		if row[0] == "connector" {
 			connectorIP = row[5]
 		}
@@ -1297,6 +1300,13 @@ func (m *Manager) PerfCleanPG2Kafka2TiDB(clusterName, clusterType string, gOpt o
 
 	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8081/subjects/sourcepg.test.test01-value", schemaRegistryIP), false); err != nil {
 		return err
+	}
+
+	for _, _topic := range []string{"sourcepg.test.test01", "_schemas", "__offset_topics"} {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("kafka-topics --delete --bootstrap-server http://%s:9092 --topic %s", brokerIP, _topic), false); err != nil {
+			fmt.Printf("Error: %#v", err)
+			//		return err
+		}
 	}
 
 	return nil
