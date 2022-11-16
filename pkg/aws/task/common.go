@@ -623,11 +623,6 @@ func getEC2Nodes(executor ctxt.Executor, ctx context.Context, clusterName, clust
 
 }
 
-// func deploy(executor ctxt.Executor, ctx context.Context, host string, port int) error {
-// 	deployFreetds(executor, ctx, "REPLICA", host, port)
-// 	return nil
-// }
-
 func deployFreetds(executor ctxt.Executor, ctx context.Context, name, host string, port int) error {
 
 	if err := installPKGs(&executor, ctx, []string{"freetds-bin"}); err != nil {

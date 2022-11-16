@@ -673,62 +673,14 @@ func (b *Builder) CreateAlertManagerNodes(pexecutor *ctxt.Executor, subClusterTy
 	return b
 }
 
-func (b *Builder) CreateZookeeperNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) WrapCreateEC2Nodes(pexecutor *ctxt.Executor, subClusterType string, ec2Node *spec.AwsNodeModal, awsGeneralConfig *spec.AwsTopoConfigsGeneral, clusterInfo *ClusterInfo, componentName string) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
 		pexecutor:         pexecutor,
-		awsTopoConfigs:    &awsKafkaTopoConfigs.Zookeeper,
-		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
+		awsTopoConfigs:    ec2Node,
+		awsGeneralConfigs: awsGeneralConfig,
 		subClusterType:    subClusterType,
 		clusterInfo:       clusterInfo,
-		componentName:     "zookeeper",
-	})
-	return b
-}
-
-func (b *Builder) CreateBrokerNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:         pexecutor,
-		awsTopoConfigs:    &awsKafkaTopoConfigs.Broker,
-		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
-		subClusterType:    subClusterType,
-		clusterInfo:       clusterInfo,
-		componentName:     "broker",
-	})
-	return b
-}
-
-func (b *Builder) CreateSchemaRegistryNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:         pexecutor,
-		awsTopoConfigs:    &awsKafkaTopoConfigs.SchemaRegistry,
-		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
-		subClusterType:    subClusterType,
-		clusterInfo:       clusterInfo,
-		componentName:     "schemaRegistry",
-	})
-	return b
-}
-
-func (b *Builder) CreateKafkaConnectorNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:         pexecutor,
-		awsTopoConfigs:    &awsKafkaTopoConfigs.Connector,
-		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
-		subClusterType:    subClusterType,
-		clusterInfo:       clusterInfo,
-		componentName:     "connector",
-	})
-	return b
-}
-
-func (b *Builder) CreateKafkaRestServiceNodes(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:         pexecutor,
-		awsTopoConfigs:    &awsKafkaTopoConfigs.RestService,
-		awsGeneralConfigs: &awsKafkaTopoConfigs.General,
-		subClusterType:    subClusterType,
-		clusterInfo:       clusterInfo,
-		componentName:     "restService",
+		componentName:     componentName,
 	})
 	return b
 }
@@ -982,6 +934,16 @@ func (b *Builder) DeployKafka(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWS
 	return b
 }
 
+func (b *Builder) DeployMongo(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &DeployMongo{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		awsWSConfigs:   awsWSConfigs,
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
 func (b *Builder) DeployTiCDC(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiCDC{
 		pexecutor:      pexecutor,
@@ -1193,27 +1155,76 @@ func (b *Builder) CreateDMCluster(pexecutor *ctxt.Executor, subClusterType strin
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 8261, 8262, 8291, 8249, 9090, 3000, 9093, 9094}).Build()).
-		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMWorkerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build())
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 8261, 8262, 8291, 8249, 9090, 3000, 9093, 9094}).Build()).
+		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType),
+			NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType),
+			NewBuilder().CreateDMWorkerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build())
 
 	return b
 }
 
-func (b *Builder) CreateKafkaCluster(pexecutor *ctxt.Executor, subClusterType string, awsKafkaTopoConfigs *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	clusterInfo.cidr = awsKafkaTopoConfigs.General.CIDR
-	clusterInfo.excludedAZ = awsKafkaTopoConfigs.General.ExcludedAZ
-	clusterInfo.includedAZ = awsKafkaTopoConfigs.General.IncludedAZ
-	clusterInfo.enableNAT = awsKafkaTopoConfigs.General.EnableNAT
+func (b *Builder) CreateKafkaCluster(pexecutor *ctxt.Executor, subClusterType string, topo *spec.AwsKafkaTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = topo.General.CIDR
+	clusterInfo.excludedAZ = topo.General.ExcludedAZ
+	clusterInfo.includedAZ = topo.General.IncludedAZ
+	clusterInfo.enableNAT = topo.General.EnableNAT
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 9092, 2181, 8081, 8082, 8083}).Build()).
-		Step(fmt.Sprintf("%s : Creating Zookeeper Nodes ... ...", subClusterType), NewBuilder().CreateZookeeperNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating brokers Nodes ... ...", subClusterType), NewBuilder().CreateBrokerNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateSchemaRegistryNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateSchemaRegistryNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateKafkaRestServiceNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType), NewBuilder().CreateKafkaConnectorNodes(pexecutor, subClusterType, awsKafkaTopoConfigs, clusterInfo).Build())
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 9092, 2181, 8081, 8082, 8083}).Build()).
+		Step(fmt.Sprintf("%s : Creating Zookeeper Nodes ... ...", subClusterType),
+			NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Zookeeper, &topo.General, clusterInfo, "zookeeper").Build()).
+		Step(fmt.Sprintf("%s : Creating brokers Nodes ... ...", subClusterType),
+			NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Broker, &topo.General, clusterInfo, "broker").Build()).
+		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType),
+			NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.SchemaRegistry, &topo.General, clusterInfo, "schemaRegistry").Build()).
+		Step(fmt.Sprintf("%s : Creating rest service ... ...", subClusterType),
+			NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.RestService, &topo.General, clusterInfo, "restService").Build()).
+		Step(fmt.Sprintf("%s : Creating schema registry Nodes ... ...", subClusterType),
+			NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Connector, &topo.General, clusterInfo, "connector").Build())
 
+	return b
+}
+
+func (b *Builder) CreateMongoCluster(pexecutor *ctxt.Executor, subClusterType string, topo *spec.AwsMongoTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = topo.General.CIDR
+	clusterInfo.excludedAZ = topo.General.ExcludedAZ
+	clusterInfo.includedAZ = topo.General.IncludedAZ
+	clusterInfo.enableNAT = topo.General.EnableNAT
+
+	var envInitTasks []Task
+
+	t1 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.ConfigServer, &topo.General, clusterInfo, "config-server").Build()
+	envInitTasks = append(envInitTasks, t1)
+
+	t2 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Mongos, &topo.General, clusterInfo, "mongos").Build()
+	envInitTasks = append(envInitTasks, t2)
+
+	for _, _replicaSet := range topo.ReplicaSet {
+		t3 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &_replicaSet, &topo.General, clusterInfo, "replicaSet").Build()
+		envInitTasks = append(envInitTasks, t3)
+	}
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 27017, 27027, 27037}).Build()).
+		Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().Parallel(false, envInitTasks...).Build())
+
+	// t2 := task.NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Mongos, &topo.General, clusterInfo, "mongos").Build().
+	// 	BuildAsStep(fmt.Sprintf("  - Preparing Mongos Server ... ... "))
+	// envInitTasks = append(envInitTasks, t2)
+
+	// b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+	// 	NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 27017, 27027, 27037}).Build()).
+	// 	Step(fmt.Sprintf("%s : Creating Config Server Nodes ... ...", subClusterType),
+	// 		NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.ConfigServer, &topo.General, clusterInfo, "config-server").Build()).
+	// 	Step(fmt.Sprintf("%s : Creating Mongos Nodes ... ...", subClusterType),
+	// 		NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Mongos, &topo.General, clusterInfo, "mongos").Build())
+
+	// for _, _replicaSet := range topo.ReplicaSet {
+	// 	b.Step(fmt.Sprintf("%s : Creating Replica Set ... ...", subClusterType),
+	// 		NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &_replicaSet, &topo.General, clusterInfo, "replicaSet").Build())
+	// }
 	return b
 }
 

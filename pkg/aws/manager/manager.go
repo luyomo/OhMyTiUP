@@ -244,6 +244,47 @@ func (m *Manager) confirmKafkaTopology(name string, topo spec.Topology) error {
 	return tui.PromptForConfirmOrAbortError("Do you want to continue? [y/N]: ")
 }
 
+func (m *Manager) confirmMongoTopology(name string, topo spec.Topology) error {
+	log.Infof("Please confirm your mongo topology:")
+
+	cyan := color.New(color.FgCyan, color.Bold)
+
+	if spec, ok := topo.(*spec.Specification); ok {
+		fmt.Printf("Cluster type:    %s\n", cyan.Sprint(m.sysName))
+		fmt.Printf("Cluster name:    %s\n", cyan.Sprint(name))
+		fmt.Printf("Cluster version: %s\n", cyan.Sprint(spec.AwsMongoTopoConfigs.General.TiDBVersion))
+		fmt.Printf("\n")
+
+		clusterTable := [][]string{
+			// Header
+			{"Component", "# of nodes", "Instance Type", "Image Name", "CIDR", "User"},
+		}
+		if spec.AwsWSConfigs.InstanceType != "" {
+			clusterTable = append(clusterTable, []string{"Workstation", "1", spec.AwsWSConfigs.InstanceType, spec.AwsWSConfigs.ImageId, spec.AwsWSConfigs.CIDR, "admin"})
+		}
+
+		if spec.AwsMongoTopoConfigs.ConfigServer.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Config Server", strconv.Itoa(spec.AwsMongoTopoConfigs.ConfigServer.Count), spec.AwsMongoTopoConfigs.ConfigServer.InstanceType, spec.AwsMongoTopoConfigs.General.ImageId, spec.AwsMongoTopoConfigs.General.CIDR, "master"})
+		}
+
+		if spec.AwsMongoTopoConfigs.Mongos.Count > 0 {
+			clusterTable = append(clusterTable, []string{"Mongos", strconv.Itoa(spec.AwsMongoTopoConfigs.Mongos.Count), spec.AwsMongoTopoConfigs.Mongos.InstanceType, spec.AwsMongoTopoConfigs.General.ImageId, spec.AwsMongoTopoConfigs.General.CIDR, "master"})
+		}
+
+		for _, replicaSet := range spec.AwsMongoTopoConfigs.ReplicaSet {
+			clusterTable = append(clusterTable, []string{"Replica Set", strconv.Itoa(replicaSet.Count), replicaSet.InstanceType, spec.AwsMongoTopoConfigs.General.ImageId, spec.AwsMongoTopoConfigs.General.CIDR, "master"})
+		}
+
+		tui.PrintTable(clusterTable, true)
+	}
+
+	log.Warnf("Attention:")
+	log.Warnf("    1. If the topology is not what you expected, check your yaml file.")
+	log.Warnf("    2. Please confirm there is no port/directory conflicts in same host.")
+
+	return tui.PromptForConfirmOrAbortError("Do you want to continue? [y/N]: ")
+}
+
 func (m *Manager) confirmTiDBTopology(name string, topo spec.Topology) error {
 	log.Infof("Please confirm your TiDB topology:")
 

@@ -1,0 +1,328 @@
+#+OPTIONS: ^:nil
+#+OPTIONS: \t:t
+* Overview
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/01.overview.png]]
+* Cluster Deployment
+  + Mongo
+  + kafka
+  + TiDB
+** Deployment
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.01.mongo.config.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.02.kafka.config.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.03.tidb.config.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.04.deployment.png]]
+** Confirmation
+*** Cluster
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.05.01.confirm.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.05.02.confirm.png]]
+*** Mongo
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.06.01.mongo.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.06.02.mongo.png]]
+*** kafka
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.07.kafka.png]]
+*** TiDB
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/02.08.tidb.png]]
+ #+attr_html: :width 1000px
+* Source Connector Deployment
+** connector creation
+ [[./png/mongo2kafka2TiDB/03.01.source.connect.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/03.02.source.status.png]]
+** Data insert into Mongo
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/03.03.mongo.insert.png]]
+** topic confirmation
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/03.04.kafka.topic.png]]
+** Data confirmation
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/03.05.kafka.data.png]]
+* Sink Connector Deployment
+** Connector creation
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/04.01.tidb.table.png]]
+** Sink connector confirmation
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/04.02.sink.connect.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/04.03.sink.status.png]]
+** Data confirmation in the TiDB
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/04.03.tidb.data.png]]
+* Replication confirmation
+** Insert replication
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/05.01.mongo.insert.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/05.02.tidb.data.png]]
+** Update replication
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/06.01.mongo.update.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/06.02.tidb.data.png]]
+** Delete replication
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/07.01.mongo.delete.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/07.02.mongo.data.png]]
+ #+attr_html: :width 1000px
+ [[./png/mongo2kafka2TiDB/07.03.tidb.data.png]] 
+* Mongo Setup
+  #+BEGIN_SRC
+connect$ wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+connect$ sudo apt-get install gnupg
+connect$ wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+connect$ echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/6.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+connecr$ sudo apt-get update
+connect$ sudo apt-get install -y mongodb-org
+connect$ sudo systemctl start mongod
+
+
+mongo-node$ more /etc/mongod.conf
+... ...
+net:
+  port: 27017
+  bindIp: 172.83.1.43  <- Replace with actual ip address
+... ...
+replication:
+  replSetName: repli2tidb
+
+
+mongo-node$ mongosh
+Mongo$ rs.initiate();
+#+END_SRC
+
+* Mongo source connector setup
+  #+BEGIN_SRC
+connector$ confluent-hub install debezium/debezium-connector-mongodb:1.9.7
+The component can be installed in any of the following Confluent Platform installations: 
+  1. / (installed rpm/deb package) 
+  2. / (where this tool is installed) 
+Choose one of these to continue the installation (1-2):1
+Do you want to install this into /usr/share/confluent-hub-components? (yN) y
+Component's license: 
+Apache 2.0 
+https://github.com/debezium/debezium/blob/master/LICENSE.txt 
+I agree to the software license agreement (yN) y
+You are about to install 'debezium-connector-mongodb' from Debezium Community, as published on Confluent Hub. 
+Do you want to continue? (yN) y
+Downloading component Debezium MongoDB CDC Connector 1.9.7, provided by Debezium Community from Confluent Hub and installing into /usr/share/confluent-hub-components 
+Detected Worker's configs: 
+  1. Standard: /etc/kafka/connect-distributed.properties 
+  2. Standard: /etc/kafka/connect-standalone.properties 
+  3. Standard: /etc/schema-registry/connect-avro-distributed.properties 
+  4. Standard: /etc/schema-registry/connect-avro-standalone.properties 
+  5. Used by Connect process with PID 20522: /etc/kafka/connect-distributed.properties 
+Do you want to update all detected configs? (yN) y
+Adding installation directory to plugin path in the following files: 
+  /etc/kafka/connect-distributed.properties 
+  /etc/kafka/connect-standalone.properties 
+  /etc/schema-registry/connect-avro-distributed.properties 
+  /etc/schema-registry/connect-avro-standalone.properties 
+  /etc/kafka/connect-distributed.properties 
+ 
+Completed
+
+workstation$ more /tmp/source.mongo.json
+{
+  "name": "source.mongo",
+  "config": {
+    "connector.class": "io.debezium.connector.mongodb.MongoDbConnector", 
+    "mongodb.hosts": "rs0/172.84.3.17:27017",
+    "mongodb.name": "mongo2tidb"
+  }
+}
+connect$ curl -H "Content-Type: application/json" http://172.83.1.135:8083/connectors -d @"/tmp/mongo.source.json" | jq
+connect$ curl http://172.83.1.43:8083/connectors/inventory-connector/status
+connect$ /opt/kafka/perf/kafka-util.sh list-topic
+__consumer_offsets
+_schemas
+connect-configs
+connect-offsets
+connect-status
+sourcepg.test.test01
+mongo$ db.products.insert( { item: "card", qty: 15 } )
+mongo$ db.products.find()
+[
+  { _id: ObjectId("636c65b35b0562aa13acb808"), item: 'card', qty: 15 }
+]
+
+connect$ /opt/kafka/perf/kafka-util.sh list-topic
+connect-configs
+connect-offsets
+connect-status
+mongo2tidb.test.products
+mongo2tidb.test.test01
+sourcepg.test.test01
+
+mvn package -Dmaven.test.skip
+  #+END_SRC
+** Install tidb sink connector
+   #+BEGIN_SRC
+connector$ sudo wget https://github.com/luyomo/yomo-kafka-connect-jdbc/releases/download/v10.6.1/yomo-kafka-connect-jdbc-10.6.1-SNAPSHOT.jar -P /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/
+   #+END_SRC
+** Restart service
+   #+BEGIN_SRC
+connector$ sudo systemctl restart confluent-kafka-connect
+   #+END_SRC
+** Mongo Data in the kafka topic
+  #+BEGIN_SRC html :wrap EXPORT markdown
+    /var/log/kafka/connect.log:[2022-11-10 04:02:16,710] DEBUG [SINKTiDB|task-0] jdbctask:put records: [SinkRecord{kafkaOffset=2   , timestampType=CreateTime} ConnectRecord{topic='mongo2tidb.test.products', kafkaPartition=0, key=Struct{id={"$oid": "636c77c88cc9e63511285250"}}, keySchema=Schema{mongo2tidb.test.products.Key:STRUCT}, value=Struct{after={"_id": {"$oid": "636c77c88cc9e63511285250"},"item": "card","qty": 16},source=Struct{version=1.9.7.Final,connector=mongodb,name=mongo2tidb,ts_ms=1668052936000,snapshot=false,db=test,rs=repli2tidb,collection=products,ord=1},op=c,ts_ms=1668052936272}, valueSchema=Schema{mongo2tidb.test.products.Envelope:STRUCT}, timestamp=1668052936645, headers=ConnectHeaders(headers=)}] (io.confluent.connect.jdbc.sink.JdbcSinkTask:89)
+    
+    [SinkRecord{kafkaOffset=7000, timestampType=CreateTime} ConnectRecord{topic='sourcepg.test.test01'    , kafkaPartition=0, key=Struct{pk_col=7001}                            , keySchema=Schema{sourcepg.test.test01.Key:STRUCT    }, value=Struct{pk_col=7001,t_json={"testKey":"testValue"},pg_timestamp=2022-11-10 00:56:06.851554}                                                                                                                                                                           , valueSchema=Schema{sourcepg.test.test01.Value:STRUCT       }, timestamp=1668041767182, headers=ConnectHeaders(headers=)}]
+    
+     {"item":"card","qty":16,"_id":{"$oid":"636cac7e6bce48592bfc3d75"}} (io.confluent.connect.jdbc.sink.JdbcDbWriter:129)
+  #+END_SRC
+** Target table creation on TiDB
+   #+BEGIN_SRC
+MySQL [test]> create table test01($oid varchar(32) primary key, t_json json );
+Query OK, 0 rows affected (0.083 sec)
+   #+END_SRC
+** Sink to TiDB
+   #+BEGIN_SRC
+ {
+     "name": "SINKTiDB",
+     "config": {
+         "connector.class": "yomo.connect.jdbc.JdbcSinkConnector",
+         "connection.url": "jdbc:mysql://mgtest-a17c389fc540df4b.elb.us-east-1.amazonaws.com:4000/test?stringtype=unspecified",
+         "connection.user": "root",
+         "connection.password": "",
+         "topics": "mongo2tidb.test.test01",
+         "insert.mode": "upsert",
+         "delete.enabled": "true",
+         "dialect.name":"MySqlDatabaseDialect",
+         "table.name.format":"test.test01",
+         "pk.mode": "record_key",
+         "auto.create":"false",
+         "auto.evolve":"false"
+     }
+ }
+   #+END_SRC
+** Data conversion
+   | Type  | Data as mongo format                                                                | Data as confluent JDBC format                                                                                      |
+   |-------+-------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------|
+   | key   | Struct{id={"$oid": "636c77c88cc9e63511285250"}}                                     | Struct{$oid=636c77c88cc9e63511285250}                                                                              |
+   | value | Struct{after={"_id": {"$oid": "636c77c88cc9e63511285250"},"item": "card","qty": 16} | Struct{$oid=636c77c88cc9e63511285250,t_json={"_id": {"$oid": "636c77c88cc9e63511285250"},"item": "card","qty": 16} |
+
+* Todo
+  + Start jdbc sink plugin - add debug log to get key/keyschema/value/valueschema
+    - Change the log mode from info to debug -> /etc/kafka/connect-log4j.properties
+      #+BEGIN_SRC
+#log4j.rootLogger=INFO, stdout, connectAppender
+log4j.rootLogger=DEBUG, stdout, connectAppender
+      #+END_SRC
+  + Change the status to log only
+  + Check json data from postgres
+    - The source code in the JdbcSinkTask.java
+      #+BEGIN_SRC
+public void put(Collection<SinkRecord> records) {
+    if (records.isEmpty()) {
+      return;
+    }
+    final SinkRecord first = records.iterator().next();
+    final int recordsCount = records.size();
+    log.debug(
+        "Received {} records. First record kafka coordinates:({}-{}-{}). Writing them to the "
+        + "database...",
+        recordsCount, first.topic(), first.kafkaPartition(), first.kafkaOffset()
+    );
+    log.debug("KeySchema: {}, object: {} ", first.keySchema(), first.key());
+    log.debug("ValueSchema: {}, object: {} ", first.valueSchema(), first.value());
+      #+END_SRC
+    - JSON data format
+      #+BEGIN_SRC
+[2022-11-08 03:32:17,221] DEBUG [SINKTiDB|task-0] Received 398 records. First record kafka coordinates:(sourcepg.test.test01-0-9227). Writing them to the database... (io.confluent.connect.jdbc.sink.JdbcSinkTask:78)
+[2022-11-08 03:32:17,221] DEBUG [SINKTiDB|task-0] KeySchema: Schema{sourcepg.test.test01.Key:STRUCT}, object: Struct{pk_col=9228}  (io.confluent.connect.jdbc.sink.JdbcSinkTask:83)
+[2022-11-08 03:32:17,221] DEBUG [SINKTiDB|task-0] ValueSchema: Schema{sourcepg.test.test01.Value:STRUCT}, object: Struct{pk_col=9228,t_json={"testKey":"testValue"},pg_timestamp=2022-11-08 03:32:15.000388}  (io.confluent.connect.jdbc.sink.JdbcSinkTask:84)
+... ...
+[2022-11-08 03:32:17,222] DEBUG [SINKTiDB|task-0] UPSERT sql: insert into `test`.`test01`(`pk_col`,`t_json`,`pg_timestamp`) values(?,?,?) on duplicate key update `t_json`=values(`t_json`),`pg_timestamp`=values(`pg_timestamp`) deleteSql: DELETE FROM `test`.`test01` WHERE `pk_col` = ? meta: FieldsMetadata{keyFieldNames=[pk_col], nonKeyFieldNames=[t_json, pg_timestamp], allFields={pk_col=SinkRecordField{schema=Schema{INT64}, name='pk_col', isPrimaryKey=true}, t_json=SinkRecordField{schema=Schema{io.debezium.data.Json:STRING}, name='t_json', isPrimaryKey=false}, pg_timestamp=SinkRecordField{schema=Schema{STRING}, name='pg_timestamp', isPrimaryKey=false}}} (io.confluent.connect.jdbc.sink.BufferedRecords:130)
+      #+END_SRC
+  + Setup mongodb cluster(sinle node)
+  + Catch data from mongo replica
+  + Setup test case
+  + Data conversion from mongodb to JDBC
+  + Check records include multiple tables' data
+
+* Source code analysis
+  [[./png/mongo2kafka2TiDB/jdbc.sink.png]]
+  #+BEGIN_COMMENT
+  #+BEGIN_SRC plantuml :file ./png/mongo2kafka2TiDB/jdbc.sink.png
+    JdbcSinkTask -> JdbcDbWriter: call write
+    loop "All records"
+      JdbcDbWriter -> BufferedRecords: Add records to record buffer
+      BufferedRecords --> add
+      add -> recordValidator.validate: To check
+      add --> add: Set KeySchema if it is changed
+      add --> add: Set delete flag if valueSchema is null
+      add --> add: Flush data if schema is not changed.\nAnd push it to flushed
+      == Process if schema is changed ==
+      add --> add: Flush data and push it to flushed
+      add --> add: SchemaPair re-initialization
+      add --> add: FieldsMetadata extract
+      add -> dbStructure: createOrAmendIfNecessary
+      add --> add: getInsertSql
+      add --> add: getDeleteSql
+      add -> dbDialect: createPreparedStatement(insert)
+      add -> dbDialect: statementBinder(insert)
+      add -> dbDialect: createPreparedStatement(delete)
+      add -> dbDialect: statementBinder(delete)
+      == Complete schema change process ==
+      add --> add: Add record to records
+      add --> add: Flush if size exceeds batchSize
+      add -> BufferedRecords: Return flushed data
+    end
+    loop "Per Table"
+      JdbcDbWriter -> bufferByTable: Flush data into DB
+      BufferedRecords --> flush
+      loop "Per record"
+        flush -> deleteStatementBinder: bindRecord if value is null
+        flush -> updateStatementBinder: bindRecord if value is not null
+        flush -> executeUpdates
+        executeUpdates -> PreparedStatement: updatePreparedStatement.executeBatch 
+        flush -> executeDeletes
+        executeDeletes -> PreparedStatement: deletePreparedStatement.executeBatch
+        flush -> BufferedRecords: Return flushedRecords
+      end
+    end
+  #+END_SRC
+  #+END_COMMENT
+** bufferByTable(HashMap)
+  [[./png/mongo2kafka2TiDB/bufferByTable.png]]
+  #+BEGIN_COMMENT
+  #+BEGIN_SRC plantuml :file ./png/mongo2kafka2TiDB/bufferByTable.png
+    @startyaml
+      table01:
+        - record01
+        - record02
+        - ...
+      table02:
+        - record01
+        - record02
+        - ...
+
+    @endyaml
+  #+END_SRC
+  #+END_COMMENT
+
+** BufferedRecords
+   + config
+     configuration from sink connect
+   + tableId
+     unique table 
+   + dbDialect
+     Use dialect to for preparedstme
+   + dbStructure
+     todo
+   + connection
+     DB connection 

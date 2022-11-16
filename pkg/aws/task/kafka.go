@@ -156,7 +156,6 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		}
 
 		pkgInstallTasks = append(pkgInstallTasks, pkgInstallTask)
-
 	}
 	parallelExe := Parallel{ignoreError: false, inner: pkgInstallTasks}
 	if err := parallelExe.Execute(ctx); err != nil {

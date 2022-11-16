@@ -191,6 +191,7 @@ func init() {
 		newPDNS(),
 		newOssInsightCmd(),
 		newResourceMonitorCmd(),
+		newTiDB2Kafka2MongoCmd(),
 	)
 }
 
