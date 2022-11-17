@@ -115,39 +115,52 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 	envInitTasks = append(envInitTasks, t4)
 
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, envInitTasks...)
+	parallelClusterTask := task.NewBuilder().ParallelStep("+ Generating cluster ... ...", false, envInitTasks...).Build()
 
-	t := builder.Build()
+	// t := builder.Build()
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
-			return err
-		}
-		return err
-	}
+	// if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
+	// 	if errorx.Cast(err) != nil {
+	// 		// FIXME: Map possible task errors and give suggestions.
+	// 		return err
+	// 	}
+	// 	return err
+	// }
 
 	var t5 *task.StepDisplay
 
+	var taskVpcAttachment []task.Task
+	//	vpcTask := task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").Build()
+	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").Build())
+	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").Build())
+	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "mongo").Build())
+	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").Build())
+
+	var taskDeployment []task.Task
+	taskDeployment = append(taskDeployment, task.NewBuilder().DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).Build())
+	taskDeployment = append(taskDeployment, task.NewBuilder().DeployMongo(&sexecutor, base.AwsWSConfigs, "mongo", &workstationInfo).Build())
+	taskDeployment = append(taskDeployment, task.NewBuilder().DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).Build())
+
+	parallelVpcAttachment := task.NewBuilder().Parallel(false, taskVpcAttachment...).Build()
+
+	parallelTaskDeployment := task.NewBuilder().Parallel(false, taskDeployment...).Build()
+
 	t5 = task.NewBuilder().
+		Step("+ Generating Cluster", parallelClusterTask).
 		CreateTransitGateway(&sexecutor).
-		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "mongo").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+		Step("+ Vpc attachment building", parallelVpcAttachment).
 		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "mongo"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "mongo"}).
-		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
-		DeployMongo(&sexecutor, base.AwsWSConfigs, "mongo", &workstationInfo).
-		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+		Step("Vpc attachment building", parallelTaskDeployment).
 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
 
 	builder = task.NewBuilder().
 		ParallelStep("+ Deploying kafka solution service ... ...", false, t5)
-	t = builder.Build()
+	t := builder.Build()
 
 	timer.Take("Preparation")
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {

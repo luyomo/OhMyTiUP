@@ -8,104 +8,54 @@
   + kafka
   + TiDB
 ** Deployment
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.01.mongo.config.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.02.kafka.config.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.03.tidb.config.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.04.deployment.png]]
+   The whole process takes about 30 minutes in my raspberry servers for your reference.
+  + MongoDB = 3 replication node + 1 config server + 1 mongosh agent
+    #+Caption: Mongo DB topo
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.01.mongo.config.png]]
+  + Kafka cluster = 1 broker + 1 schema registry + 1 connector + 1 rest service
+    #+Caption: Kafka cluster topo
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.02.kafka.config.png]]
+  + TiDB Cluster = 1 pd + 1 TiKV + 1 TiDB
+    #+Caption: TiDB Cluster topo
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.03.tidb.config.png]]
+  + Deployment
+    #+Caption: Cluster Deployment
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.04.deployment.png]]
 ** Confirmation
 *** Cluster
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.05.01.confirm.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.05.02.confirm.png]]
+    #+Caption: Cluster list
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.05.01.confirm.png]]
+    #+Caption: Cluster list
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.05.02.confirm.png]]
 *** Mongo
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.06.01.mongo.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.06.02.mongo.png]]
+    Check mongo replication cluster access and replica set.
+    #+Caption: Mongo DB access confirmation
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.06.01.mongo.png]]
+    #+Caption: Mongo DB access confirmation
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.06.02.mongo.png]]
 *** kafka
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.07.kafka.png]]
+    List all the partition to check kafka's cluster
+    #+Caption: kafka topic
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.07.kafka.png]]
 *** TiDB
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/02.08.tidb.png]]
- #+attr_html: :width 1000px
+    #+Caption: TiDB access
+    #+attr_html: :width 1000px
+    [[./png/mongo2kafka2TiDB/02.08.tidb.png]]
+
 * Source Connector Deployment
-** connector creation
- [[./png/mongo2kafka2TiDB/03.01.source.connect.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/03.02.source.status.png]]
-** Data insert into Mongo
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/03.03.mongo.insert.png]]
-** topic confirmation
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/03.04.kafka.topic.png]]
-** Data confirmation
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/03.05.kafka.data.png]]
-* Sink Connector Deployment
-** Connector creation
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/04.01.tidb.table.png]]
-** Sink connector confirmation
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/04.02.sink.connect.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/04.03.sink.status.png]]
-** Data confirmation in the TiDB
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/04.03.tidb.data.png]]
-* Replication confirmation
-** Insert replication
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/05.01.mongo.insert.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/05.02.tidb.data.png]]
-** Update replication
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/06.01.mongo.update.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/06.02.tidb.data.png]]
-** Delete replication
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/07.01.mongo.delete.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/07.02.mongo.data.png]]
- #+attr_html: :width 1000px
- [[./png/mongo2kafka2TiDB/07.03.tidb.data.png]] 
-* Mongo Setup
-  #+BEGIN_SRC
-connect$ wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
-connect$ sudo apt-get install gnupg
-connect$ wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
-connect$ echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/6.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-connecr$ sudo apt-get update
-connect$ sudo apt-get install -y mongodb-org
-connect$ sudo systemctl start mongod
-
-
-mongo-node$ more /etc/mongod.conf
-... ...
-net:
-  port: 27017
-  bindIp: 172.83.1.43  <- Replace with actual ip address
-... ...
-replication:
-  replSetName: repli2tidb
-
-
-mongo-node$ mongosh
-Mongo$ rs.initiate();
-#+END_SRC
-
-* Mongo source connector setup
-  #+BEGIN_SRC
-connector$ confluent-hub install debezium/debezium-connector-mongodb:1.9.7
+** Source sink install
+   Install mongo source connector through confluent-hub-components which is used to mongo CDC.
+   #+BEGIN_SRC
+connector$ sudo confluent-hub install debezium/debezium-connector-mongodb:1.9.7
 The component can be installed in any of the following Confluent Platform installations: 
   1. / (installed rpm/deb package) 
   2. / (where this tool is installed) 
@@ -133,7 +83,11 @@ Adding installation directory to plugin path in the following files:
   /etc/kafka/connect-distributed.properties 
  
 Completed
-
+connector$sudo systemctl restart confluent-kafka-connect
+   #+END_SRC
+** connector creation
+   + source connector creation
+     #+BEGIN_SRC
 workstation$ more /tmp/source.mongo.json
 {
   "name": "source.mongo",
@@ -143,54 +97,54 @@ workstation$ more /tmp/source.mongo.json
     "mongodb.name": "mongo2tidb"
   }
 }
-connect$ curl -H "Content-Type: application/json" http://172.83.1.135:8083/connectors -d @"/tmp/mongo.source.json" | jq
-connect$ curl http://172.83.1.43:8083/connectors/inventory-connector/status
-connect$ /opt/kafka/perf/kafka-util.sh list-topic
-__consumer_offsets
-_schemas
-connect-configs
-connect-offsets
-connect-status
-sourcepg.test.test01
-mongo$ db.products.insert( { item: "card", qty: 15 } )
-mongo$ db.products.find()
-[
-  { _id: ObjectId("636c65b35b0562aa13acb808"), item: 'card', qty: 15 }
-]
-
-connect$ /opt/kafka/perf/kafka-util.sh list-topic
-connect-configs
-connect-offsets
-connect-status
-mongo2tidb.test.products
-mongo2tidb.test.test01
-sourcepg.test.test01
-
-mvn package -Dmaven.test.skip
-  #+END_SRC
-** Install tidb sink connector
+worksation$ curl -H "Content-Type: application/json" http://172.83.1.135:8083/connectors -d @"/tmp/source.mongo.json" | jq
+     #+END_SRC
+     #+Caption: New topic
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/03.01.source.connect.png]]
+   + Source connector status check
+     #+BEGIN_SRC
+worksation$ curl http://172.83.1.135:8083/connectors/source.mongo/status | jq
+     #+END_SRC
+     #+Caption: Status check
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/03.02.source.status.png]]
+** Data insert into Mongo
+   Insert first row into Mongo to check the replication. At the same time, the first kafka topic is generated.
+   #+Caption: Mongo DB Data insert
+   #+attr_html: :width 1000px
+   [[./png/mongo2kafka2TiDB/03.03.mongo.insert.png]]
+** topic confirmation
+   Use command to check the generated kafka topic from mongo collection.
+   #+Caption: New topic
+   #+attr_html: :width 1000px
+   [[./png/mongo2kafka2TiDB/03.04.kafka.topic.png]]
+** Data confirmation
+   Consume topic from console for contents check. From the output, the json format data is viewed.
+   #+BEGIN_SRC
+workstation$ kafka-console-consumer --bootstrap-server 172.83.1.232:9092 --topic mongo2tidb.test.test01 --from-beginning
+   #+END_SRC
+   #+Caption: Topic content
+   #+attr_html: :width 1000px
+   [[./png/mongo2kafka2TiDB/03.05.kafka.data.png]]
+* Sink Connector Deployment
+** Source connector binary deployment
+   Install the sink connector from [[https://github.com/luyomo/yomo-kafka-connect-jdbc][tidb jdbc sink]]  The connector is customized from confluent sink jdbc. 
    #+BEGIN_SRC
 connector$ sudo wget https://github.com/luyomo/yomo-kafka-connect-jdbc/releases/download/v10.6.1/yomo-kafka-connect-jdbc-10.6.1-SNAPSHOT.jar -P /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/
-   #+END_SRC
-** Restart service
-   #+BEGIN_SRC
 connector$ sudo systemctl restart confluent-kafka-connect
    #+END_SRC
-** Mongo Data in the kafka topic
-  #+BEGIN_SRC html :wrap EXPORT markdown
-    /var/log/kafka/connect.log:[2022-11-10 04:02:16,710] DEBUG [SINKTiDB|task-0] jdbctask:put records: [SinkRecord{kafkaOffset=2   , timestampType=CreateTime} ConnectRecord{topic='mongo2tidb.test.products', kafkaPartition=0, key=Struct{id={"$oid": "636c77c88cc9e63511285250"}}, keySchema=Schema{mongo2tidb.test.products.Key:STRUCT}, value=Struct{after={"_id": {"$oid": "636c77c88cc9e63511285250"},"item": "card","qty": 16},source=Struct{version=1.9.7.Final,connector=mongodb,name=mongo2tidb,ts_ms=1668052936000,snapshot=false,db=test,rs=repli2tidb,collection=products,ord=1},op=c,ts_ms=1668052936272}, valueSchema=Schema{mongo2tidb.test.products.Envelope:STRUCT}, timestamp=1668052936645, headers=ConnectHeaders(headers=)}] (io.confluent.connect.jdbc.sink.JdbcSinkTask:89)
-    
-    [SinkRecord{kafkaOffset=7000, timestampType=CreateTime} ConnectRecord{topic='sourcepg.test.test01'    , kafkaPartition=0, key=Struct{pk_col=7001}                            , keySchema=Schema{sourcepg.test.test01.Key:STRUCT    }, value=Struct{pk_col=7001,t_json={"testKey":"testValue"},pg_timestamp=2022-11-10 00:56:06.851554}                                                                                                                                                                           , valueSchema=Schema{sourcepg.test.test01.Value:STRUCT       }, timestamp=1668041767182, headers=ConnectHeaders(headers=)}]
-    
-     {"item":"card","qty":16,"_id":{"$oid":"636cac7e6bce48592bfc3d75"}} (io.confluent.connect.jdbc.sink.JdbcDbWriter:129)
-  #+END_SRC
-** Target table creation on TiDB
+** Sink table creation
    #+BEGIN_SRC
-MySQL [test]> create table test01($oid varchar(32) primary key, t_json json );
-Query OK, 0 rows affected (0.083 sec)
+MySQL$ CREATE TABLE test01($oid varchar(32) primary key, t_json json);
    #+END_SRC
-** Sink to TiDB
-   #+BEGIN_SRC
+   #+Caption: Replication table preparation
+   #+attr_html: :width 1000px
+   [[./png/mongo2kafka2TiDB/04.01.tidb.table.png]]
+** Sink connector creation
+   + JSON config file preparation
+     #+BEGIN_SRC
+workstation$ more /tmp/sink.tidb.json
  {
      "name": "SINKTiDB",
      "config": {
@@ -208,14 +162,72 @@ Query OK, 0 rows affected (0.083 sec)
          "auto.evolve":"false"
      }
  }
-   #+END_SRC
+     #+END_SRC
+   + Create sink connector instance
+     #+BEGIN_SRC
+workstation$ curl -H "Content-Type: application/json" http://172.83.1.189:8083/connectors -d @"/tmp/sink.tidb.json" | jq
+     #+END_SRC
+   #+Caption: sink connector instance generation
+   #+attr_html: :width 1000px
+   [[./png/mongo2kafka2TiDB/04.02.sink.connect.png]]
+   #+Caption: sink connector status
+   #+attr_html: :width 1000px
+   [[./png/mongo2kafka2TiDB/04.03.sink.status.png]]
+** Data confirmation in the TiDB
+   Verify that the data has been sinked into TiDB. The $oid from mongo is used as primary key while the content is replicated into t_json column. Need requirment for implementation.
+   #+Caption: Data replication verification
+   #+attr_html: :width 1000px
+   [[./png/mongo2kafka2TiDB/04.03.tidb.data.png]]
+* Replication confirmation
+** Insert replication
+   + Data insert into mongo
+     #+Caption: Data insert
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/05.01.mongo.insert.png]]
+   + Verify the inserted data has been replicated
+     #+Caption: Insert Verification
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/05.02.tidb.data.png]]
+** Update replication
+   + Data update against mongo
+     #+Caption: Data update
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/06.01.mongo.update.png]]
+   + Verify the updated has been replicated
+     #+Caption: Update Verification
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/06.02.tidb.data.png]]
+** Delete replication
+   + Data delete from mongo
+     #+Caption: Data Delete
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/07.01.mongo.delete.png]]
+     #+Caption: Data Delete
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/07.02.mongo.data.png]]
+   + Verify deleted data has been replicated
+     #+attr_html: :width 1000px
+     [[./png/mongo2kafka2TiDB/07.03.tidb.data.png]] 
+
+
+* Reference
+** Mongo Data in the kafka topic
+  #+BEGIN_SRC html :wrap EXPORT markdown
+    /var/log/kafka/connect.log:[2022-11-10 04:02:16,710] DEBUG [SINKTiDB|task-0] jdbctask:put records: [SinkRecord{kafkaOffset=2   , timestampType=CreateTime} ConnectRecord{topic='mongo2tidb.test.products', kafkaPartition=0, key=Struct{id={"$oid": "636c77c88cc9e63511285250"}}, keySchema=Schema{mongo2tidb.test.products.Key:STRUCT}, value=Struct{after={"_id": {"$oid": "636c77c88cc9e63511285250"},"item": "card","qty": 16},source=Struct{version=1.9.7.Final,connector=mongodb,name=mongo2tidb,ts_ms=1668052936000,snapshot=false,db=test,rs=repli2tidb,collection=products,ord=1},op=c,ts_ms=1668052936272}, valueSchema=Schema{mongo2tidb.test.products.Envelope:STRUCT}, timestamp=1668052936645, headers=ConnectHeaders(headers=)}] (io.confluent.connect.jdbc.sink.JdbcSinkTask:89)
+    
+    [SinkRecord{kafkaOffset=7000, timestampType=CreateTime} ConnectRecord{topic='sourcepg.test.test01'    , kafkaPartition=0, key=Struct{pk_col=7001}                            , keySchema=Schema{sourcepg.test.test01.Key:STRUCT    }, value=Struct{pk_col=7001,t_json={"testKey":"testValue"},pg_timestamp=2022-11-10 00:56:06.851554}                                                                                                                                                                           , valueSchema=Schema{sourcepg.test.test01.Value:STRUCT       }, timestamp=1668041767182, headers=ConnectHeaders(headers=)}]
+    
+     {"item":"card","qty":16,"_id":{"$oid":"636cac7e6bce48592bfc3d75"}} (io.confluent.connect.jdbc.sink.JdbcDbWriter:129)
+  #+END_SRC
+
+
 ** Data conversion
    | Type  | Data as mongo format                                                                | Data as confluent JDBC format                                                                                      |
    |-------+-------------------------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------|
    | key   | Struct{id={"$oid": "636c77c88cc9e63511285250"}}                                     | Struct{$oid=636c77c88cc9e63511285250}                                                                              |
    | value | Struct{after={"_id": {"$oid": "636c77c88cc9e63511285250"},"item": "card","qty": 16} | Struct{$oid=636c77c88cc9e63511285250,t_json={"_id": {"$oid": "636c77c88cc9e63511285250"},"item": "card","qty": 16} |
 
-* Todo
+** Debug mode on the kafka
   + Start jdbc sink plugin - add debug log to get key/keyschema/value/valueschema
     - Change the log mode from info to debug -> /etc/kafka/connect-log4j.properties
       #+BEGIN_SRC
