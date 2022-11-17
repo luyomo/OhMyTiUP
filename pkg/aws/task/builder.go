@@ -1210,21 +1210,6 @@ func (b *Builder) CreateMongoCluster(pexecutor *ctxt.Executor, subClusterType st
 		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 27017, 27027, 27037}).Build()).
 		Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().Parallel(false, envInitTasks...).Build())
 
-	// t2 := task.NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Mongos, &topo.General, clusterInfo, "mongos").Build().
-	// 	BuildAsStep(fmt.Sprintf("  - Preparing Mongos Server ... ... "))
-	// envInitTasks = append(envInitTasks, t2)
-
-	// b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-	// 	NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 27017, 27027, 27037}).Build()).
-	// 	Step(fmt.Sprintf("%s : Creating Config Server Nodes ... ...", subClusterType),
-	// 		NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.ConfigServer, &topo.General, clusterInfo, "config-server").Build()).
-	// 	Step(fmt.Sprintf("%s : Creating Mongos Nodes ... ...", subClusterType),
-	// 		NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Mongos, &topo.General, clusterInfo, "mongos").Build())
-
-	// for _, _replicaSet := range topo.ReplicaSet {
-	// 	b.Step(fmt.Sprintf("%s : Creating Replica Set ... ...", subClusterType),
-	// 		NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &_replicaSet, &topo.General, clusterInfo, "replicaSet").Build())
-	// }
 	return b
 }
 

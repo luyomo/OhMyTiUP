@@ -119,7 +119,6 @@ func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
 	}
 
 	for _, internetGateway := range internetGateways.InternetGateways {
-		fmt.Printf("The internet gateway <%#v> \n\n\n", internetGateway)
 		for _, attachment := range internetGateway.Attachments {
 			command = fmt.Sprintf("aws ec2 detach-internet-gateway --internet-gateway-id %s --vpc-id %s", internetGateway.InternetGatewayId, attachment.VpcId)
 			zap.L().Debug("Command", zap.String("detach-internet-gateway", command))

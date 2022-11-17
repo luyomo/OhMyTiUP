@@ -56,6 +56,9 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
 	// Get the topo file and parse it
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
@@ -92,13 +95,14 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 		return err
 	}
 
+	// Prepare parallel task to generate TiDB, kafka and mongo db cluster
 	var workstationInfo, clusterInfo, kafkaClusterInfo, mongoClusterInfo task.ClusterInfo
 
 	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 
-	//Setup the kafka cluster
+	// Setup the kafka cluster
 	t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
 	envInitTasks = append(envInitTasks, t2)
@@ -114,26 +118,11 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 		BuildAsStep(fmt.Sprintf("  - Preparing Mongo servers"))
 	envInitTasks = append(envInitTasks, t4)
 
+	// Convert tasks into parallel tasks
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, envInitTasks...)
 	parallelClusterTask := task.NewBuilder().ParallelStep("+ Generating cluster ... ...", false, envInitTasks...).Build()
 
-	// t := builder.Build()
-
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	// if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
-	// 	if errorx.Cast(err) != nil {
-	// 		// FIXME: Map possible task errors and give suggestions.
-	// 		return err
-	// 	}
-	// 	return err
-	// }
-
-	var t5 *task.StepDisplay
-
 	var taskVpcAttachment []task.Task
-	//	vpcTask := task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").Build()
 	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").Build())
 	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").Build())
 	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "mongo").Build())
@@ -149,6 +138,7 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 
 	parallelTaskDeployment := task.NewBuilder().Parallel(false, taskDeployment...).Build()
 
+	var t5 *task.StepDisplay
 	t5 = task.NewBuilder().
 		Step("+ Generating Cluster", parallelClusterTask).
 		CreateTransitGateway(&sexecutor).
@@ -228,7 +218,6 @@ func (m *Manager) DestroyTiDB2Kafka2MongoCluster(name, clusterType string, gOpt 
 		DestroyEC2Nodes(&sexecutor, "workstation").
 		DestroyEC2Nodes(&sexecutor, "tidb").
 		DestroyEC2Nodes(&sexecutor, "mongo").
-		DestroyPostgres(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t4)

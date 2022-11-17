@@ -120,21 +120,28 @@ func (c *DeployMongo) Execute(ctx context.Context) error {
 		return err
 	}
 
-	_, stderr, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, proxyIP, "mongosh --quiet --eval 'rs.status().members.filter(function(rsStatus) { return rsStatus.state === 1;}).length'"), false, 600*time.Second)
-	if strings.Contains(string(stderr), "no replset config has been received") {
-		_, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s 'mongosh --quiet --eval "rs.initiate()"'`, proxyIP), false, 600*time.Second)
-		if err != nil {
-			return err
-		}
-		for _, _memberIP := range listMongoIP {
-			_, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s 'mongosh --quiet --eval "rs.add(\"%s:27017\")"'`, proxyIP, _memberIP), false, 600*time.Second)
+	for _idx := 0; _idx < 10; _idx++ {
+		_, stderr, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, proxyIP, "mongosh --quiet --eval 'rs.status().members.filter(function(rsStatus) { return rsStatus.state === 1;}).length'"), false, 600*time.Second)
+		if strings.Contains(string(stderr), "no replset config has been received") {
+			_, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s 'mongosh --quiet --eval "rs.initiate()"'`, proxyIP), false, 600*time.Second)
 			if err != nil {
 				return err
 			}
+			for _, _memberIP := range listMongoIP {
+				_, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s 'mongosh --quiet --eval "rs.add(\"%s:27017\")"'`, proxyIP, _memberIP), false, 600*time.Second)
+				if err != nil {
+					return err
+				}
+			}
+			break
+			fmt.Printf("01. Run the script to initialize the replica set \n\n\n")
+		} else if strings.Contains(string(stderr), "MongoServerError: not running with --replSet") {
+			time.Sleep(2 * time.Second)
+			continue
+
+		} else if err != nil {
+			return err
 		}
-		fmt.Printf("01. Run the script to initialize the replica set \n\n\n")
-	} else if err != nil {
-		return err
 	}
 
 	return nil

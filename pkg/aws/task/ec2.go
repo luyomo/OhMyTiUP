@@ -744,8 +744,7 @@ type MakeEC2Instance struct {
 
 	subnetID string
 
-	awsTopoConfigs *spec.AwsTiKVModal
-	//	awsTopoConfigs    *spec.AwsNodeModal
+	awsTopoConfigs    *spec.AwsTiKVModal
 	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
 }
 
