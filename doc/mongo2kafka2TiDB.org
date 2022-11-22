@@ -338,3 +338,19 @@ public void put(Collection<SinkRecord> records) {
      todo
    + connection
      DB connection 
+* Todo
+** Deployment
+   + Install mongo source connector
+     # - Access the workstation
+     # - From workstation to run query against component server
+     - From golang, get the workstation ip address
+     - User/Local Key
+     - Read config file
+       + OH_MY_TIUP=/.OhMyTiUP/config
+         user: admin
+         ssh_key: directory
+       + ~/.OhMyTiUP/config
+   + Install yomo-sink into connector
+   + Restart the service
+   + Transfer source json template to workstation
+   + Transfer sink json template to workstation
