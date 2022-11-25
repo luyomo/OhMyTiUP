@@ -1,0 +1,107 @@
+* TiDB Version
+  #+BEGIN_SRC
+MySQL [(none)]> select tidb_version();
++----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| tidb_version()                                                                                                                                                                                                                                                                                                       |
++----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Release Version: v6.1.1
+Edition: Community
+Git Commit Hash: 5263a0abda61f102122735049fd0dfadc7b7f8b2
+Git Branch: heads/refs/tags/v6.1.1
+UTC Build Time: 2022-08-25 10:42:41
+GoVersion: go1.18.5
+Race Enabled: false
+TiKV Min Version: v3.0.0-60965b006877ca7234adaced7890d7b029ed1306
+Check Table Before Drop: false |
++----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+1 row in set (0.001 sec)
+
+  #+END_SRC
+* Table create creation
+  #+BEGIN_SRC
+MySQL$ CREATE TABLE binary_vs_utf8mb4_bin(id bigint auto_random primary key, col_binary varchar(128) character set binary, col_utf8mb4_bin varchar(128));
+MySQL$ insert into binary_vs_utf8mb4_bin(col_binary, col_utf8mb4_bin) values( 'a ', 'a ');
+MySQL [test]> select * from binary_vs_utf8mb4_bin; 
++---------------------+------------+-----------------+
+| id                  | col_binary | col_utf8mb4_bin |
++---------------------+------------+-----------------+
+| 8646911284551352321 | a          | a               |
++---------------------+------------+-----------------+
+1 row in set (0.002 sec)
+MySQL [test]> select * from binary_vs_utf8mb4_bin where col_binary = 'a'; 
+Empty set (0.002 sec)
+
+MySQL [test]> select * from binary_vs_utf8mb4_bin where col_utf8mb4_bin = 'a'; 
++---------------------+------------+-----------------+
+| id                  | col_binary | col_utf8mb4_bin |
++---------------------+------------+-----------------+
+| 8646911284551352321 | a          | a               |
++---------------------+------------+-----------------+
+1 row in set (0.002 sec)
+  #+END_SRC
+
+* UTF8 data preparation
+  https://seiai.ed.jp/sys/text/java/utf8table.html
+
+** Script
+  Please check [[./binary_vs_utf8mb_bin/generate_utf8_query.sh][query generation]] to generate the insert queries to DB.
+  #+CAPTION: Script example
+  #+BEGIN_SRC sh
+#!/bin/bash
+for encode in 0x0 0x10 0x20 0x30 0x40 0x50 0x60 0x70 ... 
+do
+    for i in $(seq 0 15);
+    do printf 'insert into binary_vs_utf8mb4_bin (col_binary, col_utf8mb4_bin) values ( CAST(0x%x AS CHAR),  CAST(0x%x AS CHAR) ); \n' $(($encode+i)) $(($encode+i));
+    done
+done                  
+  #+END_SRC
+
+* Collation check
+** Hex verification between binary and utf6mb_bin
+   #+BEGIN_SRC
+MySQL [test]> select * from (select hex(col_binary) as col_binary_hex, hex(col_utf8mb4_bin) as col_utf8mb4_bin_hex from binary_vs_utf8mb4_bin ) t1 where col_binary_hex != col_utf8mb4_bin_hex;
+Empty set (0.014 sec)
+
+
+   #+END_SRC
+** Comparison verification
+   #+BEGIN_SRC
+MySQL [test]> select * from binary_vs_utf8mb4_bin where col_binary != col_utf8mb4_bin; 
+Empty set (0.012 sec)
+   #+END_SRC
+
+** Sort
+*** 0x20 is in different order from binary and utf8mb4_bin
+    #+BEGIN_SRC
+
+ MySQL [test]> select * from (select id, hex(col_binary) as col_binary_hex, hex(col_utf8mb4_bin) as col_utf8mb4_bin_hex, row_number () over (order by col_binary) as col_binary_sort, row_number () over (order by col_utf8mb4_bin) as col_utf8mb4_bin_sort from binary_vs_utf8mb4_bin ) t1 where col_utf8mb4_bin_sort = 1; 
+ +---------------------+----------------+---------------------+-----------------+----------------------+
+ | id                  | col_binary_hex | col_utf8mb4_bin_hex | col_binary_sort | col_utf8mb4_bin_sort |
+ +---------------------+----------------+---------------------+-----------------+----------------------+
+ | 3458764513820540961 | 20             | 20                  |              33 |                    1 |
+ +---------------------+----------------+---------------------+-----------------+----------------------+
+ 1 row in set (0.051 sec)
+    #+END_SRC
+*** Sort is same between binary and utf8mb_bin
+    #+BEGIN_SRC
+ MySQL [test]> select * from (select id, hex(col_binary) as col_binary_hex, hex(col_utf8mb4_bin) as col_utf8mb4_bin_hex, row_number () over (order by col_binary) as col_binary_sort, row_number () over (order by col_utf8mb4_bin) as col_utf8mb4_bin_sort from binary_vs_utf8mb4_bin) t1 where col_binary_sort != col_utf8mb4_bin_sort ; 
+ Empty set (0.060 sec)
+
+ MySQL [test]> 
+    #+END_SRC
+
+** Special characters
+   #+BEGIN_SRC
+MySQL$ select col_binary, hex(col_binary) as col_binary_hex, col_utf8mb4_bin, hex(col_utf8mb4_bin) as col_utf8mb4_bin_hex from binary_vs_utf8mb4_bin where hex(col_binary) between 'e0bc80' and 'e0bc90';
+   #+END_SRC
+   [[./binary_vs_utf8mb_bin/binary_vs_utf8mb_bin.01.png]]
+** Special iteming
+   #+BEGIN_SRC
+MySQL$ select col_binary, hex(col_binary) as col_binary_hex, col_utf8mb4_bin, hex(col_utf8mb4_bin) as col_utf8mb4_bin_hex from binary_vs_utf8mb4_bin where hex(col_binary) between 'e38a80' and 'e38aa0';
+   #+END_SRC
+      [[./binary_vs_utf8mb_bin/binary_vs_utf8mb_bin.02.png]]
+** Kanji
+   #+BEGIN_SRC
+MySQL [test]> select col_binary, hex(col_binary) as col_binary_hex, col_utf8mb4_bin, hex(col_utf8mb4_bin) as col_utf8mb4_bin_hex from binary_vs_utf8mb4_bin where hex(col_binary) between 'e3a680' and 'e3a690';
+   #+END_SRC
+      [[./binary_vs_utf8mb_bin/binary_vs_utf8mb_bin.03.png]]
