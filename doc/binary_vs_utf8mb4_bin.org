@@ -130,3 +130,21 @@ MySQL$ select col_binary, hex(col_binary) as col_binary_hex, col_utf8mb4_bin, he
 MySQL [test]> select col_binary, hex(col_binary) as col_binary_hex, col_utf8mb4_bin, hex(col_utf8mb4_bin) as col_utf8mb4_bin_hex from binary_vs_utf8mb4_bin where hex(col_binary) between 'e3a680' and 'e3a690';
    #+END_SRC
       [[./binary_vs_utf8mb_bin/binary_vs_utf8mb_bin.03.png]]
+* Column switch
+** Add column and update data from original column
+#+BEGIN_SRC
+MySQL [test]> alter table binary_vs_utf8mb4_bin add column col03 varchar(128) character set binary;
+Query OK, 0 rows affected (0.509 sec)
+
+MySQL [test]> update binary_vs_utf8mb4_bin set col03 = col_utf8mb4_bin;                    
+Query OK, 16777216 rows affected (3 min 42.495 sec)
+Rows matched: 16777216  Changed: 16777216  Warnings: 0
+#+END_SRC
+** Rename column
+   #+BEGIN_SRC
+MySQL [test]> alter table binary_vs_utf8mb4_bin change col_utf8mb4_bin col_utf8mb4_bin_2rm varchar(128);
+Query OK, 0 rows affected (0.509 sec)
+
+MySQL [test]> alter table binary_vs_utf8mb4_bin change col03 col_utf8mb4_bin  varchar(128) character set binary;
+Query OK, 0 rows affected (0.510 sec)
+   #+END_SRC
