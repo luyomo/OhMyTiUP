@@ -14,8 +14,8 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/pkg/cluster/audit"
-	cspec "github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/audit"
+	cspec "github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 	"github.com/spf13/cobra"
 )
 

@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/luyomo/tisample/components/dm/spec"
-	"github.com/luyomo/tisample/pkg/cluster/api"
-	operator "github.com/luyomo/tisample/pkg/cluster/operation"
+	"github.com/luyomo/OhMyTiUP/components/dm/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/api"
+	operator "github.com/luyomo/OhMyTiUP/pkg/cluster/operation"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )

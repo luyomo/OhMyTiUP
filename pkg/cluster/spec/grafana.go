@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/cluster/template/config"
-	"github.com/luyomo/tisample/pkg/cluster/template/scripts"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/template/config"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/template/scripts"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/pingcap/errors"
 )
 

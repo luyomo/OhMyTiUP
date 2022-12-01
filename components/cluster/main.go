@@ -14,8 +14,8 @@
 package main
 
 import (
-	"github.com/luyomo/tisample/components/cluster/command"
-	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/components/cluster/command"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
 )
 
 func main() {

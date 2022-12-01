@@ -14,8 +14,8 @@
 package command
 
 import (
-	//	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/aws/task"
+	//	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	"github.com/spf13/cobra"
 )
 

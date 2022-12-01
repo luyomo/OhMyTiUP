@@ -20,7 +20,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/luyomo/tisample/pkg/repository"
+	"github.com/luyomo/OhMyTiUP/pkg/repository"
 	. "github.com/pingcap/check"
 )
 

@@ -20,7 +20,7 @@ import (
 	"path"
 	"text/template"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // DMMasterScript represent the data to generate TiDB config

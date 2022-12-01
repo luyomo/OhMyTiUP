@@ -18,10 +18,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/luyomo/tisample/pkg/environment"
-	"github.com/luyomo/tisample/pkg/localdata"
-	"github.com/luyomo/tisample/pkg/set"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	gops "github.com/shirou/gopsutil/process"
 	"github.com/spf13/cobra"
 )

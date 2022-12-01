@@ -21,12 +21,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/cluster/template/install"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/template/install"
 
-	ru "github.com/luyomo/tisample/pkg/repository/utils"
-	"github.com/luyomo/tisample/pkg/repository/v1manifest"
-	"github.com/luyomo/tisample/pkg/set"
-	"github.com/luyomo/tisample/pkg/utils"
+	ru "github.com/luyomo/OhMyTiUP/pkg/repository/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/v1manifest"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"

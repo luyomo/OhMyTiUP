@@ -23,10 +23,10 @@ import (
 	"strings"
 
 	"github.com/AstroProfundis/sysinfo"
-	"github.com/luyomo/tisample/pkg/aws/module"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/module"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	"github.com/pingcap/tidb-insight/collector/insight"
 )
 

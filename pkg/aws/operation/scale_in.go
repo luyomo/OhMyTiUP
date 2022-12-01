@@ -22,12 +22,12 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/luyomo/tisample/pkg/aws/api"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/proxy"
-	"github.com/luyomo/tisample/pkg/set"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/api"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/proxy"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 )
 

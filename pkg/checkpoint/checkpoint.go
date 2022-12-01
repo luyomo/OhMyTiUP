@@ -23,8 +23,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/version"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/version"
 	"github.com/pingcap/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

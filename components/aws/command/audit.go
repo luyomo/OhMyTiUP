@@ -14,8 +14,8 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/pkg/aws/audit"
-	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/audit"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/spf13/cobra"
 )
 

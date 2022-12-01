@@ -22,7 +22,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/luyomo/tisample/components/playground/instance"
+	"github.com/luyomo/OhMyTiUP/components/playground/instance"
 	"github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )

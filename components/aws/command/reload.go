@@ -14,7 +14,7 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	perrs "github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )

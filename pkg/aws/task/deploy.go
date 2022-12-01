@@ -19,10 +19,10 @@ import (
 	//"regexp"
 
 	//"strings"
-	//"github.com/luyomo/tisample/pkg/ctxt"
-	//"github.com/luyomo/tisample/pkg/executor"
+	//"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	//"github.com/luyomo/OhMyTiUP/pkg/executor"
 	//"github.com/pingcap/errors"
-	//"github.com/luyomo/tisample/pkg/logger/log"
+	//"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 
 	//"golang.org/x/oauth2/google"
 	//"google.golang.org/grpc/metadata"

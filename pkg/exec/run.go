@@ -27,11 +27,11 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/luyomo/tisample/pkg/environment"
-	"github.com/luyomo/tisample/pkg/localdata"
-	"github.com/luyomo/tisample/pkg/telemetry"
-	"github.com/luyomo/tisample/pkg/utils"
-	"github.com/luyomo/tisample/pkg/version"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/telemetry"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/version"
 	"github.com/pingcap/errors"
 	"golang.org/x/mod/semver"
 )

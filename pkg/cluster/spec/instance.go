@@ -25,11 +25,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/luyomo/tisample/pkg/checkpoint"
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/cluster/module"
-	system "github.com/luyomo/tisample/pkg/cluster/template/systemd"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/checkpoint"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/module"
+	system "github.com/luyomo/OhMyTiUP/pkg/cluster/template/systemd"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/pingcap/errors"
 	"go.uber.org/zap"
 )

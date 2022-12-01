@@ -20,9 +20,9 @@ import (
 	// "os"
 	"strconv"
 
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/tidbcloudapi"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/tidbcloudapi"
 )
 
 type CreateTiDBCloud struct {

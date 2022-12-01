@@ -20,7 +20,7 @@ import (
 	"os/user"
 	"testing"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/stretchr/testify/require"
 )
 

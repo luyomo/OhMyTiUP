@@ -21,7 +21,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // TiFlashScript represent the data to generate TiFlash config

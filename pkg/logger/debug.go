@@ -20,8 +20,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/localdata"
-	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

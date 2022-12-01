@@ -25,8 +25,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 )
 
 type CreateNAT struct {

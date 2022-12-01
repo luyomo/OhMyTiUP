@@ -19,7 +19,7 @@ import (
 	"path"
 	"text/template"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // Config represent the data to generate systemd config

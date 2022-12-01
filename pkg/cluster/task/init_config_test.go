@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 
-	"github.com/luyomo/tisample/pkg/utils/mock"
+	"github.com/luyomo/OhMyTiUP/pkg/utils/mock"
 	"github.com/pingcap/check"
 	"github.com/pingcap/errors"
 )

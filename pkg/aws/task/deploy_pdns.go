@@ -23,9 +23,9 @@ import (
 	//	"github.com/aws/aws-sdk-go/aws"
 	//	"github.com/aws/aws-sdk-go/aws/session"
 	//	"github.com/aws/aws-sdk-go/service/cloudformation"
-	"github.com/luyomo/tisample/embed"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/embed"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 )
 
 type DeployPDNS struct {

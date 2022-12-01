@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
 	"github.com/pingcap/errors"
 )
 

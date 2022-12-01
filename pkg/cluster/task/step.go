@@ -17,8 +17,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/tui/progress"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/tui/progress"
 )
 
 // StepDisplay is a task that will display a progress bar for inner task.

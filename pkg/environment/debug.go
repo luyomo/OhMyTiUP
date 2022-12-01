@@ -16,7 +16,7 @@ package environment
 import (
 	"os"
 
-	"github.com/luyomo/tisample/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
 )
 
 // Global flags

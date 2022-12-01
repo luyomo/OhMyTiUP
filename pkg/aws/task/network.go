@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"go.uber.org/zap"
 	"strconv"
 	"strings"

@@ -19,7 +19,7 @@ import (
 	"path"
 	"text/template"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // AlertManagerScript represent the data to generate AlertManager start script

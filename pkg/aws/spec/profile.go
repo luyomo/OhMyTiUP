@@ -19,9 +19,9 @@ import (
 	"path"
 	"path/filepath"
 
-	utils2 "github.com/luyomo/tisample/pkg/utils"
+	utils2 "github.com/luyomo/OhMyTiUP/pkg/utils"
 
-	tiuplocaldata "github.com/luyomo/tisample/pkg/localdata"
+	tiuplocaldata "github.com/luyomo/OhMyTiUP/pkg/localdata"
 	"github.com/pingcap/errors"
 )
 
@@ -63,7 +63,7 @@ func Initialize(base string) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		profileDir = path.Join(homeDir, ".tisample", tiuplocaldata.StorageParentDir, base)
+		profileDir = path.Join(homeDir, ".OhMyTiUP", tiuplocaldata.StorageParentDir, base)
 	} else {
 		profileDir = tiupData
 	}

@@ -21,10 +21,10 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/luyomo/tisample/pkg/aws/api"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/crypto"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/api"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/crypto"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	perrs "github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )

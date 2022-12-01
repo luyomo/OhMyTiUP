@@ -18,8 +18,8 @@ import (
 	"crypto/tls"
 	"fmt"
 
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/aws/spec"
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/pingcap/errors"
 )
 

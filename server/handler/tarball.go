@@ -17,8 +17,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/server/session"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/server/session"
 	"github.com/pingcap/fn"
 )
 

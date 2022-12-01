@@ -14,9 +14,9 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/components/dm/spec"
-	operator "github.com/luyomo/tisample/pkg/cluster/operation"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/components/dm/spec"
+	operator "github.com/luyomo/OhMyTiUP/pkg/cluster/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 	perrs "github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )

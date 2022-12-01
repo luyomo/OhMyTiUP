@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/crypto"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/crypto"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
 )
 

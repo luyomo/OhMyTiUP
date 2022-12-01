@@ -17,10 +17,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/luyomo/tisample/pkg/cluster/manager"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/cluster/task"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/manager"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/task"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

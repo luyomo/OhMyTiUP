@@ -21,12 +21,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/aws/api"
-	"github.com/luyomo/tisample/pkg/aws/template/scripts"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/meta"
-	//"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/api"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/template/scripts"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
+	//"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 )
 

@@ -19,8 +19,8 @@ import (
 	"runtime"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/luyomo/tisample/pkg/localdata"
-	"github.com/luyomo/tisample/pkg/version"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/version"
 )
 
 // Enabled return true if we enable telemetry.

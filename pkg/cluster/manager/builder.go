@@ -19,15 +19,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	operator "github.com/luyomo/tisample/pkg/cluster/operation"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/cluster/task"
-	"github.com/luyomo/tisample/pkg/crypto"
-	"github.com/luyomo/tisample/pkg/environment"
-	"github.com/luyomo/tisample/pkg/meta"
-	"github.com/luyomo/tisample/pkg/set"
-	"github.com/luyomo/tisample/pkg/tui"
-	"github.com/luyomo/tisample/pkg/utils"
+	operator "github.com/luyomo/OhMyTiUP/pkg/cluster/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/task"
+	"github.com/luyomo/OhMyTiUP/pkg/crypto"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 
 // buildReloadPromTasks reloads Prometheus configuration

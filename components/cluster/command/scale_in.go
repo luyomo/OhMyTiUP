@@ -16,9 +16,9 @@ package command
 import (
 	"crypto/tls"
 
-	operator "github.com/luyomo/tisample/pkg/cluster/operation"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/cluster/task"
+	operator "github.com/luyomo/OhMyTiUP/pkg/cluster/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/task"
 	"github.com/spf13/cobra"
 )
 

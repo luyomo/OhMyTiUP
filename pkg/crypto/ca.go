@@ -22,7 +22,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/crypto/rand"
+	"github.com/luyomo/OhMyTiUP/pkg/crypto/rand"
 	"github.com/pingcap/errors"
 )
 

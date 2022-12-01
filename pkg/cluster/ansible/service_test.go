@@ -14,7 +14,7 @@
 package ansible
 
 import (
-	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 	"github.com/pingcap/check"
 )
 

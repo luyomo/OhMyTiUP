@@ -17,7 +17,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/v1manifest"
 	"github.com/stretchr/testify/assert"
 )
 

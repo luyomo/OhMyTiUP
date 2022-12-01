@@ -16,9 +16,9 @@ package operator
 import (
 	"fmt"
 
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 )
 
 type TiDBConnInfo struct {

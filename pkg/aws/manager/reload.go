@@ -20,14 +20,14 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/aws/clusterutil"
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/set"
-	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	perrs "github.com/pingcap/errors"
 )
 

@@ -21,10 +21,10 @@ import (
 	"strings"
 	"time"
 
-	//	"github.com/luyomo/tisample/pkg/aurora/ctxt"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	//	"github.com/luyomo/tisample/pkg/executor"
+	//	"github.com/luyomo/OhMyTiUP/pkg/aurora/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	//	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	//	"strconv"
 )
 

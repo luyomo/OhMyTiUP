@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/luyomo/tisample/pkg/aws/clusterutil"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 )
 

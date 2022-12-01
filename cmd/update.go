@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/luyomo/tisample/pkg/environment"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

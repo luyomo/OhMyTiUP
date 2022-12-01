@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/luyomo/tisample/pkg/telemetry"
+	"github.com/luyomo/OhMyTiUP/pkg/telemetry"
 	"github.com/spf13/cobra"
 )
 

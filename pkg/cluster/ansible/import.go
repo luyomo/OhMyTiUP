@@ -24,9 +24,9 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/pingcap/errors"
 	"github.com/relex/aini"
 )

@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/repository/model"
-	"github.com/luyomo/tisample/pkg/repository/v1manifest"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/model"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/v1manifest"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 )
 

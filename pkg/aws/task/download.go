@@ -17,9 +17,9 @@ import (
 	"context"
 	"fmt"
 
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/environment"
-	"github.com/luyomo/tisample/pkg/repository"
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
+	"github.com/luyomo/OhMyTiUP/pkg/repository"
 )
 
 // Downloader is used to download the specific version of a component from

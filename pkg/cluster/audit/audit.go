@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/luyomo/tisample/pkg/base52"
-	"github.com/luyomo/tisample/pkg/crypto/rand"
-	"github.com/luyomo/tisample/pkg/tui"
-	tiuputils "github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/base52"
+	"github.com/luyomo/OhMyTiUP/pkg/crypto/rand"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	tiuputils "github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 )
 

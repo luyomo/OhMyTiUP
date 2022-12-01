@@ -21,11 +21,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/aws/api"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/checkpoint"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/api"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/checkpoint"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 	perrs "github.com/pingcap/errors"
 	"go.uber.org/zap"
 )

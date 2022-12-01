@@ -3,7 +3,7 @@ package utils
 import (
 	"os/user"
 
-	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 )
 
 // CurrentUser returns current login user

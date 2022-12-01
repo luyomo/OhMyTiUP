@@ -18,11 +18,11 @@ import (
 	//"fmt"
 	"context"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
-	//	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/aws/task"
-	//	"github.com/luyomo/tisample/pkg/meta"
-	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	//	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
+	//	"github.com/luyomo/OhMyTiUP/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	//	perrs "github.com/pingcap/errors"
 )
 

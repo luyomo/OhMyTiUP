@@ -19,10 +19,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/environment"
-	"github.com/luyomo/tisample/pkg/localdata"
-	"github.com/luyomo/tisample/pkg/tui"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	gops "github.com/shirou/gopsutil/process"
 	"github.com/spf13/cobra"
 )

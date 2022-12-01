@@ -14,8 +14,8 @@
 package main
 
 import (
-	"github.com/luyomo/tisample/components/aws/command"
-	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/components/aws/command"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
 )
 
 func main() {

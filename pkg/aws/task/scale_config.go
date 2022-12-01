@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 )
 
 // ScaleConfig is used to copy all configurations to the target directory of path

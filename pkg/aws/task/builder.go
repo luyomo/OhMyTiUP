@@ -19,14 +19,14 @@ import (
 	"fmt"
 	"path/filepath"
 
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	awsutils "github.com/luyomo/tisample/pkg/aws/utils"
-	"github.com/luyomo/tisample/pkg/crypto"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/meta"
-	"github.com/luyomo/tisample/pkg/proxy"
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/crypto"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/proxy"
 )
 
 // Builder is used to build TiUP task

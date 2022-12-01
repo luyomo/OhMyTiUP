@@ -21,7 +21,7 @@ import (
 	"path"
 	"text/template"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // PDScript represent the data to generate pd config

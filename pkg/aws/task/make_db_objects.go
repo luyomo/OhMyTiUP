@@ -20,9 +20,9 @@ import (
 	"os"
 	"path"
 
-	"github.com/luyomo/tisample/embed"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/embed"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"go.uber.org/zap"
 	"math/big"
 	"text/template"

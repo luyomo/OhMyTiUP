@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/aws/template/config"
-	"github.com/luyomo/tisample/pkg/aws/template/scripts"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/template/config"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/template/scripts"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/pingcap/errors"
 )
 

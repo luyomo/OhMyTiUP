@@ -21,7 +21,7 @@ import (
 	"syscall"
 
 	"github.com/AstroProfundis/tabby"
-	"github.com/luyomo/tisample/pkg/utils/mock"
+	"github.com/luyomo/OhMyTiUP/pkg/utils/mock"
 	"golang.org/x/term"
 )
 

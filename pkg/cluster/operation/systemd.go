@@ -17,8 +17,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/cluster/module"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/module"
 	"github.com/pingcap/errors"
 )
 

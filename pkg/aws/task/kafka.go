@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"go.uber.org/zap"
 )
 

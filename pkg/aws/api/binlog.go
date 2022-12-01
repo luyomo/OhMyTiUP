@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )

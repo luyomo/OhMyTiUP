@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/proxy"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/proxy"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/pingcap/errors"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -47,7 +47,7 @@ func (u *UpdateTopology) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// fix https://github.com/luyomo/tisample/issues/333
+	// fix https://github.com/luyomo/OhMyTiUP/issues/333
 	// etcd client defaults to wait forever
 	// if all pd were down, don't hang forever
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -73,7 +73,7 @@ func (u *UpdateTopology) Execute(ctx context.Context) error {
 
 	// the prometheus,grafana,alertmanager stored in etcd will be used by other components (tidb, pd, etc.)
 	// and they assume there is ONLY ONE prometheus.
-	// ref https://github.com/luyomo/tisample/issues/954#issuecomment-737002185
+	// ref https://github.com/luyomo/OhMyTiUP/issues/954#issuecomment-737002185
 	updated := set.NewStringSet()
 	for _, ins := range instances {
 		if updated.Exist(ins.ComponentName()) {

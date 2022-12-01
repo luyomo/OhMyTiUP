@@ -17,10 +17,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/luyomo/tisample/pkg/aws/manager"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/aws/task"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/manager"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

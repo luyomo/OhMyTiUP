@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/cluster/executor"
-	"github.com/luyomo/tisample/pkg/cluster/module"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/module"
 )
 
 var (

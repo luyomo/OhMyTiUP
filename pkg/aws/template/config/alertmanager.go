@@ -17,7 +17,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 	"github.com/pingcap/errors"
 )
 

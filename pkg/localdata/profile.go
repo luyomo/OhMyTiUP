@@ -27,7 +27,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 	"golang.org/x/mod/semver"
 )

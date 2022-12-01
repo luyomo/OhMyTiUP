@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/base52"
+	"github.com/luyomo/OhMyTiUP/pkg/base52"
 	. "github.com/pingcap/check"
 	"golang.org/x/sync/errgroup"
 )

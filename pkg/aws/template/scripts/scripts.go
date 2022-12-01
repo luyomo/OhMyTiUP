@@ -16,7 +16,7 @@ package scripts
 import (
 	"path/filepath"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // GetScript returns a raw config file from embed templates

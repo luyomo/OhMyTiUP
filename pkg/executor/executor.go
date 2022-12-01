@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
 )

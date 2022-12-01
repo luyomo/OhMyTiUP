@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/localdata"
-	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	"github.com/pingcap/errors"
 )
 

@@ -18,12 +18,12 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"github.com/luyomo/tisample/pkg/cluster/clusterutil"
-	operator "github.com/luyomo/tisample/pkg/cluster/operation"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/tui"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/clusterutil"
+	operator "github.com/luyomo/OhMyTiUP/pkg/cluster/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 
 // Rename the cluster

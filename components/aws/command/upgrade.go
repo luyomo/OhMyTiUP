@@ -14,7 +14,7 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

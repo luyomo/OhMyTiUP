@@ -19,12 +19,12 @@ import (
 	"time"
 
 	cjson "github.com/gibson042/canonicaljson-go"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/repository/store"
-	"github.com/luyomo/tisample/pkg/repository/v1manifest"
-	"github.com/luyomo/tisample/pkg/set"
-	"github.com/luyomo/tisample/pkg/utils"
-	"github.com/luyomo/tisample/pkg/version"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/store"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/v1manifest"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/version"
 	"github.com/pingcap/errors"
 )
 

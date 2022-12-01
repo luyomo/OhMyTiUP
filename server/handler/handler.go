@@ -16,7 +16,7 @@ package handler
 import (
 	"context"
 
-	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	"github.com/pingcap/fn"
 )
 

@@ -16,9 +16,9 @@ package command
 import (
 	"path"
 
-	"github.com/luyomo/tisample/pkg/cluster/manager"
-	operator "github.com/luyomo/tisample/pkg/cluster/operation"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/manager"
+	operator "github.com/luyomo/OhMyTiUP/pkg/cluster/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

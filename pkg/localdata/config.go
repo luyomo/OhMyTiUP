@@ -17,7 +17,7 @@ import (
 	"path"
 
 	"github.com/BurntSushi/toml"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 
 type configBase struct {

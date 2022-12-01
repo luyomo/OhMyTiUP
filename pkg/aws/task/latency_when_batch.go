@@ -16,8 +16,8 @@ package task
 import (
 	"context"
 	"fmt"
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/ctxt"
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"strings"
 	"time"
 )

@@ -16,8 +16,8 @@ package logger
 import (
 	"bytes"
 
-	"github.com/luyomo/tisample/pkg/cluster/audit"
-	utils2 "github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/audit"
+	utils2 "github.com/luyomo/OhMyTiUP/pkg/utils"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

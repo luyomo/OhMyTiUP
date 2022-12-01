@@ -16,9 +16,9 @@ package command
 import (
 	"path"
 
-	"github.com/luyomo/tisample/pkg/aws/manager"
-	"github.com/luyomo/tisample/pkg/tui"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/manager"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

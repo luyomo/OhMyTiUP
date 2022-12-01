@@ -14,7 +14,7 @@
 package main
 
 import (
-	"github.com/luyomo/tisample/cmd"
+	"github.com/luyomo/OhMyTiUP/cmd"
 )
 
 func main() {

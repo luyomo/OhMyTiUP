@@ -16,11 +16,11 @@ package clusterutil
 import (
 	"os"
 
-	"github.com/luyomo/tisample/pkg/environment"
-	"github.com/luyomo/tisample/pkg/localdata"
-	"github.com/luyomo/tisample/pkg/repository"
-	"github.com/luyomo/tisample/pkg/repository/v1manifest"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/repository"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/v1manifest"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 )
 

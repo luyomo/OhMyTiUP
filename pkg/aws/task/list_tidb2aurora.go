@@ -17,7 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"go.uber.org/zap"
 	"sort"
 	"strings"

@@ -14,7 +14,7 @@
 package command
 
 import (
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/spf13/cobra"
 )
 

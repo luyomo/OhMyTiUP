@@ -16,7 +16,7 @@ package manager
 import (
 	"testing"
 
-	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 	"github.com/stretchr/testify/assert"
 )
 

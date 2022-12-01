@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/luyomo/tisample/pkg/repository"
-	"github.com/luyomo/tisample/server/session"
+	"github.com/luyomo/OhMyTiUP/pkg/repository"
+	"github.com/luyomo/OhMyTiUP/server/session"
 )
 
 type server struct {

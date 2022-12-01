@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/OhMyTiUP/pkg/crypto"
 	"github.com/pingcap/errors"
 )
 

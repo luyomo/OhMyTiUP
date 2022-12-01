@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // TiSparkConfig represent the data to generate TiSpark configs

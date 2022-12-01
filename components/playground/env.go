@@ -17,7 +17,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/luyomo/tisample/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
 	"github.com/pingcap/errors"
 )
 

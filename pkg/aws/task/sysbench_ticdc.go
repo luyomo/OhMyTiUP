@@ -24,8 +24,8 @@ import (
 
 	"github.com/fatih/color"
 
-	"github.com/luyomo/tisample/embed"
-	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/embed"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 )
 
 /*

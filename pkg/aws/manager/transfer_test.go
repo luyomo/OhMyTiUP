@@ -16,7 +16,7 @@ package manager
 import (
 	"testing"
 
-	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	cjson "github.com/gibson042/canonicaljson-go"
-	"github.com/luyomo/tisample/pkg/crypto"
+	"github.com/luyomo/OhMyTiUP/pkg/crypto"
 	"github.com/pingcap/errors"
 )
 

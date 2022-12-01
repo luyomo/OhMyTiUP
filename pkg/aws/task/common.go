@@ -30,10 +30,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/luyomo/tisample/embed"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/tidbcloudapi"
+	"github.com/luyomo/OhMyTiUP/embed"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/tidbcloudapi"
 	"go.uber.org/zap"
 
 	"github.com/aws/aws-sdk-go-v2/aws"

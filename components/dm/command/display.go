@@ -17,8 +17,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	perrs "github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )

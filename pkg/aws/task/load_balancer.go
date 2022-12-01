@@ -18,7 +18,7 @@ import (
 	//	"encoding/json"
 	//	"errors"
 	"fmt"
-	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"go.uber.org/zap"
 	"strings"
 	//	"sort"

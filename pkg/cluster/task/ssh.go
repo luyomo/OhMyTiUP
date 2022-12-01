@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/cluster/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/executor"
 )
 
 var (

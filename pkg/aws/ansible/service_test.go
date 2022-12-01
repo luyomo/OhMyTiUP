@@ -14,7 +14,7 @@
 package ansible
 
 import (
-	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/pingcap/check"
 )
 

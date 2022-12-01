@@ -14,8 +14,8 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/cluster/task"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/task"
 	"github.com/spf13/cobra"
 )
 

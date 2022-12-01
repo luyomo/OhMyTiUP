@@ -16,7 +16,7 @@ package config
 import (
 	"path/filepath"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // GetConfig returns a raw config file from embed templates

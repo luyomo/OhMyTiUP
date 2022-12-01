@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/server/handler"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/server/handler"
 )
 
 type traceResponseWriter struct {

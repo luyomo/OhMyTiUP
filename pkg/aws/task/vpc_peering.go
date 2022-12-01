@@ -17,9 +17,9 @@ import (
 	"context"
 	// "encoding/json"
 	"fmt"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	//	"github.com/luyomo/tisample/pkg/executor"
-	//	"github.com/luyomo/tisample/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	//	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	//	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"

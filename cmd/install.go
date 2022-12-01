@@ -14,7 +14,7 @@
 package cmd
 
 import (
-	"github.com/luyomo/tisample/pkg/environment"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
 	"github.com/spf13/cobra"
 )
 

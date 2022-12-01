@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"strings"
 
-	dmspec "github.com/luyomo/tisample/components/dm/spec"
+	dmspec "github.com/luyomo/OhMyTiUP/components/dm/spec"
 
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 )
 
 // UpdateDMMeta is used to maintain the DM meta information

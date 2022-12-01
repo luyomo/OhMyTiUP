@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	"github.com/creasty/defaults"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	"github.com/relex/aini"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"

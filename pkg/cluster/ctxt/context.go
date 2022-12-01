@@ -19,8 +19,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/checkpoint"
-	"github.com/luyomo/tisample/pkg/utils/mock"
+	"github.com/luyomo/OhMyTiUP/pkg/checkpoint"
+	"github.com/luyomo/OhMyTiUP/pkg/utils/mock"
 )
 
 type contextKey string

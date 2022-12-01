@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/creasty/defaults"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 	. "github.com/pingcap/check"
 	"gopkg.in/yaml.v3"
 )

@@ -16,9 +16,9 @@ package operator
 import (
 	"fmt"
 
-	"github.com/luyomo/tisample/pkg/cluster/executor"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 )
 
 // Options represents the operation options

@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/creasty/defaults"
-	"github.com/luyomo/tisample/pkg/cluster/api"
-	"github.com/luyomo/tisample/pkg/cluster/spec"
-	"github.com/luyomo/tisample/pkg/meta"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/api"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/pingcap/errors"
 )
 

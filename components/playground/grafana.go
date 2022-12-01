@@ -24,10 +24,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/luyomo/tisample/components/playground/instance"
-	"github.com/luyomo/tisample/pkg/environment"
-	tiupexec "github.com/luyomo/tisample/pkg/exec"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/components/playground/instance"
+	"github.com/luyomo/OhMyTiUP/pkg/environment"
+	tiupexec "github.com/luyomo/OhMyTiUP/pkg/exec"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 )
 

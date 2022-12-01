@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/cluster/template/scripts"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/template/scripts"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 )
 
 // TiDBSpec represents the TiDB topology specification in topology.yaml

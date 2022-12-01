@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/jeremywohl/flatten"
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
 	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/pingcap/kvproto/pkg/pdpb"
@@ -309,7 +309,7 @@ func (pc *PDClient) GetConfig() (map[string]interface{}, error) {
 	endpoints := pc.getEndpoints(pdConfigURI)
 
 	// We don't use the `github.com/tikv/pd/server/config` directly because
-	// there is compatible issue: https://github.com/luyomo/tisample/issues/637
+	// there is compatible issue: https://github.com/luyomo/OhMyTiUP/issues/637
 	pdConfig := map[string]interface{}{}
 
 	_, err := tryURLs(endpoints, func(endpoint string) ([]byte, error) {

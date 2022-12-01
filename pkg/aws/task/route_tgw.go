@@ -20,7 +20,7 @@ import (
 	"fmt"
 	//	"time"
 
-	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 )
 
 type CreateRouteTgw struct {

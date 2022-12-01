@@ -22,9 +22,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/stretchr/testify/assert"
 )
 

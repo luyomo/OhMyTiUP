@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"reflect"
 
-	cspec "github.com/luyomo/tisample/pkg/cluster/spec"
+	cspec "github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 )
 
 var specManager *cspec.SpecManager

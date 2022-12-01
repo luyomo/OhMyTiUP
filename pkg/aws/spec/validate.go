@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/meta"
-	"github.com/luyomo/tisample/pkg/set"
-	"github.com/luyomo/tisample/pkg/tui"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 	"go.uber.org/zap"
 )
@@ -206,7 +206,7 @@ Please change to use another directory or another host.
 // CheckClusterDirOverlap checks cluster dir overlaps with data or log.
 // this should only be used across clusters.
 // we don't allow to deploy log under data, and vise versa.
-// ref https://github.com/luyomo/tisample/issues/1047#issuecomment-761711508
+// ref https://github.com/luyomo/OhMyTiUP/issues/1047#issuecomment-761711508
 func CheckClusterDirOverlap(entries []DirEntry) error {
 	ignore := func(d1, d2 DirEntry) bool {
 		return (d1.instance.GetHost() != d2.instance.GetHost()) ||

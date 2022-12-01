@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"text/template"
 
-	"github.com/luyomo/tisample/embed"
+	"github.com/luyomo/OhMyTiUP/embed"
 )
 
 // PrometheusScript represent the data to generate Prometheus config

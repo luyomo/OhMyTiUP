@@ -17,7 +17,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
 )
 
 // ShellModuleConfig is the configurations used to initialize a TiUPModuleSystemd

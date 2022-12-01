@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/utils"
-	"github.com/luyomo/tisample/pkg/version"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/version"
 	"github.com/prometheus/common/expfmt"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 )

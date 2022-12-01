@@ -14,8 +14,8 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/aws/task"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	"github.com/spf13/cobra"
 )
 

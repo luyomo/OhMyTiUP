@@ -25,8 +25,8 @@ import (
 	"github.com/blevesearch/bleve"
 	_ "github.com/blevesearch/bleve/index/store/goleveldb"
 	"github.com/blevesearch/bleve/search/query"
-	"github.com/luyomo/tisample/components/errdoc/spec"
-	"github.com/luyomo/tisample/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/components/errdoc/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
 	"github.com/spf13/cobra"
 )
 

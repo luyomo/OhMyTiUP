@@ -18,10 +18,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/aws/audit"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/checkpoint"
-	"github.com/luyomo/tisample/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/audit"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/checkpoint"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )

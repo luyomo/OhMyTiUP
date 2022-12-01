@@ -20,7 +20,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/v1manifest"
 )
 
 // HashFile returns the sha256/sha512 hashes and the file length of specific file

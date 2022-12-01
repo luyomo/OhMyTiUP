@@ -17,10 +17,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/luyomo/tisample/pkg/logger/log"
-	"github.com/luyomo/tisample/pkg/repository"
-	"github.com/luyomo/tisample/pkg/repository/model"
-	"github.com/luyomo/tisample/pkg/repository/v1manifest"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	"github.com/luyomo/OhMyTiUP/pkg/repository"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/model"
+	"github.com/luyomo/OhMyTiUP/pkg/repository/v1manifest"
 	"github.com/pingcap/fn"
 )
 

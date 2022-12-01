@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/luyomo/tisample/pkg/localdata"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/localdata"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -24,11 +24,11 @@ import (
 	"text/template"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/luyomo/tisample/embed"
-	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/embed"
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"go.uber.org/zap"
 )
 

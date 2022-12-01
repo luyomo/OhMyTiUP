@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
-	"github.com/luyomo/tisample/pkg/cluster/template/scripts"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/template/scripts"
 	. "github.com/pingcap/check"
 	"gopkg.in/yaml.v2"
 )

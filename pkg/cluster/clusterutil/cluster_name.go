@@ -17,8 +17,8 @@ import (
 	"regexp"
 
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/tui"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 
 var (

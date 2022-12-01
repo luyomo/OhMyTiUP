@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/tisample/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	. "github.com/pingcap/check"
 	"github.com/pingcap/errors"
 	"gopkg.in/yaml.v2"

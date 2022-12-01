@@ -21,9 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/luyomo/tisample/components/dm/spec"
-	"github.com/luyomo/tisample/pkg/cluster/ctxt"
-	"github.com/luyomo/tisample/pkg/cluster/executor"
+	"github.com/luyomo/OhMyTiUP/components/dm/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/executor"
 	"github.com/pingcap/errors"
 	"github.com/stretchr/testify/require"
 )

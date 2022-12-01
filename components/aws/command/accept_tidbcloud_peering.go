@@ -18,11 +18,11 @@ import (
 	//	"errors"
 	"fmt"
 
-	//	operator "github.com/luyomo/tisample/pkg/aws/operation"
-	"github.com/luyomo/tisample/pkg/aws/task"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/executor"
-	"github.com/luyomo/tisample/pkg/utils"
+	//	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +34,7 @@ func newAcceptTiDBCloudPeering() *cobra.Command {
 		Long: `Accept all the pending vpc peering from tidb cloud.
 Convert the pending status to active, eg:
 
-  $ tisample accept_ticloud_peering ticb_cloud_name `,
+  $ OhMyTiUP accept_ticloud_peering ticb_cloud_name `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return cmd.Help()

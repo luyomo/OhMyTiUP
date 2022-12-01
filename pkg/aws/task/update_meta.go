@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/set"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/set"
 )
 
 // UpdateMeta is used to maintain the cluster meta information

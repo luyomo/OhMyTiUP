@@ -20,7 +20,7 @@ package api
 import (
 	"time"
 
-	"github.com/luyomo/tisample/pkg/cluster/api/typeutil"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/api/typeutil"
 	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/pingcap/kvproto/pkg/pdpb"
 )

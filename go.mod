@@ -1,4 +1,4 @@
-module github.com/luyomo/tisample
+module github.com/luyomo/OhMyTiUP
 
 go 1.16
 

@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/luyomo/tisample/pkg/aws/template/scripts"
-	"github.com/luyomo/tisample/pkg/ctxt"
-	"github.com/luyomo/tisample/pkg/meta"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/template/scripts"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/meta"
 )
 
 // DrainerSpec represents the Drainer topology specification in topology.yaml

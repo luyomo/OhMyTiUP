@@ -14,7 +14,7 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/pkg/cluster/manager"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/manager"
 	"github.com/spf13/cobra"
 )
 

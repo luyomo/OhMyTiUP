@@ -14,7 +14,7 @@
 package command
 
 import (
-	"github.com/luyomo/tisample/pkg/cluster/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 	perrs "github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )

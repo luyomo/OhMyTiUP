@@ -23,10 +23,10 @@ import (
 
 	"text/template"
 	//"time"
-	"github.com/luyomo/tisample/embed"
-	"github.com/luyomo/tisample/pkg/aws/spec"
-	"github.com/luyomo/tisample/pkg/aws/utils"
-	"github.com/luyomo/tisample/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/embed"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 )
 
 type DeployDrainConfig struct {
