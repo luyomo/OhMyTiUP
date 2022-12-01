@@ -38,7 +38,7 @@ func newTiDB2Kafka2MongoCmd() *cobra.Command {
 		newTiDB2Kafka2MongoDeploy(),
 		newListTiDB2Kafka2MongoCmd(),
 		newDestroyTiDB2Kafka2MongoCmd(),
-		// newTiDB2Kafka2MongoPerfCmd(),
+		newTiDB2Kafka2MongoPerfCmd(),
 	)
 	return cmd
 }
@@ -50,9 +50,9 @@ func newTiDB2Kafka2MongoPerfCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newPerfPrepareTiDB2Kafka2Mongo(),
-		newPerfTiDB2Kafka2Mongo(),
-		newPerfCleanTiDB2Kafka2Mongo(),
+		newPerfPrepareMongo2Kafka2TiDB(),
+		newPerfMongo2Kafka2TiDB(),
+		newPerfCleanMongo2Kafka2TiDB(),
 	)
 	return cmd
 }
@@ -159,11 +159,11 @@ You can retain some nodes and roles data when destroy cluster, eg:
 	return cmd
 }
 
-func newPerfPrepareTiDB2Kafka2Mongo() *cobra.Command {
-	perfOpt := manager.KafkaPerfOpt{
-		Partitions:    1,
-		NumOfRecords:  100000,
-		BytesOfRecord: 1024,
+func newPerfPrepareMongo2Kafka2TiDB() *cobra.Command {
+	perfOpt := manager.MongoPerfOpt{
+		// Partitions:    1,
+		// NumOfRecords:  100000,
+		// BytesOfRecord: 1024,
 	}
 	cmd := &cobra.Command{
 		Use:          "prepare <cluster-name>",
@@ -181,21 +181,21 @@ func newPerfPrepareTiDB2Kafka2Mongo() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.PerfPrepareTiDB2Kafka2PG(clusterName, "ohmytiup-tidb2kafka2pg", perfOpt, gOpt)
+			return cm.PerfPrepareMongo2Kafka2TiDB(clusterName, "ohmytiup-mongo2kafka2tidb", perfOpt, gOpt)
 		},
 	}
 
-	cmd.Flags().IntVar(&perfOpt.Partitions, "partitions", 16, "The partition number of the topic to be tested.")
-	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
-	cmd.Flags().IntVar(&perfOpt.BytesOfRecord, "bytes-of-record", 1024, "Bytes of records to be tested")
-	cmd.Flags().StringArrayVar(&perfOpt.DataTypeDtr, "data-type", nil, "Specify all the data types to be tested")
+	// cmd.Flags().IntVar(&perfOpt.Partitions, "partitions", 16, "The partition number of the topic to be tested.")
+	// cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
+	// cmd.Flags().IntVar(&perfOpt.BytesOfRecord, "bytes-of-record", 1024, "Bytes of records to be tested")
+	// cmd.Flags().StringArrayVar(&perfOpt.DataTypeDtr, "data-type", nil, "Specify all the data types to be tested")
 
 	return cmd
 }
 
-func newPerfTiDB2Kafka2Mongo() *cobra.Command {
-	perfOpt := manager.KafkaPerfOpt{
-		NumOfRecords: 100000,
+func newPerfMongo2Kafka2TiDB() *cobra.Command {
+	perfOpt := manager.MongoPerfOpt{
+		// NumOfRecords: 100000,
 	}
 	cmd := &cobra.Command{
 		Use:          "run <cluster-name>",
@@ -213,16 +213,16 @@ func newPerfTiDB2Kafka2Mongo() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.PerfTiDB2Kafka2PG(clusterName, "ohmytiup-tidb2kafka2pg", perfOpt, gOpt)
+			return cm.PerfRunMongo2Kafka2TiDB(clusterName, "ohmytiup-mongo2kafka2tidb", perfOpt, gOpt)
 		},
 	}
 
-	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
+	// cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
 
 	return cmd
 }
 
-func newPerfCleanTiDB2Kafka2Mongo() *cobra.Command {
+func newPerfCleanMongo2Kafka2TiDB() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "clean <cluster-name>",
 		Short:        "clean perf performance test",
@@ -239,7 +239,7 @@ func newPerfCleanTiDB2Kafka2Mongo() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.PerfCleanTiDB2Kafka2PG(clusterName, "ohmytiup-tidb2kafka2pg", gOpt)
+			return cm.PerfCleanMongo2Kafka2TiDB(clusterName, "ohmytiup-mongo2kafka2tidb", gOpt)
 		},
 	}
 

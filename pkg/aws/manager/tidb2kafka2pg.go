@@ -347,7 +347,6 @@ Parameters:
      -> DataTypeDtr: ["int", "varchar"]
 */
 func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
-
 	/* ********** ********** 001. Read the column mapping file to struct
 		   ColumnMapping.yml:
 		   MapTiDB2PG:

@@ -61,7 +61,6 @@ func getRDBInstance(executor ctxt.Executor, ctx context.Context, clusterName, cl
 
 	var dbInstances DBInstances
 	if err = json.Unmarshal(stdout, &dbInstances); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil, err
 	}
 	for _, instance := range dbInstances.DBInstances {

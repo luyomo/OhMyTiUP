@@ -1,0 +1,20 @@
+* Hello world
+  + Install golang bin
+    #+BEGIN_SRC
+$wget https://go.dev/dl/go1.19.3.linux-amd64.tar.gz
+$sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.19.3.linux-amd64.tar.gz
+$export PATH=$PATH:/usr/local/go/bin
+    #+END_SRC
+  + golang hello world
+    #+BEGIN_SRC
+$go mod init github.com/luyomo/hello_world_dist
+hello_world_dist$ more main.go
+package main
+import "fmt"
+
+func main(){
+    fmt.Printf("Hello world. \n")
+} 
+    #+END_SRC
+  + added embed etcd server into source code
+  + Set/Get data to/from etcd

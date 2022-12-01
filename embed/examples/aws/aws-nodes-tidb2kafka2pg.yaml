@@ -21,7 +21,7 @@ aws_kafka_topo_configs:
     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
   zookeeper:
     instance_type: c5.large                       # Instance type for zookeeper component
-    count: 3                                      # Number of zookeeper node to be deployed
+    count: 1                                      # Number of zookeeper node to be deployed
     volumeSize: 30                                # disk size in the workstation
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
@@ -45,7 +45,7 @@ aws_kafka_topo_configs:
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
   broker:
     instance_type: c5.xlarge                      # Instance type of broker
-    count: 3                                      # Number of TiKV nodes to be deployed
+    count: 1                                      # Number of TiKV nodes to be deployed
     volumeSize: 50                                # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
@@ -69,19 +69,19 @@ aws_topo_configs:
     count: 1                                      # Number of TiDB node to be deployed
   tikv:
     instance_type: c5.xlarge                      # Instance type of TiKV
-    count: 3                                      # Number of TiKV nodes to be deployed
+    count: 1                                      # Number of TiKV nodes to be deployed
     volumeSize: 50                                # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
-  ticdc:
-    instance_type: c5.xlarge                      # Instance type of ticdc
-    count: 1                                      # Number of TiDB node to be deployed
-  monitor:
-    instance_type: c5.large                       # Instance type for PD component
-    count: 2                                      # Number of TiDB node to be deployed
-  alert-manager:
-    instance_type: c5.large                       # Instance type for PD component
-    count: 1                                      # Number of TiDB node to be deployed
+    #  ticdc:
+    #    instance_type: c5.xlarge                      # Instance type of ticdc
+    #    count: 1                                      # Number of TiDB node to be deployed
+    #  monitor:
+    #    instance_type: c5.large                       # Instance type for PD component
+    #    count: 2                                      # Number of TiDB node to be deployed
+    #  alert-manager:
+    #    instance_type: c5.large                       # Instance type for PD component
+    #    count: 1                                      # Number of TiDB node to be deployed
 postgres:
   cidr: 172.84.0.0/16
   instance_type: db.r5.large

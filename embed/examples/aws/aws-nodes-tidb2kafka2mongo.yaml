@@ -63,13 +63,13 @@ aws_topo_configs:
     enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
   pd:
     instance_type: c5.large                       # Instance type for PD component
-    count: 1                                      # Number of PD node to be deployed
+    count: 3                                      # Number of PD node to be deployed
   tidb:
     instance_type: c5.xlarge                      # Instance type of tidb
-    count: 1                                      # Number of TiDB node to be deployed
+    count: 2                                      # Number of TiDB node to be deployed
   tikv:
     instance_type: c5.xlarge                      # Instance type of TiKV
-    count: 1                                      # Number of TiKV nodes to be deployed
+    count: 3                                      # Number of TiKV nodes to be deployed
     volumeSize: 50                                # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
@@ -99,6 +99,6 @@ aws_mongo_topo:
   replica-set:
     -
       instance_type: c5.large                       # Instance type for zookeeper component
-      count: 3                                      # Number of zookeeper node to be deployed
+      count: 1                                      # Number of zookeeper node to be deployed
       volumeSize: 30                                # disk size in the workstation
       volumeType: io2                               # Storage type ex. gp2(default), gp3, io2

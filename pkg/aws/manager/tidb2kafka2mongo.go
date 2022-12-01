@@ -107,7 +107,8 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
 	envInitTasks = append(envInitTasks, t2)
 
-	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
+	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DMMaster.Count +
+		base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
 	if cntEC2Nodes > 0 {
 		t3 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
@@ -328,5 +329,23 @@ func (m *Manager) ListTiDB2Kafka2MongoCluster(clusterName, clusterType string, o
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 
+	return nil
+}
+
+type MongoPerfOpt struct {
+}
+
+func (m *Manager) PerfPrepareMongo2Kafka2TiDB(clusterName, clusterType string, perfOpt MongoPerfOpt, gOpt operator.Options) error {
+	fmt.Printf("Starting the preparation mongo \n")
+	return nil
+}
+
+func (m *Manager) PerfRunMongo2Kafka2TiDB(clusterName, clusterType string, perfOpt MongoPerfOpt, gOpt operator.Options) error {
+	fmt.Printf("Starting the run mongo \n")
+	return nil
+}
+
+func (m *Manager) PerfCleanMongo2Kafka2TiDB(clusterName, clusterType string, gOpt operator.Options) error {
+	fmt.Printf("Starting the clean mongo \n")
 	return nil
 }

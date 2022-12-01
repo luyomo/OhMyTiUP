@@ -15,7 +15,7 @@ package task
 
 import (
 	"context"
-	"encoding/json"
+	// "encoding/json"
 	"fmt"
 	// "strconv"
 	"strings"
@@ -107,13 +107,13 @@ func (c *DeployMongo) Execute(ctx context.Context) error {
 		}
 	}
 
-	fmt.Printf("The host is <%#v> \n\n\n", rsConfig)
-	_rsJsonConfig, err := json.Marshal(rsConfig)
-	if err != nil {
-		return err
-	}
-	_strJsonConfig := string(_rsJsonConfig)
-	fmt.Println(_strJsonConfig)
+	// fmt.Printf("The host is <%#v> \n\n\n", rsConfig)
+	// _rsJsonConfig, err := json.Marshal(rsConfig)
+	// if err != nil {
+	// 	return err
+	// }
+	// _strJsonConfig := string(_rsJsonConfig)
+	// fmt.Println(_strJsonConfig)
 
 	parallelExe := Parallel{ignoreError: false, inner: pkgInstallTasks}
 	if err := parallelExe.Execute(ctx); err != nil {
@@ -136,7 +136,8 @@ func (c *DeployMongo) Execute(ctx context.Context) error {
 			break
 			fmt.Printf("01. Run the script to initialize the replica set \n\n\n")
 		} else if strings.Contains(string(stderr), "MongoServerError: not running with --replSet") {
-			time.Sleep(2 * time.Second)
+			print("Reaching the not running with --replSet\n\n\n")
+			time.Sleep(10 * time.Second)
 			continue
 
 		} else if err != nil {
@@ -176,7 +177,6 @@ func (c *MongoInstallPkgTask) Execute(ctx context.Context) error {
 		"echo 'deb http://repo.mongodb.org/apt/debian buster/mongodb-org/6.0 main' | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list",
 		"sudo apt-get -y update",
 		"sudo apt-get install -y mongodb-org",
-		"sudo systemctl restart mongod",
 	}
 
 	for _, cmd := range commands {
@@ -195,6 +195,10 @@ func (c *MongoInstallPkgTask) Execute(ctx context.Context) error {
 	}
 
 	if _, _, err := (*(c.wsexecutor)).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, c.exeNode, "sudo mv /tmp/mongod.conf /etc"), false, 600*time.Second); err != nil {
+		return err
+	}
+
+	if _, _, err := (*(c.wsexecutor)).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, c.exeNode, "sudo systemctl restart mongod"), false, 600*time.Second); err != nil {
 		return err
 	}
 
