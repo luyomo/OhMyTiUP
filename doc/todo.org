@@ -1,0 +1,18 @@
+* Rewrite ec2.org
+** ec2.go
+   + CreateWorkstation
+   + DestroyEC
+   + ListEC
+   + DestroyWS
+   + CreateEC2Nodes
+   + CreateTiKVNodes
+   + MakeEC2Nodes
+   + ListAllAwsEC2
+** scaling group
+   + vpc
+   + network
+   + security group
+   + ec2 laugch template     
+   + scaling group
+   + transit gateway
+
