@@ -107,7 +107,7 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
 	envInitTasks = append(envInitTasks, t2)
 
-	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.DMMaster.Count +
+	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.DMMaster.Count +
 		base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
 	if cntEC2Nodes > 0 {
 		t3 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).

@@ -45,7 +45,7 @@ aws_kafka_topo_configs:
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
   broker:
     instance_type: c5.xlarge                      # Instance type of broker
-    count: 1                                      # Number of TiKV nodes to be deployed
+    count: 3                                      # Number of TiKV nodes to be deployed
     volumeSize: 50                                # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
@@ -73,15 +73,15 @@ aws_topo_configs:
     volumeSize: 50                                # Storage size for TiKV nodes (GB)
     volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
     iops: 3000                                    # Storage IOPS(Only for gp3, io2)
-    #  ticdc:
-    #    instance_type: c5.xlarge                      # Instance type of ticdc
-    #    count: 1                                      # Number of TiDB node to be deployed
-    #  monitor:
-    #    instance_type: c5.large                       # Instance type for PD component
-    #    count: 2                                      # Number of TiDB node to be deployed
-    #  alert-manager:
-    #    instance_type: c5.large                       # Instance type for PD component
-    #    count: 1                                      # Number of TiDB node to be deployed
+  ticdc:
+    instance_type: c5.xlarge                      # Instance type of ticdc
+    count: 1                                      # Number of TiDB node to be deployed
+  monitor:
+    instance_type: c5.large                       # Instance type for PD component
+    count: 2                                      # Number of TiDB node to be deployed
+  alert-manager:
+    instance_type: c5.large                       # Instance type for PD component
+    count: 1                                      # Number of TiDB node to be deployed
 postgres:
   cidr: 172.84.0.0/16
   instance_type: db.r5.large

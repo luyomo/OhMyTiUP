@@ -153,7 +153,7 @@ func (m *Manager) TiDB2OraDeploy(
 		envInitTasks = append(envInitTasks, t1)
 	}
 
-	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV.Count + base.AwsTopoConfigs.Pump.Count + base.AwsTopoConfigs.Drainer.Count
+	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.Pump.Count + base.AwsTopoConfigs.Drainer.Count
 	if cntEC2Nodes > 0 {
 		t2 := task.NewBuilder().
 			CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).

@@ -110,24 +110,8 @@ func (m *Manager) confirmTopology(name, version string, topo spec.Topology, patc
 			clusterTable = append(clusterTable, []string{"PD", strconv.Itoa(spec.AwsTopoConfigs.PD.Count), spec.AwsTopoConfigs.PD.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
 
-		ec2NodeConfigs, err := task.ScanLabels(&(spec.AwsTopoConfigs.TiKV).Labels, &(spec.AwsTopoConfigs.TiKV).ModalTypes)
-		if err != nil {
-			return err
-		}
-		if ec2NodeConfigs != nil {
-			for _, tikvNode := range *ec2NodeConfigs {
-				var arrLabels []string
-				for _, label := range tikvNode.Labels {
-					for key, value := range label {
-						arrLabels = append(arrLabels, fmt.Sprintf("%s=%s", strings.Replace(key, "label:", "", 1), value))
-					}
-				}
-				clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(tikvNode.Count), tikvNode.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master", strings.Join(arrLabels, ",")})
-			}
-		}
-
-		if spec.AwsTopoConfigs.TiKV.Count > 0 {
-			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(spec.AwsTopoConfigs.TiKV.Count), spec.AwsTopoConfigs.TiKV.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
+		for _, tikvGroup := range spec.AwsTopoConfigs.TiKV {
+			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(tikvGroup.Count), tikvGroup.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
 
 		if spec.AwsTopoConfigs.TiFlash.Count > 0 {
@@ -318,24 +302,8 @@ func (m *Manager) confirmTiDBTopology(name string, topo spec.Topology) error {
 			clusterTable = append(clusterTable, []string{"PD", strconv.Itoa(clusterCfg.PD.Count), clusterCfg.PD.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
 		}
 
-		ec2NodeConfigs, err := task.ScanLabels(&(clusterCfg.TiKV).Labels, &(clusterCfg.TiKV).ModalTypes)
-		if err != nil {
-			return err
-		}
-		if ec2NodeConfigs != nil {
-			for _, tikvNode := range *ec2NodeConfigs {
-				var arrLabels []string
-				for _, label := range tikvNode.Labels {
-					for key, value := range label {
-						arrLabels = append(arrLabels, fmt.Sprintf("%s=%s", strings.Replace(key, "label:", "", 1), value))
-					}
-				}
-				clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(tikvNode.Count), tikvNode.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master", strings.Join(arrLabels, ",")})
-			}
-		}
-
-		if clusterCfg.TiKV.Count > 0 {
-			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(clusterCfg.TiKV.Count), clusterCfg.TiKV.InstanceType, generalCfg.ImageId, generalCfg.CIDR, "master"})
+		for _, tikvGroup := range spec.AwsTopoConfigs.TiKV {
+			clusterTable = append(clusterTable, []string{"TiKV", strconv.Itoa(tikvGroup.Count), tikvGroup.InstanceType, spec.AwsTopoConfigs.General.ImageId, spec.AwsTopoConfigs.General.CIDR, "master"})
 		}
 
 		if clusterCfg.TiFlash.Count > 0 {
