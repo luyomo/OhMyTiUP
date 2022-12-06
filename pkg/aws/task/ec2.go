@@ -118,6 +118,117 @@ func (c *CreateWorkstation) String() string {
 
 /******************************************************************************/
 
+type DestroyAutoScalingGroup struct {
+	pexecutor      *ctxt.Executor
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyAutoScalingGroup) Execute(ctx context.Context) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	clientASC := autoscaling.NewFromConfig(cfg)
+
+	var filters []astypes.Filter
+	filters = append(filters, astypes.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, astypes.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+
+	describeAutoScalingGroupsInput := &autoscaling.DescribeAutoScalingGroupsInput{Filters: filters}
+
+	describeAutoScalingGroups, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("The auto saling group: %#v \n\n\n", describeAutoScalingGroups.AutoScalingGroups)
+	for _, _autoScalingGroup := range describeAutoScalingGroups.AutoScalingGroups {
+		fmt.Printf("The auto scaling group: <%#v> \n\n\n", *_autoScalingGroup.AutoScalingGroupName)
+		deleteAutoScalingGroupInput := &autoscaling.DeleteAutoScalingGroupInput{AutoScalingGroupName: _autoScalingGroup.AutoScalingGroupName, ForceDelete: aws.Bool(true)}
+		_, err := clientASC.DeleteAutoScalingGroup(context.TODO(), deleteAutoScalingGroupInput)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	for idx := 0; idx < 50; idx++ {
+		time.Sleep(5 * time.Second)
+		describeAutoScalingGroups, err = clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+		if err != nil {
+			return err
+		}
+		if len(describeAutoScalingGroups.AutoScalingGroups) == 0 {
+			break
+		}
+	}
+
+	return nil
+
+}
+
+// Rollback implements the Task interface
+func (c *DestroyAutoScalingGroup) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyAutoScalingGroup) String() string {
+	return fmt.Sprintf("Echo: Destroying auto scaling")
+}
+
+type DestroyLaunchTemplate struct {
+	pexecutor      *ctxt.Executor
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyLaunchTemplate) Execute(ctx context.Context) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	client := ec2.NewFromConfig(cfg)
+
+	var filters []types.Filter
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+
+	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{Filters: filters}
+
+	describeLaunchTemplates, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput)
+	if err != nil {
+		return err
+	}
+
+	for _, launchTemplate := range describeLaunchTemplates.LaunchTemplates {
+		deleteLaunchTemplateInput := &ec2.DeleteLaunchTemplateInput{LaunchTemplateId: launchTemplate.LaunchTemplateId}
+		_, err := client.DeleteLaunchTemplate(context.TODO(), deleteLaunchTemplateInput)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyLaunchTemplate) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyLaunchTemplate) String() string {
+	return fmt.Sprintf("Echo: Destroying launch template")
+}
+
 type DestroyEC struct {
 	pexecutor      *ctxt.Executor
 	subClusterType string
@@ -491,8 +602,7 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 		if errors.As(err, &ae) {
 			// fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
 			if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
-				fmt.Print("Starting to create the launch template \n\n\n")
-				c.CreateLaunchTemplate(client, &combinedName)
+				c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
 			} else {
 				return err
 			}
@@ -513,8 +623,6 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// fmt.Printf("The auto scaling groups are <%#v> \n\n\n", len(describeAutoScalingGroups.AutoScalingGroups))
 
 	/***************************************************************************************************************
 	 * 05. Auto scaling generation
@@ -550,17 +658,21 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 			createAutoScalingGroupInput.DesiredCapacity = aws.Int32(int32(c.awsTopoConfigs.Count))
 		}
 
-		// c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)]
-
 		if _, err := clientASC.CreateAutoScalingGroup(context.TODO(), createAutoScalingGroupInput); err != nil {
 			return err
 		}
+
+		describeAutoScalingGroups, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The auto scaling group is <%#v> \n\n\n", describeAutoScalingGroups.AutoScalingGroups[0].Instances)
 	}
 
 	return nil
 }
 
-func (c *CreateEC2Nodes) CreateLaunchTemplate(client *ec2.Client, templateName *string) error {
+func (c *CreateEC2Nodes) CreateLaunchTemplate(client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
 	requestLaunchTemplateData := types.RequestLaunchTemplateData{}
 
 	// 02. Storage template preparation
@@ -595,10 +707,22 @@ func (c *CreateEC2Nodes) CreateLaunchTemplate(client *ec2.Client, templateName *
 	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                 // Key name
 	requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId} // security group
 
+	tags := []types.Tag{
+		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},       // ex: ohmytiup-tidb
+		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},     // ex: tidb/oracle/workstation
+		{Key: aws.String("Component"), Value: aws.String(c.componentName)}, // ex: tidb/tikv/pd
+		{Key: aws.String("Name"), Value: aws.String(clusterName)},          // ex: clustertest
+		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},            // ex: aws-user
+		{Key: aws.String("Project"), Value: aws.String(tagProject)},        // ex: clustertest
+	}
+
 	// 03. Template data preparation
+	var tagSpecification []types.TagSpecification
+	tagSpecification = append(tagSpecification, types.TagSpecification{ResourceType: types.ResourceTypeLaunchTemplate, Tags: tags})
 	createLaunchTemplateInput := &ec2.CreateLaunchTemplateInput{
 		LaunchTemplateName: templateName,
 		LaunchTemplateData: &requestLaunchTemplateData,
+		TagSpecifications:  tagSpecification,
 	}
 
 	// 04. Template generation
@@ -678,265 +802,6 @@ type EC2NodeConfig struct {
 
 	Labels []map[string]string
 }
-
-// func ScanLabels(tikvLabels *[]spec.AwsTiKVLabel, tikvMachineTypes *[]spec.AwsTiKVMachineType) (*[]EC2NodeConfig, error) {
-// 	if len(*tikvLabels) == 0 {
-// 		return nil, nil
-// 	}
-
-// 	var ec2NodeConfigs []EC2NodeConfig
-
-// 	for _, tikvLabel := range *tikvLabels {
-// 		for _, tikvValue := range tikvLabel.Values {
-
-// 			retEc2NodeConfig, err := ScanLabels(&tikvValue.Labels, tikvMachineTypes)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 			if tikvValue.MachineType != "" {
-// 				for _, machineType := range *tikvMachineTypes {
-// 					if tikvValue.MachineType == machineType.Name {
-// 						var ec2NodeConfig EC2NodeConfig
-// 						ec2NodeConfig.InstanceType = machineType.ModalValue.InstanceType
-// 						ec2NodeConfig.Count = machineType.ModalValue.Count
-// 						ec2NodeConfig.VolumeSize = machineType.ModalValue.VolumeSize
-// 						ec2NodeConfig.VolumeType = machineType.ModalValue.VolumeType
-// 						ec2NodeConfig.Iops = machineType.ModalValue.Iops
-
-// 						ec2NodeConfig.Labels = append(ec2NodeConfig.Labels, map[string]string{"label:" + tikvLabel.Name: tikvValue.Value})
-// 						ec2NodeConfigs = append(ec2NodeConfigs, ec2NodeConfig)
-// 					}
-// 				}
-// 			} else {
-// 				for _, ec2NodeConfig := range *retEc2NodeConfig {
-// 					ec2NodeConfig.Labels = append(ec2NodeConfig.Labels, map[string]string{"label:" + tikvLabel.Name: tikvValue.Value})
-// 					ec2NodeConfigs = append(ec2NodeConfigs, ec2NodeConfig)
-// 				}
-// 			}
-
-// 		}
-// 	}
-
-// 	return &ec2NodeConfigs, nil
-// }
-
-// *********** The package installation for parallel
-// type MakeEC2Instance struct {
-// 	ec2NodeConfig  EC2NodeConfig
-// 	clusterName    string
-// 	clusterType    string
-// 	subClusterType string
-// 	componentName  string
-// 	tagOwner       string
-// 	tagProject     string
-
-// 	clusterInfo *ClusterInfo
-
-// 	subnetID string
-
-// 	awsTopoConfigs    *spec.AwsTiKVModal
-// 	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
-// }
-
-// func (c *MakeEC2Instance) Execute(ctx context.Context) error {
-// 	cfg, err := config.LoadDefaultConfig(context.TODO())
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	client := ec2.NewFromConfig(cfg)
-
-// 	tags := []types.Tag{
-// 		{
-// 			Key:   aws.String("Cluster"),
-// 			Value: aws.String(c.clusterType),
-// 		},
-// 		{
-// 			Key:   aws.String("Type"),
-// 			Value: aws.String(c.subClusterType), // tidb/oracle/workstation
-// 		},
-// 		{
-// 			Key:   aws.String("Component"),
-// 			Value: aws.String(c.componentName),
-// 		},
-// 		{
-// 			Key:   aws.String("Name"),
-// 			Value: aws.String(c.clusterName),
-// 		},
-// 		{
-// 			Key:   aws.String("Owner"),
-// 			Value: aws.String(c.tagOwner),
-// 		},
-// 		{
-// 			Key:   aws.String("Project"),
-// 			Value: aws.String(c.tagProject),
-// 		},
-// 	}
-
-// 	for _, nodeLabel := range c.ec2NodeConfig.Labels {
-// 		for labelKey, labelValue := range nodeLabel {
-// 			tags = append(tags, types.Tag{
-// 				Key:   aws.String(labelKey),
-// 				Value: aws.String(labelValue),
-// 			})
-// 		}
-// 	}
-
-// 	tagSpecifications := []types.TagSpecification{
-// 		{
-// 			ResourceType: "instance",
-// 			Tags:         tags,
-// 		},
-// 	}
-
-// 	var runInstancesInput *ec2.RunInstancesInput
-
-// 	if c.ec2NodeConfig.InstanceType != "" {
-// 		runInstancesInput = &ec2.RunInstancesInput{
-// 			ImageId:           aws.String(c.awsGeneralConfigs.ImageId),
-// 			InstanceType:      types.InstanceType(c.ec2NodeConfig.InstanceType),
-// 			TagSpecifications: tagSpecifications,
-// 			KeyName:           aws.String(c.awsGeneralConfigs.KeyName),
-// 			SecurityGroupIds:  []string{c.clusterInfo.privateSecurityGroupId},
-// 			MaxCount:          aws.Int32(1),
-// 			MinCount:          aws.Int32(1),
-// 			SubnetId:          aws.String(c.subnetID),
-// 		}
-
-// 		if c.ec2NodeConfig.VolumeType != "" {
-// 			blockDeviceMapping := types.BlockDeviceMapping{
-// 				DeviceName: aws.String("/dev/xvda"),
-// 				Ebs: &types.EbsBlockDevice{
-// 					DeleteOnTermination: aws.Bool(true),
-// 					Iops:                aws.Int32(int32(c.ec2NodeConfig.Iops)),
-// 					VolumeSize:          aws.Int32(int32(c.ec2NodeConfig.VolumeSize)),
-// 					VolumeType:          types.VolumeType(c.ec2NodeConfig.VolumeType),
-// 				},
-// 			}
-
-// 			runInstancesInput.EbsOptimized = aws.Bool(true)
-// 			runInstancesInput.BlockDeviceMappings = []types.BlockDeviceMapping{blockDeviceMapping}
-// 		}
-// 	} else {
-// 		runInstancesInput = &ec2.RunInstancesInput{
-// 			ImageId:           aws.String(c.awsGeneralConfigs.ImageId),
-// 			InstanceType:      types.InstanceType((*c.awsTopoConfigs).InstanceType),
-// 			TagSpecifications: tagSpecifications,
-// 			KeyName:           aws.String((*c.awsGeneralConfigs).KeyName),
-// 			SecurityGroupIds:  []string{c.clusterInfo.privateSecurityGroupId},
-// 			MaxCount:          aws.Int32(1),
-// 			MinCount:          aws.Int32(1),
-// 			SubnetId:          aws.String(c.subnetID),
-// 		}
-
-// 		if (*c.awsTopoConfigs).VolumeType != "" {
-// 			blockDeviceMapping := types.BlockDeviceMapping{
-// 				DeviceName: aws.String("/dev/xvda"),
-// 				Ebs: &types.EbsBlockDevice{
-// 					DeleteOnTermination: aws.Bool(true),
-// 					Iops:                aws.Int32(int32((*c.awsTopoConfigs).Iops)),
-// 					VolumeSize:          aws.Int32(int32((*c.awsTopoConfigs).VolumeSize)),
-// 					VolumeType:          types.VolumeType((*c.awsTopoConfigs).VolumeType),
-// 				},
-// 			}
-
-// 			runInstancesInput.EbsOptimized = aws.Bool(true)
-// 			runInstancesInput.BlockDeviceMappings = []types.BlockDeviceMapping{blockDeviceMapping}
-// 		}
-// 	}
-
-// 	retInstance, err := client.RunInstances(context.TODO(), runInstancesInput)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	isRunning, err := WaitInstanceRunnung(ctx, *(retInstance.Instances[0].InstanceId))
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if isRunning == false {
-// 		return errors.New("Failed to wait the instance to become running state")
-// 	}
-// 	zap.L().Debug("create EC2 nodes by SDK info", zap.String("clusterName", c.clusterName), zap.String("clusterType", c.clusterType), zap.String("subClusterType", c.subClusterType), zap.String("componentName", c.componentName), zap.String("tagOwner", c.tagOwner), zap.String("tagProject", c.tagProject), zap.String("subnetID", c.subnetID), zap.String("awsTopoConfigs", fmt.Sprintf("%+v", c.awsTopoConfigs)), zap.String("awsGeneralConfigs", fmt.Sprintf("%+v", c.awsGeneralConfigs)))
-// 	zap.L().Debug(fmt.Sprintf("EC2 tags : %+v", tagSpecifications))
-// 	return nil
-// }
-// func (c *MakeEC2Instance) Rollback(ctx context.Context) error {
-// 	return ErrUnsupportedRollback
-// }
-
-// func (c *MakeEC2Instance) String() string {
-// 	return fmt.Sprintf("Echo: Make one EC2 Instance")
-// }
-
-// func FetchTiKVInstances(ctx context.Context, clusterName, clusterType, subClusterType, componentName string, funcTags func([]types.Tag) error) error {
-// 	cfg, err := config.LoadDefaultConfig(context.TODO())
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	client := ec2.NewFromConfig(cfg)
-
-// 	var filters []types.Filter
-// 	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})        // TiDBTestNode
-// 	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})     // TiDB/TiDB2Kafka2PG
-// 	filters = append(filters, types.Filter{Name: aws.String("tag:Component"), Values: []string{componentName}}) // TiKV/TiDB/PD
-// 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{subClusterType}})
-// 	filters = append(filters, types.Filter{Name: aws.String("instance-state-name"), Values: []string{"running", "pending", "stopping", "stopped"}})
-
-// 	input := &ec2.DescribeInstancesInput{Filters: filters}
-
-// 	result, err := client.DescribeInstances(context.TODO(), input)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	for _, reservation := range result.Reservations {
-// 		for _, instance := range reservation.Instances {
-// 			funcTags(instance.Tags)
-// 		}
-// 	}
-
-// 	return nil
-// }
-
-// func WaitInstanceRunnung(ctx context.Context, instanceId string) (bool, error) {
-// 	cfg, err := config.LoadDefaultConfig(context.TODO())
-// 	if err != nil {
-// 		return false, err
-// 	}
-
-// 	client := ec2.NewFromConfig(cfg)
-
-// 	var filters []types.Filter
-
-// 	filters = append(filters, types.Filter{
-// 		Name:   aws.String("instance-id"),
-// 		Values: []string{instanceId},
-// 	})
-
-// 	filters = append(filters, types.Filter{
-// 		Name:   aws.String("instance-state-name"),
-// 		Values: []string{"running"},
-// 	})
-
-// 	input := &ec2.DescribeInstancesInput{Filters: filters}
-
-// 	for idx := 0; idx < 50; idx++ {
-// 		time.Sleep(3 * time.Second)
-// 		result, err := client.DescribeInstances(context.TODO(), input)
-// 		if err != nil {
-// 			return false, err
-// 		}
-
-// 		if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
-// 			return true, nil
-// 		}
-// 	}
-
-// 	return false, nil
-// }
 
 type ListAllAwsEC2 struct {
 	pexecutor *ctxt.Executor

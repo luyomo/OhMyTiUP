@@ -25,6 +25,11 @@ import (
 	"strconv"
 	"strings"
 	//"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
 type RegionZone struct {
@@ -268,25 +273,31 @@ type DestroyNetwork struct {
 
 // Execute implements the Task interface
 func (c *DestroyNetwork) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-	command := fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("describe-subnets", command))
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
-	var subnets Subnets
-	if err = json.Unmarshal(stdout, &subnets); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	client := ec2.NewFromConfig(cfg)
+
+	var filters []types.Filter
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+
+	describeSubnetsInput := &ec2.DescribeSubnetsInput{Filters: filters}
+
+	describeSubnets, err := client.DescribeSubnets(context.TODO(), describeSubnetsInput)
+	if err != nil {
 		return err
 	}
+	// fmt.Printf("describe subnets: %#v \n\n\n", describeSubnets.Subnets)
+	for _, _subnet := range describeSubnets.Subnets {
+		deleteSubnetInput := &ec2.DeleteSubnetInput{SubnetId: _subnet.SubnetId}
 
-	for _, subnet := range subnets.Subnets {
-		command := fmt.Sprintf("aws ec2 delete-subnet --subnet-id %s", subnet.SubnetId)
-		_, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+		_, err := client.DeleteSubnet(context.TODO(), deleteSubnetInput)
 		if err != nil {
-			fmt.Printf("ERRORS delete-subnet <%s> \n\n\n", string(stderr))
 			return err
 		}
 	}

@@ -752,6 +752,22 @@ func (b *Builder) CreateRouteTgw(pexecutor *ctxt.Executor, subClusterType string
 	return b
 }
 
+func (b *Builder) DestroyAutoScalingGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyAutoScalingGroup{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyLaunchTemplate(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyLaunchTemplate{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
 func (b *Builder) DestroyEC(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyEC{
 		pexecutor:      pexecutor,
@@ -1271,7 +1287,7 @@ func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType 
 
 	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroySecurityGroup(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroyNAT(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying nat ... ...", subClusterType), NewBuilder().DestroyNAT(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying network ... ...", subClusterType), NewBuilder().DestroyNetwork(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying route table ... ...", subClusterType), NewBuilder().DestroyRouteTable(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyVpc(pexecutor, subClusterType).Build())
@@ -1283,6 +1299,8 @@ func (b *Builder) DestroyEC2Nodes(pexecutor *ctxt.Executor, subClusterType strin
 
 	b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Target Group ... ...", subClusterType), NewBuilder().DestroyTargetGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScalingGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Launch Templates ... ...", subClusterType), NewBuilder().DestroyLaunchTemplate(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying EC2 nodes ... ...", subClusterType), NewBuilder().DestroyEC(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 

@@ -53,43 +53,16 @@ func (c *CreateNAT) Execute(ctx context.Context) error {
 	}
 
 	var filters []types.Filter
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Name"),
-		Values: []string{clusterName},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Cluster"),
-		Values: []string{clusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Component"),
-		Values: []string{c.subClusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Type"),
-		Values: []string{"nat"},
-	})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Component"), Values: []string{c.subClusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{"nat"}})
 
 	tags := []types.Tag{
-		{
-			Key:   aws.String("Cluster"),
-			Value: aws.String(clusterType),
-		},
-		{
-			Key:   aws.String("Type"),
-			Value: aws.String("nat"), // tidb/oracle/workstation
-		},
-		{
-			Key:   aws.String("Component"),
-			Value: aws.String(c.subClusterType),
-		},
-		{
-			Key:   aws.String("Name"),
-			Value: aws.String(clusterName),
-		},
+		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},
+		{Key: aws.String("Type"), Value: aws.String("nat")},
+		{Key: aws.String("Component"), Value: aws.String(c.subClusterType)},
+		{Key: aws.String("Name"), Value: aws.String(clusterName)},
 	}
 
 	zones, err := getAvailableZones(*c.pexecutor, ctx)
@@ -273,28 +246,12 @@ func (c *DestroyNAT) Execute(ctx context.Context) error {
 	clusterType := ctx.Value("clusterType").(string)
 
 	var filters []types.Filter
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Name"),
-		Values: []string{clusterName},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Cluster"),
-		Values: []string{clusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Component"),
-		Values: []string{c.subClusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Type"),
-		Values: []string{"nat"},
-	})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Component"), Values: []string{c.subClusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{"nat"}})
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
-
 	if err != nil {
 		return err
 	}
@@ -315,7 +272,7 @@ func (c *DestroyNAT) Execute(ctx context.Context) error {
 			return err
 		}
 
-		for cnt := 0; cnt < 10; cnt++ {
+		for cnt := 0; cnt < 50; cnt++ {
 			time.Sleep(15 * time.Second)
 			natGatewayId, err := SearchNatGateway(client, filters)
 			if err != nil {
@@ -497,10 +454,7 @@ func SearchAddresses(client *ec2.Client, filters []types.Filter) (*string, error
 }
 
 func SearchNatGateway(client *ec2.Client, filters []types.Filter) (*string, error) {
-	filters = append(filters, types.Filter{
-		Name:   aws.String("state"),
-		Values: []string{"available"},
-	})
+	filters = append(filters, types.Filter{Name: aws.String("state"), Values: []string{"available"}})
 
 	input := &ec2.DescribeNatGatewaysInput{
 		Filter: filters,
