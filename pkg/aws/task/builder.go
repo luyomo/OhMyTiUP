@@ -752,6 +752,22 @@ func (b *Builder) CreateRouteTgw(pexecutor *ctxt.Executor, subClusterType string
 	return b
 }
 
+func (b *Builder) DestroyAutoScalingGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyAutoScalingGroup{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
+func (b *Builder) DestroyLaunchTemplate(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyLaunchTemplate{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+	})
+	return b
+}
+
 func (b *Builder) DestroyEC(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyEC{
 		pexecutor:      pexecutor,
@@ -1126,25 +1142,79 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
-	//
-	// 49191: thanos query port
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
-		Step(fmt.Sprintf("%s : Creating PD Nodes ... ...", subClusterType), NewBuilder().CreatePDNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating TiDB Nodes ... ...", subClusterType), NewBuilder().CreateTiDBNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating TiFlash Nodes ... ...", subClusterType), NewBuilder().CreateTiFlashNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMWorkerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Pump Nodes ... ...", subClusterType), NewBuilder().CreatePumpNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Drainer Nodes ... ...", subClusterType), NewBuilder().CreateDrainerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Monitor Nodes ... ...", subClusterType), NewBuilder().CreateMonitorNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Grafana Nodes ... ...", subClusterType), NewBuilder().CreateGrafanaNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Alert Manager Nodes ... ...", subClusterType), NewBuilder().CreateAlertManagerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+	// t1 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.ConfigServer, &topo.General, clusterInfo, "config-server").Build()
+	// envInitTasks = append(envInitTasks, t1)
+
+	// t2 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Mongos, &topo.General, clusterInfo, "mongos").Build()
+	// envInitTasks = append(envInitTasks, t2)
+
+	// for _, _replicaSet := range topo.ReplicaSet {
+	// 	t3 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &_replicaSet, &topo.General, clusterInfo, "replicaSet").Build()
+	// 	envInitTasks = append(envInitTasks, t3)
+	// }
+
+	// b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+	// 	NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 27017, 27027, 27037}).Build()).
+	// 	Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().Parallel(false, envInitTasks...).Build())
+
+	var parallelTasks []Task
+
+	t1 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.PD, &awsTopoConfigs.General, clusterInfo, "pd").Build()
+	parallelTasks = append(parallelTasks, t1)
+
+	t2 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.TiDB, &awsTopoConfigs.General, clusterInfo, "tidb").
 		Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build())
+		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build()).Build()
+
+	parallelTasks = append(parallelTasks, t2)
+
+	for _, tikvGroup := range awsTopoConfigs.TiKV {
+		t3 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &tikvGroup, &awsTopoConfigs.General, clusterInfo, "tikv").Build()
+		parallelTasks = append(parallelTasks, t3)
+	}
+
+	t4 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.TiFlash, &awsTopoConfigs.General, clusterInfo, "tiflash").Build()
+	parallelTasks = append(parallelTasks, t4)
+
+	t5 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.DMMaster, &awsTopoConfigs.General, clusterInfo, "dm-master").Build()
+	parallelTasks = append(parallelTasks, t5)
+
+	t6 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.DMWorker, &awsTopoConfigs.General, clusterInfo, "dm-worker").Build()
+	parallelTasks = append(parallelTasks, t6)
+
+	t7 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.TiCDC, &awsTopoConfigs.General, clusterInfo, "ticdc").Build()
+	parallelTasks = append(parallelTasks, t7)
+
+	t8 := NewBuilder().CreateMonitorNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()
+	parallelTasks = append(parallelTasks, t8)
+
+	t9 := NewBuilder().CreateGrafanaNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()
+	parallelTasks = append(parallelTasks, t9)
+
+	t10 := NewBuilder().CreateAlertManagerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()
+	parallelTasks = append(parallelTasks, t10)
+
+	// Step(fmt.Sprintf("%s : Creating Monitor Nodes ... ...", subClusterType), NewBuilder().CreateMonitorNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+	// Step(fmt.Sprintf("%s : Creating Grafana Nodes ... ...", subClusterType), NewBuilder().CreateGrafanaNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+	// Step(fmt.Sprintf("%s : Creating Alert Manager Nodes ... ...", subClusterType), NewBuilder().CreateAlertManagerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+
+	//
+	// 49191: thanos query port
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
+		Step(fmt.Sprintf("%s : Creating TiDB Resource ... ...", subClusterType), NewBuilder().Parallel(false, parallelTasks...).Build())
+		// Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating TiFlash Nodes ... ...", subClusterType), NewBuilder().CreateTiFlashNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+
+		// Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMWorkerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating Pump Nodes ... ...", subClusterType), NewBuilder().CreatePumpNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating Drainer Nodes ... ...", subClusterType), NewBuilder().CreateDrainerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating Monitor Nodes ... ...", subClusterType), NewBuilder().CreateMonitorNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating Grafana Nodes ... ...", subClusterType), NewBuilder().CreateGrafanaNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating Alert Manager Nodes ... ...", subClusterType), NewBuilder().CreateAlertManagerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 
 	return b
 }
@@ -1217,7 +1287,7 @@ func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType 
 
 	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroySecurityGroup(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroyNAT(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying nat ... ...", subClusterType), NewBuilder().DestroyNAT(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying network ... ...", subClusterType), NewBuilder().DestroyNetwork(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying route table ... ...", subClusterType), NewBuilder().DestroyRouteTable(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyVpc(pexecutor, subClusterType).Build())
@@ -1229,6 +1299,8 @@ func (b *Builder) DestroyEC2Nodes(pexecutor *ctxt.Executor, subClusterType strin
 
 	b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Target Group ... ...", subClusterType), NewBuilder().DestroyTargetGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScalingGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Launch Templates ... ...", subClusterType), NewBuilder().DestroyLaunchTemplate(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying EC2 nodes ... ...", subClusterType), NewBuilder().DestroyEC(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 

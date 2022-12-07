@@ -27,8 +27,11 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	astypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/embed"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
@@ -114,6 +117,117 @@ func (c *CreateWorkstation) String() string {
 }
 
 /******************************************************************************/
+
+type DestroyAutoScalingGroup struct {
+	pexecutor      *ctxt.Executor
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyAutoScalingGroup) Execute(ctx context.Context) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	clientASC := autoscaling.NewFromConfig(cfg)
+
+	var filters []astypes.Filter
+	filters = append(filters, astypes.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, astypes.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+
+	describeAutoScalingGroupsInput := &autoscaling.DescribeAutoScalingGroupsInput{Filters: filters}
+
+	describeAutoScalingGroups, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("The auto saling group: %#v \n\n\n", describeAutoScalingGroups.AutoScalingGroups)
+	for _, _autoScalingGroup := range describeAutoScalingGroups.AutoScalingGroups {
+		fmt.Printf("The auto scaling group: <%#v> \n\n\n", *_autoScalingGroup.AutoScalingGroupName)
+		deleteAutoScalingGroupInput := &autoscaling.DeleteAutoScalingGroupInput{AutoScalingGroupName: _autoScalingGroup.AutoScalingGroupName, ForceDelete: aws.Bool(true)}
+		_, err := clientASC.DeleteAutoScalingGroup(context.TODO(), deleteAutoScalingGroupInput)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	for idx := 0; idx < 50; idx++ {
+		time.Sleep(5 * time.Second)
+		describeAutoScalingGroups, err = clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+		if err != nil {
+			return err
+		}
+		if len(describeAutoScalingGroups.AutoScalingGroups) == 0 {
+			break
+		}
+	}
+
+	return nil
+
+}
+
+// Rollback implements the Task interface
+func (c *DestroyAutoScalingGroup) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyAutoScalingGroup) String() string {
+	return fmt.Sprintf("Echo: Destroying auto scaling")
+}
+
+type DestroyLaunchTemplate struct {
+	pexecutor      *ctxt.Executor
+	subClusterType string
+}
+
+// Execute implements the Task interface
+func (c *DestroyLaunchTemplate) Execute(ctx context.Context) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	client := ec2.NewFromConfig(cfg)
+
+	var filters []types.Filter
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+
+	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{Filters: filters}
+
+	describeLaunchTemplates, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput)
+	if err != nil {
+		return err
+	}
+
+	for _, launchTemplate := range describeLaunchTemplates.LaunchTemplates {
+		deleteLaunchTemplateInput := &ec2.DeleteLaunchTemplateInput{LaunchTemplateId: launchTemplate.LaunchTemplateId}
+		_, err := client.DeleteLaunchTemplate(context.TODO(), deleteLaunchTemplateInput)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyLaunchTemplate) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyLaunchTemplate) String() string {
+	return fmt.Sprintf("Echo: Destroying launch template")
+}
 
 type DestroyEC struct {
 	pexecutor      *ctxt.Executor
@@ -275,7 +389,7 @@ func ListClusterEc2s(ctx context.Context, pexecutor ctxt.Executor, clusterName s
 	return &reservations, nil
 }
 
-//******************************************* Workspace
+// ******************************************* Workspace
 type DeployWS struct {
 	pexecutor      *ctxt.Executor
 	subClusterType string
@@ -447,11 +561,18 @@ type CreateEC2Nodes struct {
 
 // Execute implements the Task interface
 func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
+	/**********************************************************************
+	 * 01. Pre process
+	 **********************************************************************/
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	tagProject := GetProject(ctx)
-	tagOwner, err := GetCallerUser(ctx)
+	// template name/auto scaling group name -> ohmytiup-tidb.clusterName.tidb.tikv
+	combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, c.componentName)
+
+	// Two tags to resource to show the project and owner
+	tagProject := GetProject(ctx)       // Project name(tag): tidb-cluster
+	tagOwner, err := GetCallerUser(ctx) // Owner(default): aws user
 	if err != nil {
 		return err
 	}
@@ -462,66 +583,154 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	// Query against AWS whether the nodes have been generated by script
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Component,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType, c.componentName)
-	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
 
-	// Parse the return from aws console api
-	var reservations Reservations
-	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return err
-	}
+	client := ec2.NewFromConfig(cfg)
+	/***************************************************************************************************************
+	 * 02. Check template existness
+	 * Search template name
+	 *     01. go to next step if the template has been created.
+	 *     02. Create the template if it does not exist
+	 ***************************************************************************************************************/
 
-	// Count the number of the EC2 nodes
-	existsNodes := 0
-	for _, reservation := range reservations.Reservations {
-		existsNodes = existsNodes + len(reservation.Instances)
-	}
-
-	// Loop until generating all the required nodes
-	for _idx := 0; _idx < c.awsTopoConfigs.Count; _idx++ {
-		if _idx < existsNodes {
-			continue
-		}
-
-		// If the volume size is specified, add the below statement
-		deviceStmt := ""
-		if c.awsTopoConfigs.VolumeSize > 0 {
-			deviceStmt = fmt.Sprintf(" --block-device-mappings \"DeviceName=/dev/xvda,Ebs={VolumeSize=%d,VolumeType=%s,Iops=%d}\"", c.awsTopoConfigs.VolumeSize, c.awsTopoConfigs.VolumeType, c.awsTopoConfigs.Iops)
-		}
-
-		// Start the instance
-		command := fmt.Sprintf(
-			"aws ec2 run-instances --count 1 --image-id %s --ebs-optimized "+
-				"--instance-type %s --key-name %s --security-group-ids %s --subnet-id %s %s "+
-				"--tag-specifications \"ResourceType=instance,Tags=["+
-				"  {Key=Name,Value=%s},"+
-				"  {Key=Cluster,Value=%s},"+
-				"  {Key=Type,Value=%s},"+
-				"  {Key=Component,Value=%s},"+
-				"  {Key=Owner,Value=%s},"+
-				"  {Key=Project,Value=%s}"+
-				"]\"",
-			c.awsGeneralConfigs.ImageId,
-			c.awsTopoConfigs.InstanceType, c.awsGeneralConfigs.KeyName, c.clusterInfo.privateSecurityGroupId, c.clusterInfo.privateSubnets[_idx%len(c.clusterInfo.privateSubnets)], deviceStmt,
-			clusterName,
-			clusterType,
-			c.subClusterType,
-			c.componentName,
-			tagOwner,
-			tagProject,
-		)
-		zap.L().Debug("Command", zap.String("run-instances", command))
-		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
-		if err != nil {
+	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{LaunchTemplateNames: []string{combinedName}}
+	if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			// fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
+				c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
+			} else {
+				return err
+			}
+		} else {
 			return err
 		}
 	}
+
+	/***************************************************************************************************************
+	 * 04. Check auto scaling group existness
+	 ***************************************************************************************************************/
+	clientASC := autoscaling.NewFromConfig(cfg)
+	describeAutoScalingGroupsInput := &autoscaling.DescribeAutoScalingGroupsInput{
+		AutoScalingGroupNames: []string{combinedName},
+	}
+
+	describeAutoScalingGroups, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+	if err != nil {
+		return err
+	}
+
+	/***************************************************************************************************************
+	 * 05. Auto scaling generation
+	 ***************************************************************************************************************/
+	if len(describeAutoScalingGroups.AutoScalingGroups) == 0 {
+		tags := []astypes.Tag{
+			{Key: aws.String("Cluster"), Value: aws.String(clusterType)},       // ex: ohmytiup-tidb
+			{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},     // ex: tidb/oracle/workstation
+			{Key: aws.String("Component"), Value: aws.String(c.componentName)}, // ex: tidb/tikv/pd
+			{Key: aws.String("Name"), Value: aws.String(clusterName)},          // ex: clustertest
+			{Key: aws.String("Owner"), Value: aws.String(tagOwner)},            // ex: aws-user
+			{Key: aws.String("Project"), Value: aws.String(tagProject)},        // ex: clustertest
+		}
+
+		createAutoScalingGroupInput := &autoscaling.CreateAutoScalingGroupInput{
+			AutoScalingGroupName: aws.String(combinedName),
+			MaxSize:              aws.Int32(c.awsTopoConfigs.MaxSize),
+			MinSize:              aws.Int32(c.awsTopoConfigs.MinSize),
+			CapacityRebalance:    aws.Bool(true),
+			DesiredCapacity:      aws.Int32(c.awsTopoConfigs.DesiredCapacity),
+			LaunchTemplate: &astypes.LaunchTemplateSpecification{
+				LaunchTemplateName: aws.String(combinedName),
+				Version:            aws.String("$Latest"),
+			},
+			VPCZoneIdentifier: aws.String(strings.Join(c.clusterInfo.privateSubnets, ",")),
+			Tags:              tags,
+		}
+
+		// Compatible to the old version of count config value
+		if c.awsTopoConfigs.DesiredCapacity == 0 && c.awsTopoConfigs.Count > 0 {
+			createAutoScalingGroupInput.MaxSize = aws.Int32(int32(c.awsTopoConfigs.Count))
+			createAutoScalingGroupInput.MinSize = aws.Int32(int32(c.awsTopoConfigs.Count))
+			createAutoScalingGroupInput.DesiredCapacity = aws.Int32(int32(c.awsTopoConfigs.Count))
+		}
+
+		if _, err := clientASC.CreateAutoScalingGroup(context.TODO(), createAutoScalingGroupInput); err != nil {
+			return err
+		}
+
+		describeAutoScalingGroups, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The auto scaling group is <%#v> \n\n\n", describeAutoScalingGroups.AutoScalingGroups[0].Instances)
+	}
+
+	return nil
+}
+
+func (c *CreateEC2Nodes) CreateLaunchTemplate(client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
+	requestLaunchTemplateData := types.RequestLaunchTemplateData{}
+
+	// 02. Storage template preparation
+	var launchTemplateBlockDeviceMappingRequest []types.LaunchTemplateBlockDeviceMappingRequest
+	rootBlockDeviceMapping := types.LaunchTemplateBlockDeviceMappingRequest{
+		DeviceName: aws.String("/dev/xvda"),
+		Ebs: &types.LaunchTemplateEbsBlockDeviceRequest{
+			DeleteOnTermination: aws.Bool(true),
+			VolumeSize:          aws.Int32(8),
+			VolumeType:          types.VolumeType("gp2"),
+		},
+	}
+
+	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, rootBlockDeviceMapping)
+	if c.awsTopoConfigs.VolumeType != "" {
+		blockDeviceMapping := types.LaunchTemplateBlockDeviceMappingRequest{
+			DeviceName: aws.String("/dev/sdb"),
+			Ebs: &types.LaunchTemplateEbsBlockDeviceRequest{
+				DeleteOnTermination: aws.Bool(true),
+				Iops:                aws.Int32(int32(c.awsTopoConfigs.Iops)),
+				VolumeSize:          aws.Int32(int32(c.awsTopoConfigs.VolumeSize)),
+				VolumeType:          types.VolumeType(c.awsTopoConfigs.VolumeType),
+			},
+		}
+
+		launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, blockDeviceMapping)
+	}
+	requestLaunchTemplateData.BlockDeviceMappings = launchTemplateBlockDeviceMappingRequest
+	requestLaunchTemplateData.EbsOptimized = aws.Bool(false)                                    // EbsOptimized flag, not support all the instance type
+	requestLaunchTemplateData.ImageId = aws.String(c.awsGeneralConfigs.ImageId)                 // ImageID
+	requestLaunchTemplateData.InstanceType = types.InstanceType(c.awsTopoConfigs.InstanceType)  // Instance Type
+	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                 // Key name
+	requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId} // security group
+
+	tags := []types.Tag{
+		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},       // ex: ohmytiup-tidb
+		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},     // ex: tidb/oracle/workstation
+		{Key: aws.String("Component"), Value: aws.String(c.componentName)}, // ex: tidb/tikv/pd
+		{Key: aws.String("Name"), Value: aws.String(clusterName)},          // ex: clustertest
+		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},            // ex: aws-user
+		{Key: aws.String("Project"), Value: aws.String(tagProject)},        // ex: clustertest
+	}
+
+	// 03. Template data preparation
+	var tagSpecification []types.TagSpecification
+	tagSpecification = append(tagSpecification, types.TagSpecification{ResourceType: types.ResourceTypeLaunchTemplate, Tags: tags})
+	createLaunchTemplateInput := &ec2.CreateLaunchTemplateInput{
+		LaunchTemplateName: templateName,
+		LaunchTemplateData: &requestLaunchTemplateData,
+		TagSpecifications:  tagSpecification,
+	}
+
+	// 04. Template generation
+	_, err := client.CreateLaunchTemplate(context.TODO(), createLaunchTemplateInput)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -539,133 +748,38 @@ func (c *CreateEC2Nodes) String() string {
 /*******************************************************************************/
 type CreateTiKVNodes struct {
 	pexecutor         *ctxt.Executor
-	awsTopoConfigs    *spec.AwsTiKVModal
+	awsTopoConfigs    *[]spec.AwsNodeModal
 	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
 	subClusterType    string
 	clusterInfo       *ClusterInfo
 	componentName     string
 }
 
-//
 // batch
-//   -> zone
+//
+//	-> zone
+//
 // online
-//   -> zone
+//
+//	-> zone
+//
 // Loop the topo structure, and find out all the instance.
-//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host01
-//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host02
-//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host03
-//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host04
-//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host05
-//    Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host06
+//
+//	Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host01
+//	Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host02
+//	Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: online, label/category: host03
+//	Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host04
+//	Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host05
+//	Name: test-name,  Cluster: ohmytiup-tidb, component: tikv, label/category: batch, label/category: host06
+//
 // Execute implements the Task interface
 func (c *CreateTiKVNodes) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
 
-	tagProject := GetProject(ctx)
-	tagOwner, err := GetCallerUser(ctx)
-	if err != nil {
-		return err
-	}
+	// clusterName := ctx.Value("clusterName").(string)
+	// clusterType := ctx.Value("clusterType").(string)
+	fmt.Printf("Stoping here for TiKV node preparation \n\n\n")
+	return errors.New("Test stop")
 
-	zap.L().Debug(fmt.Sprintf("create EC2 nodes by SDK context info %s , %s , %s, %s", clusterName, clusterType, tagOwner, tagProject))
-
-	ec2NodeConfigs, err := ScanLabels(&(*c.awsTopoConfigs).Labels, &(*c.awsTopoConfigs).ModalTypes)
-	if err != nil {
-		return err
-	}
-
-	// Define the function to remove or reduce the nodes from label definition if it has been created in the AWS.
-	funFilter := func(tags []types.Tag) error {
-
-		if ec2NodeConfigs != nil {
-			for idx, nodeLabel := range *ec2NodeConfigs {
-				for _, label := range nodeLabel.Labels {
-					var arrayLabel []string
-					for labelKey, labelValue := range label {
-						arrayLabel = append(arrayLabel, labelKey+"="+labelValue)
-					}
-					strLabel := strings.Join(arrayLabel, ",")
-
-					var arrayNodeLabel []string
-					for _, tag := range tags {
-						if strings.Contains(*(tag.Key), "label:") {
-							arrayNodeLabel = append(arrayNodeLabel, *(tag.Key)+"="+*(tag.Value))
-						}
-					}
-
-					if strings.Join(arrayNodeLabel, ",") == strLabel {
-						if (*ec2NodeConfigs)[idx].Count > 0 {
-							((*ec2NodeConfigs)[idx]).Count = ((*ec2NodeConfigs)[idx]).Count - 1
-						}
-						return nil
-					}
-
-				}
-			}
-		}
-
-		for _, tag := range tags {
-			if strings.Contains(*(tag.Key), "label:") {
-				return nil
-			}
-		}
-		if (*c.awsTopoConfigs).Count > 0 {
-			(*c.awsTopoConfigs).Count = (*c.awsTopoConfigs).Count - 1
-		}
-
-		return nil
-	}
-
-	// Run filtering. If the instances have been created in the AWS, reduce the number from the definition
-	FetchTiKVInstances(ctx, clusterName, clusterType, c.subClusterType, c.componentName, funFilter)
-
-	// Define the tasks to generate the instance
-	var generateInstancesTask []Task
-
-	if ec2NodeConfigs != nil {
-		for _, ec2NodeConfig := range *ec2NodeConfigs {
-			for idx := 1; idx <= ec2NodeConfig.Count; idx++ {
-				makeEc2Instance := &MakeEC2Instance{
-					ec2NodeConfig:     ec2NodeConfig,
-					clusterName:       clusterName,
-					clusterType:       clusterType,
-					tagOwner:          tagOwner,
-					tagProject:        tagProject,
-					subClusterType:    c.subClusterType,
-					componentName:     c.componentName,
-					clusterInfo:       c.clusterInfo,
-					awsGeneralConfigs: c.awsGeneralConfigs,
-					subnetID:          c.clusterInfo.privateSubnets[idx%len(c.clusterInfo.privateSubnets)], // Todo. How to decide the proper value
-				}
-				generateInstancesTask = append(generateInstancesTask, makeEc2Instance)
-			}
-		}
-	}
-
-	for idx := 0; idx < (*c.awsTopoConfigs).Count; idx++ {
-		makeEc2Instance := &MakeEC2Instance{
-			clusterName:       clusterName,
-			clusterType:       clusterType,
-			tagOwner:          tagOwner,
-			tagProject:        tagProject,
-			subClusterType:    c.subClusterType,
-			componentName:     c.componentName,
-			clusterInfo:       c.clusterInfo,
-			awsTopoConfigs:    c.awsTopoConfigs,
-			awsGeneralConfigs: c.awsGeneralConfigs,
-			subnetID:          c.clusterInfo.privateSubnets[idx%len(c.clusterInfo.privateSubnets)], // Todo. How to decide the proper value
-		}
-		generateInstancesTask = append(generateInstancesTask, makeEc2Instance)
-	}
-
-	parallelExe := Parallel{ignoreError: false, inner: generateInstancesTask}
-	if err := parallelExe.Execute(ctx); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Rollback implements the Task interface
@@ -689,291 +803,11 @@ type EC2NodeConfig struct {
 	Labels []map[string]string
 }
 
-func ScanLabels(tikvLabels *[]spec.AwsTiKVLabel, tikvMachineTypes *[]spec.AwsTiKVMachineType) (*[]EC2NodeConfig, error) {
-	if len(*tikvLabels) == 0 {
-		return nil, nil
-	}
-
-	var ec2NodeConfigs []EC2NodeConfig
-
-	for _, tikvLabel := range *tikvLabels {
-		for _, tikvValue := range tikvLabel.Values {
-
-			retEc2NodeConfig, err := ScanLabels(&tikvValue.Labels, tikvMachineTypes)
-			if err != nil {
-				return nil, err
-			}
-			if tikvValue.MachineType != "" {
-				for _, machineType := range *tikvMachineTypes {
-					if tikvValue.MachineType == machineType.Name {
-						var ec2NodeConfig EC2NodeConfig
-						ec2NodeConfig.InstanceType = machineType.ModalValue.InstanceType
-						ec2NodeConfig.Count = machineType.ModalValue.Count
-						ec2NodeConfig.VolumeSize = machineType.ModalValue.VolumeSize
-						ec2NodeConfig.VolumeType = machineType.ModalValue.VolumeType
-						ec2NodeConfig.Iops = machineType.ModalValue.Iops
-
-						ec2NodeConfig.Labels = append(ec2NodeConfig.Labels, map[string]string{"label:" + tikvLabel.Name: tikvValue.Value})
-						ec2NodeConfigs = append(ec2NodeConfigs, ec2NodeConfig)
-					}
-				}
-			} else {
-				for _, ec2NodeConfig := range *retEc2NodeConfig {
-					ec2NodeConfig.Labels = append(ec2NodeConfig.Labels, map[string]string{"label:" + tikvLabel.Name: tikvValue.Value})
-					ec2NodeConfigs = append(ec2NodeConfigs, ec2NodeConfig)
-				}
-			}
-
-		}
-	}
-
-	return &ec2NodeConfigs, nil
-}
-
-// *********** The package installation for parallel
-type MakeEC2Instance struct {
-	ec2NodeConfig  EC2NodeConfig
-	clusterName    string
-	clusterType    string
-	subClusterType string
-	componentName  string
-	tagOwner       string
-	tagProject     string
-
-	clusterInfo *ClusterInfo
-
-	subnetID string
-
-	awsTopoConfigs    *spec.AwsTiKVModal
-	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
-}
-
-func (c *MakeEC2Instance) Execute(ctx context.Context) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return err
-	}
-
-	client := ec2.NewFromConfig(cfg)
-
-	tags := []types.Tag{
-		{
-			Key:   aws.String("Cluster"),
-			Value: aws.String(c.clusterType),
-		},
-		{
-			Key:   aws.String("Type"),
-			Value: aws.String(c.subClusterType), // tidb/oracle/workstation
-		},
-		{
-			Key:   aws.String("Component"),
-			Value: aws.String(c.componentName),
-		},
-		{
-			Key:   aws.String("Name"),
-			Value: aws.String(c.clusterName),
-		},
-		{
-			Key:   aws.String("Owner"),
-			Value: aws.String(c.tagOwner),
-		},
-		{
-			Key:   aws.String("Project"),
-			Value: aws.String(c.tagProject),
-		},
-	}
-
-	for _, nodeLabel := range c.ec2NodeConfig.Labels {
-		for labelKey, labelValue := range nodeLabel {
-			tags = append(tags, types.Tag{
-				Key:   aws.String(labelKey),
-				Value: aws.String(labelValue),
-			})
-		}
-	}
-
-	tagSpecifications := []types.TagSpecification{
-		{
-			ResourceType: "instance",
-			Tags:         tags,
-		},
-	}
-
-	var runInstancesInput *ec2.RunInstancesInput
-
-	if c.ec2NodeConfig.InstanceType != "" {
-		runInstancesInput = &ec2.RunInstancesInput{
-			ImageId:           aws.String(c.awsGeneralConfigs.ImageId),
-			InstanceType:      types.InstanceType(c.ec2NodeConfig.InstanceType),
-			TagSpecifications: tagSpecifications,
-			KeyName:           aws.String(c.awsGeneralConfigs.KeyName),
-			SecurityGroupIds:  []string{c.clusterInfo.privateSecurityGroupId},
-			MaxCount:          aws.Int32(1),
-			MinCount:          aws.Int32(1),
-			SubnetId:          aws.String(c.subnetID),
-		}
-
-		if c.ec2NodeConfig.VolumeType != "" {
-			blockDeviceMapping := types.BlockDeviceMapping{
-				DeviceName: aws.String("/dev/xvda"),
-				Ebs: &types.EbsBlockDevice{
-					DeleteOnTermination: aws.Bool(true),
-					Iops:                aws.Int32(int32(c.ec2NodeConfig.Iops)),
-					VolumeSize:          aws.Int32(int32(c.ec2NodeConfig.VolumeSize)),
-					VolumeType:          types.VolumeType(c.ec2NodeConfig.VolumeType),
-				},
-			}
-
-			runInstancesInput.EbsOptimized = aws.Bool(true)
-			runInstancesInput.BlockDeviceMappings = []types.BlockDeviceMapping{blockDeviceMapping}
-		}
-	} else {
-		runInstancesInput = &ec2.RunInstancesInput{
-			ImageId:           aws.String(c.awsGeneralConfigs.ImageId),
-			InstanceType:      types.InstanceType((*c.awsTopoConfigs).InstanceType),
-			TagSpecifications: tagSpecifications,
-			KeyName:           aws.String((*c.awsGeneralConfigs).KeyName),
-			SecurityGroupIds:  []string{c.clusterInfo.privateSecurityGroupId},
-			MaxCount:          aws.Int32(1),
-			MinCount:          aws.Int32(1),
-			SubnetId:          aws.String(c.subnetID),
-		}
-
-		if (*c.awsTopoConfigs).VolumeType != "" {
-			blockDeviceMapping := types.BlockDeviceMapping{
-				DeviceName: aws.String("/dev/xvda"),
-				Ebs: &types.EbsBlockDevice{
-					DeleteOnTermination: aws.Bool(true),
-					Iops:                aws.Int32(int32((*c.awsTopoConfigs).Iops)),
-					VolumeSize:          aws.Int32(int32((*c.awsTopoConfigs).VolumeSize)),
-					VolumeType:          types.VolumeType((*c.awsTopoConfigs).VolumeType),
-				},
-			}
-
-			runInstancesInput.EbsOptimized = aws.Bool(true)
-			runInstancesInput.BlockDeviceMappings = []types.BlockDeviceMapping{blockDeviceMapping}
-		}
-	}
-
-	retInstance, err := client.RunInstances(context.TODO(), runInstancesInput)
-	if err != nil {
-		return err
-	}
-
-	isRunning, err := WaitInstanceRunnung(ctx, *(retInstance.Instances[0].InstanceId))
-	if err != nil {
-		return err
-	}
-
-	if isRunning == false {
-		return errors.New("Failed to wait the instance to become running state")
-	}
-	zap.L().Debug("create EC2 nodes by SDK info", zap.String("clusterName", c.clusterName), zap.String("clusterType", c.clusterType), zap.String("subClusterType", c.subClusterType), zap.String("componentName", c.componentName), zap.String("tagOwner", c.tagOwner), zap.String("tagProject", c.tagProject), zap.String("subnetID", c.subnetID), zap.String("awsTopoConfigs", fmt.Sprintf("%+v", c.awsTopoConfigs)), zap.String("awsGeneralConfigs", fmt.Sprintf("%+v", c.awsGeneralConfigs)))
-	zap.L().Debug(fmt.Sprintf("EC2 tags : %+v", tagSpecifications))
-	return nil
-}
-func (c *MakeEC2Instance) Rollback(ctx context.Context) error {
-	return ErrUnsupportedRollback
-}
-
-func (c *MakeEC2Instance) String() string {
-	return fmt.Sprintf("Echo: Make one EC2 Instance")
-}
-
-func FetchTiKVInstances(ctx context.Context, clusterName, clusterType, subClusterType, componentName string, funcTags func([]types.Tag) error) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return err
-	}
-
-	client := ec2.NewFromConfig(cfg)
-
-	var filters []types.Filter
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Name"),
-		Values: []string{clusterName},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Cluster"),
-		Values: []string{clusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Component"),
-		Values: []string{componentName},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Type"),
-		Values: []string{subClusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("instance-state-name"),
-		Values: []string{"running", "pending", "stopping", "stopped"},
-	})
-
-	input := &ec2.DescribeInstancesInput{Filters: filters}
-
-	result, err := client.DescribeInstances(context.TODO(), input)
-	if err != nil {
-		return err
-	}
-
-	for _, reservation := range result.Reservations {
-		for _, instance := range reservation.Instances {
-			funcTags(instance.Tags)
-		}
-
-	}
-
-	return nil
-}
-
-func WaitInstanceRunnung(ctx context.Context, instanceId string) (bool, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return false, err
-	}
-
-	client := ec2.NewFromConfig(cfg)
-
-	var filters []types.Filter
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("instance-id"),
-		Values: []string{instanceId},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("instance-state-name"),
-		Values: []string{"running"},
-	})
-
-	input := &ec2.DescribeInstancesInput{Filters: filters}
-
-	for idx := 0; idx < 50; idx++ {
-		time.Sleep(3 * time.Second)
-		result, err := client.DescribeInstances(context.TODO(), input)
-		if err != nil {
-			return false, err
-		}
-
-		if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
 type ListAllAwsEC2 struct {
 	pexecutor *ctxt.Executor
 	tableEC2  *[][]string
 }
 
-//func ListAllEC2(ctx context.Context, clusterName, clusterType, subClusterType, componentName string) error {
 func (c *ListAllAwsEC2) Execute(ctx context.Context) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -998,12 +832,7 @@ func (c *ListAllAwsEC2) Execute(ctx context.Context) error {
 
 	for _, reservation := range result.Reservations {
 		for _, instance := range reservation.Instances {
-			fmt.Printf("The data is <%#v> \n", instance.Tags)
-			fmt.Printf("The data is <%#v> \n", instance.InstanceType)
-
 			(*c.tableEC2) = append(*c.tableEC2, []string{
-				// instance.State.Name,
-				// instance.InstanceId,
 				string(instance.InstanceType),
 				string(*instance.KeyName),
 				string(instance.LaunchTime.String()),

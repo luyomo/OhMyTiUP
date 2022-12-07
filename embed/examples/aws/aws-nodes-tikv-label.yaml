@@ -23,19 +23,9 @@ aws_topo_configs:
     instance_type: c5.2xlarge
     count: 2
   tikv:
-    labels:
-    - name: db_type
-      values:
-      - value: online
-        machine_type: standard
-      - value: batch
-        machine_type: standard
-    machine_types:
-      -
-        name: standard
-        modal_value:
-          instance_type: c5.2xlarge
-          count: 3
-          volumeSize: 300
-          volumeType: gp3
-          iops: 3000
+    -
+      instance_type: c5.2xlarge
+      count: 3
+      labels:
+        - name: db_type
+          value: online

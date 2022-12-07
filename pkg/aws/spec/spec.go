@@ -142,39 +142,18 @@ type (
 	}
 
 	AwsNodeModal struct {
-		InstanceType string `yaml:"instance_type"`
-		Count        int    `yaml:"count"`
-		VolumeSize   int    `yaml:"volumeSize,omitempty" default:"100"`
-		VolumeType   string `yaml:"volumeType,omitempty" default:"gp3"`
-		Iops         int    `yaml:"iops,omitempty" default:"3000"`
-	}
-
-	// TiKV nodes definition
-	AwsTiKVMachineType struct {
-		Name       string       `yaml:"name"`
-		ModalValue AwsNodeModal `yaml:"modal_value"`
-	}
-
-	AwsTiKVLabelMachineType struct {
-		Value       string         `yaml:"value"`
-		MachineType string         `yaml:"machine_type,omitempty"`
-		Labels      []AwsTiKVLabel `yaml:"labels,omitempty"`
-	}
-
-	AwsTiKVLabel struct {
-		Name   string                    `yaml:"name"`
-		Values []AwsTiKVLabelMachineType `yaml:"values"`
-	}
-
-	AwsTiKVModal struct {
-		InstanceType string         `yaml:"instance_type"`
-		Count        int            `yaml:"count"`
-		VolumeSize   int            `yaml:"volumeSize,omitempty" default:"500"`
-		VolumeType   string         `yaml:"volumeType,omitempty" default:"gp3"`
-		Iops         int            `yaml:"iops,omitempty" default:"3000"`
-		Labels       []AwsTiKVLabel `yaml:"labels,omitempty"`
-
-		ModalTypes []AwsTiKVMachineType `yaml:"machine_types,omitempty"`
+		InstanceType    string `yaml:"instance_type"`
+		Count           int    `yaml:"count"`
+		VolumeSize      int    `yaml:"volumeSize,omitempty" default:"100"`
+		VolumeType      string `yaml:"volumeType,omitempty" default:"gp3"`
+		Iops            int    `yaml:"iops,omitempty" default:"3000"`
+		DesiredCapacity int32  `yaml:"desired_capacity,omitempty" default:"0"`
+		MinSize         int32  `yaml:"min_size,omitempty" default:"0"`
+		MaxSize         int32  `yaml:"max_size,omitempty" default:"0"`
+		Labels          []struct {
+			Name  string `yaml:"Name,omitempty"`
+			Value string `yaml:"Value,omitempty"`
+		}
 	}
 
 	AuroraConfig struct {
@@ -185,7 +164,7 @@ type (
 		General      AwsTopoConfigsGeneral `yaml:"general"`
 		PD           AwsNodeModal          `yaml:"pd"`
 		TiDB         AwsNodeModal          `yaml:"tidb"`
-		TiKV         AwsTiKVModal          `yaml:"tikv"`
+		TiKV         []AwsNodeModal        `yaml:"tikv"`
 		TiFlash      AwsNodeModal          `yaml:"tiflash"`
 		Monitor      AwsNodeModal          `yaml:"monitor"`
 		Grafana      AwsNodeModal          `yaml:"grafana"`

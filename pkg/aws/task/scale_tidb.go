@@ -169,11 +169,11 @@ func (c *ScaleTiDB) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	if err = scaleTiDBNode(&scaleNode, &activeNodesMap, "pd", c.awsTopoConfig.TiKV.Count); err != nil {
+	if err = scaleTiDBNode(&scaleNode, &activeNodesMap, "pd", c.awsTopoConfig.PD.Count); err != nil {
 		return err
 	}
 
-	if err = scaleTiDBNode(&scaleNode, &activeNodesMap, "tikv", c.awsTopoConfig.TiKV.Count); err != nil {
+	if err = scaleTiDBNode(&scaleNode, &activeNodesMap, "tikv", c.awsTopoConfig.TiKV[0].Count); err != nil {
 		return err
 	}
 

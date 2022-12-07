@@ -230,7 +230,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 
 	// 6. Send the access key to workstation
-	err = (*workstation).Transfer(ctx, c.clusterInfo.keyFile, "~/.ssh/id_rsa", false, 0)
+	err = (*workstation).Transfer(ctx, c.awsWSConfigs.KeyFile, "~/.ssh/id_rsa", false, 0)
 	if err != nil {
 		return err
 	}
