@@ -1,0 +1,79 @@
+* Rewrite ec2.org
+** ec2.go
+   + CreateWorkstation
+   + DestroyEC
+   + ListEC
+   + DestroyWS
+   + CreateEC2Nodes
+   + CreateTiKVNodes
+   + MakeEC2Nodes
+   + ListAllAwsEC2
+** scaling group
+   + vpc
+   + network
+   + security group
+   + ec2 laugch template
+     - 
+   + scaling group
+   + transit gateway
+
+* ES
+  #+BEGIN_SRC
+  OhMyTiUP$ wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.5.2-linux-x86_64.tar.gz
+  OhMyTiUP$ tar xvf elasticsearch-8.5.2-linux-x86_64.tar.gz
+  OhMyTiUP:~/elasticsearch-8.5.2$ ./bin/elasticsearch
+  OhMyTiUP:~/elasticsearch-8.5.2$ more config/elasticsearch.yml
+      ... ...
+      xpack.security.enabled: true
+      ... ...
+  OhMyTiUP$ curl http://172.83.1.94:9200 
+{
+  "name" : "ip-172-83-1-94",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "8d1KXn3nS7yf7CuXfh9icQ",
+  "version" : {
+    "number" : "8.5.2",
+    "build_flavor" : "default",
+    "build_type" : "tar",
+    "build_hash" : "a846182fa16b4ebfcc89aa3c11a11fd5adf3de04",
+    "build_date" : "2022-11-17T18:56:17.538630285Z",
+    "build_snapshot" : false,
+    "lucene_version" : "9.4.1",
+    "minimum_wire_compatibility_version" : "7.17.0",
+    "minimum_index_compatibility_version" : "7.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+  connector: sudo confluent-hub install confluentinc/kafka-connect-elasticsearch:14.0.3
+  connector: sudo systemctl restart confluent-kafka-connect
+
+  connector: more /tmp/es.sink.json
+{
+    "name": "ESSINKTEST",
+    "config": {
+        "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+        "connection.url": "http://172.83.1.94:9200",
+        "tasks.max": "1",
+        "key.ignore": "false",
+        "topics": "test_test01",
+        "type.name": "_doc",
+        "name": "ESSINKTEST",
+        "transforms": "key",
+        "transforms.key.type": "org.apache.kafka.connect.transforms.ExtractField$Key",
+        "transforms.key.field": "pk_col",
+        "key.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "key.converter.schema.registry.url": "http://172.83.1.63:8081",
+        "value.converter.schema.registry.url": "http://172.83.1.63:8081",
+        "key.converter.schemas.enable": "true",
+        "value.converter.schemas.enable": "true",
+        "behavior.on.null.values": "delete"
+    }
+}
+  #+END_SRC
+
+** reference
+   https://github.com/debezium/debezium-examples/blob/main/unwrap-smt/es-sink.json
+#+BEGIN_SRC
+#+END_SRC
