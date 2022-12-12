@@ -1,1 +1,221 @@
 #+CAPTIONS:
+
+* EKS SETUP
+** Helm setup
+   Install v3.8.2 because the latest version has bugs.
+   #+BEGIN_SRC
+OhMyTiUP$ curl -L https://git.io/get_helm.sh | bash -s -- --version v3.8.2
+   #+END_SRC
+** Cluster install
+   #+BEGIN_SRC
+ohMyTiUP$ more eks.cluster.yaml
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: elaticcluster
+  region: us-east-1
+
+nodeGroups:
+  - name: admin
+    desiredCapacity: 1
+    privateNetworking: true
+    labels:
+      dedicated: admin
+
+  - name: elastic
+    desiredCapacity: 3
+    privateNetworking: true
+    instanceType: c5.2xlarge
+    labels:
+      dedicated: elastic
+    taints:
+      dedicated: elastic:NoSchedule
+OhMyTiUP$ eksctl create cluster -f eks.config.yaml
+admin@OhMyTiUP:~$ kubectl get nodes
+NAME                             STATUS   ROLES    AGE   VERSION
+ip-192-168-67-129.ec2.internal   Ready    <none>   41h   v1.23.13-eks-fb459a0
+ip-192-168-72-129.ec2.internal   Ready    <none>   41h   v1.23.13-eks-fb459a0
+ip-192-168-79-24.ec2.internal    Ready    <none>   41h   v1.23.13-eks-fb459a0
+ip-192-168-96-59.ec2.internal    Ready    <none>   41h   v1.23.13-eks-fb459a0
+OhMyTiUP$  eksctl get nodegroup --cluster elaticcluster
+CLUSTER         NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID                ASG NAME    TYPE
+elaticcluster   admin           CREATE_COMPLETE 2022-12-12T02:00:00Z    1               1               1                       m5.large        ami-0c9424a408e18bcc9   eksctl-elaticcluster-nodegroup-admin-NodeGroup-1RFOL3A8LDJKU unmanaged
+elaticcluster   elastic         CREATE_COMPLETE 2022-12-12T02:00:00Z    3               3               3                       c5.2xlarge      ami-0c9424a408e18bcc9   eksctl-elaticcluster-nodegroup-elastic-NodeGroup-1BS6RFYX18IEX       unmanaged
+   #+END_SRC
+** dynamic volume provisioning
+#+BEGIN_SRC
+OhMyTiUP$ eksctl create iamserviceaccount \
+   --name ebs-csi-controller-sa \
+   --namespace kube-system \
+   --cluster elaticcluster \
+   --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy   \
+   --approve   --role-only   --role-name AmazonEKS_EBS_CSI_DriverRole
+OhMyTiUP$ eksctl get iamserviceaccount --cluster elaticcluster
+NAMESPACE       NAME                    ROLE ARN
+kube-system     ebs-csi-controller-sa   arn:aws:iam::729581434105:role/AmazonEKS_EBS_CSI_DriverRole
+OhMyTiUP$ eksctl create addon --name aws-ebs-csi-driver \
+    --cluster elaticcluster --service-account-role-arn arn:aws:iam::729581434105:role/AmazonEKS_EBS_CSI_DriverRole --force
+OhMyTiUP$ eksctl get addon --cluster elaticcluster
+NAME                    VERSION                 STATUS  ISSUES  IAMROLE                                                         UPDATE AVAILABLE
+aws-ebs-csi-driver      v1.13.0-eksbuild.3      ACTIVE  0       arn:aws:iam::729581434105:role/AmazonEKS_EBS_CSI_DriverRole
+
+aws eks describe-addon-versions --addon-name aws-ebs-csi-driver
+#+END_SRC
+** nginx ingress installation
+   #+BEGIN_SRC
+OhMyTiUP$ helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+OhMyTiUP$ helm repo update
+OhMyTiUP$ helm install nginx-ingress-controller ingress-nginx/ingress-nginx
+   #+END_SRC
+** storageClass setup
+   #+BEGIN_SRC
+OhMyTiUP$ more storageClass.yaml
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: es-gp2
+provisioner: ebs.csi.aws.com # Amazon EBS CSI driver
+parameters:
+  type: gp2
+  encrypted: 'true' # EBS volumes will always be encrypted by default
+volumeBindingMode: WaitForFirstConsumer # EBS volumes are AZ specific
+reclaimPolicy: Delete
+mountOptions:
+- debug
+OhMyTiUP$ kubectl create -f storageClass.yaml
+OhMyTiUP$ kubectl get storageClass 
+NAME            PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+es-gp2          ebs.csi.aws.com         Delete          WaitForFirstConsumer   false                  56s
+gp2 (default)   kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  9h
+   #+END_SRC
+* Elasticsearch install
+** Elasticsearch config file preparation
+   Please refer to [[https://github.com/elastic/helm-charts/tree/main/elasticsearch][Elticsearch doc]] for elasticsearch installation.
+  #+BEGIN_SRC
+OhMyTiUP$ helm repo add bitnami https://charts.bitnami.com/bitnami
+OhMyTiUP$ more Values.yaml
+antiAffinity: "soft"
+
+# Shrink default JVM heap.
+esJavaOpts: "-Xmx128m -Xms128m"
+
+# Allocate smaller chunks of memory per pod.
+resources:
+  requests:
+    cpu: "100m"
+    memory: "512M"
+  limits:
+    cpu: "1000m"
+    memory: "512M"
+
+secret:
+  enabled: true
+  password: "1234Abcd"
+
+volumeClaimTemplate:
+  accessModes: [ "ReadWriteOnce" ]
+  storageClassName: "es-gp2"
+  resources:
+    requests:
+      storage: 100M
+
+OhMyTiUP$ helm install elasticsearch bitnami/elasticsearch -f Values.yaml
+  #+END_SRC
+
+** ingress setup
+   #+BEGIN_SRC
+OhMyTiUP$ more ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-world
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  defaultBackend:
+    service:
+      name: elasticsearch-master
+      port:
+        number: 9200
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: elasticsearch-master
+            port:
+              number: 9200
+OhMyTiUP$ kubectl create -f ingress.yaml
+OhMyTiUP$ kubectl get ingress 
+NAME          CLASS   HOSTS   ADDRESS                                                                   PORTS   AGE
+hello-world   nginx   *       a0c6807e4db744186be5f480ae1a33a2-1781717375.us-east-1.elb.amazonaws.com   80      24s
+OhMyTiUP$ kubectl describe ingress hello-world 
+Name:             hello-world
+Namespace:        default
+Address:          a0c6807e4db744186be5f480ae1a33a2-1781717375.us-east-1.elb.amazonaws.com
+Default backend:  elasticsearch-master:9200 (<error: endpoints "elasticsearch-master" not found>)
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  *           
+              /   elasticsearch-master:9200 (<error: endpoints "elasticsearch-master" not found>)
+Annotations:  nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+Events:
+  Type    Reason  Age                From                      Message
+  ----    ------  ----               ----                      -------
+  Normal  Sync    89s (x2 over 97s)  nginx-ingress-controller  Scheduled for sync
+
+   #+END_SRC
+
+
+  https://docs.aws.amazon.com/eks/latest/userguide/csi-iam-role.html
+
+  https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/install.md
+
+  https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
+
+  https://www.eksworkshop.com/beginner/170_statefulset/storageclass/
+
+  https://github.com/elastic/helm-charts/tree/main/elasticsearch/examples
+
+
+
+
+
+
+
+** ingress
+   #+BEGIN_SRC
+OhMyTiUP$ more apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-world
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  defaultBackend:
+    service:
+      name: elasticsearch-master
+      port:
+        number: 9200
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: elasticsearch-master
+            port:
+              number: 9200
+OhMyTiUP$ kubectl create -f ingress.yaml
+admin@ip-172-82-11-66:~/workspace$ kubectl get ingress   
+NAME          CLASS   HOSTS   ADDRESS                                                                   PORTS   AGE
+hello-world   nginx   *       a4c5a5e5767ac4aff83982c48023a48a-1396949624.us-east-1.elb.amazonaws.com   80      10m
+OhMyTiUP$ curl --insecure -u elastic:1234Abcd https://52.20.241.191/
+
+   #+END_SRC

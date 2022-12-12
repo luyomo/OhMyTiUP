@@ -3,4 +3,7 @@
   - [[./README.org#Replication][Replication]]
 
 ** Replication
-  [[./doc/tidb2es.org][TiDB to Elasticsearch]] - TiDB 2 Elasticsearch data replication through TiCDC and kafka(debezium sink)
+  [[./doc/tidb2es.org][TiDB to Elasticsearch]] - Data replication from TiDB to Elasticsearch through TiCDC and kafka(debezium sink)
+  [[./doc/tidb2kafka2pg.org][TiDB to Postgres]] - Data replication from TiDB to Postgres through TiCDC and kafka(debezium source and confluent jdbc sink)
+  [[./doc/mongo2kafka2TiDB.org][Mongo to TiDB]] - Data replication from MongoDB to TiDB through kafka(debezium mongo source and customized jdbc sink)
+  [[./doc/aurora2tidbcloud.org][Aurora to TiDBCloud]] - Data replication from Aurora to TiDB through DM
