@@ -1,0 +1,123 @@
+#+OPTIONS: ^:nil
+
+* Table Layout
+** Non cluster table
+  #+BEGIN_SRC
+CREATE TABLE `test_table` (
+  `col01` varchar(10) NOT NULL,
+  `col02` varchar(64) NOT NULL,
+  `col03` varchar(128) DEFAULT '',
+  `col04` bigint(20) DEFAULT NULL,
+  `col05` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`user_id`,`app_id`) /*T![clustered_index] NONCLUSTERED */,
+  UNIQUE KEY `uk_code` (`code`),
+  KEY `idx_created` (`created`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin
+  #+END_SRC
+** Cluster table
+  #+BEGIN_SRC
+CREATE TABLE `test_table` (
+  `col01` varchar(10) NOT NULL,
+  `col02` varchar(64) NOT NULL,
+  `col03` varchar(128) DEFAULT '',
+  `col04` bigint(20) DEFAULT NULL,
+  `col05` bigint(20) DEFAULT NULL,
+  PRIMARY KEY (`user_id`,`app_id`)  CLUSTERED ,
+  UNIQUE KEY `uk_code` (`code`),
+  KEY `idx_created` (`created`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin
+  #+END_SRC
+* Query
+  #+BEGIN_SRC sql
+      select count(*) from test_table
+  #+END_SRC
+* Test Data preparation
+  Download the [[https://github.com/luyomo/mockdata][mockdata]] and run the below command to generate data. Number of rows = 16 * 8000000 = 128000000 using below command
+  #+BEGIN_SRC
+OhMyTiUP$ ./bin/mockdata --threads 16 --loop 1 --base 300000000  --config etc/user.config.yaml --output /tmp/mockdata --file-name=test.user_app_cluster --rows 8000000  --host=182.83.4.203 --user=root --pd-ip=182.83.1.240
+  #+END_SRC
+  
+* Performance test
+** Performance test: different tidb_executor_concurrency
+   From the below test result, you will see there is no big difference after adjusting the parameter tidb_executor_concurrency.
+     #+CAPTION: tidb_executor_concurrency 5 vs 8 / c5.xlarge - 4c8g
+     | # of rows | Execution time(s) | tidb_executor_concurrency |
+     |-----------+-------------------+---------------------------|
+     | 497599993 |               217 |                         8 |
+     | 497599993 |               215 |                         5 |
+
+** Performance test: Before analyze vs After analyze
+   No performance difference since table analysis does not change the execution plan
+     #+CAPTION: Before analyze vs After analyze / c5.xlarge - 4c8g
+     | # of rows | Execution time(s) | comment        |
+     |-----------+-------------------+----------------|
+     | 497599997 |               217 | before analyze |
+     | 497599993 |               217 | after analyze  |
+
+** Performance test: Non-cluster index vs cluster index
+   After converting the table to cluster index, gained 28% performance
+     #+CAPTION: non-cluster vs cluster index / c5.xlarge - 4c8g
+     | # of rows | Execution time(s) | comment       | tidb_executor_concurrency | Index type |
+     |-----------+-------------------+---------------+---------------------------+------------|
+     | 177600000 |                75 | after analyze |                         5 |            |
+     | 192000000 |            54.151 | after analyze |                         5 | clustered  |
+
+** Performance test: c5.xlarge - 4c8g vs c5.4xlarge - 16c32g
+   The server spec impact the count performance very much.
+     #+CAPTION: c5.xlarge - 4c8g vs c5.4xlarge - 16c32g
+     | # of rows | Execution time(s) | comment        | tidb_executor_concurrency | Index type | Instance Type       |
+     |-----------+-------------------+----------------+---------------------------+------------+---------------------|
+     |  17600000 |             4.083 |                |                         5 |            | c5.xlarge - 4c8g    |
+     |  16000320 |              1.17 |                |                         5 |            | c5.4xlarge - 16c32g |
+     | 177600000 |                69 | before analyze |                         5 |            | c5.xlarge - 4c8g    |
+     | 177600000 |                75 | after analyze  |                         5 |            | c5.xlarge - 4c8g    |
+     | 160000320 |            14.000 |                |                           |            | c5.4xlarge - 16c32g |
+     | 497599997 |               217 | before analyze |                         8 |            | c5.xlarge - 4c8g    |
+     | 497599993 |               217 | after analyze  |                         8 |            | c5.xlarge - 4c8g    |
+     | 497599993 |               215 | after nanlyze  |                         5 |            | c5.xlarge - 4c8g    |
+     | 480000320 |                80 |                |                         5 |            | c5.4xlarge - 16c32g |
+     | 480000320 |                90 |                |                        16 |            | c5.4xlarge - 16c32g |
+     |   1600000 |             1.163 | before analyze |                         5 | clustered  | c5.xlarge - 4c8g    |
+     |  12800000 |             3.601 | before analyze |                         5 | clustered  | c5.xlarge - 4c8g    |
+     |  32000000 |            13.271 | before analyze |                         5 | clustered  | c5.xlarge - 4c8g    |
+     | 112000000 |                30 | before analyze |                         5 | clustered  | c5.xlarge - 4c8g    |
+     | 128000000 |            10.360 |                |                        16 | clustered  | c5.4xlarge - 16c32g |
+     | 192000000 |                55 | before analyze |                         5 | clustered  | c5.xlarge - 4c8g    |
+     | 192000000 |            54.151 | after          |                         5 | clustered  | c5.xlarge - 4c8g    |
+     | 192000000 |                54 | after          |                         8 | clustered  | c5.xlarge - 4c8g    |
+     | 256000000 |            27.645 |                |                        16 | clustered  | c5.4xlarge - 16c32g |
+     | 384000000 |                42 |                |                        16 | clustered  | c5.4xlarge - 16c32g |
+
+** Execution time trend
+     The execution time increases as the exponetial growth as the data volume is increasing.
+     #+CAPTION: non-cluster vs cluster index / c5.xlarge - 4c8g
+     | # of rows | Execution time(s) | comment        | tidb_executor_concurrency |
+     |-----------+-------------------+----------------+---------------------------|
+     |   1600000 |             1.329 |                |                         5 |
+     |  17600000 |             4.083 |                |                         5 |
+     | 177600000 |                69 | before analyze |                         5 |
+     | 177600000 |                75 | after analyze  |                         5 |
+     | 497599997 |               217 | before analyze |                         8 |
+     | 497599993 |               217 | after analyze  |                         8 |
+     | 497599993 |               215 | after nanlyze  |                         5 |
+
+** Table with TiFlash - c5.4xlarge(3TiFlash 2 replicas)
+    The table with 3 replicas TiFlash takes within 1 second to count the number.   
+     | # of rows | Execution time(s) | comment | tidb_executor_concurrency | index type | TiFlash |
+     |-----------+-------------------+---------+---------------------------+------------+---------|
+     |  16000320 |              1.17 |         |                         5 |            |         |
+     | 160000320 |            14.000 |         |                           |            |         |
+     | 320000320 |            53.835 |         |                         5 |            |         |
+     | 320000320 |            58.862 |         |                         5 |            |         |
+     | 480000320 |                80 |         |                         5 |            |         |
+     | 480000320 |                90 |         |                        16 |            |         |
+     | 128000000 |            10.360 |         |                        16 | clustered  |         |
+     | 256000000 |            27.645 |         |                        16 | clustered  |         |
+     | 384000000 |                42 |         |                        16 | clustered  |         |
+     | 128000000 |             0.405 |         |                        16 | clustered  | enabled |
+     | 492849379 |             0.969 |         |                        16 | clustered  | enabled |
+
+*** Execution Plan
+    [[./png/count_performance_with_tiflash.png]]
+
+
