@@ -1,5 +1,11 @@
 #+OPTIONS: ^:nil
-
+* Overview
+  Once the number of table records exceed 100millions, the table count becomes slow even though full index scan is applied. This article is the explanation how to improve this scenario. Below methods are used for performance tuning.
+  + Table Explanation - No effect. The execution plan does not change after the table analysis
+  + tidb_executor_concurrency adjustment - No effect.
+  + cluster index - 30% improvement
+  + Scale up (spec up) - 2-3 times faster according to the test  c5.xlarge(4c8g) vs c5.4xlarge(16c32g)
+  + TiFlash - more than 40 times faster with 3 TiFlash nodes
 * Table Layout
 ** Non cluster table
   #+BEGIN_SRC
@@ -89,7 +95,7 @@ OhMyTiUP$ ./bin/mockdata --threads 16 --loop 1 --base 300000000  --config etc/us
      | 384000000 |                42 |                |                        16 | clustered  | c5.4xlarge - 16c32g |
 
 ** Execution time trend
-     The execution time increases as the exponetial growth as the data volume is increasing.
+     The execution time increases by the exponetial growth as the data volume is increasing.
      #+CAPTION: non-cluster vs cluster index / c5.xlarge - 4c8g
      | # of rows | Execution time(s) | comment        | tidb_executor_concurrency |
      |-----------+-------------------+----------------+---------------------------|
