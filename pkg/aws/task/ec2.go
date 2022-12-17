@@ -662,11 +662,10 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 			return err
 		}
 
-		describeAutoScalingGroups, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+		_, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The auto scaling group is <%#v> \n\n\n", describeAutoScalingGroups.AutoScalingGroups[0].Instances)
 	}
 
 	return nil
