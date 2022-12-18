@@ -15,7 +15,7 @@ package command
 
 import (
 	//"context"
-	"fmt"
+
 	"os"
 	"path"
 
@@ -71,7 +71,6 @@ func newAurora2TiDBCloudDeploy() *cobra.Command {
 			if data, err := os.ReadFile(topoFile); err == nil {
 				teleTopology = string(data)
 			}
-			fmt.Printf("The command here is %v \n", teleCommand)
 
 			return cm.Aurora2TiDBCloudDeploy(clusterName, topoFile, skipConfirm, gOpt)
 		},
