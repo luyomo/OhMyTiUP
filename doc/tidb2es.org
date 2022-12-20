@@ -219,3 +219,13 @@ hello-world   nginx   *       a4c5a5e5767ac4aff83982c48023a48a-1396949624.us-eas
 OhMyTiUP$ curl --insecure -u elastic:1234Abcd https://52.20.241.191/
 
    #+END_SRC
+
+* TODO
+  + Prepare TiDB2ES frame
+    - TiDB Setup
+    - Kafka Setup
+  + K8S setup
+    - EKS cluster
+    - Provider setup
+    - Dynamic volume setup
+  + Setup replication from TiDB to kafka to ES

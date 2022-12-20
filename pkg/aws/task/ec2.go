@@ -51,7 +51,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	clusterType := ctx.Value("clusterType").(string)
 
 	tagProject := GetProject(ctx)
-	tagOwner, err := GetCallerUser(ctx)
+	tagOwner, _, err := GetCallerUser(ctx)
 	if err != nil {
 		return err
 	}
@@ -571,8 +571,8 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, c.componentName)
 
 	// Two tags to resource to show the project and owner
-	tagProject := GetProject(ctx)       // Project name(tag): tidb-cluster
-	tagOwner, err := GetCallerUser(ctx) // Owner(default): aws user
+	tagProject := GetProject(ctx)          // Project name(tag): tidb-cluster
+	tagOwner, _, err := GetCallerUser(ctx) // Owner(default): aws user
 	if err != nil {
 		return err
 	}

@@ -960,6 +960,31 @@ func (b *Builder) DeployMongo(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWS
 	return b
 }
 
+func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsESConfigs *spec.AwsESTopoConfigs, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+
+	clusterInfo.cidr = awsESConfigs.General.CIDR
+	clusterInfo.excludedAZ = awsESConfigs.General.ExcludedAZ
+	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
+	clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
+
+	// b.tasks = append(b.tasks, &DeployEKS{
+	// 	pexecutor:      pexecutor,
+	// 	subClusterType: subClusterType,
+	// 	awsWSConfigs:   awsWSConfigs,
+	// 	clusterInfo:    clusterInfo,
+	// })
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
+		Step(fmt.Sprintf("%s : Creating EKS ... ...", subClusterType), &DeployEKS{
+			pexecutor:      pexecutor,
+			subClusterType: subClusterType,
+			awsWSConfigs:   awsWSConfigs,
+			clusterInfo:    clusterInfo,
+		})
+
+	return b
+}
+
 func (b *Builder) DeployTiCDC(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiCDC{
 		pexecutor:      pexecutor,

@@ -1,0 +1,286 @@
+* Architecture
+  + Take Aurora GTID
+  + Take aurora database snapshot
+  + Convert aurora snapshot to S3(Parquet)
+  + Import snapshot data into TiDB Cloud from S3
+  + Setup DM to replicate data from Aurora to TiDB Cloud(using GTID)
+  + Stop DM replication
+  + Wait for replication completeness
+  + Start the reverse TiCDC reverse replication from TiDB Cloud to Aurora
+  [[./png/aurora2tidbcloud.dmcloud/Aurora2TiDBCloud.01.png]]
+  [[./png/aurora2tidbcloud/Aurora2TiDBCloud.02.png]]
+
+* Aurora environment
+** binlog is enabled
+   Make sure that the binlog is enabled in the aurora for the incremental replication.
+ [[./png/aurora2tidbcloud/01.aurora.01.png]]
+   Memo the binlog position from which DM starts the replication.
+ [[./png/aurora2tidbcloud/01.aurora.02.png]]
+** DB Size
+ [[./png/aurora2tidbcloud/01.aurora.03.png]]
+ [[./png/aurora2tidbcloud/01.aurora.04.png]]
+* Take aurora snapshot and export to S3
+** IAM preparation for data export
+   Please refer to the [[https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-export-snapshot.html][official document]] for IAM preparation which is required by data export to S3.
+*** policy
+    #+BEGIN_SRC sh
+      OhMyTiUP$aws iam create-policy  --policy-name Aurora2TiDBCloud-policy --policy-document '{
+          "Version": "2012-10-17",                                                                                                                         
+          "Statement": [
+              {
+                  "Sid": "ExportPolicy",
+                  "Effect": "Allow",
+                  "Action": [
+                      "s3:PutObject*",
+                      "s3:ListBucket",
+                      "s3:GetObject*",
+                      "s3:DeleteObject*",
+                      "s3:GetBucketLocation"
+                  ],
+                  "Resource": [
+                      "arn:aws:s3:::ossinsight-data",
+                      "arn:aws:s3:::ossinsight-data/migration2tidbcloud/*"
+                  ]
+              }
+          ]
+      }'
+      
+    #+END_SRC
+*** Role
+   #+BEGIN_SRC sh
+OhMyTiUP$aws iam create-role  --role-name Aurora2TiDBCloud-role --assume-role-policy-document '{            
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+            "Service": "export.rds.amazonaws.com"
+          },
+         "Action": "sts:AssumeRole"
+       }
+     ]
+   }'
+
+   #+END_SRC
+*** Policy attachment
+   #+BEGIN_SRC sh
+OhMyTiUP$aws iam attach-role-policy  --policy-arn arn:aws:iam::123456789098:policy/Aurora2TiDBCloud-policy  --role-name Aurora2TiDBCloud-role
+   #+END_SRC
+** Data export to S3
+ [[./png/aurora2tidbcloud/02.aurora.snapshot.01.png]]
+ [[./png/aurora2tidbcloud/02.aurora.snapshot.02.png]]
+ [[./png/aurora2tidbcloud/02.aurora.snapshot.03.png]]
+ [[./png/aurora2tidbcloud/02.aurora.snapshot.04.png]]
+ [[./png/aurora2tidbcloud/02.aurora.snapshot.05.png]]
+ [[./png/aurora2tidbcloud/02.aurora.snapshot.06.png]]
+ [[./png/aurora2tidbcloud/02.aurora.snapshot.07.png]]
+** Enable server-side encryption
+   TiDB need the encryption for data import
+ [[./png/aurora2tidbcloud/02.aurora.snapshot.08.png]]
+
+** TiDB setup
+   Here the process how to setup the TiDB is skiped. 
+ [[./png/aurora2tidbcloud/03.tidbcloud.01.png]]
+** Workstation setup
+   #+BEGIN_SRC
+OhMyTiUp$ more embed/examples/aws/aurora2tidbcloud.dmcloud.yaml
+ workstation:
+   cidr: 172.82.0.0/16
+   instance_type: c5.2xlarge
+   username: admin
+   keyname: jay.jp                               # ap-northeast-1
+   keyfile: /home/pi/.ssh/jay.jp.pem             # ap-northeast-1
+   imageid: ami-05674058913b70816                # ap-northeast-1
+   volumeSize: 100
+   #shared: false
+ aurora:
+   cidr: 172.84.0.0/16
+   instance_type: db.r5.large
+   db_parameter_family_group: aurora-mysql5.7
+   engine: aurora-mysql
+   engine_version: 5.7.mysql_aurora.2.10.1
+   db_username: admin
+   db_password: 1234Abcd
+   public_accessible_flag: false
+ tidb_cloud:
+   host: private-tidb.fdfxwtbbd0o.clusters.tidb-cloud.com
+   port: 4000
+   user: root
+   password: 1234Abcd
+   databases:
+     - test
+OhMyTiUP$ ./bin/aws aurora2tidbcloud deploy aurora2tidbcloudtest embed/examples/aws/aurora2tidbcloud.dmcloud.yaml
+   #+END_SRC
+** Setup VPC Peering between TiDB Cloud and workstation/Aurora
+   + workstation is used to general operation like schema copy/data comparision etc. Workstation need to access TiDB Cloud, Aurora
+ [[./png/aurora2tidbcloud/03.tidbcloud.02.png]]
+ [[./png/aurora2tidbcloud/03.tidbcloud.03.png]]
+ [[./png/aurora2tidbcloud/03.tidbcloud.04.png]]
+ [[./png/aurora2tidbcloud/03.tidbcloud.05.png]]
+ [[./png/aurora2tidbcloud/03.tidbcloud.06.png]]
+* Schema copy using mysqldump
+ [[./png/aurora2tidbcloud/04.tidbcloud.schema.01.png]]
+ [[./png/aurora2tidbcloud/04.tidbcloud.schema.02.png]]
+* Data import to TiDB Cloud from S3
+** Get the account id and external id for IAM setting. Please refer to the [[https://docs.pingcap.com/tidbcloud/config-s3-and-gcs-access][official document]] for IAM setup
+ [[./png/aurora2tidbcloud/05.tidbcloud.import.01.png]]
+   #+BEGIN_SRC
+OhMyTiUP$aws iam create-policy  --policy-name Aurora2TiDBCloud-policy --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ExportPolicy",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject*",
+                "s3:ListBucket",
+                "s3:GetObject*",
+                "s3:DeleteObject*",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": [
+                "arn:aws:s3:::ossinsight-data",
+                "arn:aws:s3:::ossinsight-data/migration2tidbcloud/*"
+            ]
+        }
+    ]
+}'
+    #+END_SRC
+    
+    #+BEGIN_SRC
+
+
+aws iam create-role  --role-name Aurora2TiDBCloud-role  --assume-role-policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+            "Service": "export.rds.amazonaws.com"
+          },
+         "Action": "sts:AssumeRole"
+       }
+     ] 
+   }'
+
+    #+END_SRC
+
+    #+BEGIN_SRC
+aws iam attach-role-policy  --policy-arn arn:aws:iam::729581434105:policy/Aurora2TiDBCloud-policy  --role-name Aurora2TiDBCloud-role
+   #+END_SRC
+** Data import from GUI.
+   It takes about 44 minutes to complete 250GB data.
+ [[./png/aurora2tidbcloud/05.tidbcloud.import.02.png]]
+ [[./png/aurora2tidbcloud/05.tidbcloud.import.03.png]]
+ [[./png/aurora2tidbcloud/05.tidbcloud.import.04.png]]
+** Data comparison between TiDB Cloud and Aurora snapshot
+   In this example, the data comparison is done between Aurora and TiDB Cloud directly. In the prod migration phase, not to impact the application, recommend to restore the snapshot to new instance for data comparison.
+ [[./png/aurora2tidbcloud/05.tidbcloud.import.05.png]]
+ [[./png/aurora2tidbcloud/05.tidbcloud.import.06.png]]
+* Start DM SYNC process
+** OP DM
+*** DM Cluster config
+  [[./png/aurora2tidbcloud/06.dm.setup.01.png]]
+*** DM Source config file
+  [[./png/aurora2tidbcloud/06.dm.setup.02.png]]
+*** DM task config file
+    The binlog-name and binlog-pos is taken before aurora snapshot for data consistency.
+  [[./png/aurora2tidbcloud/06.dm.setup.03.png]]
+*** Check the DM status
+  [[./png/aurora2tidbcloud/06.dm.setup.04.png]]
+  [[./png/aurora2tidbcloud/06.dm.setup.05.png]]
+* Run the sysbench against Aurora
+ [[./png/aurora2tidbcloud/07.dm.sync.01.png]]
+** Compare the data between Aurora and TiDB Cloud after DM sync
+   This step is optional for prod migration. If the app needs to switch to new DB ASAP, this step can be taken only for testing. Recommend users to figure out some business query to verify the data bewteen TiDB Cloud and aurora.
+ [[./png/aurora2tidbcloud/07.dm.sync.02.png]]
+* Stop the DM sync task from Aurora to TiDB Cloud
+ [[./png/aurora2tidbcloud/07.dm.sync.03.png]]
+ [[./png/aurora2tidbcloud/07.dm.sync.04.png]]
+* Start the TiCDC sync from TiDB Cloud to Aurora
+ [[./png/aurora2tidbcloud/08.ticdc.sync.01.png]]
+ [[./png/aurora2tidbcloud/08.ticdc.sync.02.png]]
+** Run sysbench against TiDB Cloud to simulate the APP switch
+ [[./png/aurora2tidbcloud/08.ticdc.sync.03.png]]
+** After 1 hour, compare the data again
+   This process is only used on the test environment. In the prod, the final comparison is not required.
+ [[./png/aurora2tidbcloud/08.ticdc.sync.04.png]]
+
+
+* Reference
+** Cluster installation
+   #+BEGIN_SRC sh
+OhMyTiUP$embed/examples/aws/aurora2tidbcloud.yaml
+workstation:
+  cidr: 172.82.0.0/16
+  #instance_type: m5.2xlarge
+  instance_type: c5.4xlarge
+  keyname: jay-us-east-01
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem
+  username: admin
+  imageid: ami-07d02ee1eeb0c996c
+  volumeSize: 100
+  #shared: false
+aurora:
+  cidr: 172.84.0.0/16
+  instance_type: db.r5.large
+  db_parameter_family_group: aurora-mysql5.7
+  engine: aurora-mysql
+  engine_version: 5.7.mysql_aurora.2.10.1
+  db_username: admin
+  db_password: 1234Abcd
+  public_accessible_flag: false
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 172.83.0.0/16                           # The cidr for the VPC
+    instance_type: m5.2xlarge                     # Default instance type
+    tidb_version: v6.1.0                          # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+  dm-master:
+    instance_type: c5.2xlarge                     # Instance type for dm master
+    count: 3                                      # Number of dm master node to be deployed
+  dm-worker:
+    instance_type: c5.2xlarge                     # Instance type for dm worker
+    count: 3                                      # Number of dm worker node to be deployed
+tidb_cloud:
+  host: private-tidb.ixezxfbrz7x.clusters.tidb-cloud.com
+  port: 4000
+  user: root
+  password: 1234Abcd
+  databases:
+    - test01
+    - test02
+   #+END_SRC
+** Deploy Aurora DB
+   #+BEGIN_SRC
+./bin/aws aurora deploy aurora2tidbtest embed/examples/aws/aurora.yaml
+   #+END_SRC
+** Generate test data(Need to check data volume)
+   #+BEGIN_SRC
+$mysqlslap generate test data
+$ SELECT 
+     table_schema as `Database`, 
+     table_name AS `Table`, 
+     round(((data_length + index_length) / 1024 / 1024), 2) `Size in MB` 
+FROM information_schema.TABLES 
+ORDER BY (data_length + index_length) DESC;
+   #+END_SRC
+   
+
+
+   tiup dmctl --master-addr  172.83.1.119:8261  operate-source create /opt/tidb/dm-source.yml
+
+   tiup dmctl --master-addr 172.83.1.119:8261 start-task /opt/tidb/dm-task.yml
+
+
+   #+BEGIN_SRC
+aurora$ mysqldump -h aurora2tidbcloudtest-rdsdbinstance1-uabt2ganvcep.cxmxisy1o2a2.us-east-1.rds.amazonaws.com -u admin -P 3306 -p1234Abcd --no-data test01 > /tmp/schema.ddl
+   #+END_SRC
+
+

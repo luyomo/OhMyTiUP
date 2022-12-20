@@ -132,17 +132,11 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
 	envInitTasks = append(envInitTasks, t2)
 
-	if base.AwsTopoConfigs.DMMaster.Count == 0 {
-		return errors.New("Please specify the DM Master")
+	if base.AwsTopoConfigs.DMMaster.Count > 0 || base.AwsTopoConfigs.DMWorker.Count > 0 {
+		t3 := task.NewBuilder().CreateDMCluster(&sexecutor, "dm", base.AwsTopoConfigs, &clusterInfo).
+			BuildAsStep(fmt.Sprintf("  - Preparing dm servers"))
+		envInitTasks = append(envInitTasks, t3)
 	}
-
-	if base.AwsTopoConfigs.DMWorker.Count == 0 {
-		return errors.New("Please specify the DM Worker")
-	}
-
-	t3 := task.NewBuilder().CreateDMCluster(&sexecutor, "dm", base.AwsTopoConfigs, &clusterInfo).
-		BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-	envInitTasks = append(envInitTasks, t3)
 
 	builder := task.NewBuilder().
 		ParallelStep("+ Initialize target host environments", false, envInitTasks...)

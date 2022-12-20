@@ -519,6 +519,40 @@ func GetWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, cl
 	return &wsexecutor, nil
 }
 
+func GetWSExecutor02(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType, user, keyFile string, awsCliFlag bool, args *interface{}) (*ctxt.Executor, error) {
+	var envs []string
+
+	if awsCliFlag == true {
+		cfg, err := config.LoadDefaultConfig(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("Account id is: <%#v> \n\n\n", cfg)
+
+		envs = append(envs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", cfg.Region))
+
+		crentials, err := cfg.Credentials.Retrieve(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+
+		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", crentials.AccessKeyID))
+		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
+	}
+
+	workstation, err := getWorkstation(texecutor, ctx, clusterName, clusterType)
+	if err != nil {
+		return nil, err
+	}
+
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile}, envs)
+	if err != nil {
+		return nil, err
+	}
+	//lsb_release --id
+	return &wsexecutor, nil
+}
+
 func containString(s []string, e string) bool {
 	for _, a := range s {
 		if a == e {
@@ -983,15 +1017,15 @@ func InitClientInstance() error {
 }
 
 // Get the user from increntials for resource tag addition
-func GetCallerUser(ctx context.Context) (string, error) {
+func GetCallerUser(ctx context.Context) (string, string, error) {
 	if ctx.Value("tagOwner") != nil && ctx.Value("tagOwner") != "" {
-		return ctx.Value("tagOwner").(string), nil
+		return ctx.Value("tagOwner").(string), "", nil
 	}
 
 	_ctx := context.TODO()
 	cfg, err := config.LoadDefaultConfig(_ctx)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	_client := sts.NewFromConfig(cfg)
@@ -1000,7 +1034,7 @@ func GetCallerUser(ctx context.Context) (string, error) {
 
 	_caller, err := _client.GetCallerIdentity(ctx, _getCallerIdentityInput)
 
-	return strings.Split((*_caller.Arn), "/")[1], nil
+	return strings.Split((*_caller.Arn), "/")[1], *_caller.Account, nil
 }
 
 func GetAWSCrential(ctx context.Context) (*aws.Credentials, error) {
