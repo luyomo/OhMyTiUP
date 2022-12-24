@@ -24,7 +24,7 @@ OhMyTiUP$ sudo cp target/hello-world-0.0.1-SNAPSHOT.war /opt/www/
 
 ** Nginx unit install
    #+BEGIN_SRC
-OhMyTiUP$ sudo apt-get install unit unit-dev unit-jsc11
+OhMyTiUP$ sudo apt-get install libc6-dev unit unit-dev unit-jsc11
    #+END_SRC
 
 ** Start the config

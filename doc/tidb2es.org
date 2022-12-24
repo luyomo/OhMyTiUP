@@ -221,11 +221,20 @@ OhMyTiUP$ curl --insecure -u elastic:1234Abcd https://52.20.241.191/
    #+END_SRC
 
 * TODO
-  + Prepare TiDB2ES frame
-    - TiDB Setup
-    - Kafka Setup
-  + K8S setup
-    - EKS cluster
-    - Provider setup
-    - Dynamic volume setup
-  + Setup replication from TiDB to kafka to ES
+  + Create node group
+  + Get kubeconfig from eks
+  + helm
+    - install nginx-ingress
+    
+
+  curl -Lo aws-iam-authenticator https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v0.5.9/aws-iam-authenticator_0.5.9_linux_amd64
+
+  
+  aws eks update-kubeconfig --region region-code --name my-cluster
+  curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.23.6/bin/linux/amd64/kubectl
+
+
+
+  kubectl apply -f https://docs.projectcalico.org/manifests/calico-typha.yaml
+
+  -> ip-172-89-2-252.ec2.internal becomes ready

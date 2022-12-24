@@ -129,7 +129,7 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 			{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
 		}
 
-		createRoleInput := &iam.CreateRoleInput{AssumeRolePolicyDocument: aws.String("{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"eks.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}]}"), RoleName: aws.String(clusterName), Tags: tags}
+		createRoleInput := &iam.CreateRoleInput{AssumeRolePolicyDocument: aws.String("{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"eks.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}, {\"Effect\": \"Allow\",\"Principal\": {\"Service\": \"ec2.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}]}"), RoleName: aws.String(clusterName), Tags: tags}
 
 		createRole, err := clientIam.CreateRole(context.TODO(), createRoleInput)
 		if err != nil {
@@ -142,13 +142,15 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The role arn is <%s> \n\n\n", roleArn)
 
-	attachRolePolicyInput := &iam.AttachRolePolicyInput{PolicyArn: aws.String("arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"), RoleName: aws.String(clusterName)}
+	for _, policy := range []string{"AmazonEKSClusterPolicy", "AmazonEKSWorkerNodePolicy", "AmazonEC2ContainerRegistryReadOnly"} {
+		attachRolePolicyInput := &iam.AttachRolePolicyInput{PolicyArn: aws.String(fmt.Sprintf("arn:aws:iam::aws:policy/%s", policy)), RoleName: aws.String(clusterName)}
 
-	attachRolePolicy, err := clientIam.AttachRolePolicy(context.TODO(), attachRolePolicyInput)
-	if err != nil {
-		return err
+		attachRolePolicy, err := clientIam.AttachRolePolicy(context.TODO(), attachRolePolicyInput)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The attached role policy is <%#v> \n\n\n\n", attachRolePolicy)
 	}
-	fmt.Printf("The attached role policy is <%#v> \n\n\n\n", attachRolePolicy)
 
 	clientEks := eks.NewFromConfig(cfg)
 	// 001. VpcConfigRequest
@@ -174,6 +176,22 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 
 	}
 	fmt.Printf("The cluster info is <%s> \n\n\n\n", *describeCluster.Cluster.Identity.Oidc.Issuer)
+
+	for _, _cmd := range []string{"curl -L https://storage.googleapis.com/kubernetes-release/release/v1.23.6/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl", "chmod 755 /usr/local/bin/kubectl"} {
+		if _, _, err = (*workstation).Execute(ctx, _cmd, true); err != nil {
+			return err
+		}
+	}
+
+	for _, _cmd := range []string{"curl -Lo /usr/local/bin/aws-iam-authenticator https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v0.5.9/aws-iam-authenticator_0.5.9_linux_amd64", "chmod 755 /usr/local/bin/aws-iam-authenticator"} {
+		if _, _, err = (*workstation).Execute(ctx, _cmd, true); err != nil {
+			return err
+		}
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, "aws eks update-kubeconfig --region us-east-1 --name estest", false); err != nil {
+		return err
+	}
 
 	// IAM provider set up: CreateOpenIDConnectProviderInput
 	// createOpenIDConnectProviderInput := &iam.CreateOpenIDConnectProviderInput{Url: describeCluster.Cluster.Identity.Oidc.Issuer, ClientIDList: []string{"sts.amazonaws.com"}}
@@ -218,6 +236,46 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 			return err
 		}
 		fmt.Printf("Create addon is <%#v> \n\n\n", createAddon)
+	}
+
+	// describeNodegroupInput := &eks.DescribeNodegroupInput{ClusterName: aws.String(clusterName), NodegroupName: aws.String("esNodeGroup")}
+	// describeNodegroup, err := clientEks.DescribeNodegroup(context.TODO(), describeNodegroupInput)
+	// if err != nil {
+	// 	return err
+	// }
+
+	listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
+	listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
+	if err != nil {
+		return err
+	}
+
+	if containString(listNodegroup.Nodegroups, "esNodeGroup") == false {
+
+		// Node group creation
+		nodegroupScalingConfig := &types.NodegroupScalingConfig{DesiredSize: aws.Int32(1), MaxSize: aws.Int32(1), MinSize: aws.Int32(1)}
+		createNodegroupInput := &eks.CreateNodegroupInput{ClusterName: aws.String(clusterName), NodeRole: aws.String(roleArn), NodegroupName: aws.String("esNodeGroup"), Subnets: c.clusterInfo.privateSubnets, InstanceTypes: []string{"c5.xlarge"}, DiskSize: aws.Int32(20), ScalingConfig: nodegroupScalingConfig}
+
+		createNodegroup, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The create node group is <%#v>\n\n\n", createNodegroup)
+	}
+
+	fmt.Printf("-----------------------------------\n\n\n")
+	fmt.Printf("The list group is <%#v> \n\n\n\n\n", listNodegroup.Nodegroups)
+	if containString(listNodegroup.Nodegroups, "elasticsearch") == false {
+		// Node group creation
+		nodegroupScalingConfig := &types.NodegroupScalingConfig{DesiredSize: aws.Int32(3), MaxSize: aws.Int32(3), MinSize: aws.Int32(3)}
+		createNodegroupInput := &eks.CreateNodegroupInput{ClusterName: aws.String(clusterName), NodeRole: aws.String(roleArn), NodegroupName: aws.String("elasticsearch"), Subnets: c.clusterInfo.privateSubnets, InstanceTypes: []string{"c5.xlarge"}, DiskSize: aws.Int32(20), ScalingConfig: nodegroupScalingConfig}
+
+		createNodegroup, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The create node group is <%#v>\n\n\n", createNodegroup)
+
 	}
 
 	return nil
