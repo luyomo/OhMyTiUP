@@ -30,8 +30,8 @@ bin/
 /tests/tiup_mirrors/*.sha1
 /tests/tiup_mirrors/
 /logs
+doc/*.html
 docker/secret/
 *__failpoint_binding__.go
 *__failpoint_stash__
 
-*/*.html
