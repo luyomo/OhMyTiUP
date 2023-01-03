@@ -976,10 +976,11 @@ func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
 		Step(fmt.Sprintf("%s : Creating EKS ... ...", subClusterType), &DeployEKS{
-			pexecutor:      pexecutor,
-			subClusterType: subClusterType,
-			awsWSConfigs:   awsWSConfigs,
-			clusterInfo:    clusterInfo,
+			pexecutor:         pexecutor,
+			subClusterType:    subClusterType,
+			awsGeneralConfigs: &awsESConfigs.General,
+			awsWSConfigs:      awsWSConfigs,
+			clusterInfo:       clusterInfo,
 		})
 
 	return b

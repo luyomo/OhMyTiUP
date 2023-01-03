@@ -93,6 +93,7 @@ gp2 (default)   kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   f
    Please refer to [[https://github.com/elastic/helm-charts/tree/main/elasticsearch][Elticsearch doc]] for elasticsearch installation.
   #+BEGIN_SRC
 OhMyTiUP$ helm repo add bitnami https://charts.bitnami.com/bitnami
+OhMyTiUP$ helm repo add elastic https://helm.elastic.co
 OhMyTiUP$ more Values.yaml
 antiAffinity: "soft"
 
@@ -119,7 +120,7 @@ volumeClaimTemplate:
     requests:
       storage: 100M
 
-OhMyTiUP$ helm install elasticsearch bitnami/elasticsearch -f Values.yaml
+OhMyTiUP$ helm install elasticsearch elastic/elasticsearch -f Values.yaml
   #+END_SRC
 
 ** ingress setup
@@ -220,6 +221,96 @@ OhMyTiUP$ curl --insecure -u elastic:1234Abcd https://52.20.241.191/
 
    #+END_SRC
 
+** Setup the nginx ingress controller
+   Setup the nginx ingress controller with internal alb.
+   #+BEGIN_SRC
+ohMyTiUP$ more internal-alb.yaml
+controller:
+  ingressClassByName: true
+
+  ingressClassResource:
+    name: nginx-internal
+    enabled: true
+    default: false
+    controllerValue: "k8s.io/ingress-nginx-internal"
+
+  service:
+    # Disable the external LB
+    external:
+      enabled: false
+
+    # Enable the internal LB. The annotations are important here, without
+    # these you will get a "classic" loadbalancer
+    internal:
+      enabled: true
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: 'true'
+        service.beta.kubernetes.io/aws-load-balancer-type: alb
+OhMyTiUP$ helm install nginx-ingress-controller ingress-nginx/ingress-nginx -f internal-alb.yaml
+   #+END_SRC
+** Setup the nginx ingress
+   #+BEGIN_SRC
+OhMyTiUP$ more ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: helloworld
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    kubernetes.io/ingress.class: "nginx"
+spec:
+        #  ingressClassName: nginx
+  defaultBackend:
+    service:
+      name: elasticsearch-master
+      port:
+        number: 9200
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: elasticsearch-master
+            port:
+              number: 9200
+OhMyTiUP$ kubectl create -f ./ingress.yaml
+   #+END_SRC
+
+** Confirmation
+   #+BEGIN_SRC
+OhMyTiUP$ kubectl get service
+NAME                                                          TYPE           CLUSTER-IP       EXTERNAL-IP                                                                        PORT(S)                      AGE
+elasticsearch-master                                          ClusterIP      10.100.91.100    <none>                                                                             9200/TCP,9300/TCP            5h28m
+elasticsearch-master-headless                                 ClusterIP      None             <none>                                                                             9200/TCP,9300/TCP            5h28m
+kubernetes                                                    ClusterIP      10.100.0.1       <none>                                                                             443/TCP                      7d22h
+nginx-ingress-controller-ingress-nginx-controller-admission   ClusterIP      10.100.185.203   <none>                                                                             443/TCP                      108m
+nginx-ingress-controller-ingress-nginx-controller-internal    LoadBalancer   10.100.176.255   internal-ad7066fdb66964bde95b5149b37d6add-1296352725.us-east-1.elb.amazonaws.com   80:31638/TCP,443:32760/TCP   108m
+
+OhMyTiUP$ curl -k -u elastic:1234Abcd https://internal-ad7066fdb66964bde95b5149b37d6add-1296352725.us-east-1.elb.amazonaws.com/
+{
+  "name" : "elasticsearch-master-2",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "SmDD_5HRRhSamZeF65fFbQ",
+  "version" : {
+    "number" : "8.5.1",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "c1310c45fc534583afe2c1c03046491efba2bba2",
+    "build_date" : "2022-11-09T21:02:20.169855900Z",
+    "build_snapshot" : false,
+    "lucene_version" : "9.4.1",
+    "minimum_wire_compatibility_version" : "7.17.0",
+    "minimum_index_compatibility_version" : "7.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+   #+END_SRC
+
+
 * TODO
   + Create node group
   + Get kubeconfig from eks
@@ -238,3 +329,98 @@ OhMyTiUP$ curl --insecure -u elastic:1234Abcd https://52.20.241.191/
   kubectl apply -f https://docs.projectcalico.org/manifests/calico-typha.yaml
 
   -> ip-172-89-2-252.ec2.internal becomes ready
+
+
+  kubectl get validatingwebhookconfigurations
+  ->
+  kubectl delete validatingwebhookconfigurations nginx-ingress-controller-ingress-nginx-admission
+
+
+
+Why do we need to add the label: dedicate:elastic
+                  taint: dedicat:elastic:noschedule
+
+
+
+
+* DIFF
+#+BEGIN_SRC
+  admin@ip-172-82-11-48:~/workspace/new-cluster$ eksctl get nodegroup --cluster estest 
+CLUSTER NODEGROUP       STATUS  CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID        ASG NAME                            TYPE
+estest  elasticsearch   ACTIVE  2022-12-26T22:37:10Z    3               3               3                       c5.xlarge       AL2_x86_64      eks-elasticsearch-f2c2a84a-9375-7345-9edc-ee6d49d20d34       managed
+estest  esNodeGroup     ACTIVE  2022-12-26T22:29:40Z    1               1               1                       c5.xlarge       AL2_x86_64      eks-esNodeGroup-f6c2a847-236b-033a-fd38-9733d80feddd managed
+admin@ip-172-82-11-48:~/workspace/new-cluster$ eksctl get nodegroup --cluster escluster
+CLUSTER         NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID                ASG NAME    TYPE
+escluster       admin           CREATE_COMPLETE 2022-12-28T01:42:19Z    1               1               1                       m5.large        ami-0c9424a408e18bcc9   eksctl-escluster-nodegroup-admin-NodeGroup-O2KFDZEBC0CG              unmanaged
+escluster       elastic         CREATE_COMPLETE 2022-12-28T01:42:19Z    3               3               3                       c5.2xlarge      ami-0c9424a408e18bcc9   eksctl-escluster-nodegroup-elastic-NodeGroup-NHNPBCTTS7DG    unmanaged
+#+END_SRC
+
+** Failed to create volume
+   #+BEGIN_SRC
+admin@ip-172-82-11-48:~/workspace/new-cluster$ kubectl describe pvc data-elasticsearch-data-0                                                                                        
+Name:          data-elasticsearch-data-0                                                                                                                                             
+Namespace:     default                                                                                                                                                               
+StorageClass:  gp2                                                                                                                                                                   
+Status:        Pending                                                                                                                                                               
+Volume:                                                                                                                                                                              
+Labels:        app.kubernetes.io/component=data                                                                                                                                      
+               app.kubernetes.io/instance=elasticsearch                                                                                                                              
+               app.kubernetes.io/name=elasticsearch                                                                                                                                  
+Annotations:   volume.beta.kubernetes.io/storage-provisioner: ebs.csi.aws.com                                                                                                        
+               volume.kubernetes.io/selected-node: ip-192-168-83-131.ec2.internal                                                                                                    
+               volume.kubernetes.io/storage-provisioner: ebs.csi.aws.com                                                                                                             
+Finalizers:    [kubernetes.io/pvc-protection]                                                                                                                                        
+Capacity:                                                                                                                                                                            
+Access Modes:                                                                                                                                                                        
+VolumeMode:    Filesystem
+Used By:       elasticsearch-data-0
+Events:
+  Type     Reason                Age                  From                                                                                      Message
+  ----     ------                ----                 ----                                                                                      -------
+  Normal   WaitForFirstConsumer  2m29s                persistentvolume-controller                                                               waiting for first consumer to be created before binding
+  Warning  ProvisioningFailed    58s (x6 over 2m19s)  ebs.csi.aws.com_ebs-csi-controller-6f7bfdc97f-jtzbq_fbda4298-cf5f-4ea7-82aa-2d41b9083e1e  failed to provision volume with StorageClass "gp2": rpc error: code = DeadlineExceeded desc = context deadline exceeded
+  Normal   Provisioning          26s (x7 over 2m29s)  ebs.csi.aws.com_ebs-csi-controller-6f7bfdc97f-jtzbq_fbda4298-cf5f-4ea7-82aa-2d41b9083e1e  External provisioner is provisioning volume for claim "default/data-elasticsearch-data-0"
+  Warning  ProvisioningFailed    16s                  ebs.csi.aws.com_ebs-csi-controller-6f7bfdc97f-jtzbq_fbda4298-cf5f-4ea7-82aa-2d41b9083e1e  failed to provision volume with StorageClass "gp2": rpc error: code = Internal desc = Could not create volume "pvc-c61f5e44-257a-4326-8f64-8b0b4b447d63": could not create volume in EC2: RequestCanceled: request context canceled
+caused by: context deadline exceeded
+  Normal  ExternalProvisioning  6s (x12 over 2m29s)  persistentvolume-controller  waiting for a volume to be created, either by external provisioner "ebs.csi.aws.com" or manually created by system administrator
+
+   #+END_SRC
+
+** Set es-gp2 as default csi
+   #+BEGIN_SRC
+kubectl patch storageclass es-gp2 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}' 
+   #+END_SRC
+
+** calica
+   #+BEGIN_SRC
+OhMyTiUP$ kubectl describe pod calico-node-r9xf6 -n kube-system
+... ...
+Events:
+  Type     Reason     Age                     From     Message
+  ----     ------     ----                    ----     -------
+  Warning  Unhealthy  4m8s (x1010 over 152m)  kubelet  (combined from similar events): Readiness probe failed: 2022-12-28 05:59:12.666 [INFO][4287] confd/health.go 180: Number of node(s) with BGP peering established = 0
+calico/node is not ready: BIRD is not ready: BGP not established with 192.168.84.163,192.168.91.125,192.168.94.53
+   #+END_SRC
+
+** Instances failed to join the kubernetes cluster(NodeCreationFailure)
+   The above occurred when tried to generate the node group using golang sdk
+
+**  "Ignoring ingress because of error while validating ingress class" ingress="default/helloworld" error="no object matching key \"nginx\" in local store"
+The curl is 404. Not found nginx
+#+BEGIN_SRC
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: helloworld
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    kubernetes.io/ingress.class: "nginx"                       # Added this annotations
+spec:
+        #  ingressClassName: nginx                             # comment out
+  defaultBackend:
+    service:
+      name: elasticsearch-master
+      port:
+        number: 9200
+.. ... 
+#+END_SRC
