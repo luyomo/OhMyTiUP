@@ -1,0 +1,105 @@
+* TiDB Setup
+  #+BEGIN_SRC
+OhMyTiUP$ more 
+workstation:
+  cidr: 172.82.0.0/16
+  imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+  keyname: jay-us-east-01                         # Public key for workstation instance deployment
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+  instance_type: c5.2xlarge
+  volumeSize: 100                                 # disk size in the workstation
+  username: admin
+  enable_monitoring: enabled
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+    keyname: jay-us-east-01                         # Public key for workstation instance deployment
+    cidr: 172.83.0.0/16
+    instance_type: t2.micro
+    tidb_version: v6.4.0
+    included_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1a
+      - us-east-1b
+      - us-east-1c
+  pd:
+    instance_type: t2.xlarge
+    count: 1
+  tidb:
+    instance_type: t2.xlarge
+    count: 2
+  tikv:
+    -
+      instance_type: t2.xlarge
+      count: 3
+      volumeSize: 100                               # disk size in the workstation
+      volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
+      iops: 3000
+OhMyTiUP$ ./bin/aws tidb deploy auditlogtest /tmp/aws-nodes-tidb.yaml
+OhMyTiUP$ ./bin/aws tidb list auditlogtest
+... ...
+Load Balancer:      auditlogtest-26d3e82a7d001e15.elb.us-east-1.amazonaws.com
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP    Public IP      Image ID
+--------------  -----------------  -----    -----------          -------------  -----------    ---------      --------
+pd              tidb               running  i-014e6c2e81b668f44  t2.xlarge      172.83.1.139                  ami-07d02ee1eeb0c996c
+tidb            tidb               running  i-0a6ed99cdf42c97f9  t2.xlarge      172.83.2.230                  ami-07d02ee1eeb0c996c
+tidb            tidb               running  i-0d0b9bc88a4a971d7  t2.xlarge      172.83.1.94                   ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-096499d9c108f12e0  t2.xlarge      172.83.3.227                  ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-0b7d04614e3a6b96a  t2.xlarge      172.83.2.198                  ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-0409e4481ce41e4f0  t2.xlarge      172.83.1.88                   ami-07d02ee1eeb0c996c
+workstation     workstation        running  i-069ed0fda19bf7968  c5.2xlarge     172.82.11.149  44.200.39.202  ami-07d02ee1eeb0c996c
+  #+END_SRC
+* audit log setup
+Please refer to [TiDB Audit Plugin User Guide]
+#+BEGIN_SRC
+OhMyTiUP$ wget https://download.pingcap.org/enterprise-plugin/optimization/v6.5.0/bda9d165a66d66d4b8f234796e10a0acedcd5cd1/centos7/enterprise-plugin-linux-amd64-enterprise.tar.gz
+OhMyTiUP$ tar xvf enterprise-plugin-linux-amd64-enterprise.tar.gz
+OhMyTiUP$ tiup cluster exec auditlogtest --command "mkdir {{.DeployDir}}/plugin"
+OhMyTiUP$ tiup cluster push auditlogtest bin/audit-1.so {{.DeployDir}}/plugin/audit-1.so
+OhMyTiUP$ tiup cluster edit-config auditlogtest
+...
+server_configs:
+  tidb:
+    instance.plugin_dir: /home/admin/tidb/tidb-deploy/tidb-4000/plugin
+    instance.plugin_load: audit-1
+    performance.txn-total-size-limit: 107374182400
+...
+#+END_SRC
+Please refer to tidb: config.go:144
+MySQL [test]> show plugins;
++-------+--------------+-------+----------------------------------------------------------+---------+---------+
+| Name  | Status       | Type  | Library                                                  | License | Version |
++-------+--------------+-------+----------------------------------------------------------+---------+---------+
+| audit | Ready-enable | Audit | /home/admin/tidb/tidb-deploy/tidb-4000/plugin/audit-1.so |         | 1       |
++-------+--------------+-------+----------------------------------------------------------+---------+---------+
+1 row in set (0.001 sec)
+
+MySQL [test]> admin plugins enable audit;
+Query OK, 0 rows affected (0.002 sec)
+
+MySQL [test]> select * from mysql.tidb_audit_table_access; 
+Empty set (0.003 sec)
+
+MySQL [test]> insert into mysql.tidb_audit_table_access (user, db, tbl, access_type) values ('.*', '.*', '.*', '');
+Query OK, 1 row affected (0.016 sec)
+
+MySQL [test]> select * from mysql.tidb_audit_table_access; 
++----+------+----+-----+-------------+---------------------+---------------------+
+| id | user | db | tbl | access_type | create_time         | update_time         |
++----+------+----+-----+-------------+---------------------+---------------------+
+|  1 | .*   | .* | .*  |             | 2023-01-03 14:29:41 | 2023-01-03 14:29:41 |
++----+------+----+-----+-------------+---------------------+---------------------+
+1 row in set (0.003 sec)
+MySQL [test]> flush tidb plugins audit;
+Query OK, 0 rows affected (0.003 sec)
+* Check disk size
+      | Event                               | Log size |
+      |-------------------------------------+----------|
+      | login                               | 4k       |
+      | select 1                            | 1k       |
+      | show tables                         | 1k       |
+      | insert into test01 values(1,1);     | 1k       |
+      | update test01 set col02 = 2;        | 1k       |
+      | delete from test01 where col01 = 1; | 1k       |
+      | drop table test01;                  | 1k       |
