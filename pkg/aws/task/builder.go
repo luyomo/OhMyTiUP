@@ -967,13 +967,6 @@ func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.
 	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
 	clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
 
-	// b.tasks = append(b.tasks, &DeployEKS{
-	// 	pexecutor:      pexecutor,
-	// 	subClusterType: subClusterType,
-	// 	awsWSConfigs:   awsWSConfigs,
-	// 	clusterInfo:    clusterInfo,
-	// })
-
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
 		Step(fmt.Sprintf("%s : Creating EKS ... ...", subClusterType), &DeployEKS{
 			pexecutor:         pexecutor,
@@ -982,6 +975,24 @@ func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.
 			awsWSConfigs:      awsWSConfigs,
 			clusterInfo:       clusterInfo,
 		})
+
+	return b
+}
+
+func (b *Builder) CreateK8SESCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsESConfigs *spec.AwsESTopoConfigs, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+
+	clusterInfo.cidr = awsESConfigs.General.CIDR
+	clusterInfo.excludedAZ = awsESConfigs.General.ExcludedAZ
+	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
+	clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
+
+	b.Step(fmt.Sprintf("%s : Creating ES on EKS ... ...", subClusterType), &DeployK8SES{
+		pexecutor:         pexecutor,
+		subClusterType:    subClusterType,
+		awsGeneralConfigs: &awsESConfigs.General,
+		awsWSConfigs:      awsWSConfigs,
+		clusterInfo:       clusterInfo,
+	})
 
 	return b
 }

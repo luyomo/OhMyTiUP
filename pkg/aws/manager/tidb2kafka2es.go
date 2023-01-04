@@ -108,6 +108,7 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	// }
 
 	t4 := task.NewBuilder().CreateEKSCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
+		CreateK8SESCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing eks servers"))
 	envInitTasks = append(envInitTasks, t4)
 
