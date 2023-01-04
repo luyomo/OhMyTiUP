@@ -281,7 +281,27 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("chmod 600 ~/.kube/config", clusterName), false); err != nil {
+	if _, _, err = (*workstation).Execute(ctx, "chmod 600 ~/.kube/config", false); err != nil {
+		return err
+	}
+
+	if _, _, err = (*workstation).Execute(ctx, "mkdir -p ~/.aws", false); err != nil {
+		return err
+	}
+
+	_crentials, err := GetAWSCrential()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The crentials is <%#v> \n\n\n\n", _crentials)
+
+	err = (*workstation).TransferTemplate(ctx, "templates/config/eks/aws.config.tpl", "~/.aws/config", "0600", map[string]string{"REGION": cfg.Region}, false, 0)
+	if err != nil {
+		return err
+	}
+
+	err = (*workstation).TransferTemplate(ctx, "templates/config/eks/aws.credentials.tpl", "~/.aws/credentials", "0600", *_crentials, false, 0)
+	if err != nil {
 		return err
 	}
 

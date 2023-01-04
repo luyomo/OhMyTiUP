@@ -1037,14 +1037,15 @@ func GetCallerUser(ctx context.Context) (string, string, error) {
 	return strings.Split((*_caller.Arn), "/")[1], *_caller.Account, nil
 }
 
-func GetAWSCrential(ctx context.Context) (*aws.Credentials, error) {
+// func GetAWSCrential(ctx context.Context) (*aws.Credentials, error) {
+func GetAWSCrential() (*aws.Credentials, error) {
 	_ctx := context.TODO()
 	cfg, err := config.LoadDefaultConfig(_ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	_crentials, err := cfg.Credentials.Retrieve(ctx)
+	_crentials, err := cfg.Credentials.Retrieve(_ctx)
 	return &_crentials, nil
 }
 
