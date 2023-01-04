@@ -1,4 +1,5 @@
 * Oh My TiUP
+  [[https://luyomo.github.io/OhMyTiUP/index.html][gitee]]
 ** Contents
   - [[./README.org#Replication][Replication]]
   - [[./README.org#Others][Others]]

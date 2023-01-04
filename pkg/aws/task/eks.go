@@ -16,14 +16,13 @@ package task
 import (
 	"context"
 	// "encoding/json"
-	"fmt"
-	// "time"
 	"errors"
+	"fmt"
+	"time"
 
+	"github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	// "go.uber.org/zap"
-	"github.com/aws/smithy-go"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -44,15 +43,6 @@ type DeployEKS struct {
 	clusterInfo       *ClusterInfo
 }
 
-// type KafkaNodes struct {
-// 	All            []string
-// 	Zookeeper      []string
-// 	Broker         []string
-// 	SchemaRegistry []string
-// 	RestService    []string
-// 	Connector      []string
-// }
-
 // Execute implements the Task interface
 func (c *DeployEKS) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
@@ -71,17 +61,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// 001.02. Send the access key to workstation
-	// err = (*workstation).Transfer(ctx, c.clusterInfo.keyFile, "~/.ssh/id_rsa", false, 0)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// _, _, err = (*workstation).Execute(ctx, `chmod 600 ~/.ssh/id_rsa`, false)
-	// if err != nil {
-	// 	return err
-	// }
-
 	if _, _, err = (*workstation).Execute(ctx, `apt-get update`, true); err != nil {
 		return err
 	}
@@ -91,7 +70,7 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		return err
 	}
 
-	/* ********** ********** 004. eksctl install ********** */
+	/* ********** ********** 003. eksctl install ********** */
 	if _, _, err = (*workstation).Execute(ctx, `mkdir -p /opt/k8s`, true); err != nil {
 		return err
 	}
@@ -100,15 +79,15 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, `sudo mv /tmp/eksctl /usr/local/bin`, true); err != nil {
+	if _, _, err = (*workstation).Execute(ctx, `mv /tmp/eksctl /usr/local/bin`, true); err != nil {
 		return err
 	}
 
 	/* ********** ********** 003.EKS cluster generation ********** */
-	err = (*workstation).TransferTemplate(ctx, "templates/config/nodeGroup.yaml.tpl", "/opt/k8s/eks.yaml", "0644", nil, true, 0)
-	if err != nil {
-		return err
-	}
+	// err = (*workstation).TransferTemplate(ctx, "templates/config/nodeGroup.yaml.tpl", "/opt/k8s/eks.yaml", "0644", nil, true, 0)
+	// if err != nil {
+	// 	return err
+	// }
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -117,36 +96,82 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 
 	clientIam := iam.NewFromConfig(cfg)
 
+	// listRolesInput := &iam.ListRolesInput{PathPrefix: aws.String("/" + clusterName)}
+	// listRolesInput := &iam.ListRolesInput{PathPrefix: aws.String("/(estest)")}
+	// listRolesInput := &iam.ListRolesInput{}
+	// listRoles, err := clientIam.ListRoles(context.TODO(), listRolesInput)
+	// if err != nil {
+	// 	return err
+	// }
+	// for _, _role := range listRoles.Roles {
+	// 	// if _idx == 0 {
+	// 	fmt.Printf("The roles are <%#v> and <%#v> \n\n\n\n", *_role.Arn, *_role.Path)
+	// 	// }
+	// }
+
+	// // fmt.Printf("The roles are <%#v> and <%#v> \n\n\n\n", listRoles.Roles)
+
+	// return errors.New("Debuging test")
+
+	var roleArn string
 	getRoleInput := &iam.GetRoleInput{RoleName: aws.String(clusterName)}
 
 	getRoleOutput, err := clientIam.GetRole(context.TODO(), getRoleInput)
 	if err != nil {
-		return err
-	}
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() == "NoSuchEntity" {
+				tags := []iamTypes.Tag{
+					{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
+					{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
+					{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
+					{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
+					{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
+				}
 
-	var roleArn string
-	if getRoleOutput == nil {
+				createRoleInput := &iam.CreateRoleInput{AssumeRolePolicyDocument: aws.String("{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"eks.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}, {\"Effect\": \"Allow\",\"Principal\": {\"Service\": \"ec2.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}]}"), RoleName: aws.String(clusterName), Tags: tags}
 
-		tags := []iamTypes.Tag{
-			{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
-			{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
-			{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
-			{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
-			{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
-		}
+				createRole, err := clientIam.CreateRole(context.TODO(), createRoleInput)
+				if err != nil {
+					return err
+				}
+				roleArn = *createRole.Role.Arn
+				fmt.Printf("The created policy is <%#v> \n\n\n", createRole)
 
-		createRoleInput := &iam.CreateRoleInput{AssumeRolePolicyDocument: aws.String("{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"eks.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}, {\"Effect\": \"Allow\",\"Principal\": {\"Service\": \"ec2.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}]}"), RoleName: aws.String(clusterName), Tags: tags}
-
-		createRole, err := clientIam.CreateRole(context.TODO(), createRoleInput)
-		if err != nil {
+			} else {
+				return err
+			}
+		} else {
 			return err
 		}
-		roleArn = *createRole.Role.Arn
-		fmt.Printf("The created policy is <%#v> \n\n\n", createRole)
+
 	} else {
 		roleArn = *getRoleOutput.Role.Arn
 	}
-	fmt.Printf("The role arn is <%s> \n\n\n", roleArn)
+
+	// if getRoleOutput == nil {
+
+	// 	tags := []iamTypes.Tag{
+	// 		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
+	// 		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
+	// 		{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
+	// 		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
+	// 		{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
+	// 	}
+
+	// 	createRoleInput := &iam.CreateRoleInput{AssumeRolePolicyDocument: aws.String("{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"eks.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}, {\"Effect\": \"Allow\",\"Principal\": {\"Service\": \"ec2.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}]}"), RoleName: aws.String(clusterName), Tags: tags}
+
+	// 	createRole, err := clientIam.CreateRole(context.TODO(), createRoleInput)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	roleArn = *createRole.Role.Arn
+	// 	fmt.Printf("The created policy is <%#v> \n\n\n", createRole)
+	// } else {
+	// 	roleArn = *getRoleOutput.Role.Arn
+	// }
+	// fmt.Printf("The role arn is <%s> \n\n\n", roleArn)
 
 	// From manual setup, we only need below four policy: AmazonEKSWorkerNodePolicy/AmazonEC2ContainerRegistryReadOnly/AmazonSSMManagedInstanceCore/AmazonEKS_CNI_Policy  -> ec2
 	// eks cluster iam: AmazonEKSVPCResourceController/AmazonEKSClusterPolicy
@@ -220,6 +245,23 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		fmt.Printf("The result from create clutster is : <{%#v}>", createCluster)
 
 	}
+
+	for _idx := 0; _idx < 50; _idx++ {
+
+		// Todo : wait until the cluster become the active
+		describeClusterInput := &eks.DescribeClusterInput{Name: aws.String(clusterName)}
+
+		describeCluster, err := clientEks.DescribeCluster(context.TODO(), describeClusterInput)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The error is <%#v> \n\n\n\n", describeCluster.Cluster.Status)
+		if describeCluster.Cluster.Status == "ACTIVE" {
+			break
+		}
+		time.Sleep(1 * time.Minute)
+	}
+
 	// fmt.Printf("The cluster info is <%s> \n\n\n\n", *describeCluster.Cluster.Identity.Oidc.Issuer)
 
 	for _, _cmd := range []string{"which kubectl || curl -L https://storage.googleapis.com/kubernetes-release/release/v1.23.6/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl", "chmod 755 /usr/local/bin/kubectl"} {
@@ -234,13 +276,18 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		}
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, "aws eks update-kubeconfig --region us-east-1 --name estest", false); err != nil {
+	// if _, _, err = (*workstation).Execute(ctx, "aws eks update-kubeconfig --region us-east-1 --name estest", false); err != nil {
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("aws eks update-kubeconfig --name %s", clusterName), false); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, "kubectl apply -f https://docs.projectcalico.org/manifests/calico-typha.yaml", false); err != nil {
+	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("chmod 600 ~/.kube/config", clusterName), false); err != nil {
 		return err
 	}
+
+	// if _, _, err = (*workstation).Execute(ctx, "kubectl apply -f https://docs.projectcalico.org/manifests/calico-typha.yaml", false); err != nil {
+	// 	return err
+	// }
 
 	// IAM provider set up: CreateOpenIDConnectProviderInput
 	// createOpenIDConnectProviderInput := &iam.CreateOpenIDConnectProviderInput{Url: describeCluster.Cluster.Identity.Oidc.Issuer, ClientIDList: []string{"sts.amazonaws.com"}}
@@ -248,7 +295,7 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	// if err != nil {
 	// 	return err
 	// }
-	// fmt.Printf("The open id : <%#v> \n\n\n\n", createOpenIDConnectProvider)
+	// fmt.Printf("The open id : <%#v> \n\n\n\n", createOpenIDConnectProvider)gg1
 
 	// oidcRequest := &types.OidcIdentityProviderConfigRequest{ClientId: aws.String("sts.amazonaws.com"), IdentityProviderConfigName: aws.String("EAADCCE3D0AB71B4010FF90AFEFA69A7"), IssuerUrl: describeCluster.Cluster.Identity.Oidc.Issuer}
 	// associateIdentityProviderConfigInput := &eks.AssociateIdentityProviderConfigInput{ClusterName: aws.String(clusterName), Oidc: oidcRequest}
@@ -267,7 +314,7 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
    --namespace kube-system \
    --cluster %s \
    --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
-   --approve   --role-only   --role-name AmazonEKS_EBS_CSI_DriverRole`, clusterName), false); err != nil {
+   --approve   --role-only   --role-name AmazonEKS_EBS_CSI_DriverRole_%s`, clusterName, clusterName), false); err != nil {
 		return err
 	}
 
@@ -295,6 +342,8 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("Create addon is <%#v> \n\n\n", createAddon)
 	}
+
+	return nil
 
 	// describeNodegroupInput := &eks.DescribeNodegroupInput{ClusterName: aws.String(clusterName), NodegroupName: aws.String("esNodeGroup")}
 	// describeNodegroup, err := clientEks.DescribeNodegroup(context.TODO(), describeNodegroupInput)
