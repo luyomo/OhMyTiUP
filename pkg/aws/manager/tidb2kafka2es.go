@@ -134,8 +134,10 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 		CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").
 		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
-		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb"}).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "es").
+		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "es"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb"}).
+		CreateRouteTgw(&sexecutor, "es", []string{"workstation"}).
 		// DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
 		// DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 		// DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).

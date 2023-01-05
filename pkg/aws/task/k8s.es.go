@@ -132,6 +132,17 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 		return err
 	}
 
+	// helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+	// helm repo update
+	// helm install nginx-ingress-controller ingress-nginx/ingress-nginx -f internal-alb.yaml
+
+	// storageClass install
+
+	// helm repo add elastic https://helm.elastic.co~
+	// helm install elasticsearch elastic/elasticsearch -f Values.yaml
+
+	// kubectl create -f ingress.yaml
+
 	return nil
 
 	listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}

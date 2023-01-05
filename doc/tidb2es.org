@@ -424,3 +424,12 @@ spec:
         number: 9200
 .. ... 
 #+END_SRC
+
+** Failed to create volume
+   #+BEGIN_SRC
+failed to provision volume with StorageClass "es-gp2": rpc error: code = Internal desc = Could not create volume "pvc-3828d9df-e623-4ec2-8b8a-da36ef66f2e1": could not create volume in EC2: WebIdentityErr: failed to retrieve credentials
+caused by: AccessDenied: Not authorized to perform sts:AssumeRoleWithWebIdentity
+
+   #+END_SRC
+   OpenID Connect provider URL -> associate OIDC to IAM  -> Create service account in the k8s referring to iam role
+   [[https://docs.aws.amazon.com/eks/latest/userguide/csi-iam-role.html][AWS storage]]

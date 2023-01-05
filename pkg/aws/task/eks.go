@@ -355,7 +355,7 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	// if describeAddon == nil {
 	if containString(listAddons.Addons, "aws-ebs-csi-driver") == false {
 
-		createAddonInput := &eks.CreateAddonInput{AddonName: aws.String("aws-ebs-csi-driver"), ClusterName: aws.String(clusterName), ServiceAccountRoleArn: aws.String(fmt.Sprintf("arn:aws:iam::%s:role/AmazonEKS_EBS_CSI_DriverRole", tagAccountID))}
+		createAddonInput := &eks.CreateAddonInput{AddonName: aws.String("aws-ebs-csi-driver"), ClusterName: aws.String(clusterName), ServiceAccountRoleArn: aws.String(fmt.Sprintf("arn:aws:iam::%s:role/AmazonEKS_EBS_CSI_DriverRole_%s", tagAccountID, clusterName))}
 		createAddon, err := clientEks.CreateAddon(context.TODO(), createAddonInput)
 		if err != nil {
 			return err
