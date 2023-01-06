@@ -276,10 +276,30 @@ func (c *DestroyK8SES) Execute(ctx context.Context) error {
 		return err
 	}
 	pvcList := strings.Split(string(stdout), " ")
+
 	for _, _pvc := range pvcList {
+		if _pvc == "" {
+			continue
+		}
 		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("kubectl delete pvc %s", _pvc), false); err != nil {
 			return err
 		}
+	}
+
+	var parallelTasks []Task
+	parallelTasks = append(parallelTasks, &DestroyEKSNodeGroup{
+		pexecutor:     c.pexecutor,
+		nodeGroupName: "test001",
+	})
+
+	parallelTasks = append(parallelTasks, &DestroyEKSNodeGroup{
+		pexecutor:     c.pexecutor,
+		nodeGroupName: "test002",
+	})
+
+	parallelExe := Parallel{ignoreError: false, inner: parallelTasks}
+	if err := parallelExe.Execute(ctx); err != nil {
+		return err
 	}
 
 	return nil

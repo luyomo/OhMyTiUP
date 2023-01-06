@@ -42,12 +42,12 @@ import (
 	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/aws-sdk-go-v2/service/ec2"
+	// ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/smithy-go"
+	// "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 )
 
@@ -1100,13 +1100,13 @@ type DeployEKSNodeGroup struct {
 func (c *DeployEKSNodeGroup) Execute(ctx context.Context) error {
 	// 01. Get the context variables
 	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	// clusterType := ctx.Value("clusterType").(string)
 
-	tagProject := GetProject(ctx)
-	tagOwner, _, err := GetCallerUser(ctx)
-	if err != nil {
-		return err
-	}
+	// tagProject := GetProject(ctx)
+	// tagOwner, _, err := GetCallerUser(ctx)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// 02. Get context config
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -1125,27 +1125,6 @@ func (c *DeployEKSNodeGroup) Execute(ctx context.Context) error {
 		return err
 	}
 	roleArn = *getRoleOutput.Role.Arn
-
-	// 04. Create template if it does not exist.
-	client := ec2.NewFromConfig(cfg)
-
-	combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, "eks")
-	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{LaunchTemplateNames: []string{combinedName}}
-	if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
-		// fmt.Printf("Calling the launch template inout ... ... ... <%#v>  \n\n\n\n", err.Error())
-		var ae smithy.APIError
-		if errors.As(err, &ae) {
-			// fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-			if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
-				// fmt.Printf("--------------------------- \n\n\n")
-				c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
-			} else {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
 
 	// 05. Create the node group if it does not exist
 	clientEks := eks.NewFromConfig(cfg)
@@ -1205,73 +1184,81 @@ func (c *DeployEKSNodeGroup) String() string {
 	return fmt.Sprintf("Echo: Deploying EKS Cluster")
 }
 
-func (c *DeployEKSNodeGroup) CreateLaunchTemplate(client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
-	fmt.Printf("Calling inseid the CreateLaunchTemplate \n\n\n\n\n")
-	requestLaunchTemplateData := ec2types.RequestLaunchTemplateData{}
+type DestroyEKSNodeGroup struct {
+	pexecutor         *ctxt.Executor
+	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
+	subClusterType    string
+	clusterInfo       *ClusterInfo
+	nodeGroupName     string
+}
 
-	// 02. Storage template preparation
-	var launchTemplateBlockDeviceMappingRequest []ec2types.LaunchTemplateBlockDeviceMappingRequest
-	rootBlockDeviceMapping := ec2types.LaunchTemplateBlockDeviceMappingRequest{
-		DeviceName: aws.String("/dev/xvda"),
-		Ebs: &ec2types.LaunchTemplateEbsBlockDeviceRequest{
-			DeleteOnTermination: aws.Bool(true),
-			VolumeSize:          aws.Int32(8),
-			VolumeType:          ec2types.VolumeType("gp2"),
-		},
-	}
+// Execute implements the Task interface
+func (c *DestroyEKSNodeGroup) Execute(ctx context.Context) error {
+	// 01. Get the context variables
+	clusterName := ctx.Value("clusterName").(string)
+	// clusterType := ctx.Value("clusterType").(string)
 
-	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, rootBlockDeviceMapping)
-	// if c.awsTopoConfigs.VolumeType != "" {
-	// 	blockDeviceMapping := types.LaunchTemplateBlockDeviceMappingRequest{
-	// 		DeviceName: aws.String("/dev/sdb"),
-	// 		Ebs: &types.LaunchTemplateEbsBlockDeviceRequest{
-	// 			DeleteOnTermination: aws.Bool(true),
-	// 			Iops:                aws.Int32(int32(c.awsTopoConfigs.Iops)),
-	// 			VolumeSize:          aws.Int32(int32(c.awsTopoConfigs.VolumeSize)),
-	// 			VolumeType:          types.VolumeType(c.awsTopoConfigs.VolumeType),
-	// 		},
-	// 	}
-
-	// 	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, blockDeviceMapping)
+	// tagProject := GetProject(ctx)
+	// tagOwner, _, err := GetCallerUser(ctx)
+	// if err != nil {
+	// 	return err
 	// }
-	requestLaunchTemplateData.BlockDeviceMappings = launchTemplateBlockDeviceMappingRequest
-	requestLaunchTemplateData.EbsOptimized = aws.Bool(false)                                            // EbsOptimized flag, not support all the instance type
-	requestLaunchTemplateData.ImageId = aws.String(c.awsGeneralConfigs.ImageId)                         // ImageID
-	requestLaunchTemplateData.InstanceType = ec2types.InstanceType((*c.awsGeneralConfigs).InstanceType) // Instance Type
-	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                         // Key name
-	requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId}         // security group
 
-	tags := []ec2types.Tag{
-		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
-		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
-		{Key: aws.String("Component"), Value: aws.String("eks")},       // ex: tidb/tikv/pd
-		{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
-		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
-		{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
-	}
-
-	// 03. Template data preparation
-	fmt.Printf("Creating the template <%s> \n\n\n\n", *templateName)
-	var tagSpecification []ec2types.TagSpecification
-	tagSpecification = append(tagSpecification, ec2types.TagSpecification{ResourceType: ec2types.ResourceTypeLaunchTemplate, Tags: tags})
-	createLaunchTemplateInput := &ec2.CreateLaunchTemplateInput{
-		LaunchTemplateName: templateName,
-		LaunchTemplateData: &requestLaunchTemplateData,
-		TagSpecifications:  tagSpecification,
-	}
-
-	// 04. Template generation
-	createLaunchTemplate, err := client.CreateLaunchTemplate(context.TODO(), createLaunchTemplateInput)
+	// 02. Get context config
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		var ae smithy.APIError
-		if errors.As(err, &ae) {
-			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-		}
 		return err
 	}
-	fmt.Printf("The ourtput is <%#v> \n\n\n\n", createLaunchTemplate)
 
-	return nil
+	// 05. Create the node group if it does not exist
+	clientEks := eks.NewFromConfig(cfg)
+
+	listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
+	listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
+	if err != nil {
+		return err
+	}
+
+	if containString(listNodegroup.Nodegroups, c.nodeGroupName) == true {
+
+		// Node group creation
+		deleteNodegroupInput := &eks.DeleteNodegroupInput{
+			ClusterName:   aws.String(clusterName),
+			NodegroupName: aws.String(c.nodeGroupName),
+		}
+
+		_, err := clientEks.DeleteNodegroup(context.TODO(), deleteNodegroupInput)
+		if err != nil {
+			return err
+		}
+
+		// CREATING -> ACTIVE
+		for _idx := 0; _idx < 100; _idx++ {
+
+			listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
+			if err != nil {
+				return err
+			}
+
+			if containString(listNodegroup.Nodegroups, c.nodeGroupName) == false {
+				return nil
+			}
+
+			time.Sleep(30 * time.Second)
+		}
+	}
+
+	return errors.New("Failed to delete the node group")
+}
+
+// Rollback implements the Task interface
+func (c *DestroyEKSNodeGroup) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyEKSNodeGroup) String() string {
+	return fmt.Sprintf("Echo: Deploying EKS Cluster")
 }
 
 // [{"name":"nginx-ingress-controller","namespace":"default","revision":"1","updated":"2023-01-05 14:48:14.781865271 +0000 UTC","status":"deployed","chart":"ingress-nginx-4.4.2","app_version":"1.5.1"}]
