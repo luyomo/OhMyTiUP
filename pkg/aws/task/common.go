@@ -1273,3 +1273,14 @@ func (c *DeployEKSNodeGroup) CreateLaunchTemplate(client *ec2.Client, templateNa
 
 	return nil
 }
+
+// [{"name":"nginx-ingress-controller","namespace":"default","revision":"1","updated":"2023-01-05 14:48:14.781865271 +0000 UTC","status":"deployed","chart":"ingress-nginx-4.4.2","app_version":"1.5.1"}]
+type HelmListInfo struct {
+	Name       string `json:"name"`
+	NameSpace  string `json:"namespace"`
+	Revision   string `json:"revision"`
+	Updated    string `json:"updated"`
+	Status     string `json:status`
+	Chart      string `json:chart`
+	AppVersion string `json:"app_version"`
+}

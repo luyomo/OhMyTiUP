@@ -48,18 +48,18 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	tagProject := GetProject(ctx)
-	tagOwner, _, err := GetCallerUser(ctx)
-	if err != nil {
-		return err
-	}
-
-	/* ********** ********** 001. Prepare execution context  **********/
-	// 001.01. Get all the workstation nodes
-	// workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil)
+	// tagProject := GetProject(ctx)
+	// tagOwner, _, err := GetCallerUser(ctx)
 	// if err != nil {
 	// 	return err
 	// }
+
+	/* ********** ********** 001. Prepare execution context  **********/
+	// 001.01. Get all the workstation nodes
+	workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil)
+	if err != nil {
+		return err
+	}
 
 	// describeNodegroupInput := &eks.DescribeNodegroupInput{ClusterName: aws.String(clusterName), NodegroupName: aws.String("esNodeGroup")}
 	// describeNodegroup, err := clientEks.DescribeNodegroup(context.TODO(), describeNodegroupInput)
@@ -72,7 +72,7 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 		return err
 	}
 
-	client := ec2.NewFromConfig(cfg)
+	// client := ec2.NewFromConfig(cfg)
 	/***************************************************************************************************************
 	 * 02. Check template existness
 	 * Search template name
@@ -92,23 +92,23 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 	}
 	roleArn = *getRoleOutput.Role.Arn
 
-	combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, "eks")
-	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{LaunchTemplateNames: []string{combinedName}}
-	if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
-		fmt.Printf("Calling the launch template inout ... ... ... <%#v>  \n\n\n\n", err.Error())
-		var ae smithy.APIError
-		if errors.As(err, &ae) {
-			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-			if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
-				fmt.Printf("--------------------------- \n\n\n")
-				c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
-			} else {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
+	// combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, "eks")
+	// describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{LaunchTemplateNames: []string{combinedName}}
+	// if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
+	// 	fmt.Printf("Calling the launch template inout ... ... ... <%#v>  \n\n\n\n", err.Error())
+	// 	var ae smithy.APIError
+	// 	if errors.As(err, &ae) {
+	// 		fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+	// 		if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
+	// 			fmt.Printf("--------------------------- \n\n\n")
+	// 			c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
+	// 		} else {
+	// 			return err
+	// 		}
+	// 	} else {
+	// 		return err
+	// 	}
+	// }
 
 	var parallelTasks []Task
 	parallelTasks = append(parallelTasks, &DeployEKSNodeGroup{
@@ -132,16 +132,26 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-	// helm repo update
-	// helm install nginx-ingress-controller ingress-nginx/ingress-nginx -f internal-alb.yaml
+	err = (*workstation).TransferTemplate(ctx, "templates/config/eks/es.ingress.yaml.tpl", "/opt/helm/es.ingress.yaml", "0600", nil, true, 0)
+	if err != nil {
+		return err
+	}
 
-	// storageClass install
+	err = (*workstation).TransferTemplate(ctx, "templates/config/eks/es.values.yaml.tpl", "/opt/helm/es.values.yaml", "0600", nil, true, 0)
+	if err != nil {
+		return err
+	}
 
-	// helm repo add elastic https://helm.elastic.co~
-	// helm install elasticsearch elastic/elasticsearch -f Values.yaml
-
-	// kubectl create -f ingress.yaml
+	_cmds := []string{
+		"helm repo add elastic https://helm.elastic.co",
+		"helm install elasticsearch elastic/elasticsearch -f /opt/helm/es.values.yaml",
+		"kubectl create -f /opt/helm/es.ingress.yaml",
+	}
+	for _, _cmd := range _cmds {
+		if _, _, err = (*workstation).Execute(ctx, _cmd, false); err != nil {
+			return err
+		}
+	}
 
 	return nil
 

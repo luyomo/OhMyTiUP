@@ -15,7 +15,7 @@ package task
 
 import (
 	"context"
-	// "encoding/json"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -361,6 +361,68 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 			return err
 		}
 		fmt.Printf("Create addon is <%#v> \n\n\n", createAddon)
+	}
+
+	var parallelTasks []Task
+	parallelTasks = append(parallelTasks, &DeployEKSNodeGroup{
+		pexecutor:         c.pexecutor,
+		awsGeneralConfigs: c.awsGeneralConfigs,
+		subClusterType:    c.subClusterType,
+		clusterInfo:       c.clusterInfo,
+		nodeGroupName:     "admin",
+	})
+
+	parallelExe := Parallel{ignoreError: false, inner: parallelTasks}
+	if err := parallelExe.Execute(ctx); err != nil {
+		return err
+	}
+
+	var helmListInfos []HelmListInfo
+
+	stdout, _, err := (*workstation).Execute(ctx, `helm list -o json`, false)
+	if err != nil {
+		return err
+	}
+
+	if err = json.Unmarshal(stdout, &helmListInfos); err != nil {
+		return err
+	}
+
+	// If nginx ingress controller has not been created, create the controller.
+	controllerExistFlag := false
+	for _, helmListInfo := range helmListInfos {
+		if helmListInfo.Name == "nginx-ingress-controller" {
+			controllerExistFlag = true
+			break
+		}
+	}
+	if controllerExistFlag == false {
+
+		if _, _, err = (*workstation).Execute(ctx, `mkdir -p /opt/helm`, true); err != nil {
+			return err
+		}
+
+		err = (*workstation).TransferTemplate(ctx, "templates/config/eks/internal.alb.yaml.tpl", "/opt/helm/internal.alb.yaml", "0600", nil, true, 0)
+		if err != nil {
+			return err
+		}
+
+		err = (*workstation).TransferTemplate(ctx, "templates/config/eks/storageClass.yaml.tpl", "/opt/helm/storageClass.yaml", "0600", nil, true, 0)
+		if err != nil {
+			return err
+		}
+
+		_cmds := []string{
+			"helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx",
+			"helm repo update",
+			"helm install nginx-ingress-controller ingress-nginx/ingress-nginx -f /opt/helm/internal.alb.yaml",
+			"kubectl create -f /opt/helm/storageClass.yaml",
+		}
+		for _, _cmd := range _cmds {
+			if _, _, err = (*workstation).Execute(ctx, _cmd, false); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
