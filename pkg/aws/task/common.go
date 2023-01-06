@@ -1284,3 +1284,23 @@ type HelmListInfo struct {
 	Chart      string `json:chart`
 	AppVersion string `json:"app_version"`
 }
+
+func HelmResourceExist(executor *ctxt.Executor, resourceName string) (bool, error) {
+	var helmListInfos []HelmListInfo
+
+	stdout, _, err := (*executor).Execute(context.TODO(), `helm list -o json`, false)
+	if err != nil {
+		return false, err
+	}
+
+	if err = json.Unmarshal(stdout, &helmListInfos); err != nil {
+		return false, err
+	}
+
+	for _, helmListInfo := range helmListInfos {
+		if helmListInfo.Name == resourceName {
+			return true, nil
+		}
+	}
+	return false, nil
+}

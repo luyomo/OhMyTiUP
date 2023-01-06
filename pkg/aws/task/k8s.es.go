@@ -16,23 +16,26 @@ package task
 import (
 	"context"
 	// "encoding/json"
-	"errors"
+	// "errors"
 	"fmt"
+	"strings"
 	// "time"
 
-	"github.com/aws/smithy-go"
+	// "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/aws-sdk-go-v2/service/ec2"
+	// ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	// iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 )
 
 type DeployK8SES struct {
@@ -236,71 +239,58 @@ func (c *DeployK8SES) String() string {
 	return fmt.Sprintf("Echo: Deploying EKS Cluster")
 }
 
-func (c *DeployK8SES) CreateLaunchTemplate(client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
-	fmt.Printf("Calling inseid the CreateLaunchTemplate \n\n\n\n\n")
-	requestLaunchTemplateData := ec2types.RequestLaunchTemplateData{}
+type DestroyK8SES struct {
+	pexecutor *ctxt.Executor
+	gOpt      operator.Options
+	// awsWSConfigs      *spec.AwsWSConfigs
+	// awsGeneralConfigs *spec.AwsTopoConfigsGeneral
+	// subClusterType    string
+	// clusterInfo       *ClusterInfo
+}
 
-	// 02. Storage template preparation
-	var launchTemplateBlockDeviceMappingRequest []ec2types.LaunchTemplateBlockDeviceMappingRequest
-	rootBlockDeviceMapping := ec2types.LaunchTemplateBlockDeviceMappingRequest{
-		DeviceName: aws.String("/dev/xvda"),
-		Ebs: &ec2types.LaunchTemplateEbsBlockDeviceRequest{
-			DeleteOnTermination: aws.Bool(true),
-			VolumeSize:          aws.Int32(8),
-			VolumeType:          ec2types.VolumeType("gp2"),
-		},
-	}
+// Execute implements the Task interface
+func (c *DestroyK8SES) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, rootBlockDeviceMapping)
-	// if c.awsTopoConfigs.VolumeType != "" {
-	// 	blockDeviceMapping := types.LaunchTemplateBlockDeviceMappingRequest{
-	// 		DeviceName: aws.String("/dev/sdb"),
-	// 		Ebs: &types.LaunchTemplateEbsBlockDeviceRequest{
-	// 			DeleteOnTermination: aws.Bool(true),
-	// 			Iops:                aws.Int32(int32(c.awsTopoConfigs.Iops)),
-	// 			VolumeSize:          aws.Int32(int32(c.awsTopoConfigs.VolumeSize)),
-	// 			VolumeType:          types.VolumeType(c.awsTopoConfigs.VolumeType),
-	// 		},
-	// 	}
-
-	// 	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, blockDeviceMapping)
-	// }
-	requestLaunchTemplateData.BlockDeviceMappings = launchTemplateBlockDeviceMappingRequest
-	requestLaunchTemplateData.EbsOptimized = aws.Bool(false)                                            // EbsOptimized flag, not support all the instance type
-	requestLaunchTemplateData.ImageId = aws.String(c.awsGeneralConfigs.ImageId)                         // ImageID
-	requestLaunchTemplateData.InstanceType = ec2types.InstanceType((*c.awsGeneralConfigs).InstanceType) // Instance Type
-	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                         // Key name
-	requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId}         // security group
-
-	tags := []ec2types.Tag{
-		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
-		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
-		{Key: aws.String("Component"), Value: aws.String("eks")},       // ex: tidb/tikv/pd
-		{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
-		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
-		{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
-	}
-
-	// 03. Template data preparation
-	fmt.Printf("Creating the template <%s> \n\n\n\n", *templateName)
-	var tagSpecification []ec2types.TagSpecification
-	tagSpecification = append(tagSpecification, ec2types.TagSpecification{ResourceType: ec2types.ResourceTypeLaunchTemplate, Tags: tags})
-	createLaunchTemplateInput := &ec2.CreateLaunchTemplateInput{
-		LaunchTemplateName: templateName,
-		LaunchTemplateData: &requestLaunchTemplateData,
-		TagSpecifications:  tagSpecification,
-	}
-
-	// 04. Template generation
-	createLaunchTemplate, err := client.CreateLaunchTemplate(context.TODO(), createLaunchTemplateInput)
+	workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.gOpt.SSHUser, c.gOpt.IdentityFile, true, nil)
 	if err != nil {
-		var ae smithy.APIError
-		if errors.As(err, &ae) {
-			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-		}
 		return err
 	}
-	fmt.Printf("The ourtput is <%#v> \n\n\n\n", createLaunchTemplate)
+
+	fmt.Printf("Starting to remove the cluster \n\n\n")
+
+	esExistFlag, err := HelmResourceExist(workstation, "elasticsearch")
+	if err != nil {
+		return err
+	}
+
+	if esExistFlag == true {
+		if _, _, err = (*workstation).Execute(ctx, "helm delete elasticsearch", false); err != nil {
+			return err
+		}
+	}
+
+	stdout, _, err := (*workstation).Execute(ctx, "kubectl get pvc --selector='app=elasticsearch-master' -o jsonpath=\"{.items[*]['metadata.name']}\"", false)
+	if err != nil {
+		return err
+	}
+	pvcList := strings.Split(string(stdout), " ")
+	for _, _pvc := range pvcList {
+		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("kubectl delete pvc %s", _pvc), false); err != nil {
+			return err
+		}
+	}
 
 	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyK8SES) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyK8SES) String() string {
+	return fmt.Sprintf("Echo: Destroying ES on eks Cluster")
 }

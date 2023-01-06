@@ -15,7 +15,7 @@ package task
 
 import (
 	"context"
-	"encoding/json"
+	// "encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -377,25 +377,27 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		return err
 	}
 
-	var helmListInfos []HelmListInfo
+	// var helmListInfos []HelmListInfo
 
-	stdout, _, err := (*workstation).Execute(ctx, `helm list -o json`, false)
-	if err != nil {
-		return err
-	}
+	// stdout, _, err := (*workstation).Execute(ctx, `helm list -o json`, false)
+	// if err != nil {
+	// 	return err
+	// }
 
-	if err = json.Unmarshal(stdout, &helmListInfos); err != nil {
-		return err
-	}
+	// if err = json.Unmarshal(stdout, &helmListInfos); err != nil {
+	// 	return err
+	// }
 
-	// If nginx ingress controller has not been created, create the controller.
-	controllerExistFlag := false
-	for _, helmListInfo := range helmListInfos {
-		if helmListInfo.Name == "nginx-ingress-controller" {
-			controllerExistFlag = true
-			break
-		}
-	}
+	// // If nginx ingress controller has not been created, create the controller.
+	// controllerExistFlag := false
+	// for _, helmListInfo := range helmListInfos {
+	// 	if helmListInfo.Name == "nginx-ingress-controller" {
+	// 		controllerExistFlag = true
+	// 		break
+	// 	}
+	// }
+
+	controllerExistFlag, err := HelmResourceExist(workstation, "nginx-ingress-controller")
 	if controllerExistFlag == false {
 
 		if _, _, err = (*workstation).Execute(ctx, `mkdir -p /opt/helm`, true); err != nil {

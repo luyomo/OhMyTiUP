@@ -997,6 +997,15 @@ func (b *Builder) CreateK8SESCluster(pexecutor *ctxt.Executor, awsWSConfigs *spe
 	return b
 }
 
+func (b *Builder) DestroyK8SESCluster(pexecutor *ctxt.Executor, gOpt operator.Options) *Builder {
+	b.Step(" Destroying ES on EKS ... ...", &DestroyK8SES{
+		pexecutor: pexecutor,
+		gOpt:      gOpt,
+	})
+
+	return b
+}
+
 func (b *Builder) DeployTiCDC(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiCDC{
 		pexecutor:      pexecutor,
