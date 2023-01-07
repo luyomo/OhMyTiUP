@@ -965,7 +965,8 @@ func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.
 	clusterInfo.cidr = awsESConfigs.General.CIDR
 	clusterInfo.excludedAZ = awsESConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
-	clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
+	// clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
+	clusterInfo.enableNAT = "true" // The nat is mandatory for EKS node group. If the NAT wants to be disable, need to set the private endpoint to acces EKS control plane
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
 		Step(fmt.Sprintf("%s : Creating EKS ... ...", subClusterType), &DeployEKS{
@@ -999,6 +1000,15 @@ func (b *Builder) CreateK8SESCluster(pexecutor *ctxt.Executor, awsWSConfigs *spe
 
 func (b *Builder) DestroyK8SESCluster(pexecutor *ctxt.Executor, gOpt operator.Options) *Builder {
 	b.Step(" Destroying ES on EKS ... ...", &DestroyK8SES{
+		pexecutor: pexecutor,
+		gOpt:      gOpt,
+	})
+
+	return b
+}
+
+func (b *Builder) DestroyEKSCluster(pexecutor *ctxt.Executor, gOpt operator.Options) *Builder {
+	b.Step(" Destroying EKS ... ...", &DestroyEKS{
 		pexecutor: pexecutor,
 		gOpt:      gOpt,
 	})

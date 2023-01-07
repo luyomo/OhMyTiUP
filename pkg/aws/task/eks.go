@@ -27,12 +27,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/aws-sdk-go-v2/service/ec2"
+	// ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 )
 
 type DeployEKS struct {
@@ -435,7 +437,7 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	// 	return err
 	// }
 
-	client := ec2.NewFromConfig(cfg)
+	// client := ec2.NewFromConfig(cfg)
 	/***************************************************************************************************************
 	 * 02. Check template existness
 	 * Search template name
@@ -443,23 +445,23 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	 *     02. Create the template if it does not exist
 	 ***************************************************************************************************************/
 
-	combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, "eks")
-	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{LaunchTemplateNames: []string{combinedName}}
-	if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
-		fmt.Printf("Calling the launch template inout ... ... ... <%#v>  \n\n\n\n", err.Error())
-		var ae smithy.APIError
-		if errors.As(err, &ae) {
-			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-			if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
-				fmt.Printf("--------------------------- \n\n\n")
-				c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
-			} else {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
+	// combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, "eks")
+	// describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{LaunchTemplateNames: []string{combinedName}}
+	// if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
+	// 	fmt.Printf("Calling the launch template inout ... ... ... <%#v>  \n\n\n\n", err.Error())
+	// 	var ae smithy.APIError
+	// 	if errors.As(err, &ae) {
+	// 		fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+	// 		if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
+	// 			fmt.Printf("--------------------------- \n\n\n")
+	// 			c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
+	// 		} else {
+	// 			return err
+	// 		}
+	// 	} else {
+	// 		return err
+	// 	}
+	// }
 
 	listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
 	listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
@@ -555,71 +557,176 @@ func (c *DeployEKS) String() string {
 	return fmt.Sprintf("Echo: Deploying EKS Cluster")
 }
 
-func (c *DeployEKS) CreateLaunchTemplate(client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
-	fmt.Printf("Calling inseid the CreateLaunchTemplate \n\n\n\n\n")
-	requestLaunchTemplateData := ec2types.RequestLaunchTemplateData{}
+// func (c *DeployEKS) CreateLaunchTemplate(client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
+// 	fmt.Printf("Calling inseid the CreateLaunchTemplate \n\n\n\n\n")
+// 	requestLaunchTemplateData := ec2types.RequestLaunchTemplateData{}
 
-	// 02. Storage template preparation
-	var launchTemplateBlockDeviceMappingRequest []ec2types.LaunchTemplateBlockDeviceMappingRequest
-	rootBlockDeviceMapping := ec2types.LaunchTemplateBlockDeviceMappingRequest{
-		DeviceName: aws.String("/dev/xvda"),
-		Ebs: &ec2types.LaunchTemplateEbsBlockDeviceRequest{
-			DeleteOnTermination: aws.Bool(true),
-			VolumeSize:          aws.Int32(8),
-			VolumeType:          ec2types.VolumeType("gp2"),
-		},
-	}
+// 	// 02. Storage template preparation
+// 	var launchTemplateBlockDeviceMappingRequest []ec2types.LaunchTemplateBlockDeviceMappingRequest
+// 	rootBlockDeviceMapping := ec2types.LaunchTemplateBlockDeviceMappingRequest{
+// 		DeviceName: aws.String("/dev/xvda"),
+// 		Ebs: &ec2types.LaunchTemplateEbsBlockDeviceRequest{
+// 			DeleteOnTermination: aws.Bool(true),
+// 			VolumeSize:          aws.Int32(8),
+// 			VolumeType:          ec2types.VolumeType("gp2"),
+// 		},
+// 	}
 
-	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, rootBlockDeviceMapping)
-	// if c.awsTopoConfigs.VolumeType != "" {
-	// 	blockDeviceMapping := types.LaunchTemplateBlockDeviceMappingRequest{
-	// 		DeviceName: aws.String("/dev/sdb"),
-	// 		Ebs: &types.LaunchTemplateEbsBlockDeviceRequest{
-	// 			DeleteOnTermination: aws.Bool(true),
-	// 			Iops:                aws.Int32(int32(c.awsTopoConfigs.Iops)),
-	// 			VolumeSize:          aws.Int32(int32(c.awsTopoConfigs.VolumeSize)),
-	// 			VolumeType:          types.VolumeType(c.awsTopoConfigs.VolumeType),
-	// 		},
-	// 	}
+// 	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, rootBlockDeviceMapping)
+// 	// if c.awsTopoConfigs.VolumeType != "" {
+// 	// 	blockDeviceMapping := types.LaunchTemplateBlockDeviceMappingRequest{
+// 	// 		DeviceName: aws.String("/dev/sdb"),
+// 	// 		Ebs: &types.LaunchTemplateEbsBlockDeviceRequest{
+// 	// 			DeleteOnTermination: aws.Bool(true),
+// 	// 			Iops:                aws.Int32(int32(c.awsTopoConfigs.Iops)),
+// 	// 			VolumeSize:          aws.Int32(int32(c.awsTopoConfigs.VolumeSize)),
+// 	// 			VolumeType:          types.VolumeType(c.awsTopoConfigs.VolumeType),
+// 	// 		},
+// 	// 	}
 
-	// 	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, blockDeviceMapping)
-	// }
-	requestLaunchTemplateData.BlockDeviceMappings = launchTemplateBlockDeviceMappingRequest
-	requestLaunchTemplateData.EbsOptimized = aws.Bool(false)                                            // EbsOptimized flag, not support all the instance type
-	requestLaunchTemplateData.ImageId = aws.String(c.awsGeneralConfigs.ImageId)                         // ImageID
-	requestLaunchTemplateData.InstanceType = ec2types.InstanceType((*c.awsGeneralConfigs).InstanceType) // Instance Type
-	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                         // Key name
-	requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId}         // security group
+// 	// 	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, blockDeviceMapping)
+// 	// }
+// 	requestLaunchTemplateData.BlockDeviceMappings = launchTemplateBlockDeviceMappingRequest
+// 	requestLaunchTemplateData.EbsOptimized = aws.Bool(false)                                            // EbsOptimized flag, not support all the instance type
+// 	requestLaunchTemplateData.ImageId = aws.String(c.awsGeneralConfigs.ImageId)                         // ImageID
+// 	requestLaunchTemplateData.InstanceType = ec2types.InstanceType((*c.awsGeneralConfigs).InstanceType) // Instance Type
+// 	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                         // Key name
+// 	requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId}         // security group
 
-	tags := []ec2types.Tag{
-		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
-		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
-		{Key: aws.String("Component"), Value: aws.String("eks")},       // ex: tidb/tikv/pd
-		{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
-		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
-		{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
-	}
+// 	tags := []ec2types.Tag{
+// 		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
+// 		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
+// 		{Key: aws.String("Component"), Value: aws.String("eks")},       // ex: tidb/tikv/pd
+// 		{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
+// 		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
+// 		{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
+// 	}
 
-	// 03. Template data preparation
-	fmt.Printf("Creating the template <%s> \n\n\n\n", *templateName)
-	var tagSpecification []ec2types.TagSpecification
-	tagSpecification = append(tagSpecification, ec2types.TagSpecification{ResourceType: ec2types.ResourceTypeLaunchTemplate, Tags: tags})
-	createLaunchTemplateInput := &ec2.CreateLaunchTemplateInput{
-		LaunchTemplateName: templateName,
-		LaunchTemplateData: &requestLaunchTemplateData,
-		TagSpecifications:  tagSpecification,
-	}
+// 	// 03. Template data preparation
+// 	fmt.Printf("Creating the template <%s> \n\n\n\n", *templateName)
+// 	var tagSpecification []ec2types.TagSpecification
+// 	tagSpecification = append(tagSpecification, ec2types.TagSpecification{ResourceType: ec2types.ResourceTypeLaunchTemplate, Tags: tags})
+// 	createLaunchTemplateInput := &ec2.CreateLaunchTemplateInput{
+// 		LaunchTemplateName: templateName,
+// 		LaunchTemplateData: &requestLaunchTemplateData,
+// 		TagSpecifications:  tagSpecification,
+// 	}
 
-	// 04. Template generation
-	createLaunchTemplate, err := client.CreateLaunchTemplate(context.TODO(), createLaunchTemplateInput)
+// 	// 04. Template generation
+// 	createLaunchTemplate, err := client.CreateLaunchTemplate(context.TODO(), createLaunchTemplateInput)
+// 	if err != nil {
+// 		var ae smithy.APIError
+// 		if errors.As(err, &ae) {
+// 			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+// 		}
+// 		return err
+// 	}
+// 	fmt.Printf("The ourtput is <%#v> \n\n\n\n", createLaunchTemplate)
+
+// 	return nil
+// }
+
+type DestroyEKS struct {
+	pexecutor *ctxt.Executor
+	gOpt      operator.Options
+}
+
+// Execute implements the Task interface
+func (c *DestroyEKS) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		var ae smithy.APIError
-		if errors.As(err, &ae) {
-			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-		}
 		return err
 	}
-	fmt.Printf("The ourtput is <%#v> \n\n\n\n", createLaunchTemplate)
+	clientEks := eks.NewFromConfig(cfg)
 
+	listClustersInput := &eks.ListClustersInput{}
+	listClusters, err := clientEks.ListClusters(context.TODO(), listClustersInput)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The data is <%#v> \n\n\n", listClusters.Clusters)
+	for _, _cluster := range listClusters.Clusters {
+		if _cluster == clusterName {
+			workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.gOpt.SSHUser, c.gOpt.IdentityFile, true, nil)
+			if err != nil {
+				return err
+			}
+
+			// 01. Destroy nginx ingress controller
+			controllerExistFlag, err := HelmResourceExist(workstation, "nginx-ingress-controller")
+			if controllerExistFlag == true {
+				_cmds := []string{
+					"helm delete nginx-ingress-controller",
+					"kubectl delete -f /opt/helm/storageClass.yaml",
+				}
+				for _, _cmd := range _cmds {
+					if _, _, err = (*workstation).Execute(ctx, _cmd, false); err != nil {
+						return err
+					}
+				}
+			}
+
+			// 02. Destroy admin node group
+
+			// 03. Destroy role
+
+			listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
+			listNodegroups, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
+			if err != nil {
+				return err
+			}
+
+			var parallelTasks []Task
+			for _, _nodeGroup := range listNodegroups.Nodegroups {
+				parallelTasks = append(parallelTasks, &DestroyEKSNodeGroup{
+					pexecutor:     c.pexecutor,
+					nodeGroupName: _nodeGroup,
+				})
+			}
+			parallelExe := Parallel{ignoreError: false, inner: parallelTasks}
+			if err := parallelExe.Execute(ctx); err != nil {
+				return err
+			}
+			fmt.Printf("Starting to remove the cluster \n\n\n\n")
+
+			if err = CleanClusterSA(workstation, clusterName); err != nil {
+				return err
+			}
+
+			deleteClusterInput := &eks.DeleteClusterInput{Name: aws.String(clusterName)}
+			_, err = clientEks.DeleteCluster(context.TODO(), deleteClusterInput)
+			if err != nil {
+				return err
+			}
+
+			for _idx := 0; _idx < 100; _idx++ {
+				_listClusters, err := clientEks.ListClusters(context.TODO(), listClustersInput)
+
+				if err != nil {
+					return err
+				}
+				if containString(_listClusters.Clusters, clusterName) == false {
+					break
+				}
+
+				time.Sleep(time.Minute)
+			}
+		}
+	}
+
+	// Remove the roles using tag search
 	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyEKS) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyEKS) String() string {
+	return fmt.Sprintf("Echo: Deploying EKS Cluster")
 }

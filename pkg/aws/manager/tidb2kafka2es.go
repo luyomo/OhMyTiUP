@@ -183,7 +183,8 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 
 	// gOpt.SSHUser, gOpt.IdentityFile
 	t0 := task.NewBuilder().
-		DestroyK8SESCluster(&sexecutor, gOpt).
+		// DestroyK8SESCluster(&sexecutor, gOpt).
+		DestroyEKSCluster(&sexecutor, gOpt).
 		DestroyTransitGateways(&sexecutor).
 		// DestroyVpcPeering(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
@@ -200,7 +201,6 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 		}
 		return err
 	}
-	return nil
 
 	var destroyTasks []*task.StepDisplay
 
@@ -210,6 +210,13 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
+
+	t2 := task.NewBuilder().
+		DestroyNAT(&sexecutor, "es").
+		DestroyEC2Nodes(&sexecutor, "es").
+		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
+
+	destroyTasks = append(destroyTasks, t2)
 
 	t4 := task.NewBuilder().
 		DestroyNAT(&sexecutor, "tidb").

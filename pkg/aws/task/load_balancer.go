@@ -269,6 +269,9 @@ func (c *DestroyTargetGroup) Execute(ctx context.Context) error {
 		}
 		return err
 	}
+	if targetGroup == nil {
+		return nil
+	}
 
 	command := fmt.Sprintf("aws elbv2 delete-target-group --target-group-arn %s", (*targetGroup).TargetGroupArn)
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)

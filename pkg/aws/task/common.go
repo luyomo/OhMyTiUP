@@ -30,6 +30,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/aws/smithy-go"
+
 	"github.com/luyomo/OhMyTiUP/embed"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
@@ -40,6 +42,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	// "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -789,6 +792,26 @@ func ExistsELBResource(executor ctxt.Executor, ctx context.Context, clusterType,
 }
 
 func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*TargetGroup, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	clientElb := elasticloadbalancing.NewFromConfig(cfg)
+	describeLoadBalancersInput := &elasticloadbalancing.DescribeLoadBalancersInput{LoadBalancerNames: []string{clusterName}}
+	_, err = clientElb.DescribeLoadBalancers(context.TODO(), describeLoadBalancersInput)
+	if err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() == "LoadBalancerNotFound" {
+				return nil, nil
+			}
+		}
+
+		return nil, err
+	}
+
 	command := fmt.Sprintf("aws elbv2 describe-target-groups --name \"%s\"", clusterName)
 	stdout, stderr, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -1167,6 +1190,10 @@ func (c *DeployEKSNodeGroup) Execute(ctx context.Context) error {
 			if describeNodegroup.Nodegroup.Status == "ACTIVE" {
 				break
 			}
+			if describeNodegroup.Nodegroup.Status == "CREATE_FAILED" {
+				return errors.New(fmt.Sprintf("Failed to create node group %s", c.nodeGroupName))
+			}
+
 			time.Sleep(30 * time.Second)
 		}
 	}
@@ -1290,4 +1317,53 @@ func HelmResourceExist(executor *ctxt.Executor, resourceName string) (bool, erro
 		}
 	}
 	return false, nil
+}
+
+type IAMSAInfo struct {
+	MetaData struct {
+		Name      string `json:"name"`
+		Namespace string `json:"namespace"`
+	} `json:"metadata"`
+	WellKnownPolicies struct {
+		ImageBuilder              bool `json:"imageBuilder"`
+		AutoScaler                bool `json:"autoScaler"`
+		AwsLoadBalancerController bool `json:"awsLoadBalancerController"`
+		ExternalDNS               bool `json:"externalDNS"`
+		CertManager               bool `json:"certManager"`
+		EbsCSIController          bool `json:"ebsCSIController"`
+		EfsCSIController          bool `json:"efsCSIController"`
+	} `json:"wellKnownPolicies"`
+	Status struct {
+		RoleARN string `json:"roleARN"`
+	} `json:"status"`
+}
+
+func FetchClusterSA(executor *ctxt.Executor, clusterName string) (*[]IAMSAInfo, error) {
+	var iamSAInfos []IAMSAInfo
+
+	stdout, _, err := (*executor).Execute(context.TODO(), fmt.Sprintf(`eksctl get iamserviceaccount --cluster %s -o json`, clusterName), false)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(stdout, &iamSAInfos); err != nil {
+		return nil, err
+	}
+
+	return &iamSAInfos, nil
+}
+
+func CleanClusterSA(executor *ctxt.Executor, clusterName string) error {
+	clusterSA, err := FetchClusterSA(executor, clusterName)
+	if err != nil {
+		return err
+	}
+
+	for _, sa := range *clusterSA {
+
+		if _, _, err := (*executor).Execute(context.TODO(), fmt.Sprintf(`eksctl delete iamserviceaccount %s --cluster %s`, sa.MetaData.Name, clusterName), false); err != nil {
+			return err
+		}
+	}
+	return nil
 }

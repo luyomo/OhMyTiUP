@@ -253,53 +253,69 @@ func (c *DestroyK8SES) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.gOpt.SSHUser, c.gOpt.IdentityFile, true, nil)
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
+	clientEks := eks.NewFromConfig(cfg)
 
-	fmt.Printf("Starting to remove the cluster \n\n\n")
-
-	esExistFlag, err := HelmResourceExist(workstation, "elasticsearch")
+	listClustersInput := &eks.ListClustersInput{}
+	listClusters, err := clientEks.ListClusters(context.TODO(), listClustersInput)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("The data is <%#v> \n\n\n", listClusters.Clusters)
+	for _, _cluster := range listClusters.Clusters {
+		if _cluster == clusterName {
+			workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.gOpt.SSHUser, c.gOpt.IdentityFile, true, nil)
+			if err != nil {
+				return err
+			}
 
-	if esExistFlag == true {
-		if _, _, err = (*workstation).Execute(ctx, "helm delete elasticsearch", false); err != nil {
-			return err
+			fmt.Printf("Starting to remove the cluster \n\n\n")
+
+			esExistFlag, err := HelmResourceExist(workstation, "elasticsearch")
+			if err != nil {
+				return err
+			}
+
+			if esExistFlag == true {
+				if _, _, err = (*workstation).Execute(ctx, "helm delete elasticsearch", false); err != nil {
+					return err
+				}
+			}
+
+			stdout, _, err := (*workstation).Execute(ctx, "kubectl get pvc --selector='app=elasticsearch-master' -o jsonpath=\"{.items[*]['metadata.name']}\"", false)
+			if err != nil {
+				return err
+			}
+			pvcList := strings.Split(string(stdout), " ")
+
+			for _, _pvc := range pvcList {
+				if _pvc == "" {
+					continue
+				}
+				if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("kubectl delete pvc %s", _pvc), false); err != nil {
+					return err
+				}
+			}
+
+			var parallelTasks []Task
+			parallelTasks = append(parallelTasks, &DestroyEKSNodeGroup{
+				pexecutor:     c.pexecutor,
+				nodeGroupName: "test001",
+			})
+
+			parallelTasks = append(parallelTasks, &DestroyEKSNodeGroup{
+				pexecutor:     c.pexecutor,
+				nodeGroupName: "test002",
+			})
+
+			parallelExe := Parallel{ignoreError: false, inner: parallelTasks}
+			if err := parallelExe.Execute(ctx); err != nil {
+				return err
+			}
 		}
-	}
-
-	stdout, _, err := (*workstation).Execute(ctx, "kubectl get pvc --selector='app=elasticsearch-master' -o jsonpath=\"{.items[*]['metadata.name']}\"", false)
-	if err != nil {
-		return err
-	}
-	pvcList := strings.Split(string(stdout), " ")
-
-	for _, _pvc := range pvcList {
-		if _pvc == "" {
-			continue
-		}
-		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("kubectl delete pvc %s", _pvc), false); err != nil {
-			return err
-		}
-	}
-
-	var parallelTasks []Task
-	parallelTasks = append(parallelTasks, &DestroyEKSNodeGroup{
-		pexecutor:     c.pexecutor,
-		nodeGroupName: "test001",
-	})
-
-	parallelTasks = append(parallelTasks, &DestroyEKSNodeGroup{
-		pexecutor:     c.pexecutor,
-		nodeGroupName: "test002",
-	})
-
-	parallelExe := Parallel{ignoreError: false, inner: parallelTasks}
-	if err := parallelExe.Execute(ctx); err != nil {
-		return err
 	}
 
 	return nil

@@ -97,6 +97,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.11 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/eks v1.26.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.15.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/iam v1.18.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.18 // indirect
