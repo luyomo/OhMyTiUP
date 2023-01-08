@@ -15,7 +15,6 @@ package task
 
 import (
 	"context"
-	// "encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -27,8 +26,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 
-	// "github.com/aws/aws-sdk-go-v2/service/ec2"
-	// ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -86,34 +83,12 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	}
 
 	/* ********** ********** 003.EKS cluster generation ********** */
-	// err = (*workstation).TransferTemplate(ctx, "templates/config/nodeGroup.yaml.tpl", "/opt/k8s/eks.yaml", "0644", nil, true, 0)
-	// if err != nil {
-	// 	return err
-	// }
-
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
 
 	clientIam := iam.NewFromConfig(cfg)
-
-	// listRolesInput := &iam.ListRolesInput{PathPrefix: aws.String("/" + clusterName)}
-	// listRolesInput := &iam.ListRolesInput{PathPrefix: aws.String("/(estest)")}
-	// listRolesInput := &iam.ListRolesInput{}
-	// listRoles, err := clientIam.ListRoles(context.TODO(), listRolesInput)
-	// if err != nil {
-	// 	return err
-	// }
-	// for _, _role := range listRoles.Roles {
-	// 	// if _idx == 0 {
-	// 	fmt.Printf("The roles are <%#v> and <%#v> \n\n\n\n", *_role.Arn, *_role.Path)
-	// 	// }
-	// }
-
-	// // fmt.Printf("The roles are <%#v> and <%#v> \n\n\n\n", listRoles.Roles)
-
-	// return errors.New("Debuging test")
 
 	var roleArn string
 	getRoleInput := &iam.GetRoleInput{RoleName: aws.String(clusterName)}
@@ -139,7 +114,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 					return err
 				}
 				roleArn = *createRole.Role.Arn
-				fmt.Printf("The created policy is <%#v> \n\n\n", createRole)
 
 			} else {
 				return err
@@ -152,60 +126,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		roleArn = *getRoleOutput.Role.Arn
 	}
 
-	// if getRoleOutput == nil {
-
-	// 	tags := []iamTypes.Tag{
-	// 		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
-	// 		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
-	// 		{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
-	// 		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
-	// 		{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
-	// 	}
-
-	// 	createRoleInput := &iam.CreateRoleInput{AssumeRolePolicyDocument: aws.String("{\"Version\": \"2012-10-17\",\"Statement\": [{\"Effect\": \"Allow\", \"Principal\": {\"Service\": \"eks.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}, {\"Effect\": \"Allow\",\"Principal\": {\"Service\": \"ec2.amazonaws.com\"},\"Action\": \"sts:AssumeRole\"}]}"), RoleName: aws.String(clusterName), Tags: tags}
-
-	// 	createRole, err := clientIam.CreateRole(context.TODO(), createRoleInput)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	roleArn = *createRole.Role.Arn
-	// 	fmt.Printf("The created policy is <%#v> \n\n\n", createRole)
-	// } else {
-	// 	roleArn = *getRoleOutput.Role.Arn
-	// }
-	// fmt.Printf("The role arn is <%s> \n\n\n", roleArn)
-
-	// From manual setup, we only need below four policy: AmazonEKSWorkerNodePolicy/AmazonEC2ContainerRegistryReadOnly/AmazonSSMManagedInstanceCore/AmazonEKS_CNI_Policy  -> ec2
-	// eks cluster iam: AmazonEKSVPCResourceController/AmazonEKSClusterPolicy
-	// eksctl-escluster-cluster-PolicyELBPermissions ->
-	// {
-	// 	"Version": "2012-10-17",
-	// 		"Statement": [
-	// 		{
-	// 			"Action": [
-	// 				"ec2:DescribeAccountAttributes",
-	// 					"ec2:DescribeAddresses",
-	// 					"ec2:DescribeInternetGateways"
-	// 				],
-	// 					"Resource": "*",
-	// 					"Effect": "Allow"
-	// 		}
-	// 		]
-	// }
-
-	// eksctl-escluster-cluster-PolicyCloudWatchMetrics ->
-	// {
-	// 	"Version": "2012-10-17",
-	// 		"Statement": [
-	// 		{
-	// 			"Action": [
-	// 				"cloudwatch:PutMetricData"
-	// 				],
-	// 					"Resource": "*",
-	// 					"Effect": "Allow"
-	// 		}
-	// 		]
-	// }
 	for _, policy := range []string{"AmazonEKSClusterPolicy", "AmazonEKSWorkerNodePolicy", "AmazonEC2ContainerRegistryReadOnly", "AmazonEKS_CNI_Policy", "AmazonSSMManagedInstanceCore"} {
 		attachRolePolicyInput := &iam.AttachRolePolicyInput{PolicyArn: aws.String(fmt.Sprintf("arn:aws:iam::aws:policy/%s", policy)), RoleName: aws.String(clusterName)}
 
@@ -219,20 +139,12 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	clientEks := eks.NewFromConfig(cfg)
 	// 001. VpcConfigRequest
 
-	// describeClusterInput := &eks.DescribeClusterInput{Name: aws.String(clusterName)}
-
-	// describeCluster, err := clientEks.DescribeCluster(context.TODO(), describeClusterInput)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("The found group is <%#v> \n\n\n", describeCluster)
 	listClustersInput := &eks.ListClustersInput{}
 
 	listClusters, err := clientEks.ListClusters(context.TODO(), listClustersInput)
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("The found group is <%#v> \n\n\n\n", listClusters.Clusters)
 
 	if containString(listClusters.Clusters, clusterName) == false {
 		// fmt.Printf("All the subnets are <%#v> \n\n\n\n", c.clusterInfo)
@@ -264,8 +176,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		time.Sleep(1 * time.Minute)
 	}
 
-	// fmt.Printf("The cluster info is <%s> \n\n\n\n", *describeCluster.Cluster.Identity.Oidc.Issuer)
-
 	for _, _cmd := range []string{"which kubectl || curl -L https://storage.googleapis.com/kubernetes-release/release/v1.23.6/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl", "chmod 755 /usr/local/bin/kubectl"} {
 		if _, _, err = (*workstation).Execute(ctx, _cmd, true); err != nil {
 			return err
@@ -278,7 +188,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		}
 	}
 
-	// if _, _, err = (*workstation).Execute(ctx, "aws eks update-kubeconfig --region us-east-1 --name estest", false); err != nil {
 	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("aws eks update-kubeconfig --name %s", clusterName), false); err != nil {
 		return err
 	}
@@ -307,26 +216,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// if _, _, err = (*workstation).Execute(ctx, "kubectl apply -f https://docs.projectcalico.org/manifests/calico-typha.yaml", false); err != nil {
-	// 	return err
-	// }
-
-	// IAM provider set up: CreateOpenIDConnectProviderInput
-	// createOpenIDConnectProviderInput := &iam.CreateOpenIDConnectProviderInput{Url: describeCluster.Cluster.Identity.Oidc.Issuer, ClientIDList: []string{"sts.amazonaws.com"}}
-	// createOpenIDConnectProvider, err := clientIam.CreateOpenIDConnectProvider(context.TODO(), createOpenIDConnectProviderInput)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("The open id : <%#v> \n\n\n\n", createOpenIDConnectProvider)gg1
-
-	// oidcRequest := &types.OidcIdentityProviderConfigRequest{ClientId: aws.String("sts.amazonaws.com"), IdentityProviderConfigName: aws.String("EAADCCE3D0AB71B4010FF90AFEFA69A7"), IssuerUrl: describeCluster.Cluster.Identity.Oidc.Issuer}
-	// associateIdentityProviderConfigInput := &eks.AssociateIdentityProviderConfigInput{ClusterName: aws.String(clusterName), Oidc: oidcRequest}
-	// associateIdentityProviderConfig, err := clientEks.AssociateIdentityProviderConfig(context.TODO(), associateIdentityProviderConfigInput)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("The associate id is <%#v> \n\n\n", associateIdentityProviderConfig)
-
 	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`eksctl utils associate-iam-oidc-provider --cluster %s --approve`, clusterName), false); err != nil {
 		return err
 	}
@@ -345,24 +234,15 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("list addons is: <%#v> \n\n\n\n", listAddons)
-	// return nil
 
-	// describeAddonInput := &eks.DescribeAddonInput{AddonName: aws.String("aws-ebs-csi-driver"), ClusterName: aws.String(clusterName)}
-	// describeAddon, err := clientEks.DescribeAddon(context.TODO(), describeAddonInput)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if describeAddon == nil {
 	if containString(listAddons.Addons, "aws-ebs-csi-driver") == false {
 
 		createAddonInput := &eks.CreateAddonInput{AddonName: aws.String("aws-ebs-csi-driver"), ClusterName: aws.String(clusterName), ServiceAccountRoleArn: aws.String(fmt.Sprintf("arn:aws:iam::%s:role/AmazonEKS_EBS_CSI_DriverRole_%s", tagAccountID, clusterName))}
-		createAddon, err := clientEks.CreateAddon(context.TODO(), createAddonInput)
-		if err != nil {
+		if _, err := clientEks.CreateAddon(context.TODO(), createAddonInput); err != nil {
+
 			return err
 		}
-		fmt.Printf("Create addon is <%#v> \n\n\n", createAddon)
+
 	}
 
 	var parallelTasks []Task
@@ -378,26 +258,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	if err := parallelExe.Execute(ctx); err != nil {
 		return err
 	}
-
-	// var helmListInfos []HelmListInfo
-
-	// stdout, _, err := (*workstation).Execute(ctx, `helm list -o json`, false)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if err = json.Unmarshal(stdout, &helmListInfos); err != nil {
-	// 	return err
-	// }
-
-	// // If nginx ingress controller has not been created, create the controller.
-	// controllerExistFlag := false
-	// for _, helmListInfo := range helmListInfos {
-	// 	if helmListInfo.Name == "nginx-ingress-controller" {
-	// 		controllerExistFlag = true
-	// 		break
-	// 	}
-	// }
 
 	controllerExistFlag, err := HelmResourceExist(workstation, "nginx-ingress-controller")
 	if controllerExistFlag == false {
@@ -431,120 +291,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 
 	return nil
 
-	// describeNodegroupInput := &eks.DescribeNodegroupInput{ClusterName: aws.String(clusterName), NodegroupName: aws.String("esNodeGroup")}
-	// describeNodegroup, err := clientEks.DescribeNodegroup(context.TODO(), describeNodegroupInput)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// client := ec2.NewFromConfig(cfg)
-	/***************************************************************************************************************
-	 * 02. Check template existness
-	 * Search template name
-	 *     01. go to next step if the template has been created.
-	 *     02. Create the template if it does not exist
-	 ***************************************************************************************************************/
-
-	// combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, "eks")
-	// describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{LaunchTemplateNames: []string{combinedName}}
-	// if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
-	// 	fmt.Printf("Calling the launch template inout ... ... ... <%#v>  \n\n\n\n", err.Error())
-	// 	var ae smithy.APIError
-	// 	if errors.As(err, &ae) {
-	// 		fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-	// 		if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
-	// 			fmt.Printf("--------------------------- \n\n\n")
-	// 			c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
-	// 		} else {
-	// 			return err
-	// 		}
-	// 	} else {
-	// 		return err
-	// 	}
-	// }
-
-	listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
-	listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
-	if err != nil {
-		return err
-	}
-
-	if containString(listNodegroup.Nodegroups, "esNodeGroup") == false {
-
-		// Node group creation
-		nodegroupScalingConfig := &types.NodegroupScalingConfig{DesiredSize: aws.Int32(1), MaxSize: aws.Int32(1), MinSize: aws.Int32(1)}
-		createNodegroupInput := &eks.CreateNodegroupInput{
-			ClusterName:   aws.String(clusterName),
-			NodeRole:      aws.String(roleArn),
-			NodegroupName: aws.String("esNodeGroup"),
-			Subnets:       c.clusterInfo.privateSubnets,
-			InstanceTypes: []string{"c5.xlarge"},
-			DiskSize:      aws.Int32(20),
-			ScalingConfig: nodegroupScalingConfig}
-		// -- Below command is used for customized IAM. But at the same time, the iam has to be build for eks.
-		// --https://aws.amazon.com/blogs/containers/introducing-launch-template-and-custom-ami-support-in-amazon-eks-managed-node-groups/
-		// createNodegroupInput := &eks.CreateNodegroupInput{
-		// 	ClusterName:   aws.String(clusterName),
-		// 	NodeRole:      aws.String(roleArn),
-		// 	NodegroupName: aws.String("esNodeGroup"),
-		// 	Subnets:       c.clusterInfo.privateSubnets,
-		// 	ScalingConfig: nodegroupScalingConfig,
-		// 	// AmiType:       types.AMITypes(combinedName),
-		// 	AmiType: types.AMITypes("CUSTOM"),
-		// 	LaunchTemplate: &types.LaunchTemplateSpecification{
-		// 		Name:    aws.String(combinedName),
-		// 		Version: aws.String("$Latest"),
-		// 	}}
-
-		createNodegroup, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("The create node group is <%#v>\n\n\n", createNodegroup)
-	}
-
-	fmt.Printf("-----------------------------------\n\n\n")
-	fmt.Printf("The list group is <%#v> \n\n\n\n\n", listNodegroup.Nodegroups)
-	if containString(listNodegroup.Nodegroups, "elasticsearch") == false {
-		// Node group creation
-		labels := map[string]string{"dedicated": "elastic"}
-		var taints []types.Taint
-		taints = append(taints, types.Taint{Effect: "NO_SCHEDULE", Key: aws.String("dedicated"), Value: aws.String("elastic")})
-
-		nodegroupScalingConfig := &types.NodegroupScalingConfig{DesiredSize: aws.Int32(3), MaxSize: aws.Int32(3), MinSize: aws.Int32(3)}
-		createNodegroupInput := &eks.CreateNodegroupInput{
-			ClusterName:   aws.String(clusterName),
-			NodeRole:      aws.String(roleArn),
-			NodegroupName: aws.String("elasticsearch"),
-			Subnets:       c.clusterInfo.privateSubnets,
-			InstanceTypes: []string{"c5.xlarge"},
-			DiskSize:      aws.Int32(20),
-			ScalingConfig: nodegroupScalingConfig,
-			Labels:        labels,
-			Taints:        taints}
-		// createNodegroupInput := &eks.CreateNodegroupInput{
-		// 	ClusterName:   aws.String(clusterName),
-		// 	NodeRole:      aws.String(roleArn),
-		// 	NodegroupName: aws.String("elasticsearch"),
-		// 	Subnets:       c.clusterInfo.privateSubnets,
-		// 	ScalingConfig: nodegroupScalingConfig,
-		// 	Labels:        labels,
-		// 	Taints:        taints,
-		// 	AmiType:       types.AMITypes("CUSTOM"),
-		// 	LaunchTemplate: &types.LaunchTemplateSpecification{
-		// 		Name:    aws.String(combinedName),
-		// 		Version: aws.String("$Latest"),
-		// 	}}
-
-		createNodegroup, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("The create node group is <%#v>\n\n\n", createNodegroup)
-
-	}
-
-	return nil
 }
 
 // Rollback implements the Task interface
@@ -556,75 +302,6 @@ func (c *DeployEKS) Rollback(ctx context.Context) error {
 func (c *DeployEKS) String() string {
 	return fmt.Sprintf("Echo: Deploying EKS Cluster")
 }
-
-// func (c *DeployEKS) CreateLaunchTemplate(client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
-// 	fmt.Printf("Calling inseid the CreateLaunchTemplate \n\n\n\n\n")
-// 	requestLaunchTemplateData := ec2types.RequestLaunchTemplateData{}
-
-// 	// 02. Storage template preparation
-// 	var launchTemplateBlockDeviceMappingRequest []ec2types.LaunchTemplateBlockDeviceMappingRequest
-// 	rootBlockDeviceMapping := ec2types.LaunchTemplateBlockDeviceMappingRequest{
-// 		DeviceName: aws.String("/dev/xvda"),
-// 		Ebs: &ec2types.LaunchTemplateEbsBlockDeviceRequest{
-// 			DeleteOnTermination: aws.Bool(true),
-// 			VolumeSize:          aws.Int32(8),
-// 			VolumeType:          ec2types.VolumeType("gp2"),
-// 		},
-// 	}
-
-// 	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, rootBlockDeviceMapping)
-// 	// if c.awsTopoConfigs.VolumeType != "" {
-// 	// 	blockDeviceMapping := types.LaunchTemplateBlockDeviceMappingRequest{
-// 	// 		DeviceName: aws.String("/dev/sdb"),
-// 	// 		Ebs: &types.LaunchTemplateEbsBlockDeviceRequest{
-// 	// 			DeleteOnTermination: aws.Bool(true),
-// 	// 			Iops:                aws.Int32(int32(c.awsTopoConfigs.Iops)),
-// 	// 			VolumeSize:          aws.Int32(int32(c.awsTopoConfigs.VolumeSize)),
-// 	// 			VolumeType:          types.VolumeType(c.awsTopoConfigs.VolumeType),
-// 	// 		},
-// 	// 	}
-
-// 	// 	launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, blockDeviceMapping)
-// 	// }
-// 	requestLaunchTemplateData.BlockDeviceMappings = launchTemplateBlockDeviceMappingRequest
-// 	requestLaunchTemplateData.EbsOptimized = aws.Bool(false)                                            // EbsOptimized flag, not support all the instance type
-// 	requestLaunchTemplateData.ImageId = aws.String(c.awsGeneralConfigs.ImageId)                         // ImageID
-// 	requestLaunchTemplateData.InstanceType = ec2types.InstanceType((*c.awsGeneralConfigs).InstanceType) // Instance Type
-// 	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                         // Key name
-// 	requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId}         // security group
-
-// 	tags := []ec2types.Tag{
-// 		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
-// 		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)}, // ex: tidb/oracle/workstation
-// 		{Key: aws.String("Component"), Value: aws.String("eks")},       // ex: tidb/tikv/pd
-// 		{Key: aws.String("Name"), Value: aws.String(clusterName)},      // ex: clustertest
-// 		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},        // ex: aws-user
-// 		{Key: aws.String("Project"), Value: aws.String(tagProject)},    // ex: clustertest
-// 	}
-
-// 	// 03. Template data preparation
-// 	fmt.Printf("Creating the template <%s> \n\n\n\n", *templateName)
-// 	var tagSpecification []ec2types.TagSpecification
-// 	tagSpecification = append(tagSpecification, ec2types.TagSpecification{ResourceType: ec2types.ResourceTypeLaunchTemplate, Tags: tags})
-// 	createLaunchTemplateInput := &ec2.CreateLaunchTemplateInput{
-// 		LaunchTemplateName: templateName,
-// 		LaunchTemplateData: &requestLaunchTemplateData,
-// 		TagSpecifications:  tagSpecification,
-// 	}
-
-// 	// 04. Template generation
-// 	createLaunchTemplate, err := client.CreateLaunchTemplate(context.TODO(), createLaunchTemplateInput)
-// 	if err != nil {
-// 		var ae smithy.APIError
-// 		if errors.As(err, &ae) {
-// 			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-// 		}
-// 		return err
-// 	}
-// 	fmt.Printf("The ourtput is <%#v> \n\n\n\n", createLaunchTemplate)
-
-// 	return nil
-// }
 
 type DestroyEKS struct {
 	pexecutor *ctxt.Executor
@@ -640,6 +317,32 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// Remove the openid provider
+	clientIam := iam.NewFromConfig(cfg)
+
+	listOpenIDConnectProviders, err := clientIam.ListOpenIDConnectProviders(context.TODO(), &iam.ListOpenIDConnectProvidersInput{})
+	if err != nil {
+		return err
+	}
+
+	for _, openIDConnectProvider := range listOpenIDConnectProviders.OpenIDConnectProviderList {
+		listOpenIDConnectProviderTags, err := clientIam.ListOpenIDConnectProviderTags(context.TODO(), &iam.ListOpenIDConnectProviderTagsInput{OpenIDConnectProviderArn: openIDConnectProvider.Arn})
+		if err != nil {
+			return err
+		}
+
+		for _, _tag := range listOpenIDConnectProviderTags.Tags {
+			if *_tag.Key == "alpha.eksctl.io/cluster-name" && *_tag.Value == clusterName {
+				// fmt.Printf("Key: %s, Value :%s Arn: %s \n\n\n\n", *_tag.Key, *_tag.Value, *openIDConnectProvider.Arn)
+				_, err := clientIam.DeleteOpenIDConnectProvider(context.TODO(), &iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: openIDConnectProvider.Arn})
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	clientEks := eks.NewFromConfig(cfg)
 
 	listClustersInput := &eks.ListClustersInput{}
@@ -647,7 +350,7 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The data is <%#v> \n\n\n", listClusters.Clusters)
+	// fmt.Printf("The data eks destroy is <%#v> \n\n\n", listClusters.Clusters)
 	for _, _cluster := range listClusters.Clusters {
 		if _cluster == clusterName {
 			workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.gOpt.SSHUser, c.gOpt.IdentityFile, true, nil)
@@ -661,6 +364,7 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 				_cmds := []string{
 					"helm delete nginx-ingress-controller",
 					"kubectl delete -f /opt/helm/storageClass.yaml",
+					// fmt.Sprintf("eksctl delete iamserviceaccount --name ebs-csi-controller-sa --namespace kube-system --cluster %s", clusterName),
 				}
 				for _, _cmd := range _cmds {
 					if _, _, err = (*workstation).Execute(ctx, _cmd, false); err != nil {
@@ -668,10 +372,6 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 					}
 				}
 			}
-
-			// 02. Destroy admin node group
-
-			// 03. Destroy role
 
 			listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
 			listNodegroups, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
@@ -690,7 +390,7 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 			if err := parallelExe.Execute(ctx); err != nil {
 				return err
 			}
-			fmt.Printf("Starting to remove the cluster \n\n\n\n")
+			// fmt.Printf("Starting to remove the cluster \n\n\n\n")
 
 			if err = CleanClusterSA(workstation, clusterName); err != nil {
 				return err
@@ -717,7 +417,64 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 		}
 	}
 
-	// Remove the roles using tag search
+	listRoles, err := clientIam.ListRoles(context.TODO(), &iam.ListRolesInput{})
+	if err != nil {
+		return err
+	}
+
+	for _, _role := range listRoles.Roles {
+		listRoleTags, err := clientIam.ListRoleTags(context.TODO(), &iam.ListRoleTagsInput{RoleName: _role.RoleName})
+		if err != nil {
+			return err
+		}
+
+		mapTag := make(map[string]string)
+		for _, _tag := range listRoleTags.Tags {
+			mapTag[*_tag.Key] = *_tag.Value
+		}
+
+		var _value string
+		var ok bool
+		if _value, ok = mapTag["Cluster"]; !ok {
+			continue
+		}
+
+		if _value != clusterType {
+			continue
+		}
+
+		if _value, ok = mapTag["Name"]; !ok {
+			continue
+		}
+
+		if _value != clusterName {
+			continue
+		}
+		if _value, ok = mapTag["Type"]; !ok {
+			continue
+		}
+
+		if _value != "es" {
+			continue
+		}
+
+		listAttachedRolePolicies, err := clientIam.ListAttachedRolePolicies(context.TODO(), &iam.ListAttachedRolePoliciesInput{RoleName: _role.RoleName})
+		if err != nil {
+			return err
+		}
+
+		for _, _rolePolicy := range listAttachedRolePolicies.AttachedPolicies {
+			if _, err = clientIam.DetachRolePolicy(context.TODO(), &iam.DetachRolePolicyInput{RoleName: _role.RoleName, PolicyArn: _rolePolicy.PolicyArn}); err != nil {
+				return err
+			}
+		}
+
+		_, err = clientIam.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: _role.RoleName})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

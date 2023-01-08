@@ -175,7 +175,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 	}
 
 	var dbInfo DBInfo
-	dbInfo.DBHost = (*nlb).DNSName
+	dbInfo.DBHost = *(*nlb).DNSName
 	dbInfo.DBPort = 4000
 	dbInfo.DBUser = "root"
 

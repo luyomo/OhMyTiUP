@@ -35,15 +35,9 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
-)
 
-// // DeployOptions contains the options for scale out.
-// type TiDB2Kafka2PgDeployOptions struct {
-// 	User              string // username to login to the SSH server
-// 	IdentityFile      string // path to the private key file
-// 	UsePassword       bool   // use password instead of identity file for ssh connection
-// 	IgnoreConfigCheck bool   // ignore config check result
-// }
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+)
 
 // Deploy a cluster.
 func (m *Manager) TiDB2Kafka2ESDeploy(
@@ -88,24 +82,24 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 		return err
 	}
 
-	// var workstationInfo, clusterInfo, kafkaClusterInfo task.ClusterInfo
-	var workstationInfo, eksClusterInfo task.ClusterInfo
+	var workstationInfo, clusterInfo, kafkaClusterInfo, eksClusterInfo task.ClusterInfo
+	// var workstationInfo, eksClusterInfo task.ClusterInfo
 
 	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 
 	//Setup the kafka cluster
-	// t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).
-	// 	BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
-	// envInitTasks = append(envInitTasks, t2)
+	t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).
+		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
+	envInitTasks = append(envInitTasks, t2)
 
-	// cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
-	// if cntEC2Nodes > 0 {
-	// 	t3 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-	// 		BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-	// 	envInitTasks = append(envInitTasks, t3)
-	// }
+	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
+	if cntEC2Nodes > 0 {
+		t3 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
+		envInitTasks = append(envInitTasks, t3)
+	}
 
 	t4 := task.NewBuilder().CreateEKSCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
 		CreateK8SESCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
@@ -138,9 +132,9 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "es"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb"}).
 		CreateRouteTgw(&sexecutor, "es", []string{"workstation"}).
-		// DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
-		// DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-		// DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
+		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
 
 	builder = task.NewBuilder().
@@ -183,7 +177,7 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 
 	// gOpt.SSHUser, gOpt.IdentityFile
 	t0 := task.NewBuilder().
-		// DestroyK8SESCluster(&sexecutor, gOpt).
+		DestroyK8SESCluster(&sexecutor, gOpt).
 		DestroyEKSCluster(&sexecutor, gOpt).
 		DestroyTransitGateways(&sexecutor).
 		// DestroyVpcPeering(&sexecutor).
@@ -207,7 +201,7 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 	t1 := task.NewBuilder().
 		DestroyNAT(&sexecutor, "kafka").
 		DestroyEC2Nodes(&sexecutor, "kafka").
-		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
+		BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
 
@@ -223,7 +217,7 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 		DestroyEC2Nodes(&sexecutor, "workstation").
 		DestroyEC2Nodes(&sexecutor, "tidb").
 		DestroyPostgres(&sexecutor).
-		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
+		BuildAsStep(fmt.Sprintf("  - Destroying workstation and tidb cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t4)
 
@@ -295,7 +289,7 @@ func (m *Manager) ListTiDB2Kafka2ESCluster(clusterName, clusterType string, opt 
 	listTasks = append(listTasks, t7)
 
 	// 008. NLB
-	var nlb task.LoadBalancer
+	var nlb elbtypes.LoadBalancer
 	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 

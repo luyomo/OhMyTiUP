@@ -147,14 +147,25 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 
 	_cmds := []string{
 		"helm repo add elastic https://helm.elastic.co",
-		"helm install elasticsearch elastic/elasticsearch -f /opt/helm/es.values.yaml",
-		"kubectl create -f /opt/helm/es.ingress.yaml",
+		"helm upgrade elasticsearch elastic/elasticsearch -f /opt/helm/es.values.yaml",
+		"kubectl apply -f /opt/helm/es.ingress.yaml",
 	}
 	for _, _cmd := range _cmds {
 		if _, _, err = (*workstation).Execute(ctx, _cmd, false); err != nil {
 			return err
 		}
 	}
+
+	// esExistFlag, err := HelmResourceExist(workstation, "elasticsearch")
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if esExistFlag == false {
+	// 	if _, _, err = (*workstation).Execute(ctx, "helm install elasticsearch elastic/elasticsearch -f /opt/helm/es.values.yaml", false); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	return nil
 

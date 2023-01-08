@@ -42,7 +42,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing"
+	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	// "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -538,7 +539,7 @@ func GetWSExecutor02(texecutor ctxt.Executor, ctx context.Context, clusterName, 
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("Account id is: <%#v> \n\n\n", cfg)
+		// fmt.Printf("Account id is: <%#v> \n\n\n", cfg)
 
 		envs = append(envs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", cfg.Region))
 
@@ -739,18 +740,18 @@ func (items byComponentName) Less(i, j int) bool {
 	return false
 }
 
-type TargetGroups struct {
-	TargetGroups []TargetGroup `json:"TargetGroups"`
-}
+// type TargetGroups struct {
+// 	TargetGroups []TargetGroup `json:"TargetGroups"`
+// }
 
-type TargetGroup struct {
-	TargetGroupArn  string `json:"TargetGroupArn"`
-	TargetGroupName string `json:"TargetGroupName"`
-	Protocol        string `json:"Protocol"`
-	Port            int    `json:"Port"`
-	VpcId           string `json:"VpcId"`
-	TargetType      string `json:"TargetType"`
-}
+// type TargetGroup struct {
+// 	TargetGroupArn  string `json:"TargetGroupArn"`
+// 	TargetGroupName string `json:"TargetGroupName"`
+// 	Protocol        string `json:"Protocol"`
+// 	Port            int    `json:"Port"`
+// 	VpcId           string `json:"VpcId"`
+// 	TargetType      string `json:"TargetType"`
+// }
 
 type TagDescription struct {
 	Tags []Tag `json:"Tags"`
@@ -791,15 +792,59 @@ func ExistsELBResource(executor ctxt.Executor, ctx context.Context, clusterType,
 	return false
 }
 
-func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*TargetGroup, error) {
+func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*elbtypes.TargetGroup, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
 	}
 
-	clientElb := elasticloadbalancing.NewFromConfig(cfg)
-	describeLoadBalancersInput := &elasticloadbalancing.DescribeLoadBalancersInput{LoadBalancerNames: []string{clusterName}}
-	_, err = clientElb.DescribeLoadBalancers(context.TODO(), describeLoadBalancersInput)
+	clientElb := elb.NewFromConfig(cfg)
+	describeTargetGroups, err := clientElb.DescribeTargetGroups(context.TODO(), &elb.DescribeTargetGroupsInput{Names: []string{clusterName}})
+	if err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() == "LoadBalancerNotFound" {
+				return nil, nil
+			}
+		}
+
+		return nil, err
+	}
+	return &describeTargetGroups.TargetGroups[0], nil
+
+	// command := fmt.Sprintf("aws elbv2 describe-target-groups --name \"%s\"", clusterName)
+	// stdout, stderr, err := executor.Execute(ctx, command, false)
+	// if err != nil {
+	// 	if strings.Contains(string(stderr), "One or more target groups not found") {
+	// 		return nil, errors.New("No target group found")
+	// 	} else {
+	// 		return nil, err
+	// 	}
+	// }
+	// var targetGroups TargetGroups
+	// if err = json.Unmarshal(stdout, &targetGroups); err != nil {
+	// 	return nil, err
+	// }
+
+	// for _, targetGroup := range targetGroups.TargetGroups {
+	// 	if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, targetGroup.TargetGroupArn); existsResource == true {
+	// 		return &targetGroup, nil
+	// 	}
+	// }
+	// return nil, errors.New("No target group found")
+}
+
+// func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*LoadBalancer, error) {
+func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*elbtypes.LoadBalancer, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	clientElb := elb.NewFromConfig(cfg)
+
+	describeLoadBalancers, err := clientElb.DescribeLoadBalancers(context.TODO(), &elb.DescribeLoadBalancersInput{Names: []string{clusterName}})
 	if err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
@@ -812,65 +857,38 @@ func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, cl
 		return nil, err
 	}
 
-	command := fmt.Sprintf("aws elbv2 describe-target-groups --name \"%s\"", clusterName)
-	stdout, stderr, err := executor.Execute(ctx, command, false)
-	if err != nil {
-		if strings.Contains(string(stderr), "One or more target groups not found") {
-			return nil, errors.New("No target group found")
-		} else {
-			return nil, err
-		}
-	}
-	var targetGroups TargetGroups
-	if err = json.Unmarshal(stdout, &targetGroups); err != nil {
-		return nil, err
-	}
+	return &describeLoadBalancers.LoadBalancers[0], nil
 
-	for _, targetGroup := range targetGroups.TargetGroups {
-		if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, targetGroup.TargetGroupArn); existsResource == true {
-			return &targetGroup, nil
-		}
-	}
-	return nil, errors.New("No target group found")
-}
+	// command := fmt.Sprintf("aws elbv2 describe-load-balancers --name \"%s\"", clusterName)
+	// stdout, stderr, err := executor.Execute(ctx, command, false)
+	// if err != nil {
+	// 	// var ae smithy.APIError
+	// 	// if errors.As(err, &ae) {
+	// 	// 	fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+	// 	// 	if ae.ErrorCode() == "LoadBalancerNotFound" {
+	// 	// 		return nil, nil
+	// 	// 	}
+	// 	// }
 
-type LoadBalancer struct {
-	LoadBalancerArn  string `json:"LoadBalancerArn"`
-	DNSName          string `json:"DNSName"`
-	LoadBalancerName string `json:"LoadBalancerName"`
-	Scheme           string `json:"Scheme"`
-	VpcId            string `json:"VpcId"`
-	State            struct {
-		Code string `json:"Code"`
-	} `json:"State"`
-	Type string `json:"Type"`
-}
+	// 	// return nil, err
 
-type LoadBalancers struct {
-	LoadBalancers []LoadBalancer `json:"LoadBalancers"`
-}
+	// 	if strings.Contains(string(stderr), fmt.Sprintf("Load balancers '[%s]' not found", clusterName)) {
+	// 		return nil, errors.New("No NLB found")
+	// 	} else {
+	// 		return nil, err
+	// 	}
+	// }
+	// var loadBalancers LoadBalancers
+	// if err = json.Unmarshal(stdout, &loadBalancers); err != nil {
+	// 	return nil, err
+	// }
 
-func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*LoadBalancer, error) {
-	command := fmt.Sprintf("aws elbv2 describe-load-balancers --name \"%s\"", clusterName)
-	stdout, stderr, err := executor.Execute(ctx, command, false)
-	if err != nil {
-		if strings.Contains(string(stderr), fmt.Sprintf("Load balancers '[%s]' not found", clusterName)) {
-			return nil, errors.New("No NLB found")
-		} else {
-			return nil, err
-		}
-	}
-	var loadBalancers LoadBalancers
-	if err = json.Unmarshal(stdout, &loadBalancers); err != nil {
-		return nil, err
-	}
-
-	for _, loadBalancer := range loadBalancers.LoadBalancers {
-		if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, loadBalancer.LoadBalancerArn); existsResource == true {
-			return &loadBalancer, nil
-		}
-	}
-	return nil, errors.New("No NLB found")
+	// for _, loadBalancer := range loadBalancers.LoadBalancers {
+	// 	if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, loadBalancer.LoadBalancerArn); existsResource == true {
+	// 		return &loadBalancer, nil
+	// 	}
+	// }
+	// return nil, errors.New("No NLB found")
 }
 
 func installWebSSH2(wexecutor *ctxt.Executor, ctx context.Context) error {
@@ -1273,9 +1291,10 @@ func (c *DestroyEKSNodeGroup) Execute(ctx context.Context) error {
 
 			time.Sleep(30 * time.Second)
 		}
+		return errors.New("Failed to delete the node group")
 	}
 
-	return errors.New("Failed to delete the node group")
+	return nil
 }
 
 // Rollback implements the Task interface
@@ -1341,7 +1360,7 @@ type IAMSAInfo struct {
 func FetchClusterSA(executor *ctxt.Executor, clusterName string) (*[]IAMSAInfo, error) {
 	var iamSAInfos []IAMSAInfo
 
-	stdout, _, err := (*executor).Execute(context.TODO(), fmt.Sprintf(`eksctl get iamserviceaccount --cluster %s -o json`, clusterName), false)
+	stdout, _, err := (*executor).Execute(context.TODO(), fmt.Sprintf(`eksctl get iamserviceaccount --cluster %s --namespace kube-system -o json`, clusterName), false)
 	if err != nil {
 		return nil, err
 	}
@@ -1361,7 +1380,7 @@ func CleanClusterSA(executor *ctxt.Executor, clusterName string) error {
 
 	for _, sa := range *clusterSA {
 
-		if _, _, err := (*executor).Execute(context.TODO(), fmt.Sprintf(`eksctl delete iamserviceaccount %s --cluster %s`, sa.MetaData.Name, clusterName), false); err != nil {
+		if _, _, err := (*executor).Execute(context.TODO(), fmt.Sprintf(`eksctl delete iamserviceaccount %s --namespace kube-system --cluster %s`, sa.MetaData.Name, clusterName), false); err != nil {
 			return err
 		}
 	}

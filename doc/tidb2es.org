@@ -312,10 +312,12 @@ OhMyTiUP$ curl -k -u elastic:1234Abcd https://internal-ad7066fdb66964bde95b5149b
 
 
 * TODO
-  + Create node group
-  + Get kubeconfig from eks
-  + helm
-    - install nginx-ingress
+
+  + Cleanness
+    - role - ekstest
+    - volume
+
+
     
 
   curl -Lo aws-iam-authenticator https://github.com/kubernetes-sigs/aws-iam-authenticator/releases/download/v0.5.9/aws-iam-authenticator_0.5.9_linux_amd64

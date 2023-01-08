@@ -27,6 +27,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/proxy"
+
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 // Builder is used to build TiUP task
@@ -1198,21 +1200,6 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
-	// t1 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.ConfigServer, &topo.General, clusterInfo, "config-server").Build()
-	// envInitTasks = append(envInitTasks, t1)
-
-	// t2 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Mongos, &topo.General, clusterInfo, "mongos").Build()
-	// envInitTasks = append(envInitTasks, t2)
-
-	// for _, _replicaSet := range topo.ReplicaSet {
-	// 	t3 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &_replicaSet, &topo.General, clusterInfo, "replicaSet").Build()
-	// 	envInitTasks = append(envInitTasks, t3)
-	// }
-
-	// b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-	// 	NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 27017, 27027, 27037}).Build()).
-	// 	Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().Parallel(false, envInitTasks...).Build())
-
 	var parallelTasks []Task
 
 	t1 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.PD, &awsTopoConfigs.General, clusterInfo, "pd").Build()
@@ -1551,7 +1538,7 @@ func (b *Builder) DeployDrainConfig(pexecutor *ctxt.Executor, awsOracleConfigs *
 	return b
 }
 
-func (b *Builder) ListNLB(pexecutor *ctxt.Executor, subClusterType string, nlb *LoadBalancer) *Builder {
+func (b *Builder) ListNLB(pexecutor *ctxt.Executor, subClusterType string, nlb *elbtypes.LoadBalancer) *Builder {
 	b.tasks = append(b.tasks, &ListNLB{
 		pexecutor:      pexecutor,
 		subClusterType: subClusterType,
