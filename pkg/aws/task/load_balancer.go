@@ -260,7 +260,7 @@ func (c *DestroyNLB) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws elbv2 delete-load-balancer --load-balancer-arn %s", (*nlb).LoadBalancerArn)
+	command := fmt.Sprintf("aws elbv2 delete-load-balancer --load-balancer-arn %s", *(*nlb).LoadBalancerArn)
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
@@ -291,16 +291,13 @@ func (c *DestroyTargetGroup) Execute(ctx context.Context) error {
 
 	targetGroup, err := getTargetGroup(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
 	if err != nil {
-		if err.Error() == "No target group found" {
-			return nil
-		}
 		return err
 	}
 	if targetGroup == nil {
 		return nil
 	}
 
-	command := fmt.Sprintf("aws elbv2 delete-target-group --target-group-arn %s", (*targetGroup).TargetGroupArn)
+	command := fmt.Sprintf("aws elbv2 delete-target-group --target-group-arn %s", *(*targetGroup).TargetGroupArn)
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err

@@ -130,7 +130,7 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
 		CreateTransitGatewayVpcAttachment(&sexecutor, "es").
 		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "es"}).
-		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb"}).
+		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "es"}).
 		CreateRouteTgw(&sexecutor, "es", []string{"workstation"}).
 		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
 		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
@@ -176,6 +176,11 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 	}
 
 	// gOpt.SSHUser, gOpt.IdentityFile
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	var destroyTasks []*task.StepDisplay
+
 	t0 := task.NewBuilder().
 		DestroyK8SESCluster(&sexecutor, gOpt).
 		DestroyEKSCluster(&sexecutor, gOpt).
@@ -183,20 +188,19 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 		// DestroyVpcPeering(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
-	builder := task.NewBuilder().
-		ParallelStep("+ Destroying kafka solution service ... ...", false, t0)
-	t := builder.Build()
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
-			return err
-		}
-		return err
-	}
+	destroyTasks = append(destroyTasks, t0)
 
-	var destroyTasks []*task.StepDisplay
+	// builder := task.NewBuilder().
+	// 	ParallelStep("+ Destroying kafka solution service ... ...", false, t0)
+	// t := builder.Build()
+
+	// if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
+	// 	if errorx.Cast(err) != nil {
+	// 		// FIXME: Map possible task errors and give suggestions.
+	// 		return err
+	// 	}
+	// 	return err
+	// }
 
 	t1 := task.NewBuilder().
 		DestroyNAT(&sexecutor, "kafka").
@@ -205,12 +209,12 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 
 	destroyTasks = append(destroyTasks, t1)
 
-	t2 := task.NewBuilder().
-		DestroyNAT(&sexecutor, "es").
-		DestroyEC2Nodes(&sexecutor, "es").
-		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
+	// t2 := task.NewBuilder().
+	// 	DestroyNAT(&sexecutor, "es").
+	// 	DestroyEC2Nodes(&sexecutor, "es").
+	// 	BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
 
-	destroyTasks = append(destroyTasks, t2)
+	// destroyTasks = append(destroyTasks, t2)
 
 	t4 := task.NewBuilder().
 		DestroyNAT(&sexecutor, "tidb").
@@ -221,10 +225,10 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 
 	destroyTasks = append(destroyTasks, t4)
 
-	builder = task.NewBuilder().
+	builder := task.NewBuilder().
 		ParallelStep("+ Destroying all the componets", false, destroyTasks...)
 
-	t = builder.Build()
+	t := builder.Build()
 
 	tailctx := context.WithValue(context.Background(), "clusterName", name)
 	tailctx = context.WithValue(tailctx, "clusterType", clusterType)

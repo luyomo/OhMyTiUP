@@ -310,6 +310,206 @@ OhMyTiUP$ curl -k -u elastic:1234Abcd https://internal-ad7066fdb66964bde95b5149b
 }
    #+END_SRC
 
+* Manual setup
+  #+BEGIN_SRC
+OhMyTiUP$ more /tmp/source.toml 
+[sink]                                                                                                                                                                               
+dispatchers = [
+  {matcher = ['*.*'], topic = "{schema}_{table}", partition ="ts"},
+]
+OhMyTiUP$ tiup cdc cli changefeed create --server http://182.83.3.147:8300 --changefeed-id='tidb2es' --sink-uri=kafka://172.83.6.249:9092/topic-name?protocol=avro --schema-registry=http://172.83.6.222:8081 --config=/tmp/source.toml
+Info: {"upstream_id":7186473498337929556,"namespace":"default","id":"tidb2es","sink_uri":"kafka://172.83.6.249:9092/topic-name?protocol=avro","create_time":"2023-01-09T05:26:59.8314
+4617Z","start_ts":438630355920486401,"engine":"unified","config":{"case_sensitive":true,"enable_old_value":true,"force_replicate":false,"ignore_ineligible_table":false,"check_gc_saf
+e_point":true,"enable_sync_point":false,"bdr_mode":false,"sync_point_interval":600000000000,"sync_point_retention":86400000000000,"filter":{"rules":["*.*"],"event_filters":null},"mo
+unter":null,"sink":{"protocol":"avro","schema_registry":"http://172.83.6.222:8081","csv":null,"dispatchers":[{"matcher":["*.*"],"partition":"ts","topic":"{schema}_{table}"}],"column
+_selectors":null,"transaction_atomicity":"none","encoder_concurrency":0,"terminator":"","date_separator":"","enable_partition_separator":false},"consistent":{"level":"none","max_log
+_size":64,"flush_interval":2000,"storage":""}},"state":"normal","creator_version":"v6.3.0"}
+OhMyTiUP$
+OhMyTiUP$ tiup cdc cli changefeed list --server http://182.83.3.147:8300
+tiup is checking updates for component cdc ...
+Starting component `cdc`: /home/admin/.tiup/components/cdc/v6.5.0/cdc cli changefeed list --server http://182.83.3.147:8300
+[
+  {
+    "id": "tidb2es",
+    "namespace": "default",
+    "summary": {
+      "state": "normal",
+      "tso": 438630410996678657,
+      "checkpoint": "2023-01-09 05:30:29.449",
+      "error": null
+    }
+  }
+]
+
+OhMyTiUP$  /opt/kafka/perf/kafka-util.sh list-topic
+__consumer_offsets
+_schemas
+connect-configs
+connect-offsets
+connect-status
+topic-name
+
+OhMyTiUP$ /opt/kafka/perf/kafka-util.sh topic-offset topic-name 
+topic-name:0:0
+topic-name:1:0
+topic-name:2:0
+MySQL$ insert into test01 values(2,2);
+
+OhMyTiUP$  /opt/kafka/perf/kafka-util.sh list-topic
+__consumer_offsets
+_schemas
+connect-configs
+connect-offsets
+connect-status
+test_t:q!
+est01
+topic-name
+
+  #+END_SRC
+
+** sink connecto install
+*** without timestamp
+    #+BEGIN_SRC
+OhMyTiUP$ more /tmp/sink.json
+{
+    "name": "ESSINK",
+    "config": {
+        "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+        "connection.url": "http://172.89.2.213:80",
+        "connection.username": "elastic",
+        "connection.password": "1234Abcd",
+        "key.ignore": "true",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "http://172.83.1.189:8081",
+        "topics": "test_test01"
+    }
+}
+OhMyTiUP$ curl -X POST -H "content-type:application/json" http://172.83.1.100:8083/connectors -d@'/tmp/sink.json'
+
+OhMyTiUP$ curl http://172.83.1.100:8083/connectors/ESSINK/status | jq 
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   164  100   164    0     0  54666      0 --:--:-- --:--:-- --:--:-- 54666
+{
+  "name": "ESSINK",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "172.83.1.100:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "RUNNING",
+      "worker_id": "172.83.1.100:8083"
+    }
+  ],
+  "type": "sink"
+}
+OhMyTiUP$ curl http://172.83.1.100:8083/connectors/ESSINK | jq 
+{
+  "name": "ESSINK",
+  "config": {
+    "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+    "value.converter.schema.registry.url": "http://172.83.1.189:8081",
+    "connection.password": "1234Abcd",
+    "topics": "test_test01",
+    "connection.username": "elastic",
+    "name": "ESSINK",
+    "connection.url": "http://172.89.2.213:80",
+    "key.ignore": "true",
+    "value.converter": "io.confluent.connect.avro.AvroConverter"
+  },
+  "tasks": [
+    {
+      "connector": "ESSINK",
+      "task": 0
+    }
+  ],
+  "type": "sink"
+}
+OhMyTiUP$ curl -u elastic:1234Abcd http://172.89.2.213/test_test01/_count | jq 
+{
+  "count": 5,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  }
+}
+OhMyTiUP$ curl -u elastic:1234Abcd http://172.89.2.213/test_test01/_search?q=col01:10 | jq 
+{
+  "took": 14,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 1,
+      "relation": "eq"
+    },
+    "max_score": 1,
+    "hits": [
+      {
+        "_index": "test_test01",
+        "_id": "test_test01+1+0",
+        "_score": 1,
+        "_source": {
+          "col01": 10,
+          "col02": 10
+        }
+      }
+    ]
+  }
+}
+
+    #+END_SRC
+*** with timestamp
+   #+BEGIN_SRC
+connector$ sudo confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:latest
+connector$ sudo systemctl restart confluent-kafka-connect
+OhMyTiUP$ curl -X POST -H "content-type:application/json" http://172.83.4.109:8083/connectors -d @'/tmp/sink.json' | jq
+{
+  "name": "ESSINK",
+  "config": {
+    "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+    "connection.url": "http://172.89.2.213:80",
+    "connection.username": "elastic",
+    "connection.password": "1234Abcd",
+    "topics": "test_test01",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://172.83.6.222:8081",
+    "value.converter.schema.registry.url": "http://172.83.6.222:8081",
+    "key.converter.schemas.enable": "true",
+    "value.converter.schemas.enable": "true",
+    "transforms": "timestamp",
+    "transforms.timestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.timestamp.target.type": "Timestamp",
+    "transforms.timestamp.field": "timestamp,t_datetime",
+    "transforms.timestamp.format": "yyyy-MM-dd HH:mm:ss",
+    "name": "ESSINK"
+  },
+  "tasks": [],
+  "type": "sink"
+}
+MySQL [test]> insert into test01 values(3,3); 
+Query OK, 1 row affected (0.005 sec)
+   #+END_SRC
+
+
+   #+BEGIN_SRC
+admin@ip-172-82-11-40:~$ tiup cdc cli changefeed create --server http://182.83.3.147:8300 --changefeed-id='tidb2es' --sink-uri=kafka://172.83.6.249:9092/topic-name?protocol=canal-json --config=/tmp/source.toml 
+tiup is checking updates for component cdc ...
+Starting component `cdc`: /home/admin/.tiup/components/cdc/v6.5.0/cdc cli changefeed create --server http://182.83.3.147:8300 --changefeed-id=tidb2es --sink-uri=kafka://172.83.6.249:9092/topic-name?protocol=canal-json --config=/tmp/source.toml
+Create changefeed successfully!
+ID: tidb2es
+Info: {"upstream_id":7186473498337929556,"namespace":"default","id":"tidb2es","sink_uri":"kafka://172.83.6.249:9092/topic-name?protocol=canal-json","create_time":"2023-01-09T12:25:05.766528516Z","start_ts":438636932130144257,"engine":"unified","config":{"case_sensitive":true,"enable_old_value":true,"force_replicate":false,"ignore_ineligible_table":false,"check_gc_safe_point":true,"enable_sync_point":false,"bdr_mode":false,"sync_point_interval":600000000000,"sync_point_retention":86400000000000,"filter":{"rules":["*.*"],"event_filters":null},"mounter":null,"sink":{"protocol":"canal-json","schema_registry":"","csv":null,"dispatchers":[{"matcher":["*.*"],"partition":"ts","topic":"{schema}_{table}"}],"column_selectors":null,"transaction_atomicity":"none","encoder_concurrency":0,"terminator":"","date_separator":"","enable_partition_separator":false},"consistent":{"level":"none","max_log_size":64,"flush_interval":2000,"storage":""}},"state":"normal","creator_version":"v6.3.0"}
+   #+END_SRC
 
 * TODO
 
@@ -435,3 +635,30 @@ caused by: AccessDenied: Not authorized to perform sts:AssumeRoleWithWebIdentity
    #+END_SRC
    OpenID Connect provider URL -> associate OIDC to IAM  -> Create service account in the k8s referring to iam role
    [[https://docs.aws.amazon.com/eks/latest/userguide/csi-iam-role.html][AWS storage]]
+
+** Failed to sink data to es
+   #+BEGIN_SRC
+curl http://172.83.1.100:8083/connectors/ESSINK/status | jq 
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  2733  100  2733    0     0   266k      0 --:--:-- --:--:-- --:--:--  266k
+{
+  "name": "ESSINK",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "172.83.1.100:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "FAILED",
+      "worker_id": "172.83.1.100:8083",
+      "trace": "org.apache.kafka.connect.errors.ConnectException: Tolerance exceeded in error handler\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:206)\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execute(RetryWithToleranceOperator.java:132)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.convertAndTransformRecord(WorkerSinkTask.java:513)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.convertMessages(WorkerSinkTask.java:493)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.poll(WorkerSinkTask.java:332)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.iteration(WorkerSinkTask.java:234)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.execute(WorkerSinkTask.java:203)\n\tat org.apache.kafka.connect.runtime.WorkerTask.doRun(WorkerTask.java:188)\n\tat org.apache.kafka.connect.runtime.WorkerTask.run(WorkerTask.java:243)\n\tat java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:515)\n\tat java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)\n\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)\n\tat java.base/java.lang.Thread.run(Thread.java:829)\nCaused by: java.nio.BufferUnderflowException\n\tat java.base/java.nio.Buffer.nextGetIndex(Buffer.java:643)\n\tat java.base/java.nio.HeapByteBuffer.get(HeapByteBuffer.java:165)\n\tat io.confluent.kafka.serializers.AbstractKafkaSchemaSerDe.getByteBuffer(AbstractKafkaSchemaSerDe.java:251)\n\tat io.confluent.kafka.serializers.AbstractKafkaAvroDeserializer$DeserializationContext.<init>(AbstractKafkaAvroDeserializer.java:334)\n\tat io.confluent.kafka.serializers.AbstractKafkaAvroDeserializer.deserializeWithSchemaAndVersion(AbstractKafkaAvroDeserializer.java:202)\n\tat io.confluent.connect.avro.AvroConverter$Deserializer.deserialize(AvroConverter.java:172)\n\tat io.confluent.connect.avro.AvroConverter.toConnectData(AvroConverter.java:107)\n\tat org.apache.kafka.connect.storage.Converter.toConnectData(Converter.java:87)\n\tat org.apache.kafka.connect.runtime.WorkerSinkTask.lambda$convertAndTransformRecord$3(WorkerSinkTask.java:513)\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndRetry(RetryWithToleranceOperator.java:156)\n\tat org.apache.kafka.connect.runtime.errors.RetryWithToleranceOperator.execAndHandleError(RetryWithToleranceOperator.java:190)\n\t... 13 more\n"
+    }
+  ],
+  "type": "sink"
+}
+
+   #+END_SRC
+
+   The data format can not use canal-json which can not be converted to json.

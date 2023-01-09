@@ -804,7 +804,7 @@ func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, cl
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
 			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-			if ae.ErrorCode() == "LoadBalancerNotFound" {
+			if ae.ErrorCode() == "TargetGroupNotFound" {
 				return nil, nil
 			}
 		}
