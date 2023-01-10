@@ -180,7 +180,7 @@ func newPerfPrepareTiDB2Kafka2ES() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.PerfPrepareTiDB2Kafka2PG(clusterName, "ohmytiup-tidb2kafka2pg", perfOpt, gOpt)
+			return cm.PerfPrepareTiDB2Kafka2ES(clusterName, "ohmytiup-tidb2kafka2es", perfOpt, gOpt)
 		},
 	}
 

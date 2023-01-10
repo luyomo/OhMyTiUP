@@ -545,13 +545,16 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName, clusterType string, perf
 
 	/* ********** ********** 009 Prepare TiCDC source changefeed   **********/
 	// 008.01 TiCDC source config file
-	if err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2pg/source.toml.tpl", "/tmp/source.toml", "0644", []string{}, true, 0); err != nil {
+	if err = (*workstation).TransferTemplate(ctx, "templates/config/ticdc.source.toml.tpl", "/opt/kafka/source.toml", "0644", []string{}, true, 0); err != nil {
 		return err
 	}
+	// if err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2pg/source.toml.tpl", "/tmp/source.toml", "0644", []string{}, true, 0); err != nil {
+	// 	return err
+	// }
 
-	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/source.toml /opt/kafka/", true); err != nil {
-		return err
-	}
+	// if _, _, err := (*workstation).Execute(ctx, "mv /tmp/source.toml /opt/kafka/", true); err != nil {
+	// 	return err
+	// }
 
 	// 008.02 Extract changefeed status
 	type ChangeFeed struct {
