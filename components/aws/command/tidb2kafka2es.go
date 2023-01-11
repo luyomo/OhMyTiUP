@@ -238,7 +238,7 @@ func newPerfCleanTiDB2Kafka2ES() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.PerfCleanTiDB2Kafka2PG(clusterName, "ohmytiup-tidb2kafka2pg", gOpt)
+			return cm.PerfCleanTiDB2Kafka2ES(clusterName, "ohmytiup-tidb2kafka2es", gOpt)
 		},
 	}
 

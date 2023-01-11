@@ -513,6 +513,8 @@ Info: {"upstream_id":7186473498337929556,"namespace":"default","id":"tidb2es","s
 
 * TODO
 
+  + create the role AmazonEKS_EBS_CSI_DriverRole_ using skd rather than eksctl
+  + load balancer: there are two ip which is the most proper one
   + Cleanness
     - role - ekstest
     - volume
@@ -662,3 +664,78 @@ curl http://172.83.1.100:8083/connectors/ESSINK/status | jq
    #+END_SRC
 
    The data format can not use canal-json which can not be converted to json.
+
+** Count the index
+   #+BEGIN_SRC
+OhMyTiUP$ curl -u elastic:1234Abcd http://172.89.3.239/test_test01/_count | jq 
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    71  100    71    0     0   4733      0 --:--:-- --:--:-- --:--:--  5071
+{
+  "count": 4,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  }
+}
+
+OhMyTiUP$  curl -u elastic:1234Abcd http://172.89.3.239/test_test01/_search?q=col01:5188146770730811393 | jq 
+{
+  "took": 28,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 1,
+      "relation": "eq"
+    },
+    "max_score": 1,
+    "hits": [
+      {
+        "_index": "test_test01",
+        "_id": "test_test01+2+0",
+        "_score": 1,
+        "_source": {
+          "col01": 5188146770730811000,
+          "col02": 2
+        }
+      }
+    ]
+  }
+}
+
+
+   #+END_SRC
+
+** Create the role instead of eksctl
+   #+BEGIN_SRC
+cli$ permisson
+AmazonEBSCSIDriverPolicy
+
+cli$ trust relationships
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::729581434105:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/32A13D8E01469C25DC2F92F1A2E42DC1"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                    "oidc.eks.us-east-1.amazonaws.com/id/32A13D8E01469C25DC2F92F1A2E42DC1:aud": "sts.amazonaws.com",
+                    "oidc.eks.us-east-1.amazonaws.com/id/32A13D8E01469C25DC2F92F1A2E42DC1:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+                }
+            }
+        }
+    ]
+}
+   #+END_SRC

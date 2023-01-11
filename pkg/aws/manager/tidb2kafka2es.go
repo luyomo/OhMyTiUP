@@ -183,7 +183,7 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 
 	t0 := task.NewBuilder().
 		DestroyK8SESCluster(&sexecutor, gOpt).
-		DestroyEKSCluster(&sexecutor, gOpt).
+		DestroyEKSCluster(&sexecutor, "es", gOpt).
 		DestroyTransitGateways(&sexecutor).
 		// DestroyVpcPeering(&sexecutor).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
@@ -493,11 +493,16 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 		}
 	}
 
+	esHost, _, err := (*workstation).Execute(ctx, fmt.Sprintf("kubectl get service nginx-ingress-controller-ingress-nginx-controller-internal -o custom-columns=:.status.loadBalancer.ingress[0].hostname | awk '{printf $1}'"), false)
+	if err != nil {
+		return err
+	}
+
 	timer.Take("06. Create if not exists changefeed of TiCDC")
 	fmt.Printf("The connectot ip is <%s> \n\n\n", connectorIP)
 
 	esConfig := make(map[string]string)
-	esConfig["ES_IP"] = "192.168.1.1"
+	esConfig["ES_IP"] = string(esHost)
 	esConfig["ES_User"] = "elastic"
 	esConfig["ES_Password"] = "1234Abcd"
 	esConfig["SchemaRegistry"] = schemaRegistryIP
@@ -506,14 +511,10 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 		return err
 	}
 
-	// if _, _, err := (*workstation).Execute(ctx, "mv /tmp/kafka.sink.json /opt/kafka/", true); err != nil {
-	// 	return err
-	// }
-
-	// if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/kafka.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
-	// 	return err
-	// }
-	// timer.Take("07. Create the kafka sink to postgres")
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/es.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
+		return err
+	}
+	timer.Take("07. Create the kafka sink to postgres")
 
 	timer.Print()
 
@@ -686,7 +687,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2ES(clusterName, clusterType string, gOpt o
 	}
 
 	// Remove the sink connector
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8083/connectors/%s", connectorIP, "JDBCTEST"), false); err != nil {
+	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8083/connectors/%s", connectorIP, "ESSINK"), false); err != nil {
 		return err
 	}
 
@@ -695,7 +696,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2ES(clusterName, clusterType string, gOpt o
 	if err != nil {
 		return err
 	}
-	changeFeedExist, err := changeFeedExist(stdout, "avro-test")
+	changeFeedExist, err := changeFeedExist(stdout, "kafka-avro")
 	if err != nil {
 		return err
 	}

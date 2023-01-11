@@ -1009,11 +1009,9 @@ func (b *Builder) DestroyK8SESCluster(pexecutor *ctxt.Executor, gOpt operator.Op
 	return b
 }
 
-func (b *Builder) DestroyEKSCluster(pexecutor *ctxt.Executor, gOpt operator.Options) *Builder {
-	b.Step(" Destroying EKS ... ...", &DestroyEKS{
-		pexecutor: pexecutor,
-		gOpt:      gOpt,
-	})
+func (b *Builder) DestroyEKSCluster(pexecutor *ctxt.Executor, subClusterType string, gOpt operator.Options) *Builder {
+	b.Step(" Destroying EKS ... ...", &DestroyEKS{pexecutor: pexecutor, gOpt: gOpt}).
+		Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 
 	return b
 }
@@ -1146,9 +1144,10 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 	if isPrivate == true {
 		if clusterInfo.enableNAT == "true" {
 			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+				// NAT creation should be after the network preparation, otherwise the nat subnet is taken as one of the private subnets.
 				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+				Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
 		} else {
 			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
