@@ -35,6 +35,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
+
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 // DeployOptions contains the options for scale out.
@@ -284,7 +286,7 @@ func (m *Manager) ListTiDB2Kafka2PgCluster(clusterName, clusterType string, opt 
 	listTasks = append(listTasks, t7)
 
 	// 008. NLB
-	var nlb task.LoadBalancer
+	var nlb elbtypes.LoadBalancer
 	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 
@@ -341,10 +343,13 @@ type MapTiDB2PG struct {
 	} `yaml:"MapTiDB2PG"`
 }
 
-/* *****************************************************************************
+/*
+	*****************************************************************************
+
 Parameters:
-   perfOpt
-     -> DataTypeDtr: ["int", "varchar"]
+
+	perfOpt
+	  -> DataTypeDtr: ["int", "varchar"]
 */
 func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
 	/* ********** ********** 001. Read the column mapping file to struct
@@ -540,13 +545,16 @@ func (m *Manager) PerfPrepareTiDB2Kafka2PG(clusterName, clusterType string, perf
 
 	/* ********** ********** 009 Prepare TiCDC source changefeed   **********/
 	// 008.01 TiCDC source config file
-	if err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2pg/source.toml.tpl", "/tmp/source.toml", "0644", []string{}, true, 0); err != nil {
+	if err = (*workstation).TransferTemplate(ctx, "templates/config/ticdc.source.toml.tpl", "/opt/kafka/source.toml", "0644", []string{}, true, 0); err != nil {
 		return err
 	}
+	// if err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2pg/source.toml.tpl", "/tmp/source.toml", "0644", []string{}, true, 0); err != nil {
+	// 	return err
+	// }
 
-	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/source.toml /opt/kafka/", true); err != nil {
-		return err
-	}
+	// if _, _, err := (*workstation).Execute(ctx, "mv /tmp/source.toml /opt/kafka/", true); err != nil {
+	// 	return err
+	// }
 
 	// 008.02 Extract changefeed status
 	type ChangeFeed struct {
@@ -897,10 +905,13 @@ type MapPG2TiDB struct {
 	} `yaml:"MapPG2TiDB"`
 }
 
-/* *****************************************************************************
+/*
+	*****************************************************************************
+
 Parameters:
-   perfOpt
-     -> DataTypeDtr: ["int", "varchar"]
+
+	perfOpt
+	  -> DataTypeDtr: ["int", "varchar"]
 */
 func (m *Manager) PerfPreparePG2Kafka2TiDB(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
 

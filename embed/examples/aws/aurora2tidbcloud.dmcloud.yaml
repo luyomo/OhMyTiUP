@@ -1,0 +1,29 @@
+workstation:
+  cidr: 172.82.0.0/16
+  instance_type: c5.2xlarge
+  username: admin
+  # keyname: jay-us-east-01                       # us-east
+  # keyfile: /home/pi/.ssh/jay-us-east-01.pem     # us-east
+  # imageid: ami-07d02ee1eeb0c996c                # us-east
+  keyname: jay.jp                               # ap-northeast-1
+  keyfile: /home/pi/.ssh/jay.jp.pem             # ap-northeast-1
+  imageid: ami-05674058913b70816                # ap-northeast-1
+  volumeSize: 100
+  #shared: false
+aurora:
+  cidr: 172.84.0.0/16
+  instance_type: db.r5.large
+  db_parameter_family_group: aurora-mysql5.7
+  engine: aurora-mysql
+  engine_version: 5.7.mysql_aurora.2.10.1
+  db_username: admin
+  db_password: 1234Abcd
+  public_accessible_flag: false
+tidb_cloud:
+  host: private-tidb.fdfxwtbbd0o.clusters.tidb-cloud.com
+  port: 4000
+  user: root
+  password: 1234Abcd
+  databases:
+    - test01
+    - test02

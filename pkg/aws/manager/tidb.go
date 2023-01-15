@@ -38,6 +38,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
+
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 // To resolve:
@@ -329,7 +331,7 @@ func (m *Manager) ListTiDBCluster(clusterName string, opt DeployOptions) error {
 	listTasks = append(listTasks, t7)
 
 	// 008. NLB
-	var nlb task.LoadBalancer
+	var nlb elbtypes.LoadBalancer
 	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 

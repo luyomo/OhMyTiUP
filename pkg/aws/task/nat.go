@@ -67,7 +67,7 @@ func (c *CreateNAT) Execute(ctx context.Context) error {
 
 	zones, err := getAvailableZones(*c.pexecutor, ctx)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	cidrBlock := getNextCidr(vpc.CidrBlock, 20)
@@ -188,7 +188,7 @@ func (c *CreateNAT) Execute(ctx context.Context) error {
 		elasticAddress = allocateAddressResult.AllocationId
 	}
 
-	natGatewayId, err := SearchNatGateway(client, filters)
+	natGatewayId, err := SearchNatGateway(client, filters, []string{"available"})
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (c *CreateNAT) Execute(ctx context.Context) error {
 		natGatewayId = natGatewayResult.NatGateway.NatGatewayId
 		for cnt := 0; cnt < 10; cnt++ {
 			time.Sleep(15 * time.Second)
-			natGatewayId, err := SearchNatGateway(client, filters)
+			natGatewayId, err := SearchNatGateway(client, filters, []string{"available", "deleting"})
 			if err != nil {
 				return err
 			}
@@ -229,7 +229,6 @@ func (c *CreateNAT) Execute(ctx context.Context) error {
 
 	_, err = client.CreateRoute(context.TODO(), createRouteInput)
 	if err != nil {
-		//		fmt.Printf("The route creation error is ", createRouteResult)
 		return err
 	}
 
@@ -259,7 +258,7 @@ func (c *DestroyNAT) Execute(ctx context.Context) error {
 	client := ec2.NewFromConfig(cfg)
 
 	// Destroy nat gateway
-	natGatewayId, err := SearchNatGateway(client, filters)
+	natGatewayId, err := SearchNatGateway(client, filters, []string{"available"})
 	if err != nil {
 		return err
 	}
@@ -274,7 +273,7 @@ func (c *DestroyNAT) Execute(ctx context.Context) error {
 
 		for cnt := 0; cnt < 50; cnt++ {
 			time.Sleep(15 * time.Second)
-			natGatewayId, err := SearchNatGateway(client, filters)
+			natGatewayId, err := SearchNatGateway(client, filters, []string{"available", "deleting"})
 			if err != nil {
 				return err
 			}
@@ -453,8 +452,8 @@ func SearchAddresses(client *ec2.Client, filters []types.Filter) (*string, error
 	return (*result).Addresses[0].AllocationId, nil
 }
 
-func SearchNatGateway(client *ec2.Client, filters []types.Filter) (*string, error) {
-	filters = append(filters, types.Filter{Name: aws.String("state"), Values: []string{"available"}})
+func SearchNatGateway(client *ec2.Client, filters []types.Filter, state []string) (*string, error) {
+	filters = append(filters, types.Filter{Name: aws.String("state"), Values: state})
 
 	input := &ec2.DescribeNatGatewaysInput{
 		Filter: filters,

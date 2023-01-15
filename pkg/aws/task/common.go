@@ -30,6 +30,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/aws/smithy-go"
+
 	"github.com/luyomo/OhMyTiUP/embed"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
@@ -40,7 +42,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+
+	// "github.com/aws/aws-sdk-go-v2/service/ec2"
+	// ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/eks"
+	"github.com/aws/aws-sdk-go-v2/service/eks/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	// "github.com/aws/smithy-go"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 )
 
 type Vpc struct {
@@ -411,6 +423,35 @@ func getNetworksString(executor ctxt.Executor, ctx context.Context, clusterName,
 
 }
 
+type AptLock struct {
+	Locks []struct {
+		//"command":"cron", "pid":686, "type":"FLOCK", "size":null, "mode":"WRITE", "m":false, "start":0, "end":0, "path":"/run..."
+		Command string `json:"command"`
+		Pid     int32  `json:"pid"`
+		Type    string `json:"type"`
+		Size    string `json:"size"`
+		Mode    string `json:"mode"`
+		M       bool   `json:"m"`
+		Start   int32  `json:"start"`
+		End     int32  `json:"end"`
+		Path    string `json:"path"`
+	} `json:"locks"`
+}
+
+func LookupAptLock(appName string, inStr []byte) (bool, error) {
+	var aptLock AptLock
+	if err := json.Unmarshal(inStr, &aptLock); err != nil {
+		return false, err
+	}
+	for _, _entry := range aptLock.Locks {
+		if _entry.Command == appName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*TransitGateway, error) {
 	command := fmt.Sprintf("aws ec2 describe-transit-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
 	stdout, _, err := executor.Execute(ctx, command, false)
@@ -512,6 +553,40 @@ func GetWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, cl
 	}
 
 	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile}, []string{})
+	if err != nil {
+		return nil, err
+	}
+	//lsb_release --id
+	return &wsexecutor, nil
+}
+
+func GetWSExecutor02(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType, user, keyFile string, awsCliFlag bool, args *interface{}) (*ctxt.Executor, error) {
+	var envs []string
+
+	if awsCliFlag == true {
+		cfg, err := config.LoadDefaultConfig(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		// fmt.Printf("Account id is: <%#v> \n\n\n", cfg)
+
+		envs = append(envs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", cfg.Region))
+
+		crentials, err := cfg.Credentials.Retrieve(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+
+		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", crentials.AccessKeyID))
+		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
+	}
+
+	workstation, err := getWorkstation(texecutor, ctx, clusterName, clusterType)
+	if err != nil {
+		return nil, err
+	}
+
+	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile}, envs)
 	if err != nil {
 		return nil, err
 	}
@@ -694,18 +769,18 @@ func (items byComponentName) Less(i, j int) bool {
 	return false
 }
 
-type TargetGroups struct {
-	TargetGroups []TargetGroup `json:"TargetGroups"`
-}
+// type TargetGroups struct {
+// 	TargetGroups []TargetGroup `json:"TargetGroups"`
+// }
 
-type TargetGroup struct {
-	TargetGroupArn  string `json:"TargetGroupArn"`
-	TargetGroupName string `json:"TargetGroupName"`
-	Protocol        string `json:"Protocol"`
-	Port            int    `json:"Port"`
-	VpcId           string `json:"VpcId"`
-	TargetType      string `json:"TargetType"`
-}
+// type TargetGroup struct {
+// 	TargetGroupArn  string `json:"TargetGroupArn"`
+// 	TargetGroupName string `json:"TargetGroupName"`
+// 	Protocol        string `json:"Protocol"`
+// 	Port            int    `json:"Port"`
+// 	VpcId           string `json:"VpcId"`
+// 	TargetType      string `json:"TargetType"`
+// }
 
 type TagDescription struct {
 	Tags []Tag `json:"Tags"`
@@ -746,66 +821,103 @@ func ExistsELBResource(executor ctxt.Executor, ctx context.Context, clusterType,
 	return false
 }
 
-func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*TargetGroup, error) {
-	command := fmt.Sprintf("aws elbv2 describe-target-groups --name \"%s\"", clusterName)
-	stdout, stderr, err := executor.Execute(ctx, command, false)
+func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*elbtypes.TargetGroup, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
-		if strings.Contains(string(stderr), "One or more target groups not found") {
-			return nil, errors.New("No target group found")
-		} else {
-			return nil, err
-		}
-	}
-	var targetGroups TargetGroups
-	if err = json.Unmarshal(stdout, &targetGroups); err != nil {
 		return nil, err
 	}
 
-	for _, targetGroup := range targetGroups.TargetGroups {
-		if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, targetGroup.TargetGroupArn); existsResource == true {
-			return &targetGroup, nil
-		}
-	}
-	return nil, errors.New("No target group found")
-}
-
-type LoadBalancer struct {
-	LoadBalancerArn  string `json:"LoadBalancerArn"`
-	DNSName          string `json:"DNSName"`
-	LoadBalancerName string `json:"LoadBalancerName"`
-	Scheme           string `json:"Scheme"`
-	VpcId            string `json:"VpcId"`
-	State            struct {
-		Code string `json:"Code"`
-	} `json:"State"`
-	Type string `json:"Type"`
-}
-
-type LoadBalancers struct {
-	LoadBalancers []LoadBalancer `json:"LoadBalancers"`
-}
-
-func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*LoadBalancer, error) {
-	command := fmt.Sprintf("aws elbv2 describe-load-balancers --name \"%s\"", clusterName)
-	stdout, stderr, err := executor.Execute(ctx, command, false)
+	clientElb := elb.NewFromConfig(cfg)
+	describeTargetGroups, err := clientElb.DescribeTargetGroups(context.TODO(), &elb.DescribeTargetGroupsInput{Names: []string{clusterName}})
 	if err != nil {
-		if strings.Contains(string(stderr), fmt.Sprintf("Load balancers '[%s]' not found", clusterName)) {
-			return nil, errors.New("No NLB found")
-		} else {
-			return nil, err
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() == "TargetGroupNotFound" {
+				return nil, nil
+			}
 		}
+
+		return nil, err
 	}
-	var loadBalancers LoadBalancers
-	if err = json.Unmarshal(stdout, &loadBalancers); err != nil {
+	return &describeTargetGroups.TargetGroups[0], nil
+
+	// command := fmt.Sprintf("aws elbv2 describe-target-groups --name \"%s\"", clusterName)
+	// stdout, stderr, err := executor.Execute(ctx, command, false)
+	// if err != nil {
+	// 	if strings.Contains(string(stderr), "One or more target groups not found") {
+	// 		return nil, errors.New("No target group found")
+	// 	} else {
+	// 		return nil, err
+	// 	}
+	// }
+	// var targetGroups TargetGroups
+	// if err = json.Unmarshal(stdout, &targetGroups); err != nil {
+	// 	return nil, err
+	// }
+
+	// for _, targetGroup := range targetGroups.TargetGroups {
+	// 	if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, targetGroup.TargetGroupArn); existsResource == true {
+	// 		return &targetGroup, nil
+	// 	}
+	// }
+	// return nil, errors.New("No target group found")
+}
+
+// func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*LoadBalancer, error) {
+func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*elbtypes.LoadBalancer, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
 		return nil, err
 	}
 
-	for _, loadBalancer := range loadBalancers.LoadBalancers {
-		if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, loadBalancer.LoadBalancerArn); existsResource == true {
-			return &loadBalancer, nil
+	clientElb := elb.NewFromConfig(cfg)
+
+	describeLoadBalancers, err := clientElb.DescribeLoadBalancers(context.TODO(), &elb.DescribeLoadBalancersInput{Names: []string{clusterName}})
+	if err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() == "LoadBalancerNotFound" {
+				return nil, nil
+			}
 		}
+
+		return nil, err
 	}
-	return nil, errors.New("No NLB found")
+
+	return &describeLoadBalancers.LoadBalancers[0], nil
+
+	// command := fmt.Sprintf("aws elbv2 describe-load-balancers --name \"%s\"", clusterName)
+	// stdout, stderr, err := executor.Execute(ctx, command, false)
+	// if err != nil {
+	// 	// var ae smithy.APIError
+	// 	// if errors.As(err, &ae) {
+	// 	// 	fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+	// 	// 	if ae.ErrorCode() == "LoadBalancerNotFound" {
+	// 	// 		return nil, nil
+	// 	// 	}
+	// 	// }
+
+	// 	// return nil, err
+
+	// 	if strings.Contains(string(stderr), fmt.Sprintf("Load balancers '[%s]' not found", clusterName)) {
+	// 		return nil, errors.New("No NLB found")
+	// 	} else {
+	// 		return nil, err
+	// 	}
+	// }
+	// var loadBalancers LoadBalancers
+	// if err = json.Unmarshal(stdout, &loadBalancers); err != nil {
+	// 	return nil, err
+	// }
+
+	// for _, loadBalancer := range loadBalancers.LoadBalancers {
+	// 	if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, loadBalancer.LoadBalancerArn); existsResource == true {
+	// 		return &loadBalancer, nil
+	// 	}
+	// }
+	// return nil, errors.New("No NLB found")
 }
 
 func installWebSSH2(wexecutor *ctxt.Executor, ctx context.Context) error {
@@ -983,15 +1095,15 @@ func InitClientInstance() error {
 }
 
 // Get the user from increntials for resource tag addition
-func GetCallerUser(ctx context.Context) (string, error) {
+func GetCallerUser(ctx context.Context) (string, string, error) {
 	if ctx.Value("tagOwner") != nil && ctx.Value("tagOwner") != "" {
-		return ctx.Value("tagOwner").(string), nil
+		return ctx.Value("tagOwner").(string), "", nil
 	}
 
 	_ctx := context.TODO()
 	cfg, err := config.LoadDefaultConfig(_ctx)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	_client := sts.NewFromConfig(cfg)
@@ -1000,17 +1112,18 @@ func GetCallerUser(ctx context.Context) (string, error) {
 
 	_caller, err := _client.GetCallerIdentity(ctx, _getCallerIdentityInput)
 
-	return strings.Split((*_caller.Arn), "/")[1], nil
+	return strings.Split((*_caller.Arn), "/")[1], *_caller.Account, nil
 }
 
-func GetAWSCrential(ctx context.Context) (*aws.Credentials, error) {
+// func GetAWSCrential(ctx context.Context) (*aws.Credentials, error) {
+func GetAWSCrential() (*aws.Credentials, error) {
 	_ctx := context.TODO()
 	cfg, err := config.LoadDefaultConfig(_ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	_crentials, err := cfg.Credentials.Retrieve(ctx)
+	_crentials, err := cfg.Credentials.Retrieve(_ctx)
 	return &_crentials, nil
 }
 
@@ -1042,4 +1155,265 @@ func GetProject(ctx context.Context) string {
 		return ctx.Value("tagProject").(string)
 	}
 	return ctx.Value("clusterName").(string)
+}
+
+/* ********** ********** ********** Generate node group for k8s ********* ********** ********** */
+type DeployEKSNodeGroup struct {
+	pexecutor         *ctxt.Executor
+	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
+	subClusterType    string
+	clusterInfo       *ClusterInfo
+	nodeGroupName     string
+}
+
+// Execute implements the Task interface
+func (c *DeployEKSNodeGroup) Execute(ctx context.Context) error {
+	// 01. Get the context variables
+	clusterName := ctx.Value("clusterName").(string)
+	// clusterType := ctx.Value("clusterType").(string)
+
+	// tagProject := GetProject(ctx)
+	// tagOwner, _, err := GetCallerUser(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// 02. Get context config
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	// 03. Get the role arn
+	clientIam := iam.NewFromConfig(cfg)
+
+	var roleArn string
+	getRoleInput := &iam.GetRoleInput{RoleName: aws.String(clusterName)}
+
+	getRoleOutput, err := clientIam.GetRole(context.TODO(), getRoleInput)
+	if err != nil {
+		return err
+	}
+	roleArn = *getRoleOutput.Role.Arn
+
+	// 05. Create the node group if it does not exist
+	clientEks := eks.NewFromConfig(cfg)
+
+	listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
+	listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
+	if err != nil {
+		return err
+	}
+
+	if containString(listNodegroup.Nodegroups, c.nodeGroupName) == false {
+
+		// Node group creation
+		nodegroupScalingConfig := &types.NodegroupScalingConfig{DesiredSize: aws.Int32(1), MaxSize: aws.Int32(1), MinSize: aws.Int32(1)}
+		createNodegroupInput := &eks.CreateNodegroupInput{
+			ClusterName:   aws.String(clusterName),
+			NodeRole:      aws.String(roleArn),
+			NodegroupName: aws.String(c.nodeGroupName),
+			Subnets:       c.clusterInfo.privateSubnets,
+			InstanceTypes: []string{"c5.xlarge"},
+			DiskSize:      aws.Int32(20),
+			ScalingConfig: nodegroupScalingConfig}
+
+		createNodegroup, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The create node group is <%#v>\n\n\n", createNodegroup)
+
+		// CREATING -> ACTIVE
+		for _idx := 0; _idx < 100; _idx++ {
+
+			describeNodegroupInput := &eks.DescribeNodegroupInput{ClusterName: aws.String(clusterName), NodegroupName: aws.String(c.nodeGroupName)}
+			describeNodegroup, err := clientEks.DescribeNodegroup(context.TODO(), describeNodegroupInput)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("The output data is <%#v> \n\n\n\n", describeNodegroup.Nodegroup.Status)
+
+			if describeNodegroup.Nodegroup.Status == "ACTIVE" {
+				break
+			}
+			if describeNodegroup.Nodegroup.Status == "CREATE_FAILED" {
+				return errors.New(fmt.Sprintf("Failed to create node group %s", c.nodeGroupName))
+			}
+
+			time.Sleep(30 * time.Second)
+		}
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DeployEKSNodeGroup) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DeployEKSNodeGroup) String() string {
+	return fmt.Sprintf("Echo: Deploying EKS Cluster")
+}
+
+type DestroyEKSNodeGroup struct {
+	pexecutor         *ctxt.Executor
+	awsGeneralConfigs *spec.AwsTopoConfigsGeneral
+	subClusterType    string
+	clusterInfo       *ClusterInfo
+	nodeGroupName     string
+}
+
+// Execute implements the Task interface
+func (c *DestroyEKSNodeGroup) Execute(ctx context.Context) error {
+	// 01. Get the context variables
+	clusterName := ctx.Value("clusterName").(string)
+	// clusterType := ctx.Value("clusterType").(string)
+
+	// tagProject := GetProject(ctx)
+	// tagOwner, _, err := GetCallerUser(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// 02. Get context config
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	// 05. Create the node group if it does not exist
+	clientEks := eks.NewFromConfig(cfg)
+
+	listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
+	listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
+	if err != nil {
+		return err
+	}
+
+	if containString(listNodegroup.Nodegroups, c.nodeGroupName) == true {
+
+		// Node group creation
+		deleteNodegroupInput := &eks.DeleteNodegroupInput{
+			ClusterName:   aws.String(clusterName),
+			NodegroupName: aws.String(c.nodeGroupName),
+		}
+
+		_, err := clientEks.DeleteNodegroup(context.TODO(), deleteNodegroupInput)
+		if err != nil {
+			return err
+		}
+
+		// CREATING -> ACTIVE
+		for _idx := 0; _idx < 100; _idx++ {
+
+			listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
+			if err != nil {
+				return err
+			}
+
+			if containString(listNodegroup.Nodegroups, c.nodeGroupName) == false {
+				return nil
+			}
+
+			time.Sleep(30 * time.Second)
+		}
+		return errors.New("Failed to delete the node group")
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroyEKSNodeGroup) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroyEKSNodeGroup) String() string {
+	return fmt.Sprintf("Echo: Deploying EKS Cluster")
+}
+
+// [{"name":"nginx-ingress-controller","namespace":"default","revision":"1","updated":"2023-01-05 14:48:14.781865271 +0000 UTC","status":"deployed","chart":"ingress-nginx-4.4.2","app_version":"1.5.1"}]
+type HelmListInfo struct {
+	Name       string `json:"name"`
+	NameSpace  string `json:"namespace"`
+	Revision   string `json:"revision"`
+	Updated    string `json:"updated"`
+	Status     string `json:status`
+	Chart      string `json:chart`
+	AppVersion string `json:"app_version"`
+}
+
+func HelmResourceExist(executor *ctxt.Executor, resourceName string) (bool, error) {
+	var helmListInfos []HelmListInfo
+
+	stdout, _, err := (*executor).Execute(context.TODO(), `helm list -o json`, false)
+	if err != nil {
+		return false, err
+	}
+
+	if err = json.Unmarshal(stdout, &helmListInfos); err != nil {
+		return false, err
+	}
+
+	for _, helmListInfo := range helmListInfos {
+		if helmListInfo.Name == resourceName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+type IAMSAInfo struct {
+	MetaData struct {
+		Name      string `json:"name"`
+		Namespace string `json:"namespace"`
+	} `json:"metadata"`
+	WellKnownPolicies struct {
+		ImageBuilder              bool `json:"imageBuilder"`
+		AutoScaler                bool `json:"autoScaler"`
+		AwsLoadBalancerController bool `json:"awsLoadBalancerController"`
+		ExternalDNS               bool `json:"externalDNS"`
+		CertManager               bool `json:"certManager"`
+		EbsCSIController          bool `json:"ebsCSIController"`
+		EfsCSIController          bool `json:"efsCSIController"`
+	} `json:"wellKnownPolicies"`
+	Status struct {
+		RoleARN string `json:"roleARN"`
+	} `json:"status"`
+}
+
+func FetchClusterSA(executor *ctxt.Executor, clusterName string) (*[]IAMSAInfo, error) {
+	var iamSAInfos []IAMSAInfo
+
+	stdout, _, err := (*executor).Execute(context.TODO(), fmt.Sprintf(`eksctl get iamserviceaccount --cluster %s --namespace kube-system -o json`, clusterName), false)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(stdout, &iamSAInfos); err != nil {
+		return nil, err
+	}
+
+	return &iamSAInfos, nil
+}
+
+func CleanClusterSA(executor *ctxt.Executor, clusterName string) error {
+	clusterSA, err := FetchClusterSA(executor, clusterName)
+	if err != nil {
+		return err
+	}
+
+	for _, sa := range *clusterSA {
+
+		cmd := fmt.Sprintf(`eksctl delete iamserviceaccount %s --namespace kube-system --cluster %s`, sa.MetaData.Name, clusterName)
+		fmt.Printf("----- ----- ----- Deleting iamserviceaccount: <%s> \n\n\n\n", cmd)
+		if _, _, err := (*executor).Execute(context.TODO(), cmd, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }

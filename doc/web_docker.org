@@ -1,0 +1,121 @@
+* Docker install
+  #+BEGIN_SRC
+OhMyTiUP$ sudo apt-get install docker.io
+OhMyTiUP$ sudo usermod -aG docker admin
+  #+END_SRC
+* Docker file
+  #+BEGIN_SRC
+docker search nginx/unit
+  #+END_SRC
+
+  https://unit.nginx.org/howto/springboot/
+  https://www.nginx.org.cn/article/detail/12340
+
+  1.29.0-jsc11
+
+* Procedure
+** Download and compile war
+   #+BEGIN_SRC
+OhMyTiUP$ git clone https://github.com/springhow/spring-boot-war-example.git
+ohMyTiUP$ cd sprint-boot-war-example.git
+OhMyTiUP$ mvn package
+OhMyTiUP$ sudo cp target/hello-world-0.0.1-SNAPSHOT.war /opt/www/
+   #+END_SRC
+
+** Nginx unit install
+   #+BEGIN_SRC
+OhMyTiUP$ sudo apt-get install libc6-dev unit unit-dev unit-jsc11
+   #+END_SRC
+
+** Start the config
+   #+BEGIN_SRC
+OhMyTiUP$ config.json
+{
+    "listeners": {
+        "*:8080": {
+            "pass": "applications/java"
+        }
+    },
+    "applications": {
+        "java": {
+            "user": "unit",
+            "group": "unit",
+            "type": "java",
+            "environment": {
+                "Deployment": "0.0.1"
+            },
+            "classpath": [],
+            "webapp": "/opt/www/hello-world-0.0.1-SNAPSHOT.war"
+        }
+    }
+}
+OhMyTiUP$ sudo curl -X PUT --data-binary "@config.json" --unix-socket /var/run/control.unit.sock http://localhost/config/
+OhMyTiUP$ sudo curl --unix-socket /var/run/control.unit.sock http://localhost
+{
+        "certificates": {},
+        "config": {
+                "listeners": {
+                        "*:8080": {
+                                "pass": "applications/java"
+                        }
+                },
+
+                "applications": {
+                        "java": {
+                                "user": "unit",
+                                "group": "unit",
+                                "type": "java",
+                                "environment": {
+                                        "Deployment": "0.0.1"
+                                },
+
+                                "classpath": [],
+                                "webapp": "/opt/www/hello-world-0.0.1-SNAPSHOT.war"
+                        }
+                }
+        },
+
+        "status": {
+                "connections": {
+                        "accepted": 2,
+                        "active": 0,
+                        "idle": 0,
+                        "closed": 2
+                },
+
+                "requests": {
+                        "total": 2
+                },
+
+                "applications": {
+                        "java": {
+                                "processes": {
+                                        "running": 1,
+                                        "starting": 0,
+                                        "idle": 1
+                                },
+
+                                "requests": {
+                                        "active": 0
+                                }
+                        }
+                }
+        }
+}
+   #+END_SRC
+* Docker
+    #+BEGIN_SRC
+OhMyTiUP$ docker pull nginx/unit:1.29.0-jsc11
+OhMyTiUP$ Dockerfile
+FROM nginx/unit:1.29.0-jsc11
+
+RUN mkdir -p /opt/www
+
+COPY hello-world-0.0.1-SNAPSHOT.war /opt/www/
+
+COPY etc/config.json /docker-entrypoint.d/
+
+expose 8080
+OhMyTiUP$ docker build . -t test:v0.0.1
+OhMyTiUP$ docker run -d test:v0.0.1
+    #+END_SRC

@@ -87,7 +87,7 @@ type DestroyVpc struct {
 }
 
 /*
-   Description: Destroy the VPC if it does not exists.
+Description: Destroy the VPC if it does not exists.
 */
 func (c *DestroyVpc) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
@@ -106,6 +106,7 @@ func (c *DestroyVpc) Execute(ctx context.Context) error {
 			return err
 		}
 	}
+
 	// Delete the specified vpc
 	command := fmt.Sprintf("aws ec2 delete-vpc --vpc-id %s", (*vpcInfo).VpcId)
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)

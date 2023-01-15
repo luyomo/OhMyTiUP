@@ -1,0 +1,22 @@
+#+Title: setup helm on gcp
+
+* gcloud install
+** gcloud install
+** Create gke
+   https://cloud.google.com/kubernetes-engine/docs/deploy-app-cluster
+** compute engine
+   https://cloud.google.com/compute/docs/instances/custom-hostname-vm#gcloud
+* kubectl install
+  https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
+#+BEGIN_SRC
+
+#+END_SRC
+** helm install
+   https://helm.sh/docs/intro/install/
+
+* Config
+  #+BEGIN_SRC
+OhMyTiUP$ sudo apt-get install google-cloud-sdk-gke-gcloud-auth-plugin
+OhMyTiUP$ gcloud container clusters get-credentials tidb-on-gke --zone=northamerica-northeast1
+OhMyTiUP$ kubectl config get-contexts
+  #+END_SRC

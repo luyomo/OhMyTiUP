@@ -34,4 +34,3 @@ doc/*.html
 docker/secret/
 *__failpoint_binding__.go
 *__failpoint_stash__
-

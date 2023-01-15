@@ -23,6 +23,10 @@ import (
 	"strings"
 	//	"sort"
 	//	"time"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 // 1. create target group
@@ -97,12 +101,34 @@ func (c *RegisterTarget) Execute(ctx context.Context) error {
 		return err
 	}
 
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	clientElb := elb.NewFromConfig(cfg)
+
+	var arrTargets []elbtypes.TargetDescription
+	for _, instance := range *tidbNodes {
+		arrTargets = append(arrTargets, elbtypes.TargetDescription{Id: &instance.InstanceId})
+	}
+
+	_, err = clientElb.RegisterTargets(context.TODO(), &elb.RegisterTargetsInput{TargetGroupArn: targetGroup.TargetGroupArn, Targets: arrTargets})
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 	var arrInstance []string
 	for _, instance := range *tidbNodes {
 		arrInstance = append(arrInstance, fmt.Sprintf("Id=%s", instance.InstanceId))
 	}
 
-	command := fmt.Sprintf("aws elbv2 register-targets --target-group-arn %s --targets %s ", targetGroup.TargetGroupArn, strings.Join(arrInstance, " "))
+	fmt.Printf("The instance are <%#v> \n\n\n\n", arrInstance)
+	fmt.Printf("The target group arn is <%#v> \n\n\n\n", targetGroup)
+
+	command := fmt.Sprintf("aws elbv2 register-targets --target-group-arn %s --targets %s ", *targetGroup.TargetGroupArn, strings.Join(arrInstance, " "))
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
@@ -191,7 +217,7 @@ func (c *CreateNLBListener) Execute(ctx context.Context) error {
 		return err
 	}
 
-	command := fmt.Sprintf("aws elbv2 create-listener --load-balancer-arn %s --protocol TCP --port 4000 --default-actions Type=forward,TargetGroupArn=%s", nlb.LoadBalancerArn, targetGroup.TargetGroupArn)
+	command := fmt.Sprintf("aws elbv2 create-listener --load-balancer-arn %s --protocol TCP --port 4000 --default-actions Type=forward,TargetGroupArn=%s", *nlb.LoadBalancerArn, *targetGroup.TargetGroupArn)
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
@@ -227,13 +253,14 @@ func (c *DestroyNLB) Execute(ctx context.Context) error {
 
 	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
 	if err != nil {
-		if err.Error() == "No NLB found" {
-			return nil
-		}
 		return err
 	}
 
-	command := fmt.Sprintf("aws elbv2 delete-load-balancer --load-balancer-arn %s", (*nlb).LoadBalancerArn)
+	if nlb == nil {
+		return nil
+	}
+
+	command := fmt.Sprintf("aws elbv2 delete-load-balancer --load-balancer-arn %s", *(*nlb).LoadBalancerArn)
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
@@ -264,13 +291,13 @@ func (c *DestroyTargetGroup) Execute(ctx context.Context) error {
 
 	targetGroup, err := getTargetGroup(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
 	if err != nil {
-		if err.Error() == "No target group found" {
-			return nil
-		}
 		return err
 	}
+	if targetGroup == nil {
+		return nil
+	}
 
-	command := fmt.Sprintf("aws elbv2 delete-target-group --target-group-arn %s", (*targetGroup).TargetGroupArn)
+	command := fmt.Sprintf("aws elbv2 delete-target-group --target-group-arn %s", *(*targetGroup).TargetGroupArn)
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err
@@ -292,7 +319,7 @@ func (c *DestroyTargetGroup) String() string {
 type ListNLB struct {
 	pexecutor      *ctxt.Executor
 	subClusterType string
-	nlb            *LoadBalancer
+	nlb            *elbtypes.LoadBalancer
 }
 
 // Execute implements the Task interface
@@ -302,12 +329,9 @@ func (c *ListNLB) Execute(ctx context.Context) error {
 
 	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
 	if err != nil {
-		if err.Error() == "No NLB found" {
-			return nil
-		}
 		return err
 	}
-	*c.nlb = *nlb
+	c.nlb = nlb
 
 	return nil
 }

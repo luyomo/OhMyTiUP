@@ -63,11 +63,6 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		return err
 	}
 
-	_, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
-	if err != nil {
-		return err
-	}
-
 	/* ********** ********** 002. Get all the nodes infomation  **********/
 	// 3. Get all the nodes from tag definition
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
@@ -114,20 +109,40 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 	}
 
 	/* ********** ********** 003. Install required package **********/
-	commands := []string{
-		"sudo apt-get update -y 1>/dev/null",
-		"sudo apt-get install -y gnupg2 software-properties-common openjdk-11-jdk jq 1>/dev/null 2>/dev/null",
-		"wget https://packages.confluent.io/deb/7.1/archive.key -P /tmp/",
-		"sudo apt-key add /tmp/archive.key",
-		`sudo add-apt-repository 'deb [arch=amd64] https://packages.confluent.io/deb/7.1 stable main'`,
-		`sudo add-apt-repository 'deb https://packages.confluent.io/clients/deb '$(lsb_release -cs)' main'`,
-		"sudo apt-get update -y 1>/dev/null",
-		"sudo apt-get install -y confluent-platform confluent-security confluent-community-2.13  1>/dev/null 2>/dev/null",
-	}
-
-	for _, cmd := range commands {
-		if _, _, err := (*workstation).Execute(ctx, cmd, false, 600*time.Second); err != nil {
+	for idx := 0; idx < 10; idx++ {
+		stdout, _, err = (*workstation).Execute(ctx, `lslocks --json`, true)
+		if err != nil {
 			return err
+		}
+		aptLocked, err := LookupAptLock("apt-get", stdout)
+		if err != nil {
+			return err
+		}
+
+		if aptLocked == true {
+			time.Sleep(30 * time.Second)
+			continue
+		}
+		_, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
+		if err != nil {
+			return err
+		}
+
+		commands := []string{
+			"sudo apt-get update -y 1>/dev/null",
+			"sudo apt-get install -y gnupg2 software-properties-common openjdk-11-jdk jq 1>/dev/null 2>/dev/null",
+			"wget https://packages.confluent.io/deb/7.1/archive.key -P /tmp/",
+			"sudo apt-key add /tmp/archive.key",
+			`sudo add-apt-repository 'deb [arch=amd64] https://packages.confluent.io/deb/7.1 stable main'`,
+			`sudo add-apt-repository 'deb https://packages.confluent.io/clients/deb '$(lsb_release -cs)' main'`,
+			"sudo apt-get update -y 1>/dev/null",
+			"sudo apt-get install -y confluent-platform confluent-security confluent-community-2.13  1>/dev/null 2>/dev/null",
+		}
+
+		for _, cmd := range commands {
+			if _, _, err := (*workstation).Execute(ctx, cmd, false, 600*time.Second); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -169,7 +184,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 	}
 
 	for idx, node := range kafkaNodes.Zookeeper {
-		commands = []string{
+		commands := []string{
 			"sudo mv /tmp/zookeeper.properties /etc/kafka/zookeeper.properties",
 			"mkdir -p /tmp/zookeeper/data; mkdir -p /tmp/zookeeper/logs; sudo chown -R cp-kafka /tmp/zookeeper",
 			"sudo rm -f /tmp/zookeeper/data/myid",
@@ -198,7 +213,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	/* ********** ********** 007. Setup all kafka brokers **********/
 	for idx, node := range kafkaNodes.Broker {
-		commands = []string{
+		commands := []string{
 			"sudo mv /etc/kafka/server.properties /etc/kafka/server.properties.bak",
 			"sudo mv /tmp/kafka.server.properties /etc/kafka/server.properties",
 			"sudo systemctl restart confluent-kafka",
@@ -228,7 +243,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	/* ********** ********** 008. Setup schema registry **********/
 	for _, node := range kafkaNodes.SchemaRegistry {
-		commands = []string{
+		commands := []string{
 			"sudo mv /etc/schema-registry/schema-registry.properties /etc/schema-registry/schema-registry.properties.bak",
 			"sudo mv /tmp/kafka.schema-registry.properties /etc/schema-registry/schema-registry.properties",
 			"sudo systemctl restart confluent-schema-registry",
@@ -258,7 +273,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 		return err
 	}
 	for _, node := range kafkaNodes.RestService {
-		commands = []string{
+		commands := []string{
 			"sudo mv /etc/kafka-rest/kafka-rest.properties /etc/kafka-rest/kafka-rest.properties.bak",
 			"sudo mv /tmp/kafka.rest.properties /etc/kafka-rest/kafka-rest.properties",
 			"sudo systemctl restart confluent-kafka-rest",
@@ -292,11 +307,12 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 	for _, node := range kafkaNodes.Connector {
 		connectorData.ConnectorIP = node
 
-		commands = []string{
+		commands := []string{
 			"sudo mv /etc/kafka/connect-distributed.properties /etc/kafka/connect-distributed.properties.bak",
 			"sudo mv /tmp/connect-distributed.properties /etc/kafka/connect-distributed.properties",
 			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.0.0",
 			"sudo confluent-hub install --no-prompt debezium/debezium-connector-postgresql:1.9.6",
+			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:latest",
 			"wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz",
 			"tar xvf mysql-connector-java-5.1.46.tar.gz",
 			"sudo cp mysql-connector-java-5.1.46/*.jar /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/",

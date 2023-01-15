@@ -61,32 +61,65 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
-	if err != nil {
-		return err
+	var transitGateway *TransitGateway
+	for idx := 0; idx < 40; idx++ {
+		transitGateway, err = getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
+		if err != nil {
+			return err
+		}
+		if transitGateway == nil || transitGateway.State == "pending" {
+			time.Sleep(30 * time.Second)
+			continue
+		}
+		break
 	}
 	if transitGateway == nil {
 		return errors.New("No transit gateway found")
 	}
 
-	vpc, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
-	if err != nil {
-		if err.Error() == "No VPC found" {
-			return nil
+	var vpc *Vpc
+	for idx := 0; idx < 20; idx++ {
+		vpc, err = getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
+		if err != nil {
+			if err.Error() == "No VPC found" {
+				time.Sleep(30 * time.Second)
+				fmt.Printf("---01: Checking the VPC's existeness <%s> \n\n\n\n", c.subClusterType)
+				continue
+			}
+			return err
 		}
-		return err
+		if vpc == nil {
+			time.Sleep(30 * time.Second)
+			fmt.Printf("---02: Checking the VPC's existeness <%s> \n\n\n\n", c.subClusterType)
+			continue
+		}
+
+		break
 	}
-	if vpc == nil {
-		return nil
+	if err != nil {
+		fmt.Printf("---03: VPC not exists <%s> \n\n\n\n", c.subClusterType)
+		return err
 	}
 
-	subnets, err := getNetworksString(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType, "private")
-	if err != nil {
-		return err
+	var subnets string
+	for idx := 0; idx < 80; idx++ {
+		subnets, err = getNetworksString(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType, "private")
+		if err != nil {
+			return err
+		}
+		if subnets == "[]" {
+			time.Sleep(30 * time.Second)
+			fmt.Printf("---04: Checking the subnets' existeness <%s> \n\n\n\n\n\n\n", c.subClusterType)
+			continue
+			// return errors.New("No subnets found")
+		}
+		break
 	}
-	if subnets == "" {
+	if subnets == "[]" {
+		fmt.Printf("---05: Checking the subnets' existeness <%s> \n\n\n\n", c.subClusterType)
 		return errors.New("No subnets found")
 	}
+	fmt.Printf("Creating the transit gateway attachment. subnets: <%s> \n\n\n\n\n\n", subnets)
 
 	command = fmt.Sprintf("aws ec2 create-transit-gateway-vpc-attachment --transit-gateway-id %s --vpc-id %s --subnet-ids '\"'\"'%s'\"'\"' --tag-specifications \"ResourceType=transit-gateway-attachment,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", transitGateway.TransitGatewayId, vpc.VpcId, subnets, clusterName, clusterType, c.subClusterType)
 
@@ -113,6 +146,7 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		}
 
 		if len(transitGatewayVpcAttachments.TransitGatewayVpcAttachments) > 0 && (transitGatewayVpcAttachments.TransitGatewayVpcAttachments)[0].State == "available" {
+			fmt.Printf("---------- Succeeded to create the vpc attachement clusterType: <%s> and type: <%s> \n\n\n\n\n", clusterType, c.subClusterType)
 			break
 		}
 		time.Sleep(1 * time.Minute)

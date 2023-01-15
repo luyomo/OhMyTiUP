@@ -285,6 +285,7 @@ func (c *DestroyNetwork) Execute(ctx context.Context) error {
 	var filters []types.Filter
 	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
 	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{c.subClusterType}})
 
 	describeSubnetsInput := &ec2.DescribeSubnetsInput{Filters: filters}
 

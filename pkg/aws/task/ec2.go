@@ -51,7 +51,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	clusterType := ctx.Value("clusterType").(string)
 
 	tagProject := GetProject(ctx)
-	tagOwner, err := GetCallerUser(ctx)
+	tagOwner, _, err := GetCallerUser(ctx)
 	if err != nil {
 		return err
 	}
@@ -438,7 +438,7 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 	}
 
 	var tidbConn TiDBCONN
-	tidbConn.TiDBHost = (*nlb).DNSName
+	tidbConn.TiDBHost = *(*nlb).DNSName
 	tidbConn.TiDBPort = 4000
 	tidbConn.TiDBUser = "pdnsuser"
 	tidbConn.TiDBPass = "pdnspass"
@@ -571,8 +571,8 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, c.componentName)
 
 	// Two tags to resource to show the project and owner
-	tagProject := GetProject(ctx)       // Project name(tag): tidb-cluster
-	tagOwner, err := GetCallerUser(ctx) // Owner(default): aws user
+	tagProject := GetProject(ctx)          // Project name(tag): tidb-cluster
+	tagOwner, _, err := GetCallerUser(ctx) // Owner(default): aws user
 	if err != nil {
 		return err
 	}
@@ -662,11 +662,10 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 			return err
 		}
 
-		describeAutoScalingGroups, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
+		_, err := clientASC.DescribeAutoScalingGroups(context.TODO(), describeAutoScalingGroupsInput)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The auto scaling group is <%#v> \n\n\n", describeAutoScalingGroups.AutoScalingGroups[0].Instances)
 	}
 
 	return nil

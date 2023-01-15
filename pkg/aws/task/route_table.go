@@ -105,28 +105,12 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 	client := ec2.NewFromConfig(cfg)
 
 	var filters []types.Filter
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Name"),
-		Values: []string{clusterName},
-	})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Component"), Values: []string{c.subClusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{"nat"}})
 
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Cluster"),
-		Values: []string{clusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Component"),
-		Values: []string{c.subClusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Type"),
-		Values: []string{"nat"},
-	})
-
-	natGatewayId, err := SearchNatGateway(client, filters)
-	fmt.Printf("The result from the nat gatway search <%#v> \n\n\n", natGatewayId)
+	natGatewayId, err := SearchNatGateway(client, filters, []string{"available"})
 	if err != nil {
 		return err
 	}

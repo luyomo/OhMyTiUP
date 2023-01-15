@@ -70,7 +70,7 @@ func (c *DeployPDNS) Execute(ctx context.Context) error {
 	}
 
 	var tidbConn TiDBCONN
-	tidbConn.TiDBHost = (*nlb).DNSName
+	tidbConn.TiDBHost = *(*nlb).DNSName
 	tidbConn.TiDBPort = 4000
 	tidbConn.TiDBUser = "pdnsuser"
 	tidbConn.TiDBPass = "pdnspass"

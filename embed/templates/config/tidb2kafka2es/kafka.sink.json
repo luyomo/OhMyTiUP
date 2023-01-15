@@ -1,0 +1,13 @@
+{
+    "name": "ESSINK",
+    "config": {
+        "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+        "connection.url": "http://{{ .ES_IP }}",
+        "connection.username": "{{ .ES_User }}",
+        "connection.password": "{{ .ES_Password }}",
+        "key.ignore": "true",
+        "value.converter": "io.confluent.connect.avro.AvroConverter",
+        "value.converter.schema.registry.url": "http://{{ .SchemaRegistry }}:8081",
+        "topics": "{{ .TopicName }}"
+    }
+}
