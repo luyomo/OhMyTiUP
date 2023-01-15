@@ -423,6 +423,35 @@ func getNetworksString(executor ctxt.Executor, ctx context.Context, clusterName,
 
 }
 
+type AptLock struct {
+	Locks []struct {
+		//"command":"cron", "pid":686, "type":"FLOCK", "size":null, "mode":"WRITE", "m":false, "start":0, "end":0, "path":"/run..."
+		Command string `json:"command"`
+		Pid     int32  `json:"pid"`
+		Type    string `json:"type"`
+		Size    string `json:"size"`
+		Mode    string `json:"mode"`
+		M       bool   `json:"m"`
+		Start   int32  `json:"start"`
+		End     int32  `json:"end"`
+		Path    string `json:"path"`
+	} `json:"locks"`
+}
+
+func LookupAptLock(appName string, inStr []byte) (bool, error) {
+	var aptLock AptLock
+	if err := json.Unmarshal(inStr, &aptLock); err != nil {
+		return false, err
+	}
+	for _, _entry := range aptLock.Locks {
+		if _entry.Command == appName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*TransitGateway, error) {
 	command := fmt.Sprintf("aws ec2 describe-transit-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
 	stdout, _, err := executor.Execute(ctx, command, false)
@@ -1380,7 +1409,9 @@ func CleanClusterSA(executor *ctxt.Executor, clusterName string) error {
 
 	for _, sa := range *clusterSA {
 
-		if _, _, err := (*executor).Execute(context.TODO(), fmt.Sprintf(`eksctl delete iamserviceaccount %s --namespace kube-system --cluster %s`, sa.MetaData.Name, clusterName), false); err != nil {
+		cmd := fmt.Sprintf(`eksctl delete iamserviceaccount %s --namespace kube-system --cluster %s`, sa.MetaData.Name, clusterName)
+		fmt.Printf("----- ----- ----- Deleting iamserviceaccount: <%s> \n\n\n\n", cmd)
+		if _, _, err := (*executor).Execute(context.TODO(), cmd, false); err != nil {
 			return err
 		}
 	}

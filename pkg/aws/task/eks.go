@@ -358,6 +358,10 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 				return err
 			}
 
+			if err = CleanClusterSA(workstation, clusterName); err != nil {
+				return err
+			}
+
 			// 01. Destroy nginx ingress controller
 			controllerExistFlag, err := HelmResourceExist(workstation, "nginx-ingress-controller")
 			if controllerExistFlag == true {
@@ -391,10 +395,6 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 				return err
 			}
 			// fmt.Printf("Starting to remove the cluster \n\n\n\n")
-
-			if err = CleanClusterSA(workstation, clusterName); err != nil {
-				return err
-			}
 
 			deleteClusterInput := &eks.DeleteClusterInput{Name: aws.String(clusterName)}
 			_, err = clientEks.DeleteCluster(context.TODO(), deleteClusterInput)

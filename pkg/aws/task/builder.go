@@ -1144,15 +1144,17 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 	if isPrivate == true {
 		if clusterInfo.enableNAT == "true" {
 			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
+				Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				// NAT creation should be after the network preparation, otherwise the nat subnet is taken as one of the private subnets.
 				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
+				Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
 		} else {
 			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+				Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
 		}
 
@@ -1160,6 +1162,7 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Creating route table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
 			Step(fmt.Sprintf("%s : Creating security group ... ...", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build()).
 			Step(fmt.Sprintf("%s : Creating internet gateway ... ...", subClusterType), NewBuilder().CreateInternetGateway(pexecutor, subClusterType, clusterInfo).Build())
 	}

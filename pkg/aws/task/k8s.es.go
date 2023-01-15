@@ -283,8 +283,6 @@ func (c *DestroyK8SES) Execute(ctx context.Context) error {
 				return err
 			}
 
-			fmt.Printf("Starting to remove the cluster \n\n\n")
-
 			esExistFlag, err := HelmResourceExist(workstation, "elasticsearch")
 			if err != nil {
 				return err
@@ -294,6 +292,11 @@ func (c *DestroyK8SES) Execute(ctx context.Context) error {
 				if _, _, err = (*workstation).Execute(ctx, "helm delete elasticsearch", false); err != nil {
 					return err
 				}
+			}
+
+			//Tested to delete the sa
+			if err = CleanClusterSA(workstation, clusterName); err != nil {
+				return err
 			}
 
 			stdout, _, err := (*workstation).Execute(ctx, "kubectl get pvc --selector='app=elasticsearch-master' -o jsonpath=\"{.items[*]['metadata.name']}\"", false)

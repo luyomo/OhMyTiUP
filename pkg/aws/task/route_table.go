@@ -111,7 +111,6 @@ func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx cont
 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{"nat"}})
 
 	natGatewayId, err := SearchNatGateway(client, filters, []string{"available"})
-	fmt.Printf("The result from the nat gatway search <%#v> \n\n\n", natGatewayId)
 	if err != nil {
 		return err
 	}
