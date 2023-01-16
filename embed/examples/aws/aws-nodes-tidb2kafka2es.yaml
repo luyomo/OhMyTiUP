@@ -77,18 +77,18 @@ aws_topo_configs:
   ticdc:
     instance_type: c5.xlarge                      # Instance type of ticdc
     count: 1                                      # Number of TiDB node to be deployed
-  monitor:
-    instance_type: c5.large                       # Instance type for PD component
-    count: 2                                      # Number of TiDB node to be deployed
-  alert-manager:
-    instance_type: c5.large                       # Instance type for PD component
-    count: 1                                      # Number of TiDB node to be deployed
+      #  monitor:
+      #    instance_type: c5.large                       # Instance type for PD component
+      #    count: 2                                      # Number of TiDB node to be deployed
+      #  alert-manager:
+      #    instance_type: c5.large                       # Instance type for PD component
+      #    count: 1                                      # Number of TiDB node to be deployed
 aws_es_topo:
   general:
     # debian os
-    # imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
-    # keyname: jay-us-east-01                       # Public key to access the EC2 instance
-    # keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
     cidr: 172.89.0.0/16                           # The cidr for the VPC
     instance_type: c5.xlarge                      # Default instance type
     # tidb_version: 3.2.3                           # TiDB version
