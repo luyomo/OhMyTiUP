@@ -1,0 +1,36 @@
+
+* Fan control
+  Could not control 5v pin since it's not software controllable
+  https://blog.bombox.org/2021-08-28/raspberrypi-autofan/
+#+BEGIN_SRC
+pi$sudo apt update
+pi$sudo apt install python3-pip
+pi$sudo apt -y install python3-rpi.gpio
+pi$sudo pip install RPi.GPIO
+#+END_SRC
+
+* Stop the fan
+  #+BEGIN_SRC
+import RPi.GPIO as GPIO
+
+FAN = 12
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BOARD)
+
+GPIO.setup(FAN, GPIO.OUT)
+
+# This is the turn on the fan
+# GPIO.output(FAN, GPIO.HIGH)
+
+GPIO.output(FAN, GPIO.LOW)
+
+GPIO.setup(FAN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+isOff = GPIO.input(FAN) == GPIO.LOW;
+
+GPIO.cleanup()
+  #+END_SRC
+
+
+  pinout

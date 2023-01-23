@@ -72,9 +72,6 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 		return err
 	}
 
-	// Setup the execution plan
-	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
-
 	// globalOptions := base.GlobalOptions
 
 	// -- eks / es ----------------------------------------------------------->
@@ -88,69 +85,34 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	}
 
 	var workstationInfo, clusterInfo, kafkaClusterInfo, eksClusterInfo task.ClusterInfo
-	// var workstationInfo, clusterInfo, kafkaClusterInfo task.ClusterInfo
-	// var workstationInfo, eksClusterInfo task.ClusterInfo
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	var mainTask []*task.StepDisplay // tasks which are used to initialize environment
-	esTask := task.NewBuilder().CreateEKSCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
+	// Task: ES on eks deployment. This is one separate process from start to end.
+	esTask := task.NewBuilder().
+		CreateEKSCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
 		CreateK8SESCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing eks servers"))
 	mainTask = append(mainTask, esTask)
 
+	// Parallel task to create workstation, tidb, kafka resources and transit gateway.
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
 	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
-	// envInitTasks = append(envInitTasks, t1)
 	task001 = append(task001, t1)
 
-	//Setup the kafka cluster
-	t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).
-		// DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
-		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
-	// envInitTasks = append(envInitTasks, t2)
+	t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
 	task001 = append(task001, t2)
 
 	t3 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 	task001 = append(task001, t3)
 
-	// var transitGateway []*task.StepDisplay
-	// t71 := task.NewBuilder().
-	// 	CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").
-	// 	// CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "es"}).
-	// 	// CreateRouteTgw(&sexecutor, "kafka", []string{"tidb"}).
-	// 	// CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "kafka"}).
-	// 	BuildAsStep(fmt.Sprintf("  - Preparing the kafka transit gateway vpc attachment"))
-	// // envInitTasks = append(envInitTasks, t7)
-	// transitGateway = append(transitGateway, t71)
+	t4 := task.NewBuilder().CreateTransitGateway(&sexecutor).BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
+	task001 = append(task001, t4)
 
-	// t72 := task.NewBuilder().
-	// 	CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-	// 	// CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "es"}).
-	// 	// CreateRouteTgw(&sexecutor, "workstation", []string{"kafka"}).
-	// 	// CreateRouteTgw(&sexecutor, "kafka", []string{"tidb"}).
-	// 	// CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "kafka"}).
-	// 	BuildAsStep(fmt.Sprintf("  - Preparing the kafka transit gateway vpc attachment"))
-	// // envInitTasks = append(envInitTasks, t7)
-	// transitGateway = append(transitGateway, t72)
-
-	// paraTransitGateway := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, transitGateway...).Build()
-
-	t5 := task.NewBuilder().CreateTransitGateway(&sexecutor).
-		// ParallelStep("+ Deploying all the sub components for kafka solution service", false, transitGateway...).
-		// CreateRouteTgw(&sexecutor, "workstation", []string{"kafka"}).
-		BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
-	task001 = append(task001, t5)
-	// envInitTasks = append(envInitTasks, t5)
-
-	// t22 := task.NewBuilder().DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
-
-	// envInitTasks = append(envInitTasks, t2)
-	// task001 = append(task001, t2)
-
-	// Instance deployment
+	// Parallel task to create tidb and kafka instances
 	var task002 []*task.StepDisplay // tasks which are used to initialize environment
 
 	t22 := task.NewBuilder().DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).BuildAsStep(fmt.Sprintf("  - Preparing kafka instance"))
@@ -163,18 +125,15 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	task002 = append(task002, t23)
 
 	// The es might be lag behind the tidb/kafka cluster
+	// Cluster generation -> transit gateway setup -> instance deployment
 	paraTask001 := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
-		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb"}).
-		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb"}).
+		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "es"}).
+		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "es"}).
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).BuildAsStep("Parallel Main step")
 
-	// var task003 []*task.StepDisplay
+	// Combine the ES deployment and other resources
 	mainTask = append(mainTask, paraTask001)
 	mainBuilder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, mainTask...).Build()
-
-	// DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).Build()
-
-	// mainTask = append(mainTask, paraTask001)
 
 	// if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
 	if err := mainBuilder.Execute(ctxt.New(ctx, 10)); err != nil {
@@ -188,91 +147,7 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 
 	// 8. Print the execution summary
 	timer.Print()
-	// --------------------------------------
-	return nil
 
-	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
-	if cntEC2Nodes > 0 {
-		t3 := task.NewBuilder().
-			CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-
-		envInitTasks = append(envInitTasks, t3)
-	}
-
-	/*
-	   1. Create transitgateway -> vpc attachment(workstation) -> route
-	                               vpc attachment(es)          -> route
-	                               vpc attachment(tidb)        -> route
-	                               vpc attachement(kafka)      -> route
-	   2. kafka cluster                                      -> instance
-	   3. tidb                                               -> instance
-	   4. ES
-	   5. workstation
-	*/
-
-	// t4 := task.NewBuilder().CreateEKSCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
-	// 	CreateK8SESCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
-	// 	BuildAsStep(fmt.Sprintf("  - Preparing eks servers"))
-	// envInitTasks = append(envInitTasks, t4)
-
-	t6 := task.NewBuilder().
-		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-		// CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "es"}).
-		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb"}).
-		BuildAsStep(fmt.Sprintf("  - Preparing the workstation transit gateway vpc attachment"))
-	envInitTasks = append(envInitTasks, t6)
-
-	t8 := task.NewBuilder().
-		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
-		BuildAsStep(fmt.Sprintf("  - Preparing the tidb transit gateway vpc attachment"))
-	envInitTasks = append(envInitTasks, t8)
-
-	// t9 := task.NewBuilder().
-	// 	CreateTransitGatewayVpcAttachment(&sexecutor, "es").
-	// 	CreateRouteTgw(&sexecutor, "es", []string{"workstation"}).
-	// 	BuildAsStep(fmt.Sprintf("  - Preparing the es transit gateway vpc attachment"))
-	// envInitTasks = append(envInitTasks, t9)
-
-	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, envInitTasks...)
-
-	t := builder.Build()
-
-	// if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
-	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
-			return err
-		}
-		return err
-	}
-
-	// var t5 *task.StepDisplay
-
-	// t5 = task.NewBuilder().
-	// 	BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
-
-	// builder = task.NewBuilder().
-	// 	ParallelStep("+ Deploying kafka solution service ... ...", false, t5)
-	// t = builder.Build()
-
-	timer.Take("Preparation")
-	// if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
-	// 	if errorx.Cast(err) != nil {
-	// 		// FIXME: Map possible task errors and give suggestions.
-	// 		return err
-	// 	}
-	// 	return err
-	// }
-
-	timer.Take("Execution")
-
-	// 8. Print the execution summary
-	timer.Print()
-
-	logger.OutputDebugLog("aws-nodes")
 	return nil
 }
 
@@ -422,22 +297,6 @@ func (m *Manager) ListTiDB2Kafka2ESCluster(clusterName, clusterType string, opt 
 	return nil
 }
 
-// type MapTiDB2PG struct {
-// 	TiDB2PG []struct {
-// 		TiDB struct {
-// 			DataType string   `yaml:"DataType"`
-// 			Def      string   `yaml:"Def"`
-// 			Queries  []string `yaml:"Query,omitempty"`
-// 		} `yaml:"TiDB"`
-// 		PG struct {
-// 			DataType string   `yaml:"DataType"`
-// 			Def      string   `yaml:"Def"`
-// 			Queries  []string `yaml:"Query,omitempty"`
-// 		} `yaml:"PG"`
-// 		Value string `yaml:"Value"`
-// 	} `yaml:"MapTiDB2PG"`
-// }
-
 /*
 	*****************************************************************************
 
@@ -532,9 +391,10 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 			connectorIP = row[5]
 		}
 	}
+
 	timer.Take("05. Get required info - pd/broker/schemaRegistry/connector")
 
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false)
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:9300 2>/dev/null", cdcIP), false)
 	if err != nil {
 		return err
 	}
@@ -572,7 +432,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 
 	// 009.03 Create changefeed if it does not exists
 	if changeFeedHasExisted == false {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed create --server http://%s:8300 --changefeed-id='%s' --sink-uri='kafka://%s:9092/%s?protocol=avro' --schema-registry=http://%s:8081 --config %s", cdcIP, "kafka-avro", brokerIP, "topic-name", schemaRegistryIP, "/opt/kafka/source.toml"), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed create --server http://%s:9300 --changefeed-id='%s' --sink-uri='kafka://%s:9092/%s?protocol=avro&replication-factor=3' --schema-registry=http://%s:8081 --config %s", cdcIP, "kafka-avro", brokerIP, "topic-name", schemaRegistryIP, "/opt/kafka/source.toml"), false); err != nil {
 			return err
 		}
 	}
@@ -776,7 +636,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2ES(clusterName, clusterType string, gOpt o
 	}
 
 	// Remove the changefeed
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false)
+	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:9300 2>/dev/null", cdcIP), false)
 	if err != nil {
 		return err
 	}
@@ -785,7 +645,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2ES(clusterName, clusterType string, gOpt o
 		return err
 	}
 	if changeFeedExist == true {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed remove --server http://%s:8300 --changefeed-id='%s'", cdcIP, "kafka-avro"), false); err != nil {
+		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed remove --server http://%s:9300 --changefeed-id='%s'", cdcIP, "kafka-avro"), false); err != nil {
 			return err
 		}
 	}
