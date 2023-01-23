@@ -14,10 +14,11 @@
 package command
 
 import (
-	// "fmt"
+	"fmt"
 	"os"
 	"path"
 
+	"github.com/luyomo/OhMyTiUP/embed"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/manager"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
@@ -39,6 +40,7 @@ func newTiDB2Kafka2ESCmd() *cobra.Command {
 		newListTiDB2Kafka2ESCmd(),
 		newDestroyTiDB2Kafka2ESCmd(),
 		newTiDB2Kafka2ESPerfCmd(),
+		newTiDB2Kafka2ESTplCmd(),
 	)
 	return cmd
 }
@@ -239,6 +241,39 @@ func newPerfCleanTiDB2Kafka2ES() *cobra.Command {
 			clusterName := args[0]
 
 			return cm.PerfCleanTiDB2Kafka2ES(clusterName, "ohmytiup-tidb2kafka2es", gOpt)
+		},
+	}
+
+	return cmd
+}
+
+func newTiDB2Kafka2ESTplCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "template",
+		Short: "Print topology template",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// if sumBool(opt.Full, opt.MultiDC, opt.Local) > 1 {
+			// 	return errors.New("at most one of 'full', 'multi-dc', or 'local' can be specified")
+			// }
+			// name := "minimal.yaml"
+			// switch {
+			// case opt.Full:
+			// 	name = "topology.example.yaml"
+			// case opt.MultiDC:
+			// 	name = "multi-dc.yaml"
+			// case opt.Local:
+			// 	name = "local.yaml"
+			// }
+
+			fp := path.Join("examples", "aws", "aws-nodes-tidb2kafka2es.yaml")
+			tpl, err := embed.ReadExample(fp)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(string(tpl))
+			return nil
 		},
 	}
 

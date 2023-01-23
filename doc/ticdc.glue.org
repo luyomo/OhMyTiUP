@@ -1,0 +1,210 @@
+* Memo
+go get github.com/aws/aws-sdk-go-v2/service/glue
+go get github.com/aws/aws-sdk-go-v2/config
+
+* Reference
+  aws sdk java : https://github.com/aws/aws-sdk-java-v2/tree/master/services
+
+* Todo
+** Move the aws client into new function to make it one time call
+** Make common function of register to make the function simpler
+** Add the branch to confluent schema restry and glue
+** Return glue's version id back to avro.go
+
+* Trace
+** row change event
+*** Step 01
+   #+BEGIN_SRC
+ runtime/debug/stack.go:24 +0x65
+ github.com/pingcap/tiflow/cdc/capture.(*captureImpl).run(0xc000e5fb00, {0x432d068, 0xc000e24500})
+ github.com/pingcap/tiflow/cdc/capture/capture.go:319 +0x65
+ github.com/pingcap/tiflow/cdc/capture.(*captureImpl).Run(0xc000e5fb00, {0x432d068, 0xc000e24380})
+ github.com/pingcap/tiflow/cdc/capture/capture.go:303 +0x185
+ github.com/pingcap/tiflow/cdc/server.(*server).run.func1()
+ github.com/pingcap/tiflow/cdc/server/server.go:356 +0x2d
+ golang.org/x/sync/errgroup.(*Group).Go.func1()
+ golang.org/x/sync@v0.1.0/errgroup/errgroup.go:75 +0x64created by golang.org/x/sync/errgroup.(*Group).Go
+ golang.org/x/sync@v0.1.0/errgroup/errgroup.go:72 +0xa5\
+   #+END_SRC
+*** Step 02
+   #+BEGIN_SRC
+ runtime/debug.Stack()
+ runtime/debug/stack.go:24 +0x65github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq.newSink({0x432d0d0, 0xc0029a2780}, {0x4311180, 0xc002ba0c80}, {0x43110e0?, 0xc002e7c900}, 0xc002e69740, 0xc000abf860, 0x203000?, 0xc002249b00)
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq/mq_dml_sink.go:68 +0x7d
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq.NewKafkaDMLSink({0x432d0d0, 0xc0029a2780}, 0x0?, 0xc002588500, 0x445480?, 0x3bb3310, 0x3bb3318, 0x3bb31b8)
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq/kafka_dml_sink.go:120 +0x6da
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/factory.New({0x432d0d0, 0xc0029a2780}, {0xc000f54962?, 0x7?}, 0xc0025a4660?, 0x40f786?)
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/factory/factory.go:69 +0x2c5
+ github.com/pingcap/tiflow/cdc/processor/sinkmanager.New({0x432d0d0, 0xc0029a2780}, {{0xc0021c25d2?, 0x310a9da?}, {0xc0021c25ea?, 0x310ac1e?}}, 0xc000ce3d40, 0xc00167aa80, {0x4360e90, 0xc0022f2900}, ...)
+ github.com/pingcap/tiflow/cdc/processor/sinkmanager/manager.go:121 +0xa5
+ github.com/pingcap/tiflow/cdc/processor.(*processor).lazyInitImpl(0xc000ccad00, {0x434ca20?, 0xc000d870b0?})
+ github.com/pingcap/tiflow/cdc/processor/processor.go:825 +0x1c0f
+ github.com/pingcap/tiflow/cdc/processor.(*processor).tick(0xc000ccad00, {0x434ca20?, 0xc000d870b0})
+ github.com/pingcap/tiflow/cdc/processor/processor.go:688 +0x84
+ github.com/pingcap/tiflow/cdc/processor.(*processor).Tick(0xc000ccad00, {0x434ca20, 0xc000d870b0})
+ github.com/pingcap/tiflow/cdc/processor/processor.go:616 +0x3a5
+ github.com/pingcap/tiflow/cdc/processor.(*managerImpl).Tick(0xc000d93270, {0x7f0542676798?, 0xc000aaa840}, {0x4311360?, 0xc000a752c0})
+ github.com/pingcap/tiflow/cdc/processor/manager.go:142 +0x497
+ github.com/pingcap/tiflow/pkg/orchestrator.(*EtcdWorker).Run(0xc000fb5080, {0x7f0542676798, 0xc000aaa840}, 0xc000fe5620, 0x2faf080, {0x3a006c2, 0x9})
+ github.com/pingcap/tiflow/pkg/orchestrator/etcd_worker.go:290 +0xfa6
+ github.com/pingcap/tiflow/cdc/capture.(*captureImpl).runEtcdWorker(0xc000e84360, {0x434cac0?, 0xc000aaa840}, {0x7f0542747378, 0xc000d93270}, {0x4311360, 0xc000a752c0}, 0x0?, {0x3a006c2, 0x9})
+ github.com/pingcap/tiflow/cdc/capture/capture.go:516 +0x185
+ github.com/pingcap/tiflow/cdc/capture.(*captureImpl).run.func3()
+ github.com/pingcap/tiflow/cdc/capture/capture.go:370 +0x299golang.org/x/sync/errgroup.(*Group).Go.func1()
+ golang.org/x/sync@v0.1.0/errgroup/errgroup.go:75 +0x64created by golang.org/x/sync/errgroup.(*Group).Go
+ golang.org/x/sync@v0.1.0/errgroup/errgroup.go:72
+   #+END_SRC
+
+*** Step 03
+    #+BEGIN_SRC
+ runtime/debug.Stack()
+ runtime/debug/stack.go:24 +0x65
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq.(*worker).run(0xc002931ef0, {0x432d0b0, 0xc002baca50})
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq/worker.go:110 +0x65
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq.newSink.func1()
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq/mq_dml_sink.go:85 +0x78
+ created by github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq.newSink
+ github.com/pingcap/tiflow/cdc/sinkv2/eventsink/mq/mq_dml_sink.go:84
+    #+END_SRC
+
+*** Step 04
+    #+BEGIN_SRC
+ github.com/pingcap/tiflow/cdc/sink/codec.(*encoderGroup).runEncoder(0xc003452480, {0x432cfa8, 0xc002ddff00}, 0x2)
+ github.com/pingcap/tiflow/cdc/sink/codec/encoder_group.go:107 +0x198
+ github.com/pingcap/tiflow/cdc/sink/codec.(*encoderGroup).Run.func2()
+ github.com/pingcap/tiflow/cdc/sink/codec/encoder_group.go:94 +0x2c
+ golang.org/x/sync/errgroup.(*Group).Go.func1()
+ golang.org/x/sync@v0.1.0/errgroup/errgroup.go:75 +0x64
+ created by golang.org/x/sync/errgroup.(*Group).Go
+ golang.org/x/sync@v0.1.0/errgroup/errgroup.go:72 +0xa5
+    #+END_SRC
+
+*** Step 05
+    #+BEGIN_SRC
+ github.com/pingcap/tiflow/cdc/sink/codec/avro.(*schemaManager).Register(0xc0006923c0, {0x432cf08, 0xc003018b40}, {0xc00452a090, 0xb}, 0xc004983d50)
+ github.com/pingcap/tiflow/cdc/sink/codec/avro/schema_registry.go:180 +0x8a
+ github.com/pingcap/tiflow/cdc/sink/codec/avro.(*schemaManager).GetCachedOrRegister(0xc0006923c0, {0x432cf08, 0xc003018b40}, {0xc00452a090, 0xb}, 0x61700385b780001, 0xc0049d7bc0)
+ github.com/pingcap/tiflow/cdc/sink/codec/avro/schema_registry.go:508 +0xb69
+ github.com/pingcap/tiflow/cdc/sink/codec/avro.(*BatchEncoder).avroEncode(0xc00261f4a0, {0x432cf08, 0xc003018b40}, 0xc00435d2c0, {0xc00452a090, 0xb}, 0xff?)
+ github.com/pingcap/tiflow/cdc/sink/codec/avro/avro.go:194 +0x479
+ github.com/pingcap/tiflow/cdc/sink/codec/avro.(*BatchEncoder).AppendRowChangedEvent(0xc00261f4a0, {0x432cf08, 0xc003018b40}, {0xc00452a090, 0xb}, 0xc00435d2c0, 0xc00437ff50)
+ github.com/pingcap/tiflow/cdc/sink/codec/avro/avro.go:96 +0x516
+ github.com/pingcap/tiflow/cdc/sink/codec.(*encoderGroup).runEncoder(0xc0020f6b40, {0x432cf08, 0xc003018b40}, 0x1)
+ github.com/pingcap/tiflow/cdc/sink/codec/encoder_group.go:113 +0x369
+ github.com/pingcap/tiflow/cdc/sink/codec.(*encoderGroup).Run.func2()
+ github.com/pingcap/tiflow/cdc/sink/codec/encoder_group.go:92 +0x2c
+ golang.org/x/sync/errgroup.(*Group).Go.func1()
+ golang.org/x/sync@v0.1.0/errgroup/errgroup.go:75 +0x64
+ created by golang.org/x/sync/errgroup.(*Group).Go
+ golang.org/x/sync@v0.1.0/errgroup/errgroup.go:72 +0xa5
+    #+END_SRC
+** Table layout change(ddl)
+** Changefeed creation
+** Changefeed deletion
+*** curl
+    #+BEGIN_SRC
+OhMyTiUP$ curl -X DELETE  http://182.83.2.49:9300/api/v1/changefeeds/kafka-avro
+OhMyTiUP$ curl  http://182.83.2.49:9300/api/v1/changefeeds
+/api/v2/tso
+OhMyTiUP$  curl -X POST -H "Content-Type: Application/Json" http://182.83.2.49:9300/api/v1/changefeeds -d '{"sink_uri":"kafka://172.83.6.225:9092/topic-name?protocol=vro&replication-factor=3", "changefeed_id":"avro-test", "sink_config": {"schema-registry":"http://172.83.2.193:8081"}}'
+    #+END_SRC
+*** log trace
+    #+BEGIN_SRC
+[middleware.go:48] [/api/v2/changefeeds] [status=201] [method=POST] [path=/api/v2/changefeeds] [query=] [ip=172.82.11.73] [user-agent=Go-http-client/1.1] [client-version=v6.5.0] [] [duration=125.644552ms]
+    #+END_SRC
+
+* Issue
+** Didn't find secondary deserializer
+https://github.com/awslabs/aws-glue-schema-registry/issues/136
+
+** Failed to load credentials
+   SystemPropertyCredentialsProvider(), 
+   EnvironmentVariableCredentialsProvider(), 
+   WebIdentityTokenCredentialsProvider(), 
+   ProfileCredentialsProvider(), 
+   ContainerCredentialsProvider(), 
+   InstanceProfileCredentialsProvider()
+** sink connector yaml file
+*** connector config file
+   #+BEGIN_SRC
+OhMyTiUP$
+{
+    "name": "ESSINK",
+    "config": {
+        "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+        "connection.url": "http://internal-aff938a0b4e444875999d0d439fc0b5b-1316629948.us-east-1.elb.amazonaws.com",
+        "connection.username": "elastic",
+        "connection.password": "1234Abcd",
+        "key.ignore": "true",
+        "key.converter": "com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter",
+        "key.converter.schemas.enable": "false",
+        "key.converter.region": "us-east-1",
+        "key.converter.schemaAutoRegistrationEnabled": "true",
+        "key.converter.avroRecordType": "GENERIC_RECORD",
+        "key.converter.registry.name": "jaytest",
+        "value.converter": "com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter",
+        "value.converter.schemas.enable": "false",
+        "value.converter.region": "us-east-1",
+        "value.converter.schemaAutoRegistrationEnabled": "true",
+        "value.converter.avroRecordType": "GENERIC_RECORD",
+        "value.converter.registry.name": "jaytest",
+        "internal.key.converter": "com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter",
+        "internal.key.converter.schemas.enable": "false",
+        "internal.value.converter": "com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter",
+        "internal.value.converter.schemas.enable": "false",
+        "topics": "test_test01"
+    }
+}
+   #+END_SRC
+*** kafka connector systemctl config file
+    #+BEGIN_SRC
+[Unit]
+Description=Apache Kafka Connect - distributed
+Documentation=http://docs.confluent.io/
+After=network.target confluent-kafka.target
+
+[Service]
+Type=simple
+User=cp-kafka-connect
+Group=confluent
+Environment=AWS_ACCESS_KEY_ID=XXXXXXXXX
+Environment=AWS_SECRET_ACCESS_KEY=YYYYYYYYYYYYYYYYYYYYYY
+ExecStart=/usr/bin/connect-distributed /etc/kafka/connect-distributed.properties
+TimeoutStopSec=180
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
+    #+END_SRC
+
+*** Error: [CDC:ErrKafkaNewSaramaProducer]new sarama producer: kafka: client has run out of available brokers to talk to: 3 errors occurred:
+    
+*** connector preparation
+#+BEGIN_SRC
+connector.class=io.confluent.connect.elasticsearch.ElasticsearchSinkConnector
+tasks.max=2
+connection.url=http://internal-aff938a0b4e444875999d0d439fc0b5b-1316629948.us-east-1.elb.amazonaws.com
+connection.username=elastic
+connection.password=1234Abcd
+key.ignore=true
+key.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+key.converter.schemas.enable=false
+key.converter.region=us-east-1
+key.converter.schemaAutoRegistrationEnabled=true
+key.converter.avroRecordType=GENERIC_RECORD
+key.converter.registry.name=jaytest
+value.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+value.converter.schemas.enable=false
+value.converter.region=us-east-1
+value.converter.schemaAutoRegistrationEnabled=true
+value.converter.avroRecordType=GENERIC_RECORD
+value.converter.registry.name=jaytest
+internal.key.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+internal.key.converter.schemas.enable=false
+internal.value.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+internal.value.converter.schemas.enable=false
+topics=test_test01
+#+END_SRC
+
+*** How to add converter
+    https://catalog.us-east-1.prod.workshops.aws/workshops/c2b72b6f-666b-4596-b8bc-bafa5dcca741/en-US/mskconnect/source-connector-setup
