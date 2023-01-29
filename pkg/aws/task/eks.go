@@ -97,7 +97,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	if err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
-			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
 			if ae.ErrorCode() == "NoSuchEntity" {
 				tags := []iamTypes.Tag{
 					{Key: aws.String("Cluster"), Value: aws.String(clusterType)},   // ex: ohmytiup-tidb
@@ -129,11 +128,9 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	for _, policy := range []string{"AmazonEKSClusterPolicy", "AmazonEKSWorkerNodePolicy", "AmazonEC2ContainerRegistryReadOnly", "AmazonEKS_CNI_Policy", "AmazonSSMManagedInstanceCore"} {
 		attachRolePolicyInput := &iam.AttachRolePolicyInput{PolicyArn: aws.String(fmt.Sprintf("arn:aws:iam::aws:policy/%s", policy)), RoleName: aws.String(clusterName)}
 
-		attachRolePolicy, err := clientIam.AttachRolePolicy(context.TODO(), attachRolePolicyInput)
-		if err != nil {
+		if _, err := clientIam.AttachRolePolicy(context.TODO(), attachRolePolicyInput); err != nil {
 			return err
 		}
-		fmt.Printf("The attached role policy is <%#v> \n\n\n\n", attachRolePolicy)
 	}
 
 	clientEks := eks.NewFromConfig(cfg)
@@ -147,17 +144,13 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	}
 
 	if containString(listClusters.Clusters, clusterName) == false {
-		// fmt.Printf("All the subnets are <%#v> \n\n\n\n", c.clusterInfo)
 		vpcConfigRequest := &types.VpcConfigRequest{EndpointPrivateAccess: aws.Bool(true), SubnetIds: c.clusterInfo.privateSubnets}
 
 		createClusterInput := &eks.CreateClusterInput{Name: aws.String(clusterName), ResourcesVpcConfig: vpcConfigRequest, RoleArn: aws.String(roleArn)}
 
-		createCluster, err := clientEks.CreateCluster(context.TODO(), createClusterInput)
-		if err != nil {
+		if _, err := clientEks.CreateCluster(context.TODO(), createClusterInput); err != nil {
 			return err
 		}
-		fmt.Printf("The result from create clutster is : <{%#v}>", createCluster)
-
 	}
 
 	for _idx := 0; _idx < 50; _idx++ {
@@ -169,7 +162,7 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The error is <%#v> \n\n\n\n", describeCluster.Cluster.Status)
+
 		if describeCluster.Cluster.Status == "ACTIVE" {
 			break
 		}
@@ -204,7 +197,6 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The crentials is <%#v> \n\n\n\n", _crentials)
 
 	err = (*workstation).TransferTemplate(ctx, "templates/config/eks/aws.config.tpl", "~/.aws/config", "0600", map[string]string{"REGION": cfg.Region}, false, 0)
 	if err != nil {
@@ -334,7 +326,6 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 
 		for _, _tag := range listOpenIDConnectProviderTags.Tags {
 			if *_tag.Key == "alpha.eksctl.io/cluster-name" && *_tag.Value == clusterName {
-				// fmt.Printf("Key: %s, Value :%s Arn: %s \n\n\n\n", *_tag.Key, *_tag.Value, *openIDConnectProvider.Arn)
 				_, err := clientIam.DeleteOpenIDConnectProvider(context.TODO(), &iam.DeleteOpenIDConnectProviderInput{OpenIDConnectProviderArn: openIDConnectProvider.Arn})
 				if err != nil {
 					return err
@@ -350,7 +341,7 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("The data eks destroy is <%#v> \n\n\n", listClusters.Clusters)
+
 	for _, _cluster := range listClusters.Clusters {
 		if _cluster == clusterName {
 			workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.gOpt.SSHUser, c.gOpt.IdentityFile, true, nil)
@@ -394,7 +385,6 @@ func (c *DestroyEKS) Execute(ctx context.Context) error {
 			if err := parallelExe.Execute(ctx); err != nil {
 				return err
 			}
-			// fmt.Printf("Starting to remove the cluster \n\n\n\n")
 
 			deleteClusterInput := &eks.DeleteClusterInput{Name: aws.String(clusterName)}
 			_, err = clientEks.DeleteCluster(context.TODO(), deleteClusterInput)

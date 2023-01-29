@@ -352,20 +352,21 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
-	if err != nil {
-		if err.Error() == "No RDB Instance found(No matched name)" {
-			return nil
-		}
-		return err
-	}
-
-	deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
-
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p %d -U %s -P %s`, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd"), true)
-	if err != nil {
-		return err
-	}
+    // SQLSERVER 
+// 	dbInstance, err := getRDBInstance(*c.pexecutor, ctx, clusterName, clusterType, "sqlserver")
+// 	if err != nil {
+// 		if err.Error() == "No RDB Instance found(No matched name)" {
+// 			return nil
+// 		}
+// 		return err
+// 	}
+// 
+// 	deployFreetds(*workstation, ctx, "REPLICA", dbInstance.Endpoint.Address, dbInstance.Endpoint.Port)
+// 
+// 	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf(`printf \"IF (db_id('cdc_test') is null)\n  create database cdc_test;\ngo\n\" | tsql -S REPLICA -p %d -U %s -P %s`, dbInstance.Endpoint.Port, dbInstance.MasterUsername, "1234Abcd"), true)
+// 	if err != nil {
+// 		return err
+// 	}
 
 	return nil
 }
