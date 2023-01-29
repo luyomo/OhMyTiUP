@@ -14,6 +14,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -247,26 +248,33 @@ func newPerfCleanTiDB2Kafka2ES() *cobra.Command {
 	return cmd
 }
 
+type TemplateTiDB2ESOptions struct {
+	OP     bool // print template for On Premise
+	Simple bool // print template for TiDB and ES only
+	MSK    bool // print template using MSK/Glue
+}
+
 func newTiDB2Kafka2ESTplCmd() *cobra.Command {
+	opt := TemplateTiDB2ESOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "template",
 		Short: "Print topology template",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// if sumBool(opt.Full, opt.MultiDC, opt.Local) > 1 {
-			// 	return errors.New("at most one of 'full', 'multi-dc', or 'local' can be specified")
-			// }
-			// name := "minimal.yaml"
-			// switch {
-			// case opt.Full:
-			// 	name = "topology.example.yaml"
-			// case opt.MultiDC:
-			// 	name = "multi-dc.yaml"
-			// case opt.Local:
-			// 	name = "local.yaml"
-			// }
+			if sumBool(opt.OP, opt.Simple, opt.MSK) > 1 {
+				return errors.New("at most one of 'OP', 'Simple', or 'MSK' can be specified")
+			}
+			name := "aws-nodes-tidb2kafka2es.yaml"
+			switch {
+			case opt.OP:
+				name = "aws-nodes-tidb2kafka2es.yaml"
+			case opt.MSK:
+				name = "aws-nodes-tidb2kafka2es.msk.yaml"
+			case opt.Simple:
+				name = "aws-nodes-tidb2kafka2es.simple.yaml"
+			}
 
-			fp := path.Join("examples", "aws", "aws-nodes-tidb2kafka2es.yaml")
+			fp := path.Join("examples", "aws", name)
 			tpl, err := embed.ReadExample(fp)
 			if err != nil {
 				return err
@@ -276,6 +284,10 @@ func newTiDB2Kafka2ESTplCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&opt.OP, "op", false, "Print the op topology template for TiDB to ES cluster.")
+	cmd.Flags().BoolVar(&opt.MSK, "msk", false, "Print the msk topology template for TiDB to ES cluster.")
+	cmd.Flags().BoolVar(&opt.Simple, "simple", false, "Print template for deploying a TiDB and ES only.")
 
 	return cmd
 }

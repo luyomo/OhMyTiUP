@@ -208,3 +208,15 @@ topics=test_test01
 
 *** How to add converter
     https://catalog.us-east-1.prod.workshops.aws/workshops/c2b72b6f-666b-4596-b8bc-bafa5dcca741/en-US/mskconnect/source-connector-setup
+
+*** Pricing
+    https://aws.amazon.com/msk/pricing/
+*** schema compatibility
+    + backward
+    + backward_transitive
+    + forward
+    + forward_transitive
+    + full
+    + full_transitive
+    + none
+    https://docs.confluent.io/platform/current/schema-registry/develop/api.html#compatibility

@@ -1,0 +1,386 @@
+* Architure
+** OP KAFKA
+   Please find the [[./tidb2es.org][below demo]] for data replication from TiDB to ElasticSearch by OP kafka on AWS.
+   #+CAPTION: Architure by KAFKA
+   #+attr_html: :width 800px
+   [[./png/msk/TiDB2ES.MSK.01.png]]
+** MSK
+*** Diagram
+   #+attr_html: :width 100px
+   [[./png/down-arrow.png]]
+   #+CAPTION: Architure by MSK
+   #+attr_html: :width 800px
+   [[./png/msk/TiDB2ES.MSK.02.png]]
+*** Background
+   If the confluent kafka is used for data replication, you have to support the kafka by yourself or ask confluent for support. In order to use AWS MSK for data replication, the glue has be been support from TiCDC.
+* Environment preparation
+  + TiDB
+  + ES
+  + Network
+** Setup
+   #+BEGIN_SRC
+OhMyTiUP$ ./bin/aws tidb2kafka2es template --simple > /tmp/tidb2es.simple.yaml
+OhMyTiUP$ more /tmp/tidb2es.simple.yaml
+workstation:
+  cidr: 172.82.0.0/16
+  imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+  keyname: jay-us-east-01                         # Public key for workstation instance deployment
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+  instance_type: c5.2xlarge
+  volumeSize: 100                                 # disk size in the workstation
+  username: admin
+  enable_monitoring: enabled
+aws_kafka_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 172.83.0.0/16                           # The cidr for the VPC
+    instance_type: c5.xlarge                      # Default instance type
+    tidb_version: 3.2.3                           # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 182.83.0.0/16                           # The cidr for the VPC
+    instance_type: m5.2xlarge                     # Default instance type
+    tidb_version: v6.3.0                          # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+  pd:
+    instance_type: c5.large                       # Instance type for PD component
+    count: 3                                      # Number of PD node to be deployed
+  tidb:
+    instance_type: c5.xlarge                      # Instance type of tidb
+    count: 1                                      # Number of TiDB node to be deployed
+  tikv:
+    -
+      instance_type: c5.xlarge                      # Instance type of TiKV
+      count: 3                                      # Number of TiKV nodes to be deployed
+      volumeSize: 150                               # Storage size for TiKV nodes (GB)
+      volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
+      iops: 3000                                    # Storage IOPS(Only for gp3, io2)
+  ticdc:
+    instance_type: c5.xlarge                      # Instance type of ticdc
+    count: 1                                      # Number of TiDB node to be deployed
+aws_es_topo:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 172.89.0.0/16                           # The cidr for the VPC
+    instance_type: c5.xlarge                      # Default instance type
+    # tidb_version: 3.2.3                           # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+        #enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+  es:
+    instance_type: c5.xlarge                      # Instance type of ticdc
+    count: 3                                      # Number of TiDB node to be deployed
+OhMyTiUP$ ./bin/aws tidb2kafka2es deploy tidb2estest /tmp/tidb2es.simple.yaml
+... ...
+OhMyTiUP$ ./bin/aws tidb2kafka2es list tidb2estest
+... ...
+Load Balancer:      <nil>
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP   Public IP      Image ID
+--------------  -----------------  -----    -----------          -------------  -----------   ---------      --------
+pd              tidb               running  i-051ad044204066d39  c5.large       182.83.4.32                  ami-07d02ee1eeb0c996c
+pd              tidb               running  i-0940115c6861d450d  c5.large       182.83.3.99                  ami-07d02ee1eeb0c996c
+pd              tidb               running  i-0b54a424f81bb6e4e  c5.large       182.83.6.227                 ami-07d02ee1eeb0c996c
+ticdc           tidb               running  i-079ff69198f4bccfe  c5.xlarge      182.83.1.184                 ami-07d02ee1eeb0c996c
+tidb            tidb               running  i-02c63451bc199dd14  c5.xlarge      182.83.4.182                 ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-05cf505b2b0517a0f  c5.xlarge      182.83.4.7                   ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-0f873c56a84176158  c5.xlarge      182.83.1.45                  ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-03ede976d565cbe17  c5.xlarge      182.83.6.86                  ami-07d02ee1eeb0c996c
+workstation     workstation        running  i-096ee7f3efd789a86  c5.2xlarge     172.82.11.79  44.192.105.10  ami-07d02ee1eeb0c996c
+   #+END_SRC
+** TiCDC Setup
+*** Compilation
+   #+BEGIN_SRC
+workstation$ sudo apt-get install -y git cmake
+workstation$ git clone https://github.com/luyomo/tiflow-glue.git
+workstation$ wget https://go.dev/dl/go1.19.5.linux-amd64.tar.gz
+workstation$ tar xvf go1.19.5.linux-amd64.tar.gz
+workstation$ sudo mv go /opt/
+workstation$ export PATH=/opt/go/bin:$PATH
+workstation$ cd tiflow-glue/
+workstation$ make
+   #+END_SRC
+*** Startup scripts
+   #+BEGIN_SRC
+workstation$ mkdir -p /home/admin/tidb/tidb-data/cdc-9300
+workstation$ mkdir -p /home/admin/tidb/tidb-deploy/cdc-9300
+workstation$ mkdir -p /home/admin/tidb/tidb-deploy/cdc-9300/log
+workstation$ more /opt/ticdc/cdc.toml
+per-table-memory-quota = 20971520
+workstation$ more /opt/ticdc/run_cdc.sh
+#!/bin/bash
+set -e
+
+# WARNING: This file was auto-generated. Do not edit!
+#          All your edit might be overwritten!
+DEPLOY_DIR=/home/admin/tidb/tidb-deploy/cdc-9300
+cd "${DEPLOY_DIR}" || exit 1
+exec /home/admin/tiflow-glue/bin/cdc server \
+    --addr "0.0.0.0:9300" \
+    --advertise-addr "182.83.2.49:9300" \
+    --pd "http://182.83.4.66:2379,http://182.83.1.21:2379,http://182.83.6.37:2379" \
+    --data-dir="/home/admin/tidb/tidb-data/cdc-9300" \
+    --config /opt/ticdc/cdc.toml \
+    --log-file "/home/admin/tidb/tidb-deploy/cdc-9300/log/cdc.log" 2>> "/home/admin/tidb/tidb-deploy/cdc-9300/log/cdc_stderr.log"
+   #+END_SRC
+** MSK setup
+*** Setup
+    #+CAPTION: MSK configure 01
+    #+attr_html: :width 800px
+    [[./png/msk/msk.01.png]]
+    #+CAPTION: MSK configure 02
+    #+attr_html: :width 800px
+    [[./png/msk/msk.02.png]]
+    #+CAPTION: MSK configure 03
+    #+attr_html: :width 800px
+    [[./png/msk/msk.03.png]]
+    #+CAPTION: MSK configure 04
+    #+attr_html: :width 800px
+    [[./png/msk/msk.04.png]]
+    #+CAPTION: MSK configure 05
+    #+attr_html: :width 800px
+    [[./png/msk/msk.05.png]]
+    #+CAPTION: MSK configure 06
+    #+attr_html: :width 800px
+    [[./png/msk/msk.06.png]]
+    #+CAPTION: MSK configure 07
+    #+attr_html: :width 800px
+    [[./png/msk/msk.07.png]]
+    #+CAPTION: MSK cluster confirmation
+    #+attr_html: :width 800px
+    [[./png/msk/msk.08.png]]
+                            
+*** kafka confirmation
+    #+BEGIN_SRC
+workstation$ kafka-topics --list --bootstrap-server b-1.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092,b-2.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092,b-3.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092
+__amazon_msk_canary
+__consumer_offsets
+    #+END_SRC
+** Glue registry setup
+   #+CAPTION: Glue schema registry setup - 01
+   #+attr_html: :width 800px
+   [[./png/msk/glue.01.png]]
+   #+CAPTION: Glue schema registry setup - 02
+   #+attr_html: :width 800px
+   [[./png/msk/glue.02.png]]
+   #+CAPTION: Glue schema registry setup - 03
+   #+attr_html: :width 800px
+   [[./png/msk/glue.03.png]]
+
+** Connector IAM preparation
+   #+BEGIN_SRC
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Principal": {
+                "Service": "kafkaconnect.amazonaws.com"
+            },
+			"Action": "sts:AssumeRole"
+		}
+	]
+}
+   #+END_SRC
+*** Setup
+    #+CAPTION: Role to allow connect to access glue - 01
+    #+attr_html: :width 800px
+    [[./png/msk/glue.iam.01.png]]
+    #+CAPTION: Role to allow connect to access glue - 02
+    #+attr_html: :width 800px
+    [[./png/msk/glue.iam.02.png]]
+    #+CAPTION: Role to allow connect to access glue - 03
+    #+attr_html: :width 800px
+    [[./png/msk/glue.iam.03.png]]
+    #+CAPTION: Role to allow connect to access glue - 04
+    #+attr_html: :width 800px
+    [[./png/msk/glue.iam.04.png]]
+    #+CAPTION: Role to allow connect to access glue - 05
+    #+attr_html: :width 800px
+    [[./png/msk/glue.iam.05.png]]
+    #+CAPTION: Role to allow connect to access glue - 06
+    #+attr_html: :width 800px
+    [[./png/msk/glue.iam.06.png]]
+** Create changefeed to sync data from TiDB to MSK
+*** AWS environment preparation
+    #+BEGIN_SRC
+ticdc$ more ~/.aws/config
+[default]
+region = us-east-1
+ticdc$ more ~/.aws/credentials
+[default]
+aws_access_key_id = XXXXXXXXXXXXX
+aws_secret_access_key = YYYYYYYYYYYYYYYYYYYYYYYYYYY
+    #+END_SRC
+*** changefeed preparation
+   #+BEGIN_SRC
+workstation$./tiflow-glue/bin/cdc cli changefeed list --server http://172.82.11.79:9300
+workstation$ more /opt/kafka/source.toml 
+[sink]                                                                                                                                                                               
+                       
+dispatchers = [
+  {matcher = ['*.*'], topic = "{schema}_{table}", partition ="ts"},
+]
+
+workstation$ ./tiflow-glue/bin/cdc cli changefeed create --server http://172.82.11.79:9300 --changefeed-id=tidb2es-test --sink-uri="kafka://b-1.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092/topic-name?protocol=avro&replication-factor=3" --schema-registry=http://172.83.2.193:8081 --config /opt/kafka/source.toml
+mysql$ MySQL [test]> create table test01(col01 bigint primary key auto_random, col02 int ); 
+Query OK, 0 rows affected, 1 warning (0.133 sec)
+MySQL [test]> insert into test01(col02) values(1);
+Query OK, 1 row affected (0.017 sec)
+workstation$ kafka-topics --list --bootstrap-server b-1.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092,b-2.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092,b-3.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092
+__amazon_msk_canary
+__consumer_offsets
+test_test01
+topic-name
+workstation$ kafka-run-class kafka.tools.GetOffsetShell --broker-list b-2.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092  --topic test_test01 --time -1
+test_test01:0:1
+test_test01:1:0
+test_test01:2:1
+   #+END_SRC
+*** Glue schema confirmation
+    #+CAPTION: Schema confirmation
+    #+attr_html: :width 800px
+    [[./png/msk/schema.01.png]]
+    #+CAPTION: Schema confirmation
+    #+attr_html: :width 800px
+    [[./png/msk/schema.02.png]]
+    #+CAPTION: Schema confirmation
+    #+attr_html: :width 800px
+    [[./png/msk/schema.03.png]]
+    #+CAPTION: Schema confirmation
+    #+attr_html: :width 800px
+    [[./png/msk/schema.04.png]]
+
+**** test_test01-key
+    #+BEGIN_SRC
+{
+  "type": "record",
+  "name": "test01",
+  "namespace": "default.test",
+  "fields": [
+    {
+      "name": "col01",
+      "type": {
+        "type": "long",
+        "connect.parameters": {
+          "tidb_type": "BIGINT"
+        }
+      }
+    }
+  ]
+}
+    #+END_SRC
+**** test_test01-value
+     #+BEGIN_SRC
+{
+  "type": "record",
+  "name": "test01",
+  "namespace": "default.test",
+  "fields": [
+    {
+      "name": "col01",
+      "type": {
+        "type": "long",
+        "connect.parameters": {
+          "tidb_type": "BIGINT"
+        }
+      }
+    },
+    {
+      "default": null,
+      "name": "col02",
+      "type": [
+        "null",
+        {
+          "type": "int",
+          "connect.parameters": {
+            "tidb_type": "INT"
+          }
+        }
+      ]
+    }
+  ]
+}
+     #+END_SRC
+** Setup MSK connector to replicate data Elasticsearch
+*** aws-glue-schema-registry compilation
+    #+BEGIN_SRC
+workstation$ git clone https://github.com/awslabs/aws-glue-schema-registry.git
+workstation$ sudo apt-get install -y maven
+workstation$ cd aws-glue-schema-registry
+workstation$ mvn compile
+workstation$ export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")
+workstation$ mvn package -Dmaven.test.skip=true
+workstation$ mvn dependency:copy-dependencies
+    #+END_SRC
+*** sink connector plugin preparation
+    #+BEGIN_SRC
+workstation$ cd
+workstation$ wget https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-elasticsearch/versions/14.0.3/confluentinc-kafka-connect-elasticsearch-14.0.3.zip
+workstation$ unzip confluentinc-kafka-connect-elasticsearch-14.0.3.zip
+workstation$ cp aws-glue-schema-registry/avro-kafkaconnect-converter/target/dependency/* confluentinc-kafka-connect-elasticsearch-14.0.3/lib/
+workstation$ cp aws-glue-schema-registry/avro-kafkaconnect-converter/target/schema-registry-kafkaconnect-converter-1.1.14.jar confluentinc-kafka-connect-elasticsearch-14.0.3/lib/
+workstation$ mkdir tidb2es-sinkconnector-plugin
+workstation$ cp confluentinc-kafka-connect-elasticsearch-14.0.3/lib/* tidb2es-sinkconnector-plugin/
+workstation$ zip -r tidb2es-sinkconnector-plugin.zip tidb2es-sinkconnector-plugin/*
+workstation$ aws s3 cp $(pwd)/tidb2es-sinkconnector-plugin.zip s3://ossinsight-data/kafka/
+    #+END_SRC
+*** connector plugin upload
+    #+CAPTION: connector plugin upload - 01
+    #+attr_html: :width 800px
+    [[./png/msk/connector.plugin.01.png]]
+    #+CAPTION: connector plugin upload - 02
+    #+attr_html: :width 800px
+    [[./png/msk/connector.plugin.02.png]]
+    #+CAPTION: connector plugin upload - 03
+    #+attr_html: :width 800px
+    [[./png/msk/connector.plugin.03.png]]
+*** connector setup
+    #+CAPTION: connector - 01
+    #+attr_html: :width 800px
+    [[./png/msk/connector.01.png]]
+    #+CAPTION: connector - 02
+    #+attr_html: :width 800px
+    [[./png/msk/connector.02.png]]
+    #+CAPTION: connector - 03
+    #+attr_html: :width 800px
+    [[./png/msk/connector.03.png]]
+    #+CAPTION: connector - 04
+    #+attr_html: :width 800px
+    [[./png/msk/connector.04.png]]
+    #+CAPTION: connector - 05
+    #+attr_html: :width 800px
+    [[./png/msk/connector.05.png]]
+    #+CAPTION: connector - 06
+    #+attr_html: :width 800px
+    [[./png/msk/connector.06.png]]
+    #+CAPTION: connector - 07
+    #+attr_html: :width 800px
+    [[./png/msk/connector.07.png]]
+    #+CAPTION: connector - 08
+    #+attr_html: :width 800px
+    [[./png/msk/connector.08.png]]
+    #+CAPTION: connector - 09
+    #+attr_html: :width 800px
+    [[./png/msk/connector.09.png]]
+    #+CAPTION: connector - 10
+    #+attr_html: :width 800px
+    [[./png/msk/connector.10.png]]
+
+* TODO
+So far, TiCDC does not suport glue schema registry. To achieve the above design, the TiCDC needs to be add the glue compatible development. [[https://github.com/luyomo/tiflow-glue][Customized TiCDC]] is for your reference for test.
