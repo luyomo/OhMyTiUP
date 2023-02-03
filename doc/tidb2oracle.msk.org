@@ -1,4 +1,6 @@
 * Architecture
+  #+attr_html: :width 800px
+  [[./png/tidb2oracle.msk.overview.png]]
 * Environment preparation
   + TiDB
   + Oracle
