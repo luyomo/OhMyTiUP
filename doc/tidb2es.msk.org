@@ -216,6 +216,7 @@ __consumer_offsets
     #+CAPTION: Role to allow connect to access glue - 06
     #+attr_html: :width 800px
     [[./png/msk/glue.iam.06.png]]
+* Replication Setup
 ** Create changefeed to sync data from TiDB to MSK
 *** AWS environment preparation
     #+BEGIN_SRC
