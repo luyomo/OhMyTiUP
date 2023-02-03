@@ -119,7 +119,6 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		fmt.Printf("---05: Checking the subnets' existeness <%s> \n\n\n\n", c.subClusterType)
 		return errors.New("No subnets found")
 	}
-	fmt.Printf("Creating the transit gateway attachment. subnets: <%s> \n\n\n\n\n\n", subnets)
 
 	command = fmt.Sprintf("aws ec2 create-transit-gateway-vpc-attachment --transit-gateway-id %s --vpc-id %s --subnet-ids '\"'\"'%s'\"'\"' --tag-specifications \"ResourceType=transit-gateway-attachment,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", transitGateway.TransitGatewayId, vpc.VpcId, subnets, clusterName, clusterType, c.subClusterType)
 
@@ -146,7 +145,6 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 		}
 
 		if len(transitGatewayVpcAttachments.TransitGatewayVpcAttachments) > 0 && (transitGatewayVpcAttachments.TransitGatewayVpcAttachments)[0].State == "available" {
-			fmt.Printf("---------- Succeeded to create the vpc attachement clusterType: <%s> and type: <%s> \n\n\n\n\n", clusterType, c.subClusterType)
 			break
 		}
 		time.Sleep(1 * time.Minute)

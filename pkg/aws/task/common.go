@@ -1222,7 +1222,6 @@ func (c *DeployEKSNodeGroup) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The create node group is <%#v>\n\n\n", createNodegroup)
 
 		// CREATING -> ACTIVE
 		for _idx := 0; _idx < 100; _idx++ {
@@ -1232,7 +1231,6 @@ func (c *DeployEKSNodeGroup) Execute(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("The output data is <%#v> \n\n\n\n", describeNodegroup.Nodegroup.Status)
 
 			if describeNodegroup.Nodegroup.Status == "ACTIVE" {
 				break

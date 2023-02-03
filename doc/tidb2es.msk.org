@@ -216,6 +216,7 @@ __consumer_offsets
     #+CAPTION: Role to allow connect to access glue - 06
     #+attr_html: :width 800px
     [[./png/msk/glue.iam.06.png]]
+* Replication Setup
 ** Create changefeed to sync data from TiDB to MSK
 *** AWS environment preparation
     #+BEGIN_SRC
@@ -237,8 +238,8 @@ dispatchers = [
   {matcher = ['*.*'], topic = "{schema}_{table}", partition ="ts"},
 ]
 
-workstation$ ./tiflow-glue/bin/cdc cli changefeed create --server http://172.82.11.79:9300 --changefeed-id=tidb2es-test --sink-uri="kafka://b-1.tidb2es.ux3vvn.c8.kafka.us-east-1.amazonaws.com:9092/topic-name?protocol=avro&replication-factor=3" --schema-registry=http://172.83.2.193:8081 --config /opt/kafka/source.toml
-mysql$ MySQL [test]> create table test01(col01 bigint primary key auto_random, col02 int ); 
+workstation$ ./tiflow-glue/bin/cdc cli changefeed create --server http://127.0.0.1:9300 --changefeed-id=tidb2es-test --sink-uri="kafka://172.83.2.70:9092/topic-name?protocol=avro&replication-factor=3" --schema-registry=tidb2es --schema-registry-provider=glue --config /opt/kafka/source.toml
+MySQL [test]> create table test01(col01 bigint primary key auto_random, col02 int ); 
 Query OK, 0 rows affected, 1 warning (0.133 sec)
 MySQL [test]> insert into test01(col02) values(1);
 Query OK, 1 row affected (0.017 sec)
@@ -327,18 +328,20 @@ workstation$ mvn compile
 workstation$ export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")
 workstation$ mvn package -Dmaven.test.skip=true
 workstation$ mvn dependency:copy-dependencies
+workstation$ mkdir ~/msk-sink-es
+workstation$ mkdir ~/msk-sink-es/aws-glue-schema-registry
+workstation$ cp avro-kafkaconnect-converter/target/schema-registry-kafkaconnect-converter-1.1.14.jar ~/msk-sink-es/aws-glue-schema-registry/
+workstation$ cp -r avro-kafkaconnect-converter/target/dependency ~/msk-sink-es/aws-glue-schema-registry/lib
     #+END_SRC
 *** sink connector plugin preparation
     #+BEGIN_SRC
 workstation$ cd
 workstation$ wget https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-elasticsearch/versions/14.0.3/confluentinc-kafka-connect-elasticsearch-14.0.3.zip
 workstation$ unzip confluentinc-kafka-connect-elasticsearch-14.0.3.zip
-workstation$ cp aws-glue-schema-registry/avro-kafkaconnect-converter/target/dependency/* confluentinc-kafka-connect-elasticsearch-14.0.3/lib/
-workstation$ cp aws-glue-schema-registry/avro-kafkaconnect-converter/target/schema-registry-kafkaconnect-converter-1.1.14.jar confluentinc-kafka-connect-elasticsearch-14.0.3/lib/
-workstation$ mkdir tidb2es-sinkconnector-plugin
-workstation$ cp confluentinc-kafka-connect-elasticsearch-14.0.3/lib/* tidb2es-sinkconnector-plugin/
-workstation$ zip -r tidb2es-sinkconnector-plugin.zip tidb2es-sinkconnector-plugin/*
-workstation$ aws s3 cp $(pwd)/tidb2es-sinkconnector-plugin.zip s3://ossinsight-data/kafka/
+workstation$ mkdir ~/msk-sink-es/es-sink
+workstation$ cp confluentinc-kafka-connect-elasticsearch-14.0.3/lib/* ~/msk-sink-es/es-sink/
+workstation$ zip -r msk-sink-es-plugin.zip msk-sink-es/*
+workstation$ aws s3 cp $(pwd)/msk-sink-es-plugin.zip s3://ossinsight-data/kafka/
     #+END_SRC
 *** connector plugin upload
     #+CAPTION: connector plugin upload - 01
@@ -363,6 +366,46 @@ workstation$ aws s3 cp $(pwd)/tidb2es-sinkconnector-plugin.zip s3://ossinsight-d
     #+CAPTION: connector - 04
     #+attr_html: :width 800px
     [[./png/msk/connector.04.png]]
+    #+BEGIN_SRC
+name=tidb2es
+connector.class=io.confluent.connect.elasticsearch.ElasticsearchSinkConnector
+tasks.max=1
+connection.url=http://internal-acb76e23e8ebd410fac4bbb1e3e16280-272786813.us-east-1.elb.amazonaws.com
+type.name=kafka-connect
+
+connection.username=elastic
+connection.password=1234Abcd
+key.ignore=true
+
+key.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+key.converter.schemas.enable=false
+key.converter.region=us-east-1
+key.converter.schemaAutoRegistrationEnabled=true
+key.converter.avroRecordType=GENERIC_RECORD
+key.converter.registry.name=tidb2es
+
+value.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+value.converter.schemas.enable=false
+value.converter.region=us-east-1
+value.converter.schemaAutoRegistrationEnabled=true
+value.converter.avroRecordType=GENERIC_RECORD
+value.converter.registry.name=tidb2es
+
+topics.regex=test_(.*)
+
+## The below config is also not required. Please skip it. Need to check what it is used for.
+internal.key.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+internal.key.converter.schemas.enable=false
+internal.value.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+internal.value.converter.schemas.enable=false
+
+
+## Below config is not usable for elasticsearch sink because SIM not supported
+transforms=changeTopicName
+transforms.changeTopicName.type=org.apache.kafka.connect.transforms.RegexRouter
+transforms.changeTopicName.regex=test_(.*)
+transforms.changeTopicName.replacement=$1
+    #+END_SRC
     #+CAPTION: connector - 05
     #+attr_html: :width 800px
     [[./png/msk/connector.05.png]]

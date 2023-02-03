@@ -206,7 +206,6 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The create node group is <%#v>\n\n\n", createNodegroup)
 	}
 
 	fmt.Printf("-----------------------------------\n\n\n")
@@ -233,8 +232,6 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The create node group is <%#v>\n\n\n", createNodegroup)
-
 	}
 
 	return nil

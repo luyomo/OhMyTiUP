@@ -1,0 +1,217 @@
+* Architecture
+  #+attr_html: :width 800px
+  [[./png/tidb2oracle.msk.overview.png]]
+* Environment preparation
+  + TiDB
+  + Oracle
+  + Network
+** Oracle Data setup
+   #+attr_html: :width 800px
+   [[./png/msk/ora.02.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.03.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.04.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.05.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.06.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.07.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.08.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.09.png]]
+** TiDB Setup
+   #+BEGIN_SRC
+OhMyTiUP$ ./bin/aws tidb2kafka2ora template --simple > /tmp/tidb2ora.simple.yaml
+OhMyTiUP$ more /tmp/tidb2ora.simple.yaml
+workstation:
+  cidr: 172.82.0.0/16
+  imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+  keyname: jay-us-east-01                         # Public key for workstation instance deployment
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+  instance_type: c5.2xlarge
+  volumeSize: 100                                 # disk size in the workstation
+  username: admin
+  enable_monitoring: enabled
+aws_kafka_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 172.83.0.0/16                           # The cidr for the VPC
+    instance_type: c5.xlarge                      # Default instance type
+    tidb_version: 3.2.3                           # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+    cidr: 182.83.0.0/16                           # The cidr for the VPC
+    instance_type: m5.2xlarge                     # Default instance type
+    tidb_version: v6.3.0                          # TiDB version
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+    enable_nat: true                              # The flag to decide whether the nat is created in the TiDB VPC
+  pd:
+    instance_type: c5.large                       # Instance type for PD component
+    count: 3                                      # Number of PD node to be deployed
+  tidb:
+    instance_type: c5.xlarge                      # Instance type of tidb
+    count: 1                                      # Number of TiDB node to be deployed
+  tikv:
+    -
+      instance_type: c5.xlarge                      # Instance type of TiKV
+      count: 3                                      # Number of TiKV nodes to be deployed
+      volumeSize: 150                               # Storage size for TiKV nodes (GB)
+      volumeType: io2                               # Storage type ex. gp2(default), gp3, io2
+      iops: 3000                                    # Storage IOPS(Only for gp3, io2)
+  ticdc:
+    instance_type: c5.xlarge                      # Instance type of ticdc
+    count: 1                                      # Number of TiDB node to be deployed
+OhMyTiUP$ ./bin/aws tidb2kafka2ora deploy tidb2oratest /tmp/tidb2ora.simple.yaml
+... ...
+OhMyTiUP$ ./bin/aws tidb2kafka2ora list tidb2oratest
+... ...
+Load Balancer:      <nil>
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP   Public IP      Image ID
+--------------  -----------------  -----    -----------          -------------  -----------   ---------      --------
+pd              tidb               running  i-051ad044204066d39  c5.large       182.83.4.32                  ami-07d02ee1eeb0c996c
+pd              tidb               running  i-0940115c6861d450d  c5.large       182.83.3.99                  ami-07d02ee1eeb0c996c
+pd              tidb               running  i-0b54a424f81bb6e4e  c5.large       182.83.6.227                 ami-07d02ee1eeb0c996c
+ticdc           tidb               running  i-079ff69198f4bccfe  c5.xlarge      182.83.1.184                 ami-07d02ee1eeb0c996c
+tidb            tidb               running  i-02c63451bc199dd14  c5.xlarge      182.83.4.182                 ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-05cf505b2b0517a0f  c5.xlarge      182.83.4.7                   ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-0f873c56a84176158  c5.xlarge      182.83.1.45                  ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-03ede976d565cbe17  c5.xlarge      182.83.6.86                  ami-07d02ee1eeb0c996c
+workstation     workstation        running  i-096ee7f3efd789a86  c5.2xlarge     172.82.11.79  44.192.105.10  ami-07d02ee1eeb0c996c
+   #+END_SRC
+** TiCDC Setup
+   Please refer to [[https://github.com/luyomo/OhMyTiUP/blob/main/doc/tidb2es.msk.org#ticdc-setup][TiCDC Customization]]
+** MSK Setup
+   Please refer to [[https://github.com/luyomo/OhMyTiUP/blob/main/doc/tidb2es.msk.org#msk-setup][MSK Setup]]
+** Glue Setup
+   Please refer to [[https://github.com/luyomo/OhMyTiUP/blob/main/doc/tidb2es.msk.org#glue-registry-setup][Glue Setup]]
+* Replication Setup
+** Create changefeed to replicate data from TiDB to MSK
+   Please refer to [[https://github.com/luyomo/OhMyTiUP/blob/main/doc/tidb2es.msk.org#create-changefeed-to-sync-data-from-tidb-to-msk][Replicate TiDB to MSK/Glue]]
+*** Command to create changefeed
+    #+BEGIN_SRC
+./bin/cdc cli changefeed create --server http://172.82.11.216:9300 --changefeed-id=tidb2es-test --sink-uri="kafka://b-1.tidb2es.nr0zk8.c8.kafka.us-east-1.amazonaws.com:9092/topic-name?protocol=avro&replication-factor=3" --schema-registry=tidb2es --schema-registry-provider=glue --config /opt/kafka/source.toml
+    #+END_SRC
+** Setup MSK connector to replicate data to oracle
+*** Oracle client setup
+    
+    #+BEGIN_SRC
+workstation$ wget https://download.oracle.com/otn_software/linux/instantclient/214000/instantclient-basic-linux.x64-21.4.0.0.0dbru.zip
+workstation$ wget https://download.oracle.com/otn_software/linux/instantclient/214000/instantclient-sqlplus-linux.x64-21.4.0.0.0dbru.zip
+workstation$ sudo mkdir -p /opt/oracle
+workstation$ sudo unzip -d /opt/oracle instantclient-basic-linux.x64-21.4.0.0.0dbru.zip
+workstation$ sudo unzip -d /opt/oracle instantclient-sqlplus-linux.x64-21.4.0.0.0dbru.zip
+workstation$ sudo apt-get install rlwrap
+workstation$ export LD_LIBRARY_PATH=/opt/oracle/instantclient_21_4:$LD_LIBRARY_PATH
+workstation$ export PATH=$LD_LIBRARY_PATH:$PATH
+workstation$  sqlplus admin/1234Abcd@tidb2ora.cxmxisy1o2a2.us-east-1.rds.amazonaws.com:1521/orcl
+sqlplus@admin$ create user test IDENTIFIED BY "1234Abcd";
+sqlplus@admin$ GRANT CREATE SESSION, CREATE PROCEDURE, CREATE TABLE, CREATE VIEW TO test;
+sqlplus$ alter user test quota unlimited on USERS;
+     #+END_SRC
+     Please refer to [[https://github.com/luyomo/OhMyTiUP/blob/main/doc/tidb2es.msk.org#create-changefeed-to-sync-data-from-tidb-to-msk][oracle client setup]].
+*** Oracle jdbc sink plugin setup
+**** connect plugin zip file preparation
+        #+BEGIN_SRC
+workstation$ wget https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-jdbc/versions/10.6.0/confluentinc-kafka-connect-jdbc-10.6.0.zip
+workstation$ mkdir msk-jdbc-sink
+workstation$ unzip confluentinc-kafka-connect-jdbc-10.6.0.zip
+workstation$ mv confluentinc-kafka-connect-jdbc-10.6.0 msk-jdbc-sink/
+workstation$ mkdir msk-jdbc-sink/aws-glue-schema-registry
+workstation$ mv aws-glue-schema-registry/avro-kafkaconnect-converter/target/schema-registry-kafkaconnect-converter-1.1.14.jar msk-jdbc-sink/aws-glue-schema-registry/
+   #+END_SRC
+**** Plugin preparation
+    #+attr_html: :width 800px
+    [[./png/msk/msk.jdbc.sink.01.png]]
+    #+attr_html: :width 800px
+    [[./png/msk/msk.jdbc.sink.02.png]]
+    #+attr_html: :width 800px
+    [[./png/msk/msk.jdbc.sink.03.png]]
+    #+attr_html: :width 800px
+    [[./png/msk/msk.jdbc.sink.04.png]]
+
+*** connector creation
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.01.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.02.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.03.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.04.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.05.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.06.png]]
+      https://docs.confluent.io/kafka-connectors/jdbc/current/sink-connector/sink_config_options.html#data-mapping
+   #+BEGIN_SRC
+name=tidb2ora
+connector.class=io.confluent.connect.jdbc.JdbcSinkConnector
+tasks.max=1
+topics.regex=test_(.*)
+connection.url=jdbc:oracle:thin:@172.89.2.134:1521/orcl
+connection.user=test
+connection.password=1234Abcd
+auto.create=true
+
+pk.mode=record_key
+insert.mode=upsert
+delete.enabled=true
+batch.size=1000
+
+transforms=changeTopicName
+transforms.changeTopicName.type=org.apache.kafka.connect.transforms.RegexRouter
+transforms.changeTopicName.regex=test_(.*)
+transforms.changeTopicName.replacement=$1
+
+key.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+key.converter.schemas.enable=false
+key.converter.region=us-east-1
+key.converter.schemaAutoRegistrationEnabled=true
+key.converter.avroRecordType=GENERIC_RECORD
+key.converter.registry.name=tidb2es
+
+value.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+value.converter.schemas.enable=false
+value.converter.region=us-east-1
+value.converter.schemaAutoRegistrationEnabled=true
+value.converter.avroRecordType=GENERIC_RECORD
+value.converter.registry.name=tidb2es
+   #+END_SRC
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.07.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.08.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.09.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.10.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.11.png]]
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.12.png]]
+   #+BEGIN_SRC
+workstation$ rlwrap sqlplus test/1234Abcd@tidb2ora.cxmxisy1o2a2.us-east-1.rds.amazonaws.com:1521/orcl
+sqlplus$ select table_name from user_tables;
+TABLE_NAME
+--------------------------------------------------------------------------------
+test01
+test02
+   #+END_SRC
+   #+attr_html: :width 800px
+   [[./png/msk/ora.sink.connector.13.png]]
+   
