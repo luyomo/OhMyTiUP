@@ -6,6 +6,7 @@
 
 ** Replication
   + [[./doc/tidb2oracle.msk.org][TiDB to Oracle(MSK/Glue)]] - Data replication from TiDB to Oracle through TiCDC, MSK(confluent jdbc sink) and Glue schema registry
+  + [[./doc/tidb2oracle.s3.org][TiDB to Oracle(S3)]] - Data replication from TiDB to Oracle through TiCDC, S3 (CSV files)
   + [[./doc/tidb2kafka2pg.org][TiDB to Postgres]] - Data replication from TiDB to Postgres through TiCDC and kafka(debezium source and confluent jdbc sink)
   + [[./doc/tidb2es.org][TiDB to Elasticsearch]] - Data replication from TiDB to Elasticsearch through TiCDC and kafka(debezium sink)
   + [[./doc/tidb2es.msk.org][TiDB to Elasticsearch(MSK/Glue)]] - Data replication from TiDB to Elasticsearch through TiCDC, MSK(debezium sink) and Glue schema registry

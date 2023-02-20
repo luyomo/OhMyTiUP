@@ -1,0 +1,108 @@
+* Architure
+  #+attr_html: :width 800px
+  [[./png/tidb2oracle.s3/TiDB2Oracle.S3.png]]  
+* Procedure
+** Data replication from TiDB to S3 by [[https://docs.pingcap.com/tidb/stable/ticdc-csv/][TiCDC]] 
+   + Setup the AWS crentials and config file
+   + csv config file preparation
+     #+BEGIN_SRC
+workstation$ more /opt/ticdc/s3.toml
+[sink]
+protocol = "csv"
+terminator = "\n"
+
+[sink.csv]
+delimiter = ','
+quote = '"'
+null = '\N'
+include-commit-ts = true
+     #+END_SRC
+   + Start S3 changefeed to sync data
+     #+BEGIN_SRC
+workstation$ cdc cli changefeed create --server=http://127.0.0.1:9300 --changefeed-id="csv-test" --sink-uri="s3://ossinsight-data/ticdc" --config /opt/ticdc/s3.toml
+     #+END_SRC
+   + Changefeed status check
+     #+BEGIN_SRC
+workstation$ cdc cli changefeed list --server http://127.0.0.1:9300
+[
+  {
+    "id": "csv-test",
+    "namespace": "default",
+    "summary": {
+      "state": "normal",
+      "tso": 439584788055851010,
+      "checkpoint": "2023-02-20 08:48:09.007",
+      "error": null
+    }
+  }
+]
+     #+END_SRC
+   + S3 data confirmation
+     #+attr_html: :width 800px
+     [[./png/tidb2oracle.s3/TiDB2Oracle.S3.data.png]]  
+   + CSV data
+     #+BEGIN_SRC
+admin@workstation:~/workstation/replication$ more CDC000001.csv 
+"I","test09","test",439583334100369414,102,102,102
+     #+END_SRC
+* Oracle data import
+** Oracle Client install
+Please check [[https://github.com/luyomo/OhMyTiUP/blob/main/doc/tidb2oracle.msk.org#oracle-client-setup][Oracle Client Install]] for oracle client install
+   #+BEGIN_SRC
+workstation$ wget https://download.oracle.com/otn_software/linux/instantclient/219000/instantclient-tools-linux.x64-21.9.0.0.0dbru.zip
+workstation$ sudo unzip -d /opt/oracle instantclient-tools-linux.x64-21.9.0.0.0dbru.zip
+workstation$ export PATH=/opt/oracle/instantclient_21_9:$PATH
+   #+END_SRC
+** Data import
+*** Download S3 file to local
+    #+BEGIN_SRC
+workstation$ aws s3 cp s3://ossinsight-data/ticdc/test/test09/439583323706359817 ./
+    #+END_SRC
+*** control file preparation
+    #+BEGIN_SRC
+workstation$ more insert.sql
+load data infile '/home/admin/workstation/replication/CDC000001.csv' insert into table test09 fields terminated by ',' (col_01 filler, col_02 filler, col_03 filler, col_04 filler, c
+ol01, col02, col03)
+    #+END_SRC
+*** Data import into Oracle
+    #+BEGIN_SRC
+workstation$ sqlldr admin/1234Abcd@tidbcloud2oci.cxmxisy1o2a2.us-east-1.rds.amazonaws.com:1521/TEST control=/home/admin/workstation/replication/insert.sql
+SQL*Loader: Release 21.0.0.0.0 - Production on Mon Feb 20 08:31:01 2023
+Version 21.4.0.0.0 
+
+Copyright (c) 1982, 2021, Oracle and/or its affiliates.  All rights reserved.
+
+Path used:      Conventional    
+Commit point reached - logical record count 1 
+                                             
+Table TEST09:
+  1 Row successfully loaded.
+                                                                                          
+Check the log file:
+  insert.log                                                                                                                                                                         
+for more information about the load.    
+    #+END_SRC
+*** Data confirmation
+    #+BEGIN_SRC
+rlwrap sqlplus admin/1234Abcd@tidbcloud2oci.cxmxisy1o2a2.us-east-1.rds.amazonaws.com:1521/TEST
+
+SQL*Plus: Release 21.0.0.0.0 - Production on Mon Feb 20 08:59:57 2023
+Version 21.4.0.0.0
+
+Copyright (c) 1982, 2021, Oracle.  All rights reserved.
+
+Last Successful login time: Mon Feb 20 2023 08:59:51 +00:00
+
+Connected to:
+Oracle Database 19c Standard Edition 2 Release 19.0.0.0.0 - Production
+Version 19.17.0.0.0
+
+SQL> select * from test09; 
+
+     COL01      COL02      COL03
+---------- ---------- ----------
+       102        102        102
+
+SQL> 
+
+    #+END_SRC
