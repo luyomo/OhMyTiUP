@@ -47,12 +47,14 @@ func newOssInsightCmd() *cobra.Command {
 }
 
 // Input: private key file
-//        cluster name      -> If does not exist, give error message
+//
+//	cluster name      -> If does not exist, give error message
+//
 // Flow: 1. Extract cluster info(workstation public key / user)
-//       2. Access aurora from workstation
-//       3. Extract ddl from oss insight s3
-//       4. Generate db objects from ddl file
-//       5. Run command to import data into db
+//  2. Access aurora from workstation
+//  3. Extract ddl from oss insight s3
+//  4. Generate db objects from ddl file
+//  5. Run command to import data into db
 func newOssInsightDeploy() *cobra.Command {
 	opt := manager.OssInsightDeployOptions{
 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),

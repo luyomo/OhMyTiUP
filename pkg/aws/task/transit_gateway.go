@@ -35,12 +35,12 @@ type CreateTransitGateway struct {
 	pexecutor *ctxt.Executor
 }
 
-//
 // create-transit-gateway --description testtisample --tag-specifications ...
 // Execute implements the Task interface
 func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
+	fmt.Printf("Starting to create transit gateway \n\n\n")
 
 	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
 	if err != nil {
@@ -51,6 +51,7 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 	}
 
 	command := fmt.Sprintf("aws ec2 create-transit-gateway --description %s --tag-specifications \"ResourceType=transit-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s}]\"", clusterName, clusterName, clusterType)
+	fmt.Printf("command: <%s> \n\n\n\n", command)
 	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {
 		return err

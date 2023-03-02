@@ -1218,7 +1218,7 @@ func (c *DeployEKSNodeGroup) Execute(ctx context.Context) error {
 			DiskSize:      aws.Int32(20),
 			ScalingConfig: nodegroupScalingConfig}
 
-		createNodegroup, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
+		_, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
 		if err != nil {
 			return err
 		}

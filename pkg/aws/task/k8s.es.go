@@ -15,25 +15,17 @@ package task
 
 import (
 	"context"
-	// "encoding/json"
-	// "errors"
 	"fmt"
 	"strings"
-	// "time"
 
-	// "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
+	// "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-
-	// "github.com/aws/aws-sdk-go-v2/service/ec2"
-	// ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
-	"github.com/aws/aws-sdk-go-v2/service/eks/types"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	// iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	// "github.com/aws/aws-sdk-go-v2/service/eks/types"
+	// "github.com/aws/aws-sdk-go-v2/service/iam"
 
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 )
@@ -51,12 +43,6 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	// tagProject := GetProject(ctx)
-	// tagOwner, _, err := GetCallerUser(ctx)
-	// if err != nil {
-	// 	return err
-	// }
-
 	/* ********** ********** 001. Prepare execution context  **********/
 	// 001.01. Get all the workstation nodes
 	workstation, err := GetWSExecutor02(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil)
@@ -64,16 +50,10 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// describeNodegroupInput := &eks.DescribeNodegroupInput{ClusterName: aws.String(clusterName), NodegroupName: aws.String("esNodeGroup")}
-	// describeNodegroup, err := clientEks.DescribeNodegroup(context.TODO(), describeNodegroupInput)
+	// cfg, err := config.LoadDefaultConfig(context.TODO())
 	// if err != nil {
 	// 	return err
 	// }
-
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return err
-	}
 
 	// client := ec2.NewFromConfig(cfg)
 	/***************************************************************************************************************
@@ -83,35 +63,17 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 	 *     02. Create the template if it does not exist
 	 ***************************************************************************************************************/
 
-	clientEks := eks.NewFromConfig(cfg)
+	// clientEks := eks.NewFromConfig(cfg)
 
-	clientIam := iam.NewFromConfig(cfg)
-	var roleArn string
-	getRoleInput := &iam.GetRoleInput{RoleName: aws.String(clusterName)}
+	// clientIam := iam.NewFromConfig(cfg)
+	// var roleArn string
+	// getRoleInput := &iam.GetRoleInput{RoleName: aws.String(clusterName)}
 
-	getRoleOutput, err := clientIam.GetRole(context.TODO(), getRoleInput)
-	if err != nil {
-		return err
-	}
-	roleArn = *getRoleOutput.Role.Arn
-
-	// combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, "eks")
-	// describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{LaunchTemplateNames: []string{combinedName}}
-	// if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
-	// 	fmt.Printf("Calling the launch template inout ... ... ... <%#v>  \n\n\n\n", err.Error())
-	// 	var ae smithy.APIError
-	// 	if errors.As(err, &ae) {
-	// 		fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-	// 		if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
-	// 			fmt.Printf("--------------------------- \n\n\n")
-	// 			c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
-	// 		} else {
-	// 			return err
-	// 		}
-	// 	} else {
-	// 		return err
-	// 	}
+	// getRoleOutput, err := clientIam.GetRole(context.TODO(), getRoleInput)
+	// if err != nil {
+	// 	return err
 	// }
+	// roleArn = *getRoleOutput.Role.Arn
 
 	var parallelTasks []Task
 	parallelTasks = append(parallelTasks, &DeployEKSNodeGroup{
@@ -168,73 +130,6 @@ func (c *DeployK8SES) Execute(ctx context.Context) error {
 	}
 
 	return nil
-
-	listNodegroupsInput := &eks.ListNodegroupsInput{ClusterName: aws.String(clusterName)}
-	listNodegroup, err := clientEks.ListNodegroups(context.TODO(), listNodegroupsInput)
-	if err != nil {
-		return err
-	}
-
-	if containString(listNodegroup.Nodegroups, "esNodeGroup") == false {
-
-		// Node group creation
-		nodegroupScalingConfig := &types.NodegroupScalingConfig{DesiredSize: aws.Int32(1), MaxSize: aws.Int32(1), MinSize: aws.Int32(1)}
-		createNodegroupInput := &eks.CreateNodegroupInput{
-			ClusterName:   aws.String(clusterName),
-			NodeRole:      aws.String(roleArn),
-			NodegroupName: aws.String("esNodeGroup"),
-			Subnets:       c.clusterInfo.privateSubnets,
-			InstanceTypes: []string{"c5.xlarge"},
-			DiskSize:      aws.Int32(20),
-			ScalingConfig: nodegroupScalingConfig}
-		// -- Below command is used for customized IAM. But at the same time, the iam has to be build for eks.
-		// --https://aws.amazon.com/blogs/containers/introducing-launch-template-and-custom-ami-support-in-amazon-eks-managed-node-groups/
-		// createNodegroupInput := &eks.CreateNodegroupInput{
-		// 	ClusterName:   aws.String(clusterName),
-		// 	NodeRole:      aws.String(roleArn),
-		// 	NodegroupName: aws.String("esNodeGroup"),
-		// 	Subnets:       c.clusterInfo.privateSubnets,
-		// 	ScalingConfig: nodegroupScalingConfig,
-		// 	// AmiType:       types.AMITypes(combinedName),
-		// 	AmiType: types.AMITypes("CUSTOM"),
-		// 	LaunchTemplate: &types.LaunchTemplateSpecification{
-		// 		Name:    aws.String(combinedName),
-		// 		Version: aws.String("$Latest"),
-		// 	}}
-
-		createNodegroup, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
-		if err != nil {
-			return err
-		}
-	}
-
-	fmt.Printf("-----------------------------------\n\n\n")
-	fmt.Printf("The list group is <%#v> \n\n\n\n\n", listNodegroup.Nodegroups)
-	if containString(listNodegroup.Nodegroups, "elasticsearch") == false {
-		// Node group creation
-		labels := map[string]string{"dedicated": "elastic"}
-		var taints []types.Taint
-		taints = append(taints, types.Taint{Effect: "NO_SCHEDULE", Key: aws.String("dedicated"), Value: aws.String("elastic")})
-
-		nodegroupScalingConfig := &types.NodegroupScalingConfig{DesiredSize: aws.Int32(3), MaxSize: aws.Int32(3), MinSize: aws.Int32(3)}
-		createNodegroupInput := &eks.CreateNodegroupInput{
-			ClusterName:   aws.String(clusterName),
-			NodeRole:      aws.String(roleArn),
-			NodegroupName: aws.String("elasticsearch"),
-			Subnets:       c.clusterInfo.privateSubnets,
-			InstanceTypes: []string{"c5.xlarge"},
-			DiskSize:      aws.Int32(20),
-			ScalingConfig: nodegroupScalingConfig,
-			Labels:        labels,
-			Taints:        taints}
-
-		createNodegroup, err := clientEks.CreateNodegroup(context.TODO(), createNodegroupInput)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Rollback implements the Task interface
@@ -250,10 +145,6 @@ func (c *DeployK8SES) String() string {
 type DestroyK8SES struct {
 	pexecutor *ctxt.Executor
 	gOpt      operator.Options
-	// awsWSConfigs      *spec.AwsWSConfigs
-	// awsGeneralConfigs *spec.AwsTopoConfigsGeneral
-	// subClusterType    string
-	// clusterInfo       *ClusterInfo
 }
 
 // Execute implements the Task interface

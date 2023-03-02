@@ -1,0 +1,38 @@
+* Architure
+* Deployment
+** Config
+  + TiDB
+  + kafka
+  + Redshift
+
+* Memo
+** plugin install
+   #+BEGIN_SRC
+connector$ sudo confluent-hub install confluentinc/kafka-connect-aws-redshift:latest
+connector$ sudo systemctl restart confluent-kafka-connect
+   #+END_SRC
+** connector deployment
+  #+BEGIN_SRC
+workstation$ more /tmp/tidb2redshift.json 
+{
+  "name": "tidb2redshift",
+  "config": {
+    "connector.class": "io.confluent.connect.aws.redshift.RedshiftSinkConnector",
+    "tasks.max": "10",
+    "confluent.topic.bootstrap.servers": "172.83.3.98:9092",
+    "topics": "test_test01",
+    "aws.redshift.domain": "tidb2redshift.clm8j1rapquw.us-east-1.redshift.amazonaws.com",
+    "aws.redshift.port": "5439",
+    "aws.redshift.database": "dev",
+    "aws.redshift.user": "awsuser",
+    "aws.redshift.password": "1234Abcd",
+    "insert.mode": "insert",
+    "delete.enabled": "true",
+    "pk.mode": "record_key",
+    "auto.create": "true"
+  }
+}
+workstation$ curl -d @'/tmp/tidb2redshift.json' -H 'Content-Type: application/json' -X POST http://172.83.4.53:8083/connectors
+  #+END_SRC
+* TODO
+  + Basic

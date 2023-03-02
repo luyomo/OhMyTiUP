@@ -124,6 +124,11 @@ type (
 		ESServer AwsNodeModal          `yaml:"es"`
 	}
 
+	AwsRedshiftTopoConfigs struct {
+		CIDR         string `yaml:"cidr,omitempty"`
+		InstanceType string `yaml:"instance_type,omitempty"`
+	}
+
 	AwsTopoConfigsGeneral struct {
 		ImageId      string   `yaml:"imageid,omitempty"`
 		Region       string   `yaml:"region,omitempty"`
@@ -293,6 +298,7 @@ type (
 		AwsAuroraConfigs         AwsAuroraConfigs         `yaml:"aurora,omitempty"`
 		AwsPostgresConfigs       AwsPostgresConfigs       `yaml:"postgres,omitempty"`
 		AwsOracleConfigs         AwsOracleConfigs         `yaml:"oracle,omitempty"`
+		AwsRedshiftTopoConfigs   AwsRedshiftTopoConfigs   `yaml:"redshift,omitempty"`
 		AwsMSConfigs             AwsMSConfigs             `yaml:"sqlserver,omitempty"`
 		AwsDMSConfigs            AwsDMSConfigs            `yaml:"dms,omitempty"`
 		AwsCloudFormationConfigs AwsCloudFormationConfigs `yaml:"aws_cloud_formation_configs"`
@@ -327,6 +333,7 @@ type BaseTopo struct {
 	AwsAuroraConfigs         *AwsAuroraConfigs
 	AwsPostgresConfigs       *AwsPostgresConfigs
 	AwsOracleConfigs         *AwsOracleConfigs
+	AwsRedshiftTopoConfigs   *AwsRedshiftTopoConfigs
 	AwsMSConfigs             *AwsMSConfigs
 	AwsDMSConfigs            *AwsDMSConfigs
 	AwsCloudFormationConfigs *AwsCloudFormationConfigs
@@ -409,6 +416,7 @@ func (s *Specification) NewPart() Topology {
 		AwsAuroraConfigs:         s.AwsAuroraConfigs,
 		AwsPostgresConfigs:       s.AwsPostgresConfigs,
 		AwsOracleConfigs:         s.AwsOracleConfigs,
+		AwsRedshiftTopoConfigs:   s.AwsRedshiftTopoConfigs,
 		AwsMSConfigs:             s.AwsMSConfigs,
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
@@ -459,6 +467,7 @@ func (s *Specification) BaseTopo() *BaseTopo {
 		AwsAuroraConfigs:         &s.AwsAuroraConfigs,
 		AwsPostgresConfigs:       &s.AwsPostgresConfigs,
 		AwsOracleConfigs:         &s.AwsOracleConfigs,
+		AwsRedshiftTopoConfigs:   &s.AwsRedshiftTopoConfigs,
 		AwsMSConfigs:             &s.AwsMSConfigs,
 		AwsDMSConfigs:            &s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: &s.AwsCloudFormationConfigs,
@@ -674,6 +683,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		AwsAuroraConfigs:         s.AwsAuroraConfigs,
 		AwsPostgresConfigs:       s.AwsPostgresConfigs,
 		AwsOracleConfigs:         s.AwsOracleConfigs,
+		AwsRedshiftTopoConfigs:   s.AwsRedshiftTopoConfigs,
 		AwsMSConfigs:             s.AwsMSConfigs,
 		AwsDMSConfigs:            s.AwsDMSConfigs,
 		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
@@ -723,6 +733,7 @@ var (
 	awsAuroraConfigsTypeName         = reflect.TypeOf(AwsAuroraConfigs{}).Name()
 	awsPostgresConfigsTypeName       = reflect.TypeOf(AwsPostgresConfigs{}).Name()
 	awsOracleConfigsTypeName         = reflect.TypeOf(AwsOracleConfigs{}).Name()
+	awsRedshiftConfigsTypeName       = reflect.TypeOf(AwsRedshiftTopoConfigs{}).Name()
 	awsMSConfigsTypeName             = reflect.TypeOf(AwsMSConfigs{}).Name()
 	awsDMSConfigsTypeName            = reflect.TypeOf(AwsDMSConfigs{}).Name()
 	awsCloudFormationConfigsTypeName = reflect.TypeOf(AwsCloudFormationConfigs{}).Name()
@@ -734,7 +745,7 @@ var (
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConnInfo || tp == drainerReplicate || tp == tidbCloud || tp == awsMongoTopoConfigsTypeName || tp == awsESTopoConfigsTypeName
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsRedshiftConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConnInfo || tp == drainerReplicate || tp == tidbCloud || tp == awsMongoTopoConfigsTypeName || tp == awsESTopoConfigsTypeName
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {

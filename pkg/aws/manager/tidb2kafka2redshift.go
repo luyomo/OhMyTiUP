@@ -40,7 +40,7 @@ import (
 )
 
 // Deploy a cluster.
-func (m *Manager) TiDB2Kafka2ESDeploy(
+func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 	name, clusterType string,
 	topoFile string,
 	opt TiDB2Kafka2PgDeployOptions,
@@ -85,18 +85,17 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	}
 
 	// var workstationInfo, clusterInfo, kafkaClusterInfo, eksClusterInfo task.ClusterInfo
-	var workstationInfo, clusterInfo, _, eksClusterInfo task.ClusterInfo
+	var workstationInfo, clusterInfo, kafkaClusterInfo, redshiftClusterInfo task.ClusterInfo
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	var mainTask []*task.StepDisplay // tasks which are used to initialize environment
-	// Task: ES on eks deployment. This is one separate process from start to end.
-	esTask := task.NewBuilder().
-		CreateEKSCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
-		CreateK8SESCluster(&sexecutor, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
-		BuildAsStep(fmt.Sprintf("  - Preparing eks servers"))
-	mainTask = append(mainTask, esTask)
+	// Task: Redshift deployment.
+	redshiftTask := task.NewBuilder().
+		CreateRedshift(&sexecutor, "redshift", base.AwsRedshiftTopoConfigs, &redshiftClusterInfo).
+		BuildAsStep(fmt.Sprintf("  - Preparing redshift servers"))
+	mainTask = append(mainTask, redshiftTask)
 
 	// Parallel task to create workstation, tidb, kafka resources and transit gateway.
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
@@ -104,8 +103,10 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	task001 = append(task001, t1)
 
-	// t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
-	// task001 = append(task001, t2)
+	//Setup the kafka cluster
+	t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).
+		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
+	task001 = append(task001, t2)
 
 	t3 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 	task001 = append(task001, t3)
@@ -116,9 +117,6 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	// Parallel task to create tidb and kafka instances
 	var task002 []*task.StepDisplay // tasks which are used to initialize environment
 
-	// t22 := task.NewBuilder().DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).BuildAsStep(fmt.Sprintf("  - Preparing kafka instance"))
-	// task002 = append(task002, t22)
-
 	t23 := task.NewBuilder().
 		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
@@ -128,16 +126,18 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	// The es might be lag behind the tidb/kafka cluster
 	// Cluster generation -> transit gateway setup -> instance deployment
 	paraTask001 := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
-		// CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "es"}).
-		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "es"}).
-		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "es"}).
+		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
+		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb"}).
+		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "redshift"}).
+		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "redshift"}).
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).BuildAsStep("Parallel Main step")
 
 	// Combine the ES deployment and other resources
-	mainTask = append(mainTask, paraTask001)
+	if 1 == 0 {
+		mainTask = append(mainTask, paraTask001)
+	}
 	mainBuilder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, mainTask...).Build()
 
-	// if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
 	if err := mainBuilder.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
@@ -154,7 +154,7 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 }
 
 // DestroyCluster destroy the cluster.
-func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
+func (m *Manager) DestroyTiDB2Kafka2RedshiftCluster(name, clusterType string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
 
 	_, err := m.meta(name)
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
@@ -178,7 +178,7 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 	t1 := task.NewBuilder().DestroyTransitGateways(&sexecutor).BuildAsStep("  - Removing transit gateway")
 	destroyTasks = append(destroyTasks, t1)
 
-	t2 := task.NewBuilder().DestroyK8SESCluster(&sexecutor, gOpt).DestroyEKSCluster(&sexecutor, "es", gOpt).BuildAsStep("  - Destroying ES cluster")
+	t2 := task.NewBuilder().DestroyRedshift(&sexecutor, "redshift").BuildAsStep("  - Destroying Redshift cluster")
 	destroyTasks = append(destroyTasks, t2)
 
 	t3 := task.NewBuilder().DestroyNAT(&sexecutor, "kafka").DestroyEC2Nodes(&sexecutor, "kafka").BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
@@ -210,7 +210,7 @@ func (m *Manager) DestroyTiDB2Kafka2ESCluster(name, clusterType string, gOpt ope
 
 // Cluster represents a clsuter
 // ListCluster list the clusters.
-func (m *Manager) ListTiDB2Kafka2ESCluster(clusterName, clusterType string, opt DeployOptions) error {
+func (m *Manager) ListTiDB2Kafka2RedshiftCluster(clusterName, clusterType string, opt DeployOptions) error {
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
@@ -262,6 +262,11 @@ func (m *Manager) ListTiDB2Kafka2ESCluster(clusterName, clusterType string, opt 
 	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 
+	// 009. Redshift
+	tableRedshift := [][]string{{"Endpoint", "Port", "DB Name", "Master User", "State", "Node Type"}}
+	t9 := task.NewBuilder().ListRedshift(&sexecutor, &tableRedshift).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
+	listTasks = append(listTasks, t9)
+
 	// *********************************************************************
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
 
@@ -296,6 +301,9 @@ func (m *Manager) ListTiDB2Kafka2ESCluster(clusterName, clusterType string, opt 
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("REDSHIFT"))
+	tui.PrintTable(tableRedshift, true)
+
 	return nil
 }
 
@@ -307,7 +315,7 @@ Parameters:
 	perfOpt
 	  -> DataTypeDtr: ["int", "varchar"]
 */
-func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
 	/* ********** ********** 003. Prepare execution context **********/
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
@@ -466,7 +474,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 	return nil
 }
 
-func (m *Manager) PerfTiDB2Kafka2ES(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
+func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
@@ -586,7 +594,7 @@ func (m *Manager) PerfTiDB2Kafka2ES(clusterName, clusterType string, perfOpt Kaf
 	return nil
 }
 
-func (m *Manager) PerfCleanTiDB2Kafka2ES(clusterName, clusterType string, gOpt operator.Options) error {
+func (m *Manager) PerfCleanTiDB2Kafka2Redshift(clusterName, clusterType string, gOpt operator.Options) error {
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)

@@ -1080,6 +1080,7 @@ func (b *Builder) CreateDMSTask(pexecutor *ctxt.Executor, subClusterType string,
 }
 
 func (b *Builder) CreateTransitGateway(pexecutor *ctxt.Executor) *Builder {
+	fmt.Printf("----------------------------- \n\n\n\n\n\n")
 	b.tasks = append(b.tasks, &CreateTransitGateway{
 		pexecutor: pexecutor,
 	})
@@ -1249,17 +1250,6 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	// 49191: thanos query port
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
 		Step(fmt.Sprintf("%s : Creating TiDB Resource ... ...", subClusterType), NewBuilder().Parallel(false, parallelTasks...).Build())
-		// Step(fmt.Sprintf("%s : Creating TiKV Nodes ... ...", subClusterType), NewBuilder().CreateTiKVNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating TiFlash Nodes ... ...", subClusterType), NewBuilder().CreateTiFlashNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-
-		// Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType), NewBuilder().CreateDMWorkerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating TiCDC Nodes ... ...", subClusterType), NewBuilder().CreateTiCDCNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating Pump Nodes ... ...", subClusterType), NewBuilder().CreatePumpNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating Drainer Nodes ... ...", subClusterType), NewBuilder().CreateDrainerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating Monitor Nodes ... ...", subClusterType), NewBuilder().CreateMonitorNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating Grafana Nodes ... ...", subClusterType), NewBuilder().CreateGrafanaNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating Alert Manager Nodes ... ...", subClusterType), NewBuilder().CreateAlertManagerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 
 	return b
 }
@@ -1633,6 +1623,36 @@ func (b *Builder) CreateOracle(pexecutor *ctxt.Executor, awsOracleConfigs *spec.
 		awsOracleConfigs: awsOracleConfigs,
 		clusterInfo:      clusterInfo,
 	})
+	return b
+}
+
+func (b *Builder) CreateRedshift(pexecutor *ctxt.Executor, subClusterType string, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsRedshiftTopoConfigs.CIDR
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{5439}).Build()).
+		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateRedshift{
+			pexecutor:   pexecutor,
+			clusterInfo: clusterInfo,
+		})
+
+	return b
+}
+
+func (b *Builder) ListRedshift(pexecutor *ctxt.Executor, tableRedshift *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListRedshift{
+		pexecutor:     pexecutor,
+		tableRedshift: tableRedshift,
+	})
+	return b
+}
+
+func (b *Builder) DestroyRedshift(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyRedshift{
+		pexecutor: pexecutor,
+	})
+
+	b.Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 	return b
 }
 
