@@ -1632,8 +1632,9 @@ func (b *Builder) CreateRedshift(pexecutor *ctxt.Executor, subClusterType string
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
 		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{5439}).Build()).
 		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateRedshift{
-			pexecutor:   pexecutor,
-			clusterInfo: clusterInfo,
+			BaseRedshift:           BaseRedshift{pexecutor: pexecutor},
+			clusterInfo:            clusterInfo,
+			awsRedshiftTopoConfigs: awsRedshiftTopoConfigs,
 		})
 
 	return b
@@ -1641,7 +1642,8 @@ func (b *Builder) CreateRedshift(pexecutor *ctxt.Executor, subClusterType string
 
 func (b *Builder) ListRedshift(pexecutor *ctxt.Executor, tableRedshift *[][]string) *Builder {
 	b.tasks = append(b.tasks, &ListRedshift{
-		pexecutor:     pexecutor,
+		BaseRedshift: BaseRedshift{pexecutor: pexecutor},
+		// pexecutor:     pexecutor,
 		tableRedshift: tableRedshift,
 	})
 	return b
@@ -1649,7 +1651,8 @@ func (b *Builder) ListRedshift(pexecutor *ctxt.Executor, tableRedshift *[][]stri
 
 func (b *Builder) DestroyRedshift(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyRedshift{
-		pexecutor: pexecutor,
+		BaseRedshift: BaseRedshift{pexecutor: pexecutor},
+		// pexecutor:    pexecutor,
 	})
 
 	b.Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())

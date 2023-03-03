@@ -1415,3 +1415,24 @@ func CleanClusterSA(executor *ctxt.Executor, clusterName string) error {
 	}
 	return nil
 }
+
+func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceStateCheck func() (bool, error)) error {
+	timeout := time.After(_timeout)
+	d := time.NewTicker(_interval)
+
+	for {
+		// Select statement
+		select {
+		case <-timeout:
+			return errors.New("Timed out")
+		case _ = <-d.C:
+			resourceStateAsExpectFlag, err := _resourceStateCheck()
+			if err != nil {
+				return err
+			}
+			if resourceStateAsExpectFlag == false {
+				return nil
+			}
+		}
+	}
+}

@@ -133,9 +133,9 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).BuildAsStep("Parallel Main step")
 
 	// Combine the ES deployment and other resources
-	if 1 == 0 {
-		mainTask = append(mainTask, paraTask001)
-	}
+
+	mainTask = append(mainTask, paraTask001)
+
 	mainBuilder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, mainTask...).Build()
 
 	if err := mainBuilder.Execute(ctxt.New(ctx, 10)); err != nil {

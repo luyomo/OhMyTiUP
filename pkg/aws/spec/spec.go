@@ -127,6 +127,9 @@ type (
 	AwsRedshiftTopoConfigs struct {
 		CIDR         string `yaml:"cidr,omitempty"`
 		InstanceType string `yaml:"instance_type,omitempty"`
+		AdminUser    string `yaml:"admin_user,omitempty"`
+		Password     string `yaml:"password,omitempty"`
+		ClusterType  string `yaml:"cluster_type,omitempty"`
 	}
 
 	AwsTopoConfigsGeneral struct {
