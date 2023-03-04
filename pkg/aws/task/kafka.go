@@ -313,6 +313,7 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.0.0",
 			"sudo confluent-hub install --no-prompt debezium/debezium-connector-postgresql:1.9.6",
 			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:latest",
+			"sudo confluent-hub install --no-prompt confluentinc/kafka-connect-aws-redshift:latest",
 			"wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz",
 			"tar xvf mysql-connector-java-5.1.46.tar.gz",
 			"sudo cp mysql-connector-java-5.1.46/*.jar /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/",

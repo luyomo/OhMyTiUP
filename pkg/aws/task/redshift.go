@@ -195,6 +195,60 @@ func (c *CreateRedshift) String() string {
 	return fmt.Sprintf("Echo: Create Redshift  ")
 }
 
+// func (c *CreateRedshift) Install(ctx context.Context) error {
+// 	clusterName := ctx.Value("clusterName").(string)
+// 	clusterType := ctx.Value("clusterType").(string)
+
+// 	// 1. Get all the workstation nodes
+// 	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	auroraInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "postgres")
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	var dbInfo DBInfo
+// 	dbInfo.DBHost = (*auroraInstanceInfos)[0].EndPointAddress
+// 	dbInfo.DBPort = (*auroraInstanceInfos)[0].DBPort
+// 	dbInfo.DBUser = (*auroraInstanceInfos)[0].DBUserName
+// 	dbInfo.DBPassword = c.awsPostgresConfigs.DBPassword
+
+// 	_, _, err = (*workstation).Execute(ctx, "mkdir -p /opt/scripts", true)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	err = (*workstation).TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/db-info.yml", "0644", dbInfo, true, 0)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	err = (*workstation).TransferTemplate(ctx, "templates/scripts/run_pg_query.sh.tpl", "/opt/scripts/run_pg_query", "0755", dbInfo, true, 0)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	err = (*workstation).TransferTemplate(ctx, "templates/scripts/run_pg_from_file.sh.tpl", "/opt/scripts/run_pg_from_file", "0755", dbInfo, true, 0)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	_, _, err = (*workstation).Execute(ctx, "apt-get update", true)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	_, _, err = (*workstation).Execute(ctx, "apt-get install -y postgresql-client-11", true)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }
+
 /******************************************************************************/
 
 type DestroyRedshift struct {
@@ -280,10 +334,49 @@ func (c *DestroyRedshift) String() string {
 	return fmt.Sprintf("Echo: Destroying Redshift")
 }
 
+type RedshiftDBInfo struct {
+	Host     string
+	Port     int32
+	DBName   string
+	UserName string
+	Password string
+	Status   string
+	NodeType string
+}
+
+type RedshiftDBInfos []RedshiftDBInfo
+
+func (d *RedshiftDBInfos) Append(cluster *types.Cluster) {
+	*d = append(*d, RedshiftDBInfo{
+		Host:     *cluster.Endpoint.Address,
+		Port:     cluster.Endpoint.Port,
+		UserName: *cluster.MasterUsername,
+		DBName:   *cluster.DBName,
+		// Password: "1234Abcd",
+		Status:   *cluster.ClusterAvailabilityStatus,
+		NodeType: *cluster.NodeType,
+	})
+}
+
+func (d *RedshiftDBInfos) ToPrintTable() *[][]string {
+	tableRedshift := [][]string{{"Endpoint", "Port", "DB Name", "Master User", "State", "Node Type"}}
+	for _, _entry := range *d {
+		tableRedshift = append(tableRedshift, []string{
+			_entry.Host,
+			fmt.Sprintf("%d", _entry.Port),
+			_entry.DBName,
+			_entry.UserName,
+			_entry.Status,
+			_entry.NodeType,
+		})
+	}
+	return &tableRedshift
+}
+
 type ListRedshift struct {
 	BaseRedshift
 
-	tableRedshift *[][]string
+	RedshiftDBInfos *RedshiftDBInfos
 }
 
 // Execute implements the Task interface
@@ -314,14 +407,9 @@ func (c *ListRedshift) Execute(ctx context.Context) error {
 	}
 
 	if describeClusters != nil {
-		*(c.tableRedshift) = append(*(c.tableRedshift), []string{
-			*describeClusters.Clusters[0].Endpoint.Address,
-			fmt.Sprintf("%d", describeClusters.Clusters[0].Endpoint.Port),
-			*describeClusters.Clusters[0].DBName,
-			*describeClusters.Clusters[0].MasterUsername,
-			*describeClusters.Clusters[0].ClusterAvailabilityStatus,
-			*describeClusters.Clusters[0].NodeType,
-		})
+		for _, cluster := range describeClusters.Clusters {
+			c.RedshiftDBInfos.Append(&cluster)
+		}
 	}
 
 	return nil

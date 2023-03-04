@@ -74,7 +74,7 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 
 	// globalOptions := base.GlobalOptions
 
-	// -- eks / es ----------------------------------------------------------->
+	// -- redshift ----------------------------------------------------------->
 	// -- workstation cluster   | --> routes --> | --> TiDB instance deployment
 	// -- tidb cluster          |                | --> kafka insance deployment
 	// -- kafka cluster         |
@@ -84,7 +84,6 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 		return err
 	}
 
-	// var workstationInfo, clusterInfo, kafkaClusterInfo, eksClusterInfo task.ClusterInfo
 	var workstationInfo, clusterInfo, kafkaClusterInfo, redshiftClusterInfo task.ClusterInfo
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
@@ -123,12 +122,15 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 		BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
 	task002 = append(task002, t23)
 
+	t24 := task.NewBuilder().
+		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
+		BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
+	task002 = append(task002, t24)
+
 	// The es might be lag behind the tidb/kafka cluster
 	// Cluster generation -> transit gateway setup -> instance deployment
 	paraTask001 := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
-		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
-		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb"}).
-		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "redshift"}).
+		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "redshift", "kafka"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "redshift"}).
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).BuildAsStep("Parallel Main step")
 
@@ -263,8 +265,11 @@ func (m *Manager) ListTiDB2Kafka2RedshiftCluster(clusterName, clusterType string
 	listTasks = append(listTasks, t8)
 
 	// 009. Redshift
-	tableRedshift := [][]string{{"Endpoint", "Port", "DB Name", "Master User", "State", "Node Type"}}
-	t9 := task.NewBuilder().ListRedshift(&sexecutor, &tableRedshift).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
+	var redshiftDBInfos task.RedshiftDBInfos
+
+	// tableRedshift := [][]string{{"Endpoint", "Port", "DB Name", "Master User", "State", "Node Type"}}
+	// t9 := task.NewBuilder().ListRedshift(&sexecutor, &tableRedshift).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
+	t9 := task.NewBuilder().ListRedshift(&sexecutor, &redshiftDBInfos).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
 	listTasks = append(listTasks, t9)
 
 	// *********************************************************************
@@ -302,7 +307,7 @@ func (m *Manager) ListTiDB2Kafka2RedshiftCluster(clusterName, clusterType string
 	tui.PrintTable(tableECs, true)
 
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("REDSHIFT"))
-	tui.PrintTable(tableRedshift, true)
+	tui.PrintTable(*redshiftDBInfos.ToPrintTable(), true)
 
 	return nil
 }

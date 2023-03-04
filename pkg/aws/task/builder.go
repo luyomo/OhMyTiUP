@@ -1640,11 +1640,12 @@ func (b *Builder) CreateRedshift(pexecutor *ctxt.Executor, subClusterType string
 	return b
 }
 
-func (b *Builder) ListRedshift(pexecutor *ctxt.Executor, tableRedshift *[][]string) *Builder {
+func (b *Builder) ListRedshift(pexecutor *ctxt.Executor, redshiftDBInfos *RedshiftDBInfos) *Builder {
 	b.tasks = append(b.tasks, &ListRedshift{
 		BaseRedshift: BaseRedshift{pexecutor: pexecutor},
 		// pexecutor:     pexecutor,
-		tableRedshift: tableRedshift,
+		// tableRedshift: tableRedshift,
+		RedshiftDBInfos: redshiftDBInfos,
 	})
 	return b
 }

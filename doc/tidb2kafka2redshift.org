@@ -35,4 +35,7 @@ workstation$ more /tmp/tidb2redshift.json
 workstation$ curl -d @'/tmp/tidb2redshift.json' -H 'Content-Type: application/json' -X POST http://172.83.4.53:8083/connectors
   #+END_SRC
 * TODO
-  + Basic
+  + Install plugin into connector server
+  + Install source and destination table
+  + Generate the TiCDC changefeed
+  + Generate the sink connector
