@@ -50,6 +50,7 @@ type Manager struct {
 	sysName     string
 	specManager *spec.SpecManager
 	bindVersion spec.BindVersion
+	wsExe       ctxt.Executor
 }
 
 // NewManager create a Manager.

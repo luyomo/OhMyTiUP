@@ -130,7 +130,7 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	// Prepare the workstation
 	var workstationInfo task.ClusterInfo
 	t2 := task.NewBuilder().
-		CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
+		CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
 		BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
 	envInitTasks = append(envInitTasks, t2)
 

@@ -28,8 +28,11 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 )
 
-type BaseRedshift struct {
+type BaseRedshiftCluster struct {
 	pexecutor *ctxt.Executor
+
+	RedshiftDBInfos        *RedshiftDBInfos
+	awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs
 }
 
 /*
@@ -38,7 +41,7 @@ type BaseRedshift struct {
  *   (false, nil): Cluster does not exist
  *   (false, error): Failed to check
  */
-func (b *BaseRedshift) ClusterExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
+func (b *BaseRedshiftCluster) ClusterExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
 	if _, err := redshiftClient.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{ClusterIdentifier: aws.String(clusterName)}); err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
@@ -54,7 +57,7 @@ func (b *BaseRedshift) ClusterExist(redshiftClient *redshift.Client, clusterName
 	return true, nil
 }
 
-func (b *BaseRedshift) ClusterSubnetGroupNameExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
+func (b *BaseRedshiftCluster) ClusterSubnetGroupNameExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
 	if _, err := redshiftClient.DescribeClusterSubnetGroups(context.TODO(), &redshift.DescribeClusterSubnetGroupsInput{
 		ClusterSubnetGroupName: aws.String(clusterName),
 	}); err != nil {
@@ -72,7 +75,7 @@ func (b *BaseRedshift) ClusterSubnetGroupNameExist(redshiftClient *redshift.Clie
 	return true, nil
 }
 
-func (b *BaseRedshift) ClusterParameterGroupsExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
+func (b *BaseRedshiftCluster) ClusterParameterGroupsExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
 	if _, err := redshiftClient.DescribeClusterParameterGroups(context.TODO(), &redshift.DescribeClusterParameterGroupsInput{
 		ParameterGroupName: aws.String(clusterName),
 	}); err != nil {
@@ -91,15 +94,51 @@ func (b *BaseRedshift) ClusterParameterGroupsExist(redshiftClient *redshift.Clie
 	return true, nil
 }
 
-type CreateRedshift struct {
-	BaseRedshift
+func (b *BaseRedshiftCluster) ReadRedshiftDBInfo(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
 
-	clusterInfo            *ClusterInfo
-	awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs
+	// var redshiftDBInfos RedshiftDBInfos
+
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	client := redshift.NewFromConfig(cfg)
+
+	// Cluster
+	describeClusters, err := client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{
+		ClusterIdentifier: aws.String(clusterName),
+	})
+	if err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() != "ClusterNotFound" {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	if describeClusters != nil {
+		for _, cluster := range describeClusters.Clusters {
+			b.RedshiftDBInfos.Append(&cluster, b.awsRedshiftTopoConfigs.Password)
+		}
+	}
+
+	return nil
+}
+
+type CreateRedshiftCluster struct {
+	BaseRedshiftCluster
+
+	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
-func (c *CreateRedshift) Execute(ctx context.Context) error {
+func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
@@ -186,12 +225,12 @@ func (c *CreateRedshift) Execute(ctx context.Context) error {
 }
 
 // Rollback implements the Task interface
-func (c *CreateRedshift) Rollback(ctx context.Context) error {
+func (c *CreateRedshiftCluster) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *CreateRedshift) String() string {
+func (c *CreateRedshiftCluster) String() string {
 	return fmt.Sprintf("Echo: Create Redshift  ")
 }
 
@@ -251,14 +290,13 @@ func (c *CreateRedshift) String() string {
 
 /******************************************************************************/
 
-type DestroyRedshift struct {
-	BaseRedshift
-	// pexecutor   *ctxt.Executor
+type DestroyRedshiftCluster struct {
+	BaseRedshiftCluster
 	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
-func (c *DestroyRedshift) Execute(ctx context.Context) error {
+func (c *DestroyRedshiftCluster) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -325,34 +363,36 @@ func (c *DestroyRedshift) Execute(ctx context.Context) error {
 }
 
 // Rollback implements the Task interface
-func (c *DestroyRedshift) Rollback(ctx context.Context) error {
+func (c *DestroyRedshiftCluster) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *DestroyRedshift) String() string {
+func (c *DestroyRedshiftCluster) String() string {
 	return fmt.Sprintf("Echo: Destroying Redshift")
 }
 
 type RedshiftDBInfo struct {
-	Host     string
-	Port     int32
-	DBName   string
-	UserName string
-	Password string
+	Host     string `yaml:"host"`
+	Port     int32  `yaml:"port"`
+	DBName   string `yaml:"db_name"`
+	UserName string `yaml:"user_name"`
+	Password string `yaml:"password"`
 	Status   string
 	NodeType string
 }
 
-type RedshiftDBInfos []RedshiftDBInfo
+type RedshiftDBInfos struct {
+	BaseResourceInfo
+}
 
-func (d *RedshiftDBInfos) Append(cluster *types.Cluster) {
-	*d = append(*d, RedshiftDBInfo{
+func (d *RedshiftDBInfos) Append(cluster *types.Cluster, password string) {
+	(*d).Data = append((*d).Data, RedshiftDBInfo{
 		Host:     *cluster.Endpoint.Address,
 		Port:     cluster.Endpoint.Port,
 		UserName: *cluster.MasterUsername,
 		DBName:   *cluster.DBName,
-		// Password: "1234Abcd",
+		Password: password,
 		Status:   *cluster.ClusterAvailabilityStatus,
 		NodeType: *cluster.NodeType,
 	})
@@ -360,7 +400,8 @@ func (d *RedshiftDBInfos) Append(cluster *types.Cluster) {
 
 func (d *RedshiftDBInfos) ToPrintTable() *[][]string {
 	tableRedshift := [][]string{{"Endpoint", "Port", "DB Name", "Master User", "State", "Node Type"}}
-	for _, _entry := range *d {
+	for _, _row := range (*d).Data {
+		_entry := _row.(RedshiftDBInfo)
 		tableRedshift = append(tableRedshift, []string{
 			_entry.Host,
 			fmt.Sprintf("%d", _entry.Port),
@@ -373,54 +414,102 @@ func (d *RedshiftDBInfos) ToPrintTable() *[][]string {
 	return &tableRedshift
 }
 
-type ListRedshift struct {
-	BaseRedshift
-
-	RedshiftDBInfos *RedshiftDBInfos
+type ListRedshiftCluster struct {
+	BaseRedshiftCluster
 }
 
 // Execute implements the Task interface
-func (c *ListRedshift) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
+func (c *ListRedshiftCluster) Execute(ctx context.Context) error {
+	if err := c.ReadRedshiftDBInfo(ctx); err != nil {
 		return err
-	}
-
-	client := redshift.NewFromConfig(cfg)
-
-	// Cluster
-	describeClusters, err := client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{
-		ClusterIdentifier: aws.String(clusterName),
-	})
-	if err != nil {
-		var ae smithy.APIError
-		if errors.As(err, &ae) {
-			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-			if ae.ErrorCode() != "ClusterNotFound" {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	if describeClusters != nil {
-		for _, cluster := range describeClusters.Clusters {
-			c.RedshiftDBInfos.Append(&cluster)
-		}
 	}
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *ListRedshift) Rollback(ctx context.Context) error {
+func (c *ListRedshiftCluster) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *ListRedshift) String() string {
+func (c *ListRedshiftCluster) String() string {
+	return fmt.Sprintf("Echo: List Redshift ")
+}
+
+// Deploy Redshift Instance
+type DeployRedshiftInstance struct {
+	BaseRedshiftCluster
+
+	awsWSConfigs *spec.AwsWSConfigs
+	// awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs
+	wsExe *ctxt.Executor
+}
+
+// Execute implements the Task interface
+func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
+	c.RedshiftDBInfos = &RedshiftDBInfos{}
+
+	if err := c.ReadRedshiftDBInfo(ctx); err != nil {
+		return err
+	}
+
+	tmpFile := "/tmp/redshift.dbinfo.yaml"
+	if err := c.RedshiftDBInfos.WriteIntoConfigFile(tmpFile); err != nil {
+		return err
+	}
+
+	fmt.Printf("WS content: <%#v> \n\n\n\n\n\n", c.wsExe)
+	if err := (*c.wsExe).Transfer(ctx, tmpFile, tmpFile, false, 0); err != nil {
+		return err
+	}
+
+	if _, _, err := (*c.wsExe).Execute(ctx, fmt.Sprintf("sudo mv %s /opt/", tmpFile), true); err != nil {
+		return err
+	}
+
+	return nil
+
+	// clusterName := ctx.Value("clusterName").(string)
+
+	// cfg, err := config.LoadDefaultConfig(context.TODO())
+	// if err != nil {
+	// 	return err
+	// }
+
+	// client := redshift.NewFromConfig(cfg)
+
+	// // Cluster
+	// describeClusters, err := client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{
+	// 	ClusterIdentifier: aws.String(clusterName),
+	// })
+	// if err != nil {
+	// 	var ae smithy.APIError
+	// 	if errors.As(err, &ae) {
+	// 		fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+	// 		if ae.ErrorCode() != "ClusterNotFound" {
+	// 			return err
+	// 		}
+	// 	} else {
+	// 		return err
+	// 	}
+	// }
+
+	// if describeClusters != nil {
+	// 	for _, cluster := range describeClusters.Clusters {
+	// 		c.RedshiftDBInfos.Append(&cluster)
+	// 	}
+	// }
+
+	// return nil
+}
+
+// Rollback implements the Task interface
+func (c *DeployRedshiftInstance) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DeployRedshiftInstance) String() string {
 	return fmt.Sprintf("Echo: List Redshift ")
 }

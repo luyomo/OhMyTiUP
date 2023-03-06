@@ -100,7 +100,7 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 	// Prepare parallel task to generate TiDB, kafka and mongo db cluster
 	var workstationInfo, clusterInfo, kafkaClusterInfo, mongoClusterInfo task.ClusterInfo
 
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 

@@ -146,7 +146,7 @@ func (m *Manager) AuroraDeploy(
 		var workstationInfo task.ClusterInfo
 		t5 := task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
-			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
+			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
 			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
 			CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs, &clusterInfo).

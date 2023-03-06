@@ -93,7 +93,7 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 	var workstationInfo, clusterInfo, kafkaClusterInfo, pgClusterInfo task.ClusterInfo
 	// var workstationInfo, clusterInfo task.ClusterInfo
 
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 

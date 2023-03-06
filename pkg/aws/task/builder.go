@@ -687,12 +687,14 @@ func (b *Builder) WrapCreateEC2Nodes(pexecutor *ctxt.Executor, subClusterType st
 	return b
 }
 
-func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo, wsExe *ctxt.Executor, gOpt *operator.Options) *Builder {
 	b.tasks = append(b.tasks, &CreateWorkstation{
 		pexecutor:      pexecutor,
 		awsWSConfigs:   awsWSConfigs,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
+		wsExe:          wsExe,
+		gOpt:           gOpt,
 	})
 	return b
 }
@@ -1171,12 +1173,12 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 	return b
 }
 
-func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo, wsExe *ctxt.Executor, gOpt *operator.Options) *Builder {
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, false, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
-		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo).Build())
+		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo, wsExe, gOpt).Build())
 
 	return b
 }
@@ -1626,34 +1628,38 @@ func (b *Builder) CreateOracle(pexecutor *ctxt.Executor, awsOracleConfigs *spec.
 	return b
 }
 
-func (b *Builder) CreateRedshift(pexecutor *ctxt.Executor, subClusterType string, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) CreateRedshiftCluster(pexecutor *ctxt.Executor, subClusterType string, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsRedshiftTopoConfigs.CIDR
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
 		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{5439}).Build()).
-		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateRedshift{
-			BaseRedshift:           BaseRedshift{pexecutor: pexecutor},
-			clusterInfo:            clusterInfo,
-			awsRedshiftTopoConfigs: awsRedshiftTopoConfigs,
+		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateRedshiftCluster{
+			BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
+			clusterInfo:         clusterInfo,
 		})
 
 	return b
 }
 
-func (b *Builder) ListRedshift(pexecutor *ctxt.Executor, redshiftDBInfos *RedshiftDBInfos) *Builder {
-	b.tasks = append(b.tasks, &ListRedshift{
-		BaseRedshift: BaseRedshift{pexecutor: pexecutor},
-		// pexecutor:     pexecutor,
-		// tableRedshift: tableRedshift,
-		RedshiftDBInfos: redshiftDBInfos,
+func (b *Builder) DeployRedshiftInstance(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, wsExe *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DeployRedshiftInstance{
+		BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
+		awsWSConfigs:        awsWSConfigs,
+		wsExe:               wsExe,
 	})
 	return b
 }
 
-func (b *Builder) DestroyRedshift(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyRedshift{
-		BaseRedshift: BaseRedshift{pexecutor: pexecutor},
-		// pexecutor:    pexecutor,
+func (b *Builder) ListRedshiftCluster(pexecutor *ctxt.Executor, redshiftDBInfos *RedshiftDBInfos) *Builder {
+	b.tasks = append(b.tasks, &ListRedshiftCluster{
+		BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor, RedshiftDBInfos: redshiftDBInfos},
+	})
+	return b
+}
+
+func (b *Builder) DestroyRedshiftCluster(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyRedshiftCluster{
+		BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor},
 	})
 
 	b.Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
