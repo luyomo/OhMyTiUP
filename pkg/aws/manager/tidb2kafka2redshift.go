@@ -92,14 +92,16 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 	var mainTask []*task.StepDisplay // tasks which are used to initialize environment
 	// Task: Redshift deployment.
 	redshiftTask := task.NewBuilder().
-		CreateRedshift(&sexecutor, "redshift", base.AwsRedshiftTopoConfigs, &redshiftClusterInfo).
+		CreateRedshiftCluster(&sexecutor, "redshift", base.AwsRedshiftTopoConfigs, &redshiftClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing redshift servers"))
 	mainTask = append(mainTask, redshiftTask)
 
 	// Parallel task to create workstation, tidb, kafka resources and transit gateway.
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo).BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
+	t1 := task.NewBuilder().
+		CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	task001 = append(task001, t1)
 
 	//Setup the kafka cluster
@@ -124,17 +126,23 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 
 	t24 := task.NewBuilder().
 		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
-		BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
+		BuildAsStep(fmt.Sprintf("  - Deploying kafka instance ... "))
 	task002 = append(task002, t24)
+
+	t25 := task.NewBuilder().
+		DeployRedshiftInstance(&sexecutor, base.AwsWSConfigs, base.AwsRedshiftTopoConfigs, &m.wsExe).
+		BuildAsStep(fmt.Sprintf("  - Deploying redshift resource ... "))
+	task002 = append(task002, t25)
 
 	// The es might be lag behind the tidb/kafka cluster
 	// Cluster generation -> transit gateway setup -> instance deployment
-	paraTask001 := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
+	paraTask001 := task.NewBuilder().
+		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
 		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "redshift", "kafka"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "redshift"}).
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).BuildAsStep("Parallel Main step")
 
-	// Combine the ES deployment and other resources
+	// Combine the Redshift deployment and other resources
 
 	mainTask = append(mainTask, paraTask001)
 
@@ -180,7 +188,7 @@ func (m *Manager) DestroyTiDB2Kafka2RedshiftCluster(name, clusterType string, gO
 	t1 := task.NewBuilder().DestroyTransitGateways(&sexecutor).BuildAsStep("  - Removing transit gateway")
 	destroyTasks = append(destroyTasks, t1)
 
-	t2 := task.NewBuilder().DestroyRedshift(&sexecutor, "redshift").BuildAsStep("  - Destroying Redshift cluster")
+	t2 := task.NewBuilder().DestroyRedshiftCluster(&sexecutor, "redshift").BuildAsStep("  - Destroying Redshift cluster")
 	destroyTasks = append(destroyTasks, t2)
 
 	t3 := task.NewBuilder().DestroyNAT(&sexecutor, "kafka").DestroyEC2Nodes(&sexecutor, "kafka").BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
@@ -266,10 +274,7 @@ func (m *Manager) ListTiDB2Kafka2RedshiftCluster(clusterName, clusterType string
 
 	// 009. Redshift
 	var redshiftDBInfos task.RedshiftDBInfos
-
-	// tableRedshift := [][]string{{"Endpoint", "Port", "DB Name", "Master User", "State", "Node Type"}}
-	// t9 := task.NewBuilder().ListRedshift(&sexecutor, &tableRedshift).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
-	t9 := task.NewBuilder().ListRedshift(&sexecutor, &redshiftDBInfos).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
+	t9 := task.NewBuilder().ListRedshiftCluster(&sexecutor, &redshiftDBInfos).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
 	listTasks = append(listTasks, t9)
 
 	// *********************************************************************
@@ -308,6 +313,8 @@ func (m *Manager) ListTiDB2Kafka2RedshiftCluster(clusterName, clusterType string
 
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("REDSHIFT"))
 	tui.PrintTable(*redshiftDBInfos.ToPrintTable(), true)
+
+	redshiftDBInfos.WriteIntoConfigFile("test")
 
 	return nil
 }

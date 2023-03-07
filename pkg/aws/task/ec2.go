@@ -33,6 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/embed"
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"go.uber.org/zap"
@@ -43,66 +44,140 @@ type CreateWorkstation struct {
 	awsWSConfigs   *spec.AwsWSConfigs
 	subClusterType string
 	clusterInfo    *ClusterInfo
+	wsExe          *ctxt.Executor
+	gOpt           *operator.Options
+}
+
+func (c *CreateWorkstation) instanceIsAvailable(ctx context.Context, client *ec2.Client, instanceStateName []string, checkStatus bool) (bool, error) {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	var filters []types.Filter
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{c.subClusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("instance-state-name"), Values: instanceStateName})
+
+	describeInstances, err := client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{
+		Filters: filters,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	if len(describeInstances.Reservations) > 0 {
+		if checkStatus == true {
+			for _, reservation := range describeInstances.Reservations {
+				for _, instance := range reservation.Instances {
+
+					// Check the status
+					describeInstanceStatus, err := client.DescribeInstanceStatus(context.TODO(), &ec2.DescribeInstanceStatusInput{
+						InstanceIds: []string{*instance.InstanceId},
+					})
+					if err != nil {
+						return false, err
+					}
+
+					if len(describeInstanceStatus.InstanceStatuses) > 0 {
+						for _, instanceStatus := range describeInstanceStatus.InstanceStatuses {
+							if instanceStatus.InstanceStatus.Status == types.SummaryStatusOk {
+								return true, nil
+							}
+
+						}
+					}
+					return false, nil
+				}
+			}
+		} else {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // Execute implements the Task interface
 func (c *CreateWorkstation) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-
 	tagProject := GetProject(ctx)
 	tagOwner, _, err := GetCallerUser(ctx)
 	if err != nil {
 		return err
 	}
 
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("describe-instances", command))
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
 
-	var reservations Reservations
-	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return err
-	}
-	for _, reservation := range reservations.Reservations {
-		for range reservation.Instances {
-			return nil
+	client := ec2.NewFromConfig(cfg)
+
+	instanceExist, err := c.instanceIsAvailable(ctx, client, []string{"pending", "running", "stopping", "stopped"}, false)
+
+	if instanceExist == true {
+		if *c.wsExe, err = GetWSExecutor03(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil); err != nil {
+			return err
 		}
+		return nil
 	}
 
-	deviceStmt := ""
-	if c.awsWSConfigs.VolumeSize > 0 {
-		deviceStmt = fmt.Sprintf(" --block-device-mappings DeviceName=/dev/xvda,Ebs={VolumeSize=%d}", c.awsWSConfigs.VolumeSize)
-	}
-	command = fmt.Sprintf(
-		"aws ec2 run-instances --count 1 --image-id %s --instance-type %s --associate-public-ip-address "+
-			"--key-name %s --security-group-ids %s --subnet-id %s %s "+
-			"--tag-specifications \"ResourceType=instance,Tags=["+
-			"  {Key=Name,Value=%s},"+
-			"  {Key=Cluster,Value=%s},"+
-			"  {Key=Type,Value=%s},"+
-			"  {Key=Component,Value=workstation},"+
-			"  {Key=Owner,Value=%s},"+
-			"  {Key=Project,Value=%s}"+
-			"]\"",
-		c.awsWSConfigs.ImageId, c.awsWSConfigs.InstanceType,
-		c.awsWSConfigs.KeyName, c.clusterInfo.publicSecurityGroupId, c.clusterInfo.publicSubnet, deviceStmt,
-		clusterName,
-		clusterType,
-		c.subClusterType,
-		tagOwner,
-		tagProject,
-	)
+	tags := []types.Tag{
+		{Key: aws.String("Name"), Value: aws.String(clusterName)},           // ex: clustertest
+		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},        // ex: ohmytiup-tidb
+		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},      // ex: tidb/oracle/workstation
+		{Key: aws.String("Component"), Value: aws.String(c.subClusterType)}, // ex: workstation
+		{Key: aws.String("Owner"), Value: aws.String(tagOwner)},             // ex: aws-user
+		{Key: aws.String("Project"), Value: aws.String(tagProject)},         // ex: clustertest
 
-	zap.L().Debug("Command", zap.String("run-instances", command))
-	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
+	}
+
+	// 03. Template data preparation
+	var tagSpecification []types.TagSpecification
+	tagSpecification = append(tagSpecification, types.TagSpecification{ResourceType: types.ResourceTypeInstance, Tags: tags})
+
+	_, err = client.RunInstances(context.TODO(), &ec2.RunInstancesInput{
+		MaxCount:     aws.Int32(1),
+		MinCount:     aws.Int32(1),
+		ImageId:      aws.String(c.awsWSConfigs.ImageId),
+		InstanceType: types.InstanceType(c.awsWSConfigs.InstanceType),
+		KeyName:      aws.String(c.awsWSConfigs.KeyName),
+		// SubnetId:         aws.String(c.clusterInfo.publicSubnet),
+		// SecurityGroupIds: []string{c.clusterInfo.publicSecurityGroupId},
+		NetworkInterfaces: []types.InstanceNetworkInterfaceSpecification{
+			types.InstanceNetworkInterfaceSpecification{
+				AssociatePublicIpAddress: aws.Bool(true),
+				DeleteOnTermination:      aws.Bool(true),
+				DeviceIndex:              aws.Int32(0),
+				SubnetId:                 aws.String(c.clusterInfo.publicSubnet),
+				Groups:                   []string{c.clusterInfo.publicSecurityGroupId},
+			},
+		},
+		TagSpecifications: tagSpecification,
+		BlockDeviceMappings: []types.BlockDeviceMapping{
+			types.BlockDeviceMapping{
+				DeviceName: aws.String("/dev/xvda"),
+				Ebs: &types.EbsBlockDevice{
+					DeleteOnTermination: aws.Bool(true),
+					VolumeSize:          aws.Int32(32),
+					VolumeType:          types.VolumeType("gp2"),
+				},
+			},
+		},
+	})
 	if err != nil {
 		return err
 	}
+
+	if err = WaitResourceUntilExpectState(30*time.Second, 10*time.Minute, func() (bool, error) { return c.instanceIsAvailable(ctx, client, []string{"running"}, true) }); err != nil {
+		return err
+	}
+
+	if *c.wsExe, err = GetWSExecutor03(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -600,7 +675,6 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	if _, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput); err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
-			// fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
 			if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
 				c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
 			} else {
@@ -885,7 +959,6 @@ func FetchInstances(ctx context.Context, tags *map[string]string, _func *func(ty
 	for _, reservation := range result.Reservations {
 		for _, instance := range reservation.Instances {
 			(*_func)(instance)
-			//			_arrIPs = append(_arrIPs, *instance.PrivateIpAddress)
 		}
 	}
 

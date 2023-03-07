@@ -124,7 +124,11 @@ func (b *BaseRedshiftCluster) ReadRedshiftDBInfo(ctx context.Context) error {
 
 	if describeClusters != nil {
 		for _, cluster := range describeClusters.Clusters {
-			b.RedshiftDBInfos.Append(&cluster, b.awsRedshiftTopoConfigs.Password)
+			if b.awsRedshiftTopoConfigs == nil {
+				b.RedshiftDBInfos.Append(&cluster, "")
+			} else {
+				b.RedshiftDBInfos.Append(&cluster, b.awsRedshiftTopoConfigs.Password)
+			}
 		}
 	}
 
@@ -150,18 +154,9 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 	client := redshift.NewFromConfig(cfg)
 
 	tags := []types.Tag{
-		{
-			Key:   aws.String("Cluster"),
-			Value: aws.String(clusterType),
-		},
-		{
-			Key:   aws.String("Type"),
-			Value: aws.String("redshift"),
-		},
-		{
-			Key:   aws.String("Name"),
-			Value: aws.String(clusterName),
-		},
+		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},
+		{Key: aws.String("Type"), Value: aws.String("redshift")},
+		{Key: aws.String("Name"), Value: aws.String(clusterName)},
 	}
 
 	clusterSubnetGroupNameExistFlag, err := c.ClusterSubnetGroupNameExist(client, clusterName)
@@ -325,7 +320,10 @@ func (c *DestroyRedshiftCluster) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if err = WaitResourceUntilExpectState(30*time.Second, 5*time.Minute, func() (bool, error) { return c.ClusterExist(client, clusterName) }); err != nil {
+		if err = WaitResourceUntilExpectState(30*time.Second, 5*time.Minute, func() (bool, error) {
+			clusterExist, err := c.ClusterExist(client, clusterName)
+			return !clusterExist, err
+		}); err != nil {
 			return err
 		}
 
@@ -442,8 +440,7 @@ type DeployRedshiftInstance struct {
 	BaseRedshiftCluster
 
 	awsWSConfigs *spec.AwsWSConfigs
-	// awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs
-	wsExe *ctxt.Executor
+	wsExe        *ctxt.Executor
 }
 
 // Execute implements the Task interface
@@ -459,7 +456,6 @@ func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("WS content: <%#v> \n\n\n\n\n\n", c.wsExe)
 	if err := (*c.wsExe).Transfer(ctx, tmpFile, tmpFile, false, 0); err != nil {
 		return err
 	}
@@ -469,39 +465,6 @@ func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
 	}
 
 	return nil
-
-	// clusterName := ctx.Value("clusterName").(string)
-
-	// cfg, err := config.LoadDefaultConfig(context.TODO())
-	// if err != nil {
-	// 	return err
-	// }
-
-	// client := redshift.NewFromConfig(cfg)
-
-	// // Cluster
-	// describeClusters, err := client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{
-	// 	ClusterIdentifier: aws.String(clusterName),
-	// })
-	// if err != nil {
-	// 	var ae smithy.APIError
-	// 	if errors.As(err, &ae) {
-	// 		fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-	// 		if ae.ErrorCode() != "ClusterNotFound" {
-	// 			return err
-	// 		}
-	// 	} else {
-	// 		return err
-	// 	}
-	// }
-
-	// if describeClusters != nil {
-	// 	for _, cluster := range describeClusters.Clusters {
-	// 		c.RedshiftDBInfos.Append(&cluster)
-	// 	}
-	// }
-
-	// return nil
 }
 
 // Rollback implements the Task interface

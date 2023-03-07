@@ -1482,7 +1482,7 @@ func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceSt
 			if err != nil {
 				return err
 			}
-			if resourceStateAsExpectFlag == false {
+			if resourceStateAsExpectFlag == true {
 				return nil
 			}
 		}
