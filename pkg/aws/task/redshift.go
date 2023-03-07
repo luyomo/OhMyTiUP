@@ -173,7 +173,6 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 		}); err != nil {
 			return err
 		}
-
 	}
 
 	clusterParameterGroupsExistFlag, err := c.ClusterParameterGroupsExist(client, clusterName)
@@ -228,62 +227,6 @@ func (c *CreateRedshiftCluster) Rollback(ctx context.Context) error {
 func (c *CreateRedshiftCluster) String() string {
 	return fmt.Sprintf("Echo: Create Redshift  ")
 }
-
-// func (c *CreateRedshift) Install(ctx context.Context) error {
-// 	clusterName := ctx.Value("clusterName").(string)
-// 	clusterType := ctx.Value("clusterType").(string)
-
-// 	// 1. Get all the workstation nodes
-// 	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	auroraInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "postgres")
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	var dbInfo DBInfo
-// 	dbInfo.DBHost = (*auroraInstanceInfos)[0].EndPointAddress
-// 	dbInfo.DBPort = (*auroraInstanceInfos)[0].DBPort
-// 	dbInfo.DBUser = (*auroraInstanceInfos)[0].DBUserName
-// 	dbInfo.DBPassword = c.awsPostgresConfigs.DBPassword
-
-// 	_, _, err = (*workstation).Execute(ctx, "mkdir -p /opt/scripts", true)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	err = (*workstation).TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/db-info.yml", "0644", dbInfo, true, 0)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	err = (*workstation).TransferTemplate(ctx, "templates/scripts/run_pg_query.sh.tpl", "/opt/scripts/run_pg_query", "0755", dbInfo, true, 0)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	err = (*workstation).TransferTemplate(ctx, "templates/scripts/run_pg_from_file.sh.tpl", "/opt/scripts/run_pg_from_file", "0755", dbInfo, true, 0)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	_, _, err = (*workstation).Execute(ctx, "apt-get update", true)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	_, _, err = (*workstation).Execute(ctx, "apt-get install -y postgresql-client-11", true)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
-/******************************************************************************/
 
 type DestroyRedshiftCluster struct {
 	BaseRedshiftCluster
@@ -412,6 +355,26 @@ func (d *RedshiftDBInfos) ToPrintTable() *[][]string {
 	return &tableRedshift
 }
 
+func (d *RedshiftDBInfos) GetRedshiftDBInfo() (*map[string]string, error) {
+	if len((*d).Data) > 1 {
+		return nil, errors.New("Multiple redshift db exists")
+	}
+	if len((*d).Data) == 0 {
+		return nil, errors.New("No db exists")
+	}
+
+	dbInfo := make(map[string]string)
+	for _, _row := range (*d).Data {
+		_entry := _row.(RedshiftDBInfo)
+
+		dbInfo["DBHost"] = _entry.Host
+		dbInfo["DBPort"] = fmt.Sprintf("%d", _entry.Port)
+		dbInfo["DBUser"] = _entry.UserName
+		dbInfo["DBPassword"] = _entry.Password
+	}
+	return &dbInfo, nil
+}
+
 type ListRedshiftCluster struct {
 	BaseRedshiftCluster
 }
@@ -461,6 +424,19 @@ func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
 	}
 
 	if _, _, err := (*c.wsExe).Execute(ctx, fmt.Sprintf("sudo mv %s /opt/", tmpFile), true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*c.wsExe).Execute(ctx, "apt-get install -y postgresql-client-11", true); err != nil {
+		return err
+	}
+
+	dbInfo, err := c.RedshiftDBInfos.GetRedshiftDBInfo()
+	if err != nil {
+		return err
+	}
+
+	if err := (*c.wsExe).TransferTemplate(ctx, "templates/scripts/run_pg_query.sh.tpl", "/opt/scripts/run_redshift_query", "0755", dbInfo, true, 0); err != nil {
 		return err
 	}
 
