@@ -605,7 +605,6 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 }
 
 func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfOpt KafkaPerfOpt, gOpt operator.Options) error {
-
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
@@ -618,13 +617,12 @@ func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfO
 		return err
 	}
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
+	if m.wsExe, err = task.GetWSExecutor03(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile, true, nil); err != nil {
 		return err
 	}
 
 	// 02. Get the TiDB connection info
-	if err = (*workstation).Transfer(ctx, "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
+	if err = m.wsExe.Transfer(ctx, "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
 		return err
 	}
 	type TiDBConnectInfo struct {
@@ -647,30 +645,30 @@ func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfO
 	}
 	timer.Take("TiDB Conn info")
 
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "drop database if exists mysqlslap"), false, 1*time.Hour)
+	_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "drop database if exists mysqlslap"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 
 	// 03. Prepare the query to insert data into TiDB
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "truncate table test01"), false, 1*time.Hour)
+	_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "truncate table test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "truncate table  test01"), false, 1*time.Hour)
+	stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query %s '%s'", "test", "truncate table  test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("mysqlslap --no-defaults -h %s -P %d --user=%s --query=/opt/kafka/query.sql --concurrency=%d --iterations=%d --number-of-queries=%d --create='drop database if exists test02;create schema test02' --no-drop", tidbConnectInfo.TiDBHost, tidbConnectInfo.TiDBPort, tidbConnectInfo.TiDBUser, 10, 1, perfOpt.NumOfRecords), true, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("mysqlslap --no-defaults -h %s -P %d --user=%s --query=/opt/kafka/query.sql --concurrency=%d --iterations=%d --number-of-queries=%d --create='drop database if exists test02;create schema test02' --no-drop", tidbConnectInfo.TiDBHost, tidbConnectInfo.TiDBPort, tidbConnectInfo.TiDBUser, 10, 1, perfOpt.NumOfRecords), true, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 	timer.Take("mysqlslap running")
 
 	// 04. Wait the data sync to postgres
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -678,7 +676,7 @@ func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfO
 
 	for cnt := 0; cnt < 20; cnt++ {
 		time.Sleep(10 * time.Second)
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
+		stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
 		if err != nil {
 			return err
 		}
@@ -692,25 +690,25 @@ func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfO
 	timer.Take("Wait until data sync completion")
 
 	// 05. Calculate the QPS and latency
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 	cnt := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*)/(EXTRACT(EPOCH FROM max(tidb_timestamp) - min(tidb_timestamp))::int + 1) from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query %s '%s'", "test", "select count(*)/(EXTRACT(EPOCH FROM max(tidb_timestamp) - min(tidb_timestamp))::int + 1) from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 	tidbQPS := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select EXTRACT(EPOCH FROM (sum(pg_timestamp - tidb_timestamp)/count(*)))::int  from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query %s '%s'", "test", "select EXTRACT(EPOCH FROM (sum(pg_timestamp - tidb_timestamp)/count(*)))::int  from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 	latency := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select (count(*)/EXTRACT(EPOCH FROM max(pg_timestamp) - min(tidb_timestamp)))::int as min_pg from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query %s '%s'", "test", "select (count(*)/EXTRACT(EPOCH FROM max(pg_timestamp) - min(tidb_timestamp)))::int as min_pg from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -735,8 +733,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2Redshift(clusterName, clusterType string, 
 		return err
 	}
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
+	if m.wsExe, err = task.GetWSExecutor03(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile, true, nil); err != nil {
 		return err
 	}
 
@@ -770,12 +767,12 @@ func (m *Manager) PerfCleanTiDB2Kafka2Redshift(clusterName, clusterType string, 
 	}
 
 	// Remove the sink connector
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8083/connectors/%s", connectorIP, "ESSINK"), false); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8083/connectors/%s", connectorIP, clusterName), false); err != nil {
 		return err
 	}
 
 	// Remove the changefeed
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:9300 2>/dev/null", cdcIP), false)
+	stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false)
 	if err != nil {
 		return err
 	}
@@ -784,32 +781,32 @@ func (m *Manager) PerfCleanTiDB2Kafka2Redshift(clusterName, clusterType string, 
 		return err
 	}
 	if changeFeedExist == true {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed remove --server http://%s:9300 --changefeed-id='%s'", cdcIP, "kafka-avro"), false); err != nil {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed remove --server http://%s:8300 --changefeed-id='%s'", cdcIP, "kafka-avro"), false); err != nil {
 			return err
 		}
 	}
 
 	// Remove the topic
 
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl stop confluent-schema-registry"), false, 600*time.Second); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl stop confluent-schema-registry"), false, 600*time.Second); err != nil {
 		return err
 	}
 
 	for _, topicName := range []string{"topic-name", "test_test01", "_schemas"} {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka-util.sh remove-topic %s", topicName), false); err != nil {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka-util.sh remove-topic %s", topicName), false); err != nil {
 			logger.OutputDebugLog(err.Error())
 			//return err
 		}
 	}
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl start confluent-schema-registry"), false, 600*time.Second); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl start confluent-schema-registry"), false, 600*time.Second); err != nil {
 		return err
 	}
 
 	// Remove the Postgres db and table
-	// _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query postgres '%s'", "drop database if exists test"), false, 1*time.Hour)
-	// if err != nil {
-	// 	return err
-	// }
+	_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query dev '%s'", "drop database test"), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
 
 	// Remove the TiDB db and table
 

@@ -54,8 +54,8 @@ func newTiDB2Kafka2RedshiftPerfCmd() *cobra.Command {
 
 	cmd.AddCommand(
 		newPerfPrepareTiDB2Kafka2Redshift(),
-		// newPerfTiDB2Kafka2ES(),
-		// newPerfCleanTiDB2Kafka2ES(),
+		newPerfTiDB2Kafka2Redshift(),
+		newPerfCleanTiDB2Kafka2Redshift(),
 	)
 	return cmd
 }
@@ -195,58 +195,58 @@ func newPerfPrepareTiDB2Kafka2Redshift() *cobra.Command {
 	return cmd
 }
 
-// func newPerfTiDB2Kafka2ES() *cobra.Command {
-// 	perfOpt := manager.KafkaPerfOpt{
-// 		NumOfRecords: 100000,
-// 	}
-// 	cmd := &cobra.Command{
-// 		Use:          "run <cluster-name>",
-// 		Short:        "perf performance test",
-// 		Long:         "Performance measurement against kafka cluster",
-// 		SilenceUsage: true,
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			if !shouldContinue {
-// 				return nil
-// 			}
+func newPerfTiDB2Kafka2Redshift() *cobra.Command {
+	perfOpt := manager.KafkaPerfOpt{
+		NumOfRecords: 100000,
+	}
+	cmd := &cobra.Command{
+		Use:          "run <cluster-name>",
+		Short:        "perf performance test",
+		Long:         "Performance measurement against kafka cluster",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
 
-// 			clusterName := args[0]
+			clusterName := args[0]
 
-// 			return cm.PerfTiDB2Kafka2PG(clusterName, "ohmytiup-tidb2kafka2pg", perfOpt, gOpt)
-// 		},
-// 	}
+			return cm.PerfTiDB2Kafka2Redshift(clusterName, "ohmytiup-tidb2kafka2redshift", perfOpt, gOpt)
+		},
+	}
 
-// 	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
+	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
 
-// 	return cmd
-// }
+	return cmd
+}
 
-// func newPerfCleanTiDB2Kafka2ES() *cobra.Command {
-// 	cmd := &cobra.Command{
-// 		Use:          "clean <cluster-name>",
-// 		Short:        "clean perf performance test",
-// 		Long:         "Performance measurement against kafka cluster",
-// 		SilenceUsage: true,
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			if !shouldContinue {
-// 				return nil
-// 			}
+func newPerfCleanTiDB2Kafka2Redshift() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "clean <cluster-name>",
+		Short:        "clean perf performance test",
+		Long:         "Performance measurement against kafka cluster",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
 
-// 			clusterName := args[0]
+			clusterName := args[0]
 
-// 			return cm.PerfCleanTiDB2Kafka2ES(clusterName, "ohmytiup-tidb2kafka2es", gOpt)
-// 		},
-// 	}
+			return cm.PerfCleanTiDB2Kafka2Redshift(clusterName, "ohmytiup-tidb2kafka2redshift", gOpt)
+		},
+	}
 
-// 	return cmd
-// }
+	return cmd
+}
 
 // type TemplateTiDB2ESOptions struct {
 // 	OP     bool // print template for On Premise
