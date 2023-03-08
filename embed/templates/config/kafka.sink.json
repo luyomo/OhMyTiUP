@@ -2,7 +2,7 @@
     "name": "JDBCTEST",
     "config": {
         "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
-        "connection.url": "jdbc:postgresql://{{ .PGHost }}:5432/{{ .PGDBName }}?stringtype=unspecified",
+        "connection.url": "jdbc:postgresql://{{ .PGHost }}:{{ .PGPort }}/{{ .PGDBName }}?stringtype=unspecified",
         "connection.user": "{{ .PGUser }}",
         "connection.password": "{{ .PGPassword }}",
         "topics": "{{ .TopicName }}",
