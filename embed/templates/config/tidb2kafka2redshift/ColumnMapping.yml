@@ -53,7 +53,7 @@ MapTiDB2PG:
       Def: t_tinyblob TINYBLOB
     PG:
       DataType: bytea
-      Def: t_tinyblob bytea
+      Def: t_tinyblob VARBYTE
       #      DataType: text
       #      Def: t_tinyblob text
     Value: <<<<This is the test>>>>
@@ -62,63 +62,63 @@ MapTiDB2PG:
       Def: t_blob BLOB
     PG:
       DataType: text
-      Def: t_blob text
+      Def: t_blob VARBYTE
     Value: <<<<This is the blob test message>>>>
   - TiDB:
       DataType: MEDIUMBLOB
       Def: t_mediumblob MEDIUMBLOB
     PG:
       DataType: text
-      Def: t_mediumblob text
+      Def: t_mediumblob VARBYTE
     Value: <<<<This is the mediumblob message>>>>
   - TiDB:
       DataType: LONGBLOB
       Def: t_longblob LONGBLOB
     PG:
       DataType: text
-      Def: t_longblob text
+      Def: t_longblob VARBYTE
     Value: <<<<This is the longblob message>>>>
   - TiDB:
       DataType: BINARY
       Def: t_binary BINARY
     PG:
-      DataType: bytea
-      Def: t_binary bytea
+      DataType: VARBYTE
+      Def: t_binary VARBYTE
     Value: <<<<t>>>>
   - TiDB:
       DataType: VARBINARY
       Def: t_varbinary VARBINARY(256)
     PG:
-      DataType: BYTEA
-      Def: t_varbinary bytea
+      DataType: VARBYTE
+      Def: t_varbinary VARBYTE
     Value: <<<<This is the barbinary message>>>>
   - TiDB:
       DataType: TINYTEXT
       Def: t_tinytext TINYTEXT
     PG:
-      DataType: TEXT
-      Def: t_tinytext TEXT
+      DataType: VARCHAR
+      Def: t_tinytext VARCHAR
     Value: <<<<This is TiNYTEXT>>>>
   - TiDB:
       DataType: TEXT
       Def: t_text TEXT
     PG:
-      DataType: TEXT
-      Def: t_text TEXT
+      DataType: VARCHAR
+      Def: t_text VARCHAR
     Value: <<<<This is TEXT>>>>
   - TiDB:
       DataType: MEDIUMTEXT
       Def: t_mediumtext MEDIUMTEXT NOT NULL
     PG:
-      DataType: TEXT
-      Def: t_mediumtext TEXT NOT NULL
+      DataType: VARCHAR
+      Def: t_mediumtext VARCHAR NOT NULL
     Value: <<<<This is medium text>>>>
   - TiDB:
       DataType: LONGTEXT
       Def: t_longtext LONGTEXT
     PG:
-      DataType: TEXT
-      Def: t_longtext TEXT
+      DataType: VARCHAR
+      Def: t_longtext VARCHAR
     Value: <<<<This is long text>>>>
   - TiDB:
       DataType: CHAR
@@ -138,8 +138,8 @@ MapTiDB2PG:
       DataType: FLOAT 
       Def: t_float FLOAT
     PG:
-      DataType: NUMERIC
-      Def: t_float NUMERIC
+      DataType: DECIMAL
+      Def: t_float NUMERIC(18, 9)
     Value: 10.123456789
   - TiDB:
       DataType: DOUBLE

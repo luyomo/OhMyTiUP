@@ -1488,3 +1488,31 @@ func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceSt
 		}
 	}
 }
+
+// Deploy Redshift Instance
+type RunCommonWS struct {
+	wsExe *ctxt.Executor
+}
+
+// Execute implements the Task interface
+func (c *RunCommonWS) Execute(ctx context.Context) error {
+	if _, _, err := (*c.wsExe).Execute(ctx, "apt-get update -y", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*c.wsExe).Execute(ctx, "mkdir -p /opt/scripts", true); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *RunCommonWS) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *RunCommonWS) String() string {
+	return fmt.Sprintf("Echo: Deploy common on workstation ")
+}

@@ -140,6 +140,7 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
 		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "redshift", "kafka"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "redshift"}).
+		RunCommonWS(&m.wsExe).
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).BuildAsStep("Parallel Main step")
 
 	// Combine the Redshift deployment and other resources
@@ -348,7 +349,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 	             Query:
 	               - create type t_enum_test as enum  ('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
 	*/
-	mapFile, err := ioutil.ReadFile("embed/templates/config/tidb2kafka2pg/ColumnMapping.yml")
+	mapFile, err := ioutil.ReadFile("embed/templates/config/tidb2kafka2redshift/ColumnMapping.yml")
 	if err != nil {
 		return err
 	}
@@ -359,9 +360,9 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 		return err
 	}
 
-	/* ********** ********** 002. Prepare columns defintion to be executed into TiDB and postgres ********** ********** */
+	/* ********** ********** 002. Prepare columns defintion to be executed into TiDB and redshift ********** ********** */
 	var arrTiDBTblDataDef []string // Array to keep tidb column definition. ex: ["pk_col BIGINT PRIMARY KEY AUTO_RANDOM", ... , "tidb_timestamp timestamp default current_timestamp"]
-	var arrPGTblDataDef []string   // Array to keep postgres column definition. ex: ["pk_col bigint PRIMARY KEY", ... ... "tidb_timestamp timestamp", "pg_timestamp timestamp default current_timestamp"]
+	var arrPGTblDataDef []string   // Array to keep redshift column definition. ex: ["pk_col bigint PRIMARY KEY", ... ... "tidb_timestamp timestamp", "pg_timestamp timestamp default current_timestamp"]
 	var arrCols []string           // Array to keep all column names. ex: ["t_bool"]
 	var arrData []string           // Array to keep data to be inserted. ex: ["true"]
 	var pgPreQueries []string      // Array of queries to be executed in PG. ex: ["create type t_enum_test ..."]
@@ -385,7 +386,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 
 	}
 
-	/* 002.03 Prepare tail columns for both TiDB and postgres tables.*/
+	/* 002.03 Prepare tail columns for both TiDB and redshift tables.*/
 	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "tidb_timestamp timestamp default current_timestamp")
 	arrPGTblDataDef = append(arrPGTblDataDef, "tidb_timestamp timestamp")
 	arrPGTblDataDef = append(arrPGTblDataDef, "pg_timestamp timestamp default current_timestamp")
@@ -405,10 +406,6 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 	if m.wsExe, err = task.GetWSExecutor03(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile, true, nil); err != nil {
 		return err
 	}
-	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	// if err != nil {
-	// 	return err
-	// }
 
 	/* ********** ********** 004 Prepare insert query to /opt/kafka/query.sql **********/
 	strInsQuery := fmt.Sprintf("insert into test.test01(%s) values(%s)", strings.Join(arrCols, ","), strings.Join(arrData, ","))
@@ -424,19 +421,27 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 		return err
 	}
 
-	/* ********** ********** 005 Prepare postgres objects  **********/
+	/* ********** ********** 005 Prepare redshift objects  **********/
 	// 005.01 Reset test database if exists
-	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query dev '%s'", "drop database test"), false, 1*time.Hour); err != nil {
-		fmt.Printf("Failed to drop database: <%#v> \n\n\n", err)
-		// return err
+
+	stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf(`/opt/scripts/run_redshift_query dev "%s"`, fmt.Sprintf("select count(*) from pg_database where datname = '%s'", "test")), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+	cntTable := strings.ReplaceAll(strings.ReplaceAll(string(stdout), " ", ""), "\n", "")
+
+	if cntTable > "0" {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query dev '%s'", "drop database test"), false, 1*time.Hour); err != nil {
+			return err
+		}
 	}
 
 	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query dev '%s'", "create database test"), false, 1*time.Hour); err != nil {
 		return err
 	}
-	timer.Take("01. Postgres DB creation")
+	timer.Take("01. Redshift DB creation")
 
-	// 005.02 Create postgres objects for test. Like enum
+	// 005.02 Create redshift objects for test. Like enum
 	for _, query := range pgPreQueries {
 		_, stderr, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query test '%s'", query), false, 1*time.Hour)
 		if err != nil {
@@ -457,9 +462,9 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 			return err
 		}
 	}
-	timer.Take("02. Table Creation in the postgres")
+	timer.Take("02. Table Creation in the Redshift")
 
-	/* ********** ********** 006 Prepare postgres objects  **********/
+	/* ********** ********** 006 Prepare redshift objects  **********/
 	// 006.01 Reset test01 test table
 	commands = []string{
 		"drop table if exists test01",
@@ -514,7 +519,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 	}
 	timer.Take("05. Get required info - pd/broker/schemaRegistry/connector")
 
-	stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false)
 	if err != nil {
 		return err
 	}
@@ -597,7 +602,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/kafka.redshift.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
 		return err
 	}
-	timer.Take("07. Create the kafka sink to postgres")
+	timer.Take("07. Create the kafka sink to redshift")
 
 	timer.Print()
 
@@ -667,7 +672,7 @@ func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfO
 	}
 	timer.Take("mysqlslap running")
 
-	// 04. Wait the data sync to postgres
+	// 04. Wait the data sync to redsfhit
 	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
@@ -714,7 +719,7 @@ func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfO
 	}
 	qps := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
 
-	perfMetrics := [][]string{{"Count", "DB QPS", "TiDB 2 PG Latency", "TiDB 2 PG QPS"}}
+	perfMetrics := [][]string{{"Count", "DB QPS", "TiDB 2 Redshift Latency", "TiDB 2 Redshift QPS"}}
 	perfMetrics = append(perfMetrics, []string{cnt, tidbQPS, latency, qps})
 
 	tui.PrintTable(perfMetrics, true)
@@ -763,7 +768,6 @@ func (m *Manager) PerfCleanTiDB2Kafka2Redshift(clusterName, clusterType string, 
 		if row[0] == "schemaRegistry" {
 			schemaRegistryIP = row[5]
 		}
-
 	}
 
 	// Remove the sink connector
@@ -802,7 +806,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2Redshift(clusterName, clusterType string, 
 		return err
 	}
 
-	// Remove the Postgres db and table
+	// Remove the redshift db and table
 	_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query dev '%s'", "drop database test"), false, 1*time.Hour)
 	if err != nil {
 		return err

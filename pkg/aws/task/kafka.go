@@ -110,19 +110,19 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 	/* ********** ********** 003. Install required package **********/
 	for idx := 0; idx < 10; idx++ {
-		stdout, _, err = (*workstation).Execute(ctx, `lslocks --json`, true)
-		if err != nil {
-			return err
-		}
-		aptLocked, err := LookupAptLock("apt-get", stdout)
-		if err != nil {
-			return err
-		}
+		// stdout, _, err = (*workstation).Execute(ctx, `lslocks --json`, true)
+		// if err != nil {
+		// 	return err
+		// }
+		// aptLocked, err := LookupAptLock("apt-get", stdout)
+		// if err != nil {
+		// 	return err
+		// }
 
-		if aptLocked == true {
-			time.Sleep(30 * time.Second)
-			continue
-		}
+		// if aptLocked == true {
+		// 	time.Sleep(30 * time.Second)
+		// 	continue
+		// }
 		_, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
 		if err != nil {
 			return err

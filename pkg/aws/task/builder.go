@@ -1647,6 +1647,14 @@ func (b *Builder) DeployRedshiftInstance(pexecutor *ctxt.Executor, awsWSConfigs 
 		awsWSConfigs:        awsWSConfigs,
 		wsExe:               wsExe,
 	})
+
+	return b
+}
+
+func (b *Builder) RunCommonWS(wsExe *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &RunCommonWS{
+		wsExe: wsExe,
+	})
 	return b
 }
 

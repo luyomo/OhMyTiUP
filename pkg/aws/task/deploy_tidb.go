@@ -22,8 +22,6 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	"time"
-	// "time"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/luyomo/OhMyTiUP/embed"
@@ -322,31 +320,31 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	}
 
-	for idx := 0; idx < 10; idx++ {
-		stdout, _, err = (*workstation).Execute(ctx, `lslocks --json`, true)
-		if err != nil {
-			return err
-		}
-		aptLocked, err := LookupAptLock("apt-get", stdout)
-		if err != nil {
-			return err
-		}
+	// for idx := 0; idx < 10; idx++ {
+	// 	// stdout, _, err = (*workstation).Execute(ctx, `lslocks --json`, true)
+	// if err != nil {
+	// 	return err
+	// }
+	// aptLocked, err := LookupAptLock("apt-get", stdout)
+	// if err != nil {
+	// 	return err
+	// }
 
-		if aptLocked == true {
-			time.Sleep(30 * time.Second)
-			continue
-		}
-		stdout, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
-		if err != nil {
-			return err
-		}
+	// if aptLocked == true {
+	// 	time.Sleep(30 * time.Second)
+	// 	continue
+	// }
+	// stdout, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
+	// if err != nil {
+	// 	return err
+	// }
 
-		if err := installPKGs(workstation, ctx, []string{"mariadb-client-10.3"}); err != nil {
-			return err
-		}
-
-		break
+	if err := installPKGs(workstation, ctx, []string{"mariadb-client-10.3"}); err != nil {
+		return err
 	}
+
+	// 	break
+	// }
 
 	if _, _, err = (*workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false); err != nil {
 		return err

@@ -1,9 +1,126 @@
-* Architure
+* Architecture
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/tidb2kafka2redsfhit/tidb2kafka2redshift_001.png]]
 * Deployment
 ** Config
-  + TiDB
-  + kafka
+   Please refer to [[../embed/examples/aws/aws-nodes-tidb2kafka2redshift.yaml][Config file]] for your reference. It containes below resource configurations.
+  + TiDB cluster
+  + kafka cluster
   + Redshift
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/tidb2kafka2redsfhit/tidb2kafka2redshift_002.png]]
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/tidb2kafka2redsfhit/tidb2kafka2redshift_003.png]]
+
+** Deployment
+   #+BEGIN_SRC
+OhMyTiUP git:(main) $ ./bin/aws tidb2kafka2redshift --help
+Run commands for syncing the data to redshift from tidb through kafka
+
+Usage:
+  aws [command]
+
+Available Commands:
+  deploy      Deploy TiDB + kafka + Redshift
+  list        List all clusters or cluster of aurora db
+  destroy     Destroy a specified cluster
+  perf        Run measure latency against tidb
+  template    Print topology template
+
+Flags:
+  -h, --help   help for tidb2kafka2redshift
+
+Global Flags:
+      --aws-access-key-id string       The access key used to operate against AWS resource
+      --aws-region string              The default aws region 
+      --aws-secret-access-key string   The secret access key used to operate against AWS resource
+  -c, --concurrency int                max number of parallel tasks allowed (default 5)
+      --identity-file string           The identity file for natijve ssh
+      --ssh string                     (EXPERIMENTAL) The executor type: 'builtin', 'system', 'none'.
+      --wait-timeout uint              Timeout in seconds to connect host via SSH, ignored for operations that don't need an SSH connection. (default 5)
+      --ssh-user string                The user for native ssh
+      --tag-owner string               The email address used to tag the resource
+      --tag-project string             The project name used to tag the resource
+      --wait-timeout uint              Timeout in seconds to wait for an operation to complete, ignored for operations that don't fit. (default 120)
+  -y, --yes                            Skip all confirmations and assumes 'yes'
+
+Use "aws help [command]" for more information about a command.
+OhMyTiUP git:(main) $  ./bin/aws tidb2kafka2redshift deploy tidb2redshift /tmp/tidb2kafka2redshift.yaml
+... ...
+   #+END_SRC
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb2kafka2redsfhit/tidb2kafka2redshift_004.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb2kafka2redsfhit/tidb2kafka2redshift_005.png]]
+*** Show resources
+    #+BEGIN_SRC
+./bin/aws tidb2kafka2redshift list tidb2redshift
+    #+END_SRC
+
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb2kafka2redsfhit/tidb2kafka2redshift_007.png]]
+** Prepare kafka sync resource and tables
+   #+BEGIN_SRC
+./bin/aws tidb2kafka2redshift perf prepare tidb2redshift --data-type INT --partitions 3 --num-of-records 100000 --bytes-of-record 1024 --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+   #+END_SRC
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb2kafka2redsfhit/tidb2kafka2redshift_008.png]]
+** Performance test
+   #+BEGIN_SRC
+./bin/aws tidb2kafka2redshift perf run tidb2redshift --num-of-records 100000 --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+   #+END_SRC
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb2kafka2redsfhit/tidb2kafka2redshift_009.png]]
+** Clean environment
+   #+BEGIN_SRC
+./bin/aws tidb2kafka2redshift perf run tidb2redshift --num-of-records 100000 --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+   #+END_SRC
+
+* Data mapping test
+    #+CAPTION: Data Type conversion
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | TiDB Data Type      | OK/NG | PG Data Type | Comment                                                                                                                   | replicated rows | DB QPS | TiDB 2 Redshift Latency | TiDB 2 Redshift QPS |
+   |---------------------+-------+--------------+---------------------------------------------------------------------------------------------------------------------------+-----------------+--------+-------------------------+---------------------|
+   | BOOL                | OK    | Boolean      |                                                                                                                           |          100000 |   3030 |                      19 |                1818 |
+   | TINYINT             | OK    | SmallInt     |                                                                                                                           |          100000 |   3030 |                      17 |                1886 |
+   | SMALLINT            | OK    | INT          |                                                                                                                           |          100000 |   2941 |                       6 |                2439 |
+   | MEDIUMINT           | OK    | INT          |                                                                                                                           |          100000 |   3125 |                       7 |                2325 |
+   | INT                 | OK    | INT          |                                                                                                                           |          100000 |   3030 |                      10 |                2173 |
+   | BIGINT              | OK    | BIGINT       |                                                                                                                           |          100000 |   3125 |                      16 |                1960 |
+   | BIGINT UNSIGNED     | OK    | BIGINT       |                                                                                                                           |          100000 |   3030 |                       6 |                2380 |
+   | TINYBLOB            | OK    | VARBYTE      | Succeeded to sync. But from TiDB the value is [This is the test]                                                          |          100000 |   3030 |                      37 |                1265 |
+   |                     |       |              | while redshift keep the data like [\x54686973206973207468652074657374]                                                    |                 |        |                         |                     |
+   | BLOB                | OK    | VARBYTE      | Same problem as TINYBLOB                                                                                                  |          100000 |   3125 |                      14 |                1785 |
+   | MEDIUMBLOB          | OK    | VARBYTE      | Same problem as TINYBLOB                                                                                                  |          100000 |   3030 |                      14 |                1785 |
+   | LONGBLOB            | OK    | VARBYTE      | Same problem as TINYBLOB                                                                                                  |          100000 |   3030 |                      14 |                1694 |
+   | BINARY              | OK    | VARBYTE      | MySQL: "t" Postgres: "\x74"                                                                                               |          100000 |   3125 |                      13 |                1818 |
+   | VARBINARY(256)      | OK    | VARBYTE      | MySQL: "This is the barbinary message"                                                                                    |          100000 |   2941 |                      14 |                1785 |
+   |                     |       |              | Redshift: "\x54686973206973207468652062617262696e617279206d657373616765"                                                  |                 |        |                         |                     |
+   | TINYTEXT            | OK    | VARCHAR      |                                                                                                                           |          100000 |   3030 |                      26 |                1515 |
+   | TEXT                | OK    | VARCHAR      |                                                                                                                           |          100000 |   3030 |                      13 |                1923 |
+   | MEDIUMTEXT          | OK    | VARCHAR      |                                                                                                                           |          100000 |   2941 |                      24 |                1562 |
+   | LONGTEXT            | OK    | VARCHAR      |                                                                                                                           |          100000 |   3030 |                       8 |                2173 |
+   | CHAR                | OK    | char         |                                                                                                                           |          100000 |   3030 |                      17 |                1886 |
+   | VARCHAR(255)        | OK    | VARCHAR(255) |                                                                                                                           |          100000 |   2941 |                      18 |                1754 |
+   | FLOAT               |       | NEMERIC      | [10.123457] <-> [10.1234569549561]                                                                                        |                 |        |                         |                     |
+   | DOUBLE              |       | NUMERIC      |                                                                                                                           |                 |        |                         |                     |
+   | DATETIME            |       | TIMESTAMP    | Need transformation from TiDB DATETIME to PG timestamp                                                                    |                 |        |                         |                     |
+   | DATE                |       | DATE         |                                                                                                                           |                 |        |                         |                     |
+   | TIMESTAMP           |       | TIMESTAMP    | Need to add [timestamp] transformation                                                                                    |                 |        |                         |                     |
+   | TIME                |       | TIME         |                                                                                                                           |                 |        |                         |                     |
+   | YEAR                |       | SMALLINT     |                                                                                                                           |                 |        |                         |                     |
+   | BIT                 |       |              | Todo. No idea how to sync so far                                                                                          |                 |        |                         |                     |
+   | JSON                |       | JSON         |                                                                                                                           |                 |        |                         |                     |
+   | ENUM('a', 'b', 'c') |       | varchar      |                                                                                                                           |                 |        |                         |                     |
+   |                     |       | ENUM         |                                                                                                                           |                 |        |                         |                     |
+   | SET('a', 'b', 'c')  |       | ENUM         | pg: CREATE TYPE TEST_SET AS ENUM ('a', 'b', 'c'); CREATE TABLE TEST02(col01 int primary key, col02 TEST_SET default null) |                 |        |                         |                     |
+   | DECIMAL             |       | DECIMAL      |                                                                                                                           |                 |        |                         |                     |
+* Reminder
+** Redshift does not support primary key
+Since Redshift does not support primary key, it does not support update so far.  If update is performed in the upstream DB, one more new row is inserted into redshift rather than update.
+** Redshift replication performance
+Because
+* Troubleshooting
 
 * Memo
 ** plugin install
