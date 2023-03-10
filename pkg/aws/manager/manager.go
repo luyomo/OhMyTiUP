@@ -17,8 +17,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
+
+	"github.com/aws/aws-sdk-go-v2/config"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -51,6 +56,7 @@ type Manager struct {
 	specManager *spec.SpecManager
 	bindVersion spec.BindVersion
 	wsExe       ctxt.Executor
+	localExe    ctxt.Executor
 }
 
 // NewManager create a Manager.
@@ -441,4 +447,84 @@ func (m *Manager) fillHostArch(s, p *tui.SSHConnectionProps, topo spec.Topology,
 		hostArch[host] = strings.Trim(string(stdout), "\n")
 	}
 	return topo.FillHostArch(hostArch)
+}
+
+type ConfigData struct {
+	User         string `yaml:"user"`
+	IdentityFile string `yaml:"identity-file"`
+}
+
+func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt *operator.Options, includeWS, awsCliFlag bool) error {
+
+	var configData ConfigData
+
+	var user string
+	var keyFile string
+
+	// Lookup ssh user and private file
+	// 1. Command line
+	// 2. Config file
+	// 3. ~/.ohmytiup/config
+	if gOpt != nil && (*gOpt).SSHUser != "" && (*gOpt).IdentityFile != "" {
+		user = (*gOpt).SSHUser
+		keyFile = (*gOpt).IdentityFile
+	} else {
+		configFile := fmt.Sprintf("/home/%s/.OhMyTiUP/config.yaml", utils.CurrentUser())
+
+		if _, err := os.Stat(configFile); err == nil {
+			data, err := ioutil.ReadFile(configFile)
+			if err != nil {
+				return err
+			}
+			err = yaml.Unmarshal(data, &configData)
+			if err != nil {
+				return err
+			}
+			user = configData.User
+			keyFile = configData.IdentityFile
+		}
+
+	}
+
+	// Setup the local exec
+	var err error
+	m.localExe, err = executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
+
+	if includeWS == false {
+		return nil
+	}
+
+	var envs []string
+
+	if awsCliFlag == true {
+		cfg, err := config.LoadDefaultConfig(context.TODO())
+		if err != nil {
+			return err
+		}
+
+		envs = append(envs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", cfg.Region))
+
+		crentials, err := cfg.Credentials.Retrieve(context.TODO())
+		if err != nil {
+			return err
+		}
+
+		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", crentials.AccessKeyID))
+		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
+	}
+
+	workstation, err := task.GetWorkstation(m.localExe, ctx)
+	if err != nil {
+		return err
+	}
+
+	m.wsExe, err = executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile}, envs)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

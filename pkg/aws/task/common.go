@@ -513,7 +513,10 @@ func getRouteTableByVPC(executor ctxt.Executor, ctx context.Context, clusterName
 	return &routeTables.RouteTables[0], nil
 }
 
-func getWorkstation(executor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*EC2, error) {
+func GetWorkstation(executor ctxt.Executor, ctx context.Context) (*EC2, error) {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=16\"", clusterName, clusterType, "workstation")
 	zap.L().Debug("Command", zap.String("describe-instance", command))
 	stdout, _, err := executor.Execute(ctx, command, false)
@@ -547,7 +550,7 @@ func getWorkstation(executor ctxt.Executor, ctx context.Context, clusterName, cl
 }
 
 func GetWSExecutor(texecutor ctxt.Executor, ctx context.Context, clusterName, clusterType, user, keyFile string) (*ctxt.Executor, error) {
-	workstation, err := getWorkstation(texecutor, ctx, clusterName, clusterType)
+	workstation, err := GetWorkstation(texecutor, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -581,7 +584,7 @@ func GetWSExecutor02(texecutor ctxt.Executor, ctx context.Context, clusterName, 
 		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
 	}
 
-	workstation, err := getWorkstation(texecutor, ctx, clusterName, clusterType)
+	workstation, err := GetWorkstation(texecutor, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -615,7 +618,7 @@ func GetWSExecutor03(texecutor ctxt.Executor, ctx context.Context, clusterName, 
 		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
 	}
 
-	workstation, err := getWorkstation(texecutor, ctx, clusterName, clusterType)
+	workstation, err := GetWorkstation(texecutor, ctx)
 	if err != nil {
 		return nil, err
 	}

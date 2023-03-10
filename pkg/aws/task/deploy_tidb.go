@@ -71,7 +71,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 
 	fmt.Printf("--------------------- Starting to deploy tidb \n\n\n\n\n")
 
-	wsInfo, err := getWorkstation(*c.pexecutor, ctx, clusterName, clusterType)
+	wsInfo, err := GetWorkstation(*c.pexecutor, ctx)
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	zap.L().Debug("AWS WS Config:", zap.String("Monitoring", c.awsWSConfigs.EnableMonitoring))
 	zap.L().Debug("TiDB components:", zap.String("Componens", tplData.String()))
 	if c.awsWSConfigs.EnableMonitoring == "enabled" {
-		workstation, err := getWorkstation(*c.pexecutor, ctx, clusterName, clusterType)
+		workstation, err := GetWorkstation(*c.pexecutor, ctx)
 		if err != nil {
 			return err
 		}

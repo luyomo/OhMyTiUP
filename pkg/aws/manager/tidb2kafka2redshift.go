@@ -397,13 +397,8 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
-	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
 
-	if m.wsExe, err = task.GetWSExecutor03(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile, true, nil); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
 		return err
 	}
 
@@ -491,7 +486,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 	/* ********** ********** 008 Extract server info(ticdc/broker/schema registry/ connector)   **********/
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string
-	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	t1 := task.NewBuilder().ListEC(&m.localExe, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t1)
 
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
@@ -616,18 +611,12 @@ func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfO
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
-
-	if m.wsExe, err = task.GetWSExecutor03(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile, true, nil); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
 		return err
 	}
 
 	// 02. Get the TiDB connection info
-	if err = m.wsExe.Transfer(ctx, "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
+	if err := m.wsExe.Transfer(ctx, "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
 		return err
 	}
 	type TiDBConnectInfo struct {
@@ -732,20 +721,14 @@ func (m *Manager) PerfCleanTiDB2Kafka2Redshift(clusterName, clusterType string, 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	// Get executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
-
-	if m.wsExe, err = task.GetWSExecutor03(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile, true, nil); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
 		return err
 	}
 
 	// Get server info
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string
-	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	t1 := task.NewBuilder().ListEC(&m.localExe, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t1)
 
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)

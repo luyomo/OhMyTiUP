@@ -138,15 +138,15 @@ MapTiDB2PG:
       DataType: FLOAT 
       Def: t_float FLOAT
     PG:
-      DataType: DECIMAL
-      Def: t_float NUMERIC(18, 9)
+      DataType: NUMERIC
+      Def: t_float NUMERIC(18, 6)
     Value: 10.123456789
   - TiDB:
       DataType: DOUBLE
       Def: t_double DOUBLE
     PG:
       DataType: NUMERIC
-      Def: t_double NUMERIC
+      Def: t_double NUMERIC(18, 9)
     Value: 10.123456789
   - TiDB:
       DataType: DATETIME
@@ -166,9 +166,9 @@ MapTiDB2PG:
       DataType: TIMESTAMP
       Def: t_timestamp TIMESTAMP
     PG:
-      DataType: TODO
-      Def: TODO
-    Value: TODO
+      DataType: TIMESTAMP
+      Def: t_timestamp TIMESTAMP
+    Value: <<<<2022-08-01 11:34:56>>>>
   - TiDB:
       DataType: TIME
       Def: t_time TIME
@@ -194,26 +194,22 @@ MapTiDB2PG:
       DataType: JSON
       Def: t_json JSON
     PG:
-      DataType: JSON
-      Def: t_json json
+      DataType: VACHAR
+      Def: t_json VARCHAR
     Value: <<<<{\\\"testKey\\\":\\\"testValue\\\"}>>>>
   - TiDB:
       DataType: ENUM
       Def: t_enum enum("a", "b", "c")
     PG:
       DataType: VARCHAR
-      Def: t_enum t_enum_test
-      Query:
-        - create type t_enum_test as enum  ('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
+      Def: t_enum VARCHAR
     Value: <<<<a>>>>
   - TiDB:
       DataType: SET
       Def: t_set SET('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
     PG:
-      DataType: ENUM
-      Def: t_set t_enum_test[]
-      Query:
-        - create type t_enum_test as enum  ('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
+      DataType: VARCHAR
+      Def: t_set VARCHAR
     Value: <<<<a,b>>>>
   - TiDB:
       DataType: DECIMAL

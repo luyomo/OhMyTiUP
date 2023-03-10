@@ -127,7 +127,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 
 	zap.L().Debug("AWS WS Config:", zap.String("Monitoring", c.awsWSConfigs.EnableMonitoring))
 	if c.awsWSConfigs.EnableMonitoring == "enabled" {
-		workstation, err := getWorkstation(*c.pexecutor, ctx, clusterName, clusterType)
+		workstation, err := GetWorkstation(*c.pexecutor, ctx)
 		if err != nil {
 			return err
 		}
