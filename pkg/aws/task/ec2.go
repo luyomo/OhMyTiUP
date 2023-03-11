@@ -286,6 +286,15 @@ func (c *DestroyLaunchTemplate) Execute(ctx context.Context) error {
 		deleteLaunchTemplateInput := &ec2.DeleteLaunchTemplateInput{LaunchTemplateId: launchTemplate.LaunchTemplateId}
 		_, err := client.DeleteLaunchTemplate(context.TODO(), deleteLaunchTemplateInput)
 		if err != nil {
+			var ae smithy.APIError
+			if errors.As(err, &ae) {
+				fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+				if ae.ErrorCode() != "InvalidLaunchTemplateId.NotFound" {
+					return nil
+				}
+			} else {
+				return err
+			}
 			return err
 		}
 

@@ -29,11 +29,9 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
-	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -79,20 +77,19 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 	// -- tidb cluster          |                | --> kafka insance deployment
 	// -- kafka cluster         |
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	if err := m.makeExeContext(ctx, nil, &gOpt, false, false); err != nil {
 		return err
 	}
 
 	var workstationInfo, clusterInfo, kafkaClusterInfo, redshiftClusterInfo task.ClusterInfo
 
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-
 	var mainTask []*task.StepDisplay // tasks which are used to initialize environment
 	// Task: Redshift deployment.
 	redshiftTask := task.NewBuilder().
-		CreateRedshiftCluster(&sexecutor, "redshift", base.AwsRedshiftTopoConfigs, &redshiftClusterInfo).
+		CreateRedshiftCluster(&m.localExe, "redshift", base.AwsRedshiftTopoConfigs, &redshiftClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing redshift servers"))
 	mainTask = append(mainTask, redshiftTask)
 
@@ -100,37 +97,37 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
 	t1 := task.NewBuilder().
-		CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	task001 = append(task001, t1)
 
 	//Setup the kafka cluster
-	t2 := task.NewBuilder().CreateKafkaCluster(&sexecutor, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).
+	t2 := task.NewBuilder().CreateKafkaCluster(&m.localExe, "kafka", base.AwsKafkaTopoConfigs, &kafkaClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
 	task001 = append(task001, t2)
 
-	t3 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
+	t3 := task.NewBuilder().CreateTiDBCluster(&m.localExe, "tidb", base.AwsTopoConfigs, &clusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 	task001 = append(task001, t3)
 
-	t4 := task.NewBuilder().CreateTransitGateway(&sexecutor).BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
+	t4 := task.NewBuilder().CreateTransitGateway(&m.localExe).BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
 	task001 = append(task001, t4)
 
 	// Parallel task to create tidb and kafka instances
 	var task002 []*task.StepDisplay // tasks which are used to initialize environment
 
 	t23 := task.NewBuilder().
-		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+		DeployTiDB(&m.localExe, "tidb", base.AwsWSConfigs, &workstationInfo).
+		DeployTiDBInstance(&m.localExe, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
 	task002 = append(task002, t23)
 
 	t24 := task.NewBuilder().
-		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
+		DeployKafka(&m.localExe, base.AwsWSConfigs, "kafka", &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Deploying kafka instance ... "))
 	task002 = append(task002, t24)
 
 	t25 := task.NewBuilder().
-		DeployRedshiftInstance(&sexecutor, base.AwsWSConfigs, base.AwsRedshiftTopoConfigs, &m.wsExe).
+		DeployRedshiftInstance(&m.localExe, base.AwsWSConfigs, base.AwsRedshiftTopoConfigs, &m.wsExe).
 		BuildAsStep(fmt.Sprintf("  - Deploying redshift resource ... "))
 	task002 = append(task002, t25)
 
@@ -138,8 +135,8 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 	// Cluster generation -> transit gateway setup -> instance deployment
 	paraTask001 := task.NewBuilder().
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
-		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "redshift", "kafka"}).
-		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "redshift"}).
+		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb", "redshift", "kafka"}).
+		CreateRouteTgw(&m.localExe, "kafka", []string{"tidb", "redshift"}).
 		RunCommonWS(&m.wsExe).
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).BuildAsStep("Parallel Main step")
 
@@ -175,27 +172,26 @@ func (m *Manager) DestroyTiDB2Kafka2RedshiftCluster(name, clusterType string, gO
 		return err
 	}
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+	if err := m.makeExeContext(ctx, nil, &gOpt, false, false); err != nil {
 		return err
 	}
 
 	// gOpt.SSHUser, gOpt.IdentityFile
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	var destroyTasks []*task.StepDisplay
 
-	t1 := task.NewBuilder().DestroyTransitGateways(&sexecutor).BuildAsStep("  - Removing transit gateway")
+	t1 := task.NewBuilder().DestroyTransitGateways(&m.localExe).BuildAsStep("  - Removing transit gateway")
 	destroyTasks = append(destroyTasks, t1)
 
-	t2 := task.NewBuilder().DestroyRedshiftCluster(&sexecutor, "redshift").BuildAsStep("  - Destroying Redshift cluster")
+	t2 := task.NewBuilder().DestroyRedshiftCluster(&m.localExe, "redshift").BuildAsStep("  - Destroying Redshift cluster")
 	destroyTasks = append(destroyTasks, t2)
 
-	t3 := task.NewBuilder().DestroyNAT(&sexecutor, "kafka").DestroyEC2Nodes(&sexecutor, "kafka").BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
+	t3 := task.NewBuilder().DestroyNAT(&m.localExe, "kafka").DestroyEC2Nodes(&m.localExe, "kafka").BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
 	destroyTasks = append(destroyTasks, t3)
 
-	t4 := task.NewBuilder().DestroyNAT(&sexecutor, "tidb").DestroyEC2Nodes(&sexecutor, "tidb").BuildAsStep(fmt.Sprintf("  - Destroying  tidb cluster %s ", name))
+	t4 := task.NewBuilder().DestroyNAT(&m.localExe, "tidb").DestroyEC2Nodes(&m.localExe, "tidb").BuildAsStep(fmt.Sprintf("  - Destroying  tidb cluster %s ", name))
 	destroyTasks = append(destroyTasks, t4)
 
 	builder := task.NewBuilder().ParallelStep("+ Destroying all the componets", false, destroyTasks...)
@@ -212,7 +208,7 @@ func (m *Manager) DestroyTiDB2Kafka2RedshiftCluster(name, clusterType string, gO
 		return err
 	}
 
-	t10 := task.NewBuilder().DestroyEC2Nodes(&sexecutor, "workstation").BuildAsStep(fmt.Sprintf("  - Removing workstation"))
+	t10 := task.NewBuilder().DestroyEC2Nodes(&m.localExe, "workstation").BuildAsStep(fmt.Sprintf("  - Removing workstation"))
 
 	t10.Execute(ctxt.New(tailctx, 1))
 
@@ -228,54 +224,53 @@ func (m *Manager) ListTiDB2Kafka2RedshiftCluster(clusterName, clusterType string
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
+	if err := m.makeExeContext(ctx, nil, nil, false, false); err != nil {
 		return err
 	}
 
 	// 001. VPC listing
 	tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
-	t1 := task.NewBuilder().ListVpc(&sexecutor, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
+	t1 := task.NewBuilder().ListVpc(&m.localExe, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
 	listTasks = append(listTasks, t1)
 
 	// 002. subnets
 	tableSubnets := [][]string{{"Component Name", "Zone", "Subnet ID", "CIDR", "State", "VPC ID"}}
-	t2 := task.NewBuilder().ListNetwork(&sexecutor, &tableSubnets).BuildAsStep(fmt.Sprintf("  - Listing Subnets"))
+	t2 := task.NewBuilder().ListNetwork(&m.localExe, &tableSubnets).BuildAsStep(fmt.Sprintf("  - Listing Subnets"))
 	listTasks = append(listTasks, t2)
 
 	// 003. subnets
 	tableRouteTables := [][]string{{"Component Name", "Route Table ID", "DestinationCidrBlock", "TransitGatewayId", "GatewayId", "State", "Origin"}}
-	t3 := task.NewBuilder().ListRouteTable(&sexecutor, &tableRouteTables).BuildAsStep(fmt.Sprintf("  - Listing Route Tables"))
+	t3 := task.NewBuilder().ListRouteTable(&m.localExe, &tableRouteTables).BuildAsStep(fmt.Sprintf("  - Listing Route Tables"))
 	listTasks = append(listTasks, t3)
 
 	// 004. Security Groups
 	tableSecurityGroups := [][]string{{"Component Name", "Ip Protocol", "Source Ip Range", "From Port", "To Port"}}
-	t4 := task.NewBuilder().ListSecurityGroup(&sexecutor, &tableSecurityGroups).BuildAsStep(fmt.Sprintf("  - Listing Security Groups"))
+	t4 := task.NewBuilder().ListSecurityGroup(&m.localExe, &tableSecurityGroups).BuildAsStep(fmt.Sprintf("  - Listing Security Groups"))
 	listTasks = append(listTasks, t4)
 
 	// 005. Transit gateway
 	var transitGateway task.TransitGateway
-	t5 := task.NewBuilder().ListTransitGateway(&sexecutor, &transitGateway).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway "))
+	t5 := task.NewBuilder().ListTransitGateway(&m.localExe, &transitGateway).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway "))
 	listTasks = append(listTasks, t5)
 
 	// 006. Transit gateway vpc attachment
 	tableTransitGatewayVpcAttachments := [][]string{{"Component Name", "VPC ID", "State"}}
-	t6 := task.NewBuilder().ListTransitGatewayVpcAttachment(&sexecutor, &tableTransitGatewayVpcAttachments).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway vpc attachment"))
+	t6 := task.NewBuilder().ListTransitGatewayVpcAttachment(&m.localExe, &tableTransitGatewayVpcAttachments).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway vpc attachment"))
 	listTasks = append(listTasks, t6)
 
 	// 007. EC2
 	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Preivate IP", "Public IP", "Image ID"}}
-	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	t7 := task.NewBuilder().ListEC(&m.localExe, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t7)
 
 	// 008. NLB
 	var nlb elbtypes.LoadBalancer
-	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
+	t8 := task.NewBuilder().ListNLB(&m.localExe, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 
 	// 009. Redshift
 	var redshiftDBInfos task.RedshiftDBInfos
-	t9 := task.NewBuilder().ListRedshiftCluster(&sexecutor, &redshiftDBInfos).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
+	t9 := task.NewBuilder().ListRedshiftCluster(&m.localExe, &redshiftDBInfos).BuildAsStep(fmt.Sprintf("  - Listing Redshift"))
 	listTasks = append(listTasks, t9)
 
 	// *********************************************************************
