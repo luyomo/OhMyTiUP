@@ -1,0 +1,44 @@
+* TODO
+** DONE Create MSK
+** DONE Start glue ticdc
+** DONE Create changefeed to sink the data to MSK
+** Prepare zip to upload to S3
+   #+BEGIN_SRC
+   workstation$ wget https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-aws-redshift/versions/1.2.2/confluentinc-kafka-connect-aws-redshift-1.2.2.zip
+   workstation$ unzip confluentinc-kafka-connect-aws-redshift-1.2.2.zip
+   workstation$ mkdir msk-sink-redshift/redshift-sink
+   workstation$ cp confluentinc-kafka-connect-aws-redshift-1.2.2/lib/* ~/msk-sink-redshift/redshift-sink/
+   workstation$ zip -r msk-sink-redshift-plugin.zip msk-sink-redshift/*
+   #+END_SRC
+** Create MSK connector
+   #+BEGIN_SRC
+connector.class=io.confluent.connect.aws.redshift.RedshiftSinkConnector
+tasks.max=1
+confluent.topic.bootstrap.servers=172.83.1.57:9092,172.83.3.70:9092,172.83.2.226:9092
+name=tidb2redshift
+topics=test_test02
+aws.redshift.domain=tidb2redshift.clm8j1rapquw.us-east-1.redshift.amazonaws.com
+aws.redshift.port=5439
+aws.redshift.database=test
+aws.redshift.user=awsadmin
+aws.redshift.password=1234Abcd
+table.name.format=test02
+insert.mode=insert
+delete.enabled=true
+pk.mode=record_key
+auto.create=true
+
+key.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+key.converter.schemas.enable=false
+key.converter.region=us-east-1
+key.converter.schemaAutoRegistrationEnabled=true
+key.converter.avroRecordType=GENERIC_RECORD
+key.converter.registry.name=tidb2es
+
+value.converter=com.amazonaws.services.schemaregistry.kafkaconnect.AWSKafkaAvroConverter
+value.converter.schemas.enable=false
+value.converter.region=us-east-1
+value.converter.schemaAutoRegistrationEnabled=true
+value.converter.avroRecordType=GENERIC_RECORD
+value.converter.registry.name=tidb2es
+   #+END_SRC
