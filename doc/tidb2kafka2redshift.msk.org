@@ -1,8 +1,16 @@
-* TODO
+* Script
+** TODO TiDB Cluster
+** TODO Redshift
+** TODO TiCDC node with glue version
+** TODO MSK
+** TODO Glue schema registry
+** TODO Connector with S3 plugin
+** TODO Sink connector preparation
+* DONE 
 ** DONE Create MSK
 ** DONE Start glue ticdc
 ** DONE Create changefeed to sink the data to MSK
-** Prepare zip to upload to S3
+** DONE Prepare zip to upload to S3
    #+BEGIN_SRC
    workstation$ wget https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-aws-redshift/versions/1.2.2/confluentinc-kafka-connect-aws-redshift-1.2.2.zip
    workstation$ unzip confluentinc-kafka-connect-aws-redshift-1.2.2.zip
@@ -10,7 +18,7 @@
    workstation$ cp confluentinc-kafka-connect-aws-redshift-1.2.2/lib/* ~/msk-sink-redshift/redshift-sink/
    workstation$ zip -r msk-sink-redshift-plugin.zip msk-sink-redshift/*
    #+END_SRC
-** Create MSK connector
+** DONE Create MSK connector
    #+BEGIN_SRC
 connector.class=io.confluent.connect.aws.redshift.RedshiftSinkConnector
 tasks.max=1
