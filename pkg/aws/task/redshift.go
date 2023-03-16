@@ -249,12 +249,6 @@ func (c *DestroyRedshiftCluster) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// Cluster
-	clusterExistFlag, err = c.ClusterExist(client, clusterName)
-	if err != nil {
-		return err
-	}
-
 	if clusterExistFlag == true {
 		if _, err := client.DeleteCluster(context.TODO(), &redshift.DeleteClusterInput{
 			ClusterIdentifier:        aws.String(clusterName),
@@ -402,8 +396,8 @@ func (c *ListRedshiftCluster) String() string {
 type DeployRedshiftInstance struct {
 	BaseRedshiftCluster
 
-	awsWSConfigs *spec.AwsWSConfigs
-	wsExe        *ctxt.Executor
+	// awsWSConfigs *spec.AwsWSConfigs
+	wsExe *ctxt.Executor
 }
 
 // Execute implements the Task interface

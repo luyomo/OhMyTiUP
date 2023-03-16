@@ -1644,10 +1644,31 @@ func (b *Builder) CreateRedshiftCluster(pexecutor *ctxt.Executor, subClusterType
 func (b *Builder) DeployRedshiftInstance(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, wsExe *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DeployRedshiftInstance{
 		BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
-		awsWSConfigs:        awsWSConfigs,
 		wsExe:               wsExe,
 	})
 
+	return b
+}
+
+func (b *Builder) CreateMSKCluster(pexecutor *ctxt.Executor, subClusterType string, awsMSKTopoConfigs *spec.AwsMSKTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsMSKTopoConfigs.CIDR
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{9092}).Build()).
+		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateMSKCluster{
+			BaseMSKCluster: BaseMSKCluster{pexecutor: pexecutor, awsMSKTopoConfigs: awsMSKTopoConfigs},
+			clusterInfo:    clusterInfo,
+		})
+
+	return b
+}
+
+func (b *Builder) DestroyMSKCluster(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyMSKCluster{
+		BaseMSKCluster: BaseMSKCluster{pexecutor: pexecutor},
+	})
+
+	b.Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 	return b
 }
 
