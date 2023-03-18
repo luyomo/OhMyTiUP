@@ -1,8 +1,8 @@
 * Script
-** TODO TiDB Cluster
-** TODO Redshift
+** DONE TiDB Cluster
+** DONE Redshift
 ** TODO TiCDC node with glue version
-** TODO MSK
+** DONE MSK
 ** TODO Glue schema registry
 ** TODO Connector with S3 plugin
 ** TODO Sink connector preparation

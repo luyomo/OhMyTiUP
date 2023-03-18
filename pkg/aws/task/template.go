@@ -15,15 +15,12 @@ package task
 
 import (
 	"context"
-	// "errors"
 	"fmt"
-	// "strings"
-	// "time"
 
 	// "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	// "github.com/aws/aws-sdk-go-v2/service/ec2"
-	// "github.com/aws/aws-sdk-go-v2/service/kafka/types"
+	// "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	// "github.com/aws/smithy-go"
 	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
@@ -80,7 +77,7 @@ func (b *BaseExampleCluster) init(ctx context.Context) error {
 
 	log.Infof(fmt.Sprintf("config: %#v", cfg))
 
-	/* b.client := example.NewFromConfig(cfg) */ // Replace the example to specific service
+	/* b.client = example.NewFromConfig(cfg) */ // Replace the example to specific service
 
 	return nil
 }
@@ -108,6 +105,8 @@ type CreateExampleCluster struct {
 // Execute implements the Task interface
 func (c *CreateExampleCluster) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
+
+	fmt.Printf("***** CreateExampleCluster ****** \n\n\n")
 
 	clusterExistFlag, err := c.ClusterExist(false)
 	if err != nil {
@@ -141,6 +140,8 @@ type DestroyExampleCluster struct {
 func (c *DestroyExampleCluster) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
+	fmt.Printf("***** DestroyExampleCluster ****** \n\n\n")
+
 	clusterExistFlag, err := c.ClusterExist(false)
 	if err != nil {
 		return err
@@ -170,6 +171,8 @@ type ListExampleCluster struct {
 // Execute implements the Task interface
 func (c *ListExampleCluster) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
+
+	fmt.Printf("***** ListExampleCluster ****** \n\n\n")
 
 	if err := c.ReadExampleInfo(ctx); err != nil {
 		return err

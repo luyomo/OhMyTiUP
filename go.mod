@@ -98,12 +98,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/eks v1.26.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.19.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/glue v1.43.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/iam v1.18.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.18 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kafka v1.19.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/kafkaconnect v1.9.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/redshift v1.27.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.4 // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect

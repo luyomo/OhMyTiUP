@@ -17,6 +17,7 @@ import (
 	"context"
 	// "errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -29,58 +30,52 @@ import (
 )
 
 type MSKInfo struct {
-	Endpoint string `yaml:"endpoint"`
-	Status   string
-	NodeType string
+	ClusterName         string
+	KafkaVersion        string
+	State               string
+	Endpoints           []string
+	ClientVpcIpAddress  []string
+	NumberOfBrokerNodes int32
+	ClusterType         string
 }
 
 type MSKInfos struct {
 	BaseResourceInfo
 }
 
-func (d *MSKInfos) Append(cluster *types.Cluster, password string) {
+func (d *MSKInfos) Append(cluster *types.Cluster, clusterInfo *types.ClusterInfo, listNodeInfo *[]types.NodeInfo) {
+	var endpoints []string
+	var clientVpcIpAddress []string
+	for _, nodeInfo := range *listNodeInfo {
+		endpoints = append(endpoints, nodeInfo.BrokerNodeInfo.Endpoints...)
+		clientVpcIpAddress = append(clientVpcIpAddress, *nodeInfo.BrokerNodeInfo.ClientVpcIpAddress)
+	}
 	(*d).Data = append((*d).Data, MSKInfo{
-		// Host:     *cluster.Endpoint.Address,
-		// Port:     cluster.Endpoint.Port,
-		// UserName: *cluster.MasterUsername,
-		// DBName:   *cluster.DBName,
-		// Password: password,
-		// Status:   *cluster.ClusterAvailabilityStatus,
-		// NodeType: *cluster.NodeType,
+		ClusterName:         *cluster.ClusterName,
+		KafkaVersion:        *clusterInfo.CurrentBrokerSoftwareInfo.KafkaVersion,
+		State:               string(cluster.State),
+		ClusterType:         string(cluster.ClusterType),
+		Endpoints:           endpoints,
+		ClientVpcIpAddress:  clientVpcIpAddress,
+		NumberOfBrokerNodes: clusterInfo.NumberOfBrokerNodes,
 	})
 }
 
 func (d *MSKInfos) ToPrintTable() *[][]string {
-	return &[][]string{}
-	// tableMSK := [][]string{{"Endpoint", "State", "Node Type"}}
-	// for _, _row := range (*d).Data {
-	// 	// _entry := _row.(MSKInfo)
-	// 	tableMSK = append(tableMSK, []string{
-	// 		// _entry.Host,
-	// 	})
-	// }
-	// return &tableRedshift
+	tableMSK := [][]string{{"Cluster Name", "State", "Cluster Type", "Kafka Version", "Number of Broker Nodes", "Endpoints"}}
+	for _, _row := range (*d).Data {
+		_entry := _row.(MSKInfo)
+		tableMSK = append(tableMSK, []string{
+			_entry.ClusterName,
+			_entry.State,
+			_entry.ClusterType,
+			_entry.KafkaVersion,
+			fmt.Sprintf("%d", _entry.NumberOfBrokerNodes),
+			strings.Join(_entry.ClientVpcIpAddress, " , "),
+		})
+	}
+	return &tableMSK
 }
-
-// func (d *RedshiftDBInfos) GetRedshiftDBInfo() (*map[string]string, error) {
-// 	if len((*d).Data) > 1 {
-// 		return nil, errors.New("Multiple redshift db exists")
-// 	}
-// 	if len((*d).Data) == 0 {
-// 		return nil, errors.New("No db exists")
-// 	}
-
-// 	dbInfo := make(map[string]string)
-// 	for _, _row := range (*d).Data {
-// 		_entry := _row.(RedshiftDBInfo)
-
-// 		dbInfo["DBHost"] = _entry.Host
-// 		dbInfo["DBPort"] = fmt.Sprintf("%d", _entry.Port)
-// 		dbInfo["DBUser"] = _entry.UserName
-// 		dbInfo["DBPassword"] = _entry.Password
-// 	}
-// 	return &dbInfo, nil
-// }
 
 type BaseMSKCluster struct {
 	pexecutor *ctxt.Executor
@@ -102,9 +97,7 @@ func (b *BaseMSKCluster) ClusterExist(kafkaClient *kafka.Client, clusterName str
 	}
 	for _, cluster := range clusters.ClusterInfoList {
 		if *cluster.ClusterName == clusterName {
-			fmt.Printf("The cluster status is <%#v> \n\n\n\n\n\n", cluster)
 			if checkAvailableState == true {
-				fmt.Printf("Checking the state <%s> \n\n\n\n\n\n", cluster.State)
 				if cluster.State == "ACTIVE" {
 					return true, nil
 				} else {
@@ -127,9 +120,7 @@ func (b *BaseMSKCluster) getClusterArn(kafkaClient *kafka.Client, clusterName st
 	}
 	for _, cluster := range clusters.ClusterInfoList {
 		if *cluster.ClusterName == clusterName {
-			fmt.Printf("The cluster status in getClusterArn is <%#v> \n\n\n\n\n\n", cluster)
 			return cluster.ClusterArn, nil
-
 		}
 	}
 
@@ -150,65 +141,38 @@ func (b *BaseMSKCluster) ConfigurationExist(kafkaClient *kafka.Client, clusterNa
 	return false, nil
 }
 
-// func (b *BaseRedshiftCluster) ClusterParameterGroupsExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
-// 	if _, err := redshiftClient.DescribeClusterParameterGroups(context.TODO(), &redshift.DescribeClusterParameterGroupsInput{
-// 		ParameterGroupName: aws.String(clusterName),
-// 	}); err != nil {
+func (b *BaseMSKCluster) ReadMSKInfo(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
 
-// 		var ae smithy.APIError
-// 		if errors.As(err, &ae) {
-// 			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-// 			if ae.ErrorCode() != "ClusterParameterGroupNotFound" {
-// 				return false, err
-// 			}
-// 		} else {
-// 			return false, err
-// 		}
-// 		return false, nil
-// 	}
-// 	return true, nil
-// }
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
 
-// func (b *BaseRedshiftCluster) ReadRedshiftDBInfo(ctx context.Context) error {
-// 	clusterName := ctx.Value("clusterName").(string)
+	client := kafka.NewFromConfig(cfg)
 
-// 	// var redshiftDBInfos RedshiftDBInfos
+	clusters, err := client.ListClustersV2(context.TODO(), &kafka.ListClustersV2Input{ClusterNameFilter: aws.String(clusterName)})
+	if err != nil {
+		return err
+	}
+	for _, cluster := range clusters.ClusterInfoList {
+		if *cluster.ClusterName == clusterName {
+			describeCluster, err := client.DescribeCluster(context.TODO(), &kafka.DescribeClusterInput{ClusterArn: cluster.ClusterArn})
+			if err != nil {
+				return err
+			}
 
-// 	cfg, err := config.LoadDefaultConfig(context.TODO())
-// 	if err != nil {
-// 		return err
-// 	}
+			listNodes, err := client.ListNodes(context.TODO(), &kafka.ListNodesInput{ClusterArn: cluster.ClusterArn})
+			if err != nil {
+				return err
+			}
+			b.MSKInfos.Append(&cluster, describeCluster.ClusterInfo, &listNodes.NodeInfoList)
+		}
+	}
 
-// 	client := redshift.NewFromConfig(cfg)
+	return nil
 
-// 	// Cluster
-// 	describeClusters, err := client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{
-// 		ClusterIdentifier: aws.String(clusterName),
-// 	})
-// 	if err != nil {
-// 		var ae smithy.APIError
-// 		if errors.As(err, &ae) {
-// 			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-// 			if ae.ErrorCode() != "ClusterNotFound" {
-// 				return err
-// 			}
-// 		} else {
-// 			return err
-// 		}
-// 	}
-
-// 	if describeClusters != nil {
-// 		for _, cluster := range describeClusters.Clusters {
-// 			if b.awsRedshiftTopoConfigs == nil {
-// 				b.RedshiftDBInfos.Append(&cluster, "")
-// 			} else {
-// 				b.RedshiftDBInfos.Append(&cluster, b.awsRedshiftTopoConfigs.Password)
-// 			}
-// 		}
-// 	}
-
-// 	return nil
-// }
+}
 
 type CreateMSKCluster struct {
 	BaseMSKCluster
@@ -218,9 +182,7 @@ type CreateMSKCluster struct {
 
 // Execute implements the Task interface
 func (c *CreateMSKCluster) Execute(ctx context.Context) error {
-	fmt.Printf("---------------------------------- \n\n\n\n\n\n")
 	clusterName := ctx.Value("clusterName").(string)
-	// clusterType := ctx.Value("clusterType").(string)
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -239,7 +201,6 @@ func (c *CreateMSKCluster) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The configuration exists flag : <%#v> \n\n\n\n\n\n", configurationExist)
 
 	if configurationExist == false {
 
@@ -270,7 +231,7 @@ zookeeper.session.timeout.ms=18000`),
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The clsuter exist flag is <%#v> \n\n\n\n\n\n", clusterExist)
+
 	/*
 	   BadRequestException: Specify either two or three client subnets.
 	*/
@@ -278,7 +239,7 @@ zookeeper.session.timeout.ms=18000`),
 	for idx := 0; idx < 3; idx++ {
 		clusterSubnets = append(clusterSubnets, c.clusterInfo.privateSubnets[idx])
 	}
-	fmt.Printf("The subnets are <%#v> \n\n\n\n\n\n", clusterSubnets)
+
 	if clusterExist == false {
 		_, err := client.CreateClusterV2(context.TODO(), &kafka.CreateClusterV2Input{
 			ClusterName: aws.String(clusterName),
@@ -307,62 +268,6 @@ zookeeper.session.timeout.ms=18000`),
 		}
 	}
 
-	// clusterSubnetGroupNameExistFlag, err := c.ClusterSubnetGroupNameExist(client, clusterName)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterSubnetGroupNameExistFlag == false {
-	// 	if _, err := client.CreateClusterSubnetGroup(context.TODO(), &redshift.CreateClusterSubnetGroupInput{
-	// 		ClusterSubnetGroupName: aws.String(clusterName),
-	// 		Description:            aws.String(clusterName),
-	// 		SubnetIds:              c.clusterInfo.privateSubnets,
-	// 		Tags:                   tags,
-	// 	}); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// clusterParameterGroupsExistFlag, err := c.ClusterParameterGroupsExist(client, clusterName)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterParameterGroupsExistFlag == false {
-	// 	if _, err := client.CreateClusterParameterGroup(context.TODO(), &redshift.CreateClusterParameterGroupInput{
-	// 		ParameterGroupName:   aws.String(clusterName),
-	// 		Description:          aws.String(clusterName),
-	// 		ParameterGroupFamily: aws.String("redshift-1.0"),
-	// 		Tags:                 tags,
-	// 	}); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// // Cluster
-	// clusterExistFlag, err := c.ClusterExist(client, clusterName)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterExistFlag == false {
-	// 	if _, err := client.CreateCluster(context.TODO(), &redshift.CreateClusterInput{
-	// 		ClusterIdentifier:         aws.String(clusterName),
-	// 		MasterUserPassword:        aws.String(c.awsRedshiftTopoConfigs.Password),
-	// 		MasterUsername:            aws.String(c.awsRedshiftTopoConfigs.AdminUser),
-	// 		ClusterParameterGroupName: aws.String(clusterName),
-	// 		NodeType:                  aws.String(c.awsRedshiftTopoConfigs.InstanceType),
-	// 		NumberOfNodes:             aws.Int32(1),
-	// 		ClusterType:               aws.String(c.awsRedshiftTopoConfigs.ClusterType),
-	// 		VpcSecurityGroupIds:       []string{c.clusterInfo.privateSecurityGroupId},
-	// 		PubliclyAccessible:        aws.Bool(false),
-	// 		ClusterSubnetGroupName:    aws.String(clusterName),
-	// 		Tags:                      tags,
-	// 	}); err != nil {
-	// 		return err
-	// 	}
-	// }
-
 	return nil
 }
 
@@ -373,7 +278,7 @@ func (c *CreateMSKCluster) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateMSKCluster) String() string {
-	return fmt.Sprintf("Echo: Create Redshift  ")
+	return fmt.Sprintf("Echo: Create MSK ... ...  ")
 }
 
 type DestroyMSKCluster struct {
@@ -403,8 +308,6 @@ func (c *DestroyMSKCluster) Execute(ctx context.Context) error {
 			return err
 		}
 
-		fmt.Printf("The arn is <%#v> \n\n\n\n\n\n", clusterArn)
-
 		if _, err := client.DeleteCluster(context.TODO(), &kafka.DeleteClusterInput{
 			ClusterArn: clusterArn,
 		}); err != nil {
@@ -420,34 +323,6 @@ func (c *DestroyMSKCluster) Execute(ctx context.Context) error {
 
 	}
 
-	// clusterSubnetGroupNameExistFlag, err := c.ClusterSubnetGroupNameExist(client, clusterName)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterSubnetGroupNameExistFlag == true {
-
-	// 	if _, err := client.DeleteClusterSubnetGroup(context.TODO(), &redshift.DeleteClusterSubnetGroupInput{
-	// 		ClusterSubnetGroupName: aws.String(clusterName),
-	// 	}); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// // Cluster Parameter Group
-	// clusterParameterGroupsExistFlag, err := c.ClusterParameterGroupsExist(client, clusterName)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterParameterGroupsExistFlag == true {
-	// 	if _, err := client.DeleteClusterParameterGroup(context.TODO(), &redshift.DeleteClusterParameterGroupInput{
-	// 		ParameterGroupName: aws.String(clusterName),
-	// 	}); err != nil {
-	// 		return err
-	// 	}
-	// }
-
 	return nil
 }
 
@@ -462,14 +337,16 @@ func (c *DestroyMSKCluster) String() string {
 }
 
 type ListMSKCluster struct {
-	BaseRedshiftCluster
+	BaseMSKCluster
 }
 
 // Execute implements the Task interface
 func (c *ListMSKCluster) Execute(ctx context.Context) error {
-	if err := c.ReadRedshiftDBInfo(ctx); err != nil {
+	if err := c.ReadMSKInfo(ctx); err != nil {
 		return err
 	}
+
+	fmt.Printf("The cluste is <%#v> \n\n\n\n\n\n", c.MSKInfos)
 
 	return nil
 }
@@ -483,58 +360,3 @@ func (c *ListMSKCluster) Rollback(ctx context.Context) error {
 func (c *ListMSKCluster) String() string {
 	return fmt.Sprintf("Echo: List Redshift ")
 }
-
-// Deploy Redshift Instance
-// type DeployRedshiftInstance struct {
-// 	BaseRedshiftCluster
-
-// 	awsWSConfigs *spec.AwsWSConfigs
-// 	wsExe        *ctxt.Executor
-// }
-
-// // Execute implements the Task interface
-// func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
-// 	c.RedshiftDBInfos = &RedshiftDBInfos{}
-
-// 	if err := c.ReadRedshiftDBInfo(ctx); err != nil {
-// 		return err
-// 	}
-
-// 	tmpFile := "/tmp/redshift.dbinfo.yaml"
-// 	if err := c.RedshiftDBInfos.WriteIntoConfigFile(tmpFile); err != nil {
-// 		return err
-// 	}
-
-// 	if err := (*c.wsExe).Transfer(ctx, tmpFile, tmpFile, false, 0); err != nil {
-// 		return err
-// 	}
-
-// 	if _, _, err := (*c.wsExe).Execute(ctx, fmt.Sprintf("sudo mv %s /opt/", tmpFile), true); err != nil {
-// 		return err
-// 	}
-
-// 	if _, _, err := (*c.wsExe).Execute(ctx, "apt-get install -y postgresql-client-11", true); err != nil {
-// 		return err
-// 	}
-
-// 	dbInfo, err := c.RedshiftDBInfos.GetRedshiftDBInfo()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if err := (*c.wsExe).TransferTemplate(ctx, "templates/scripts/run_pg_query.sh.tpl", "/opt/scripts/run_redshift_query", "0755", dbInfo, true, 0); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
-// // Rollback implements the Task interface
-// func (c *DeployRedshiftInstance) Rollback(ctx context.Context) error {
-// 	return ErrUnsupportedRollback
-// }
-
-// // String implements the fmt.Stringer interface
-// func (c *DeployRedshiftInstance) String() string {
-// 	return fmt.Sprintf("Echo: List Redshift ")
-// }
