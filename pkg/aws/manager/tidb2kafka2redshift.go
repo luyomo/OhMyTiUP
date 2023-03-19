@@ -137,7 +137,7 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb", "redshift", "kafka"}).
 		CreateRouteTgw(&m.localExe, "kafka", []string{"tidb", "redshift"}).
-		RunCommonWS(&m.wsExe).
+		RunCommonWS(&m.wsExe, nil).
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).BuildAsStep("Parallel Main step")
 
 	// Combine the Redshift deployment and other resources

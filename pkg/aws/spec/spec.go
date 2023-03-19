@@ -132,6 +132,13 @@ type (
 		ClusterType  string `yaml:"cluster_type,omitempty"`
 	}
 
+	AwsMSKConnectPluginTopoConfigs struct {
+		Name     string `yaml:"name,omitempty"`
+		URL      string `yaml:"url,omitempty"`
+		S3Bucket string `yaml:"s3bucket,omitempty"`
+		S3Folder string `yaml:"s3folder,omitempty"`
+	}
+
 	AwsMSKTopoConfigs struct {
 		CIDR         string   `yaml:"cidr,omitempty"`
 		InstanceType string   `yaml:"instance_type,omitempty"`
@@ -297,62 +304,64 @@ type (
 
 	// Specification represents the specification of topology.yaml
 	Specification struct {
-		GlobalOptions            GlobalOptions            `yaml:"global,omitempty" validate:"global:editable"`
-		MonitoredOptions         MonitoredOptions         `yaml:"monitored,omitempty" validate:"monitored:editable"`
-		ServerConfigs            ServerConfigs            `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
-		AwsWSConfigs             AwsWSConfigs             `yaml:"workstation,omitempty"`
-		AwsTopoConfigs           AwsTopoConfigs           `yaml:"aws_topo_configs"`
-		AwsKafkaTopoConfigs      AwsKafkaTopoConfigs      `yaml:"aws_kafka_topo_configs"`
-		AwsMongoTopoConfigs      AwsMongoTopoConfigs      `yaml:"aws_mongo_topo"`
-		AwsESTopoConfigs         AwsESTopoConfigs         `yaml:"aws_es_topo"`
-		AwsAuroraConfigs         AwsAuroraConfigs         `yaml:"aurora,omitempty"`
-		AwsPostgresConfigs       AwsPostgresConfigs       `yaml:"postgres,omitempty"`
-		AwsOracleConfigs         AwsOracleConfigs         `yaml:"oracle,omitempty"`
-		AwsRedshiftTopoConfigs   AwsRedshiftTopoConfigs   `yaml:"redshift,omitempty"`
-		AwsMSKTopoConfigs        AwsMSKTopoConfigs        `yaml:"msk,omitempty"`
-		AwsMSConfigs             AwsMSConfigs             `yaml:"sqlserver,omitempty"`
-		AwsDMSConfigs            AwsDMSConfigs            `yaml:"dms,omitempty"`
-		AwsCloudFormationConfigs AwsCloudFormationConfigs `yaml:"aws_cloud_formation_configs"`
-		TiDBCloudConnInfo        TiDBCloudConnInfo        `yaml:"tidb_cloud,omitempty"`
-		TiDBCloud                TiDBCloud                `yaml:"aws_tidbcloud,omitempty"`
-		DrainerReplicate         DrainerReplicate         `yaml:"drainer_replicate,omitempty"`
-		TiDBServers              []*TiDBSpec              `yaml:"tidb_servers"`
-		TiKVServers              []*TiKVSpec              `yaml:"tikv_servers"`
-		TiFlashServers           []*TiFlashSpec           `yaml:"tiflash_servers"`
-		PDServers                []*PDSpec                `yaml:"pd_servers"`
-		PumpServers              []*PumpSpec              `yaml:"pump_servers,omitempty"`
-		Drainers                 []*DrainerSpec           `yaml:"drainer_servers,omitempty"`
-		CDCServers               []*CDCSpec               `yaml:"cdc_servers,omitempty"`
-		TiSparkMasters           []*TiSparkMasterSpec     `yaml:"tispark_masters,omitempty"`
-		TiSparkWorkers           []*TiSparkWorkerSpec     `yaml:"tispark_workers,omitempty"`
-		Monitors                 []*PrometheusSpec        `yaml:"monitoring_servers"`
-		Grafanas                 []*GrafanaSpec           `yaml:"grafana_servers,omitempty"`
-		Alertmanagers            []*AlertmanagerSpec      `yaml:"alertmanager_servers,omitempty"`
-		NginxServers             []*NginxSpec             `yaml:"nginx_servers"`
+		GlobalOptions                  GlobalOptions                  `yaml:"global,omitempty" validate:"global:editable"`
+		MonitoredOptions               MonitoredOptions               `yaml:"monitored,omitempty" validate:"monitored:editable"`
+		ServerConfigs                  ServerConfigs                  `yaml:"server_configs,omitempty" validate:"server_configs:ignore"`
+		AwsWSConfigs                   AwsWSConfigs                   `yaml:"workstation,omitempty"`
+		AwsTopoConfigs                 AwsTopoConfigs                 `yaml:"aws_topo_configs"`
+		AwsKafkaTopoConfigs            AwsKafkaTopoConfigs            `yaml:"aws_kafka_topo_configs"`
+		AwsMongoTopoConfigs            AwsMongoTopoConfigs            `yaml:"aws_mongo_topo"`
+		AwsESTopoConfigs               AwsESTopoConfigs               `yaml:"aws_es_topo"`
+		AwsAuroraConfigs               AwsAuroraConfigs               `yaml:"aurora,omitempty"`
+		AwsPostgresConfigs             AwsPostgresConfigs             `yaml:"postgres,omitempty"`
+		AwsOracleConfigs               AwsOracleConfigs               `yaml:"oracle,omitempty"`
+		AwsRedshiftTopoConfigs         AwsRedshiftTopoConfigs         `yaml:"redshift,omitempty"`
+		AwsMSKConnectPluginTopoConfigs AwsMSKConnectPluginTopoConfigs `yaml:"msk_connect_plugin,omitempty"`
+		AwsMSKTopoConfigs              AwsMSKTopoConfigs              `yaml:"msk,omitempty"`
+		AwsMSConfigs                   AwsMSConfigs                   `yaml:"sqlserver,omitempty"`
+		AwsDMSConfigs                  AwsDMSConfigs                  `yaml:"dms,omitempty"`
+		AwsCloudFormationConfigs       AwsCloudFormationConfigs       `yaml:"aws_cloud_formation_configs"`
+		TiDBCloudConnInfo              TiDBCloudConnInfo              `yaml:"tidb_cloud,omitempty"`
+		TiDBCloud                      TiDBCloud                      `yaml:"aws_tidbcloud,omitempty"`
+		DrainerReplicate               DrainerReplicate               `yaml:"drainer_replicate,omitempty"`
+		TiDBServers                    []*TiDBSpec                    `yaml:"tidb_servers"`
+		TiKVServers                    []*TiKVSpec                    `yaml:"tikv_servers"`
+		TiFlashServers                 []*TiFlashSpec                 `yaml:"tiflash_servers"`
+		PDServers                      []*PDSpec                      `yaml:"pd_servers"`
+		PumpServers                    []*PumpSpec                    `yaml:"pump_servers,omitempty"`
+		Drainers                       []*DrainerSpec                 `yaml:"drainer_servers,omitempty"`
+		CDCServers                     []*CDCSpec                     `yaml:"cdc_servers,omitempty"`
+		TiSparkMasters                 []*TiSparkMasterSpec           `yaml:"tispark_masters,omitempty"`
+		TiSparkWorkers                 []*TiSparkWorkerSpec           `yaml:"tispark_workers,omitempty"`
+		Monitors                       []*PrometheusSpec              `yaml:"monitoring_servers"`
+		Grafanas                       []*GrafanaSpec                 `yaml:"grafana_servers,omitempty"`
+		Alertmanagers                  []*AlertmanagerSpec            `yaml:"alertmanager_servers,omitempty"`
+		NginxServers                   []*NginxSpec                   `yaml:"nginx_servers"`
 	}
 )
 
 // BaseTopo is the base info to topology.
 type BaseTopo struct {
-	GlobalOptions            *GlobalOptions
-	MonitoredOptions         *MonitoredOptions
-	AwsWSConfigs             *AwsWSConfigs
-	AwsTopoConfigs           *AwsTopoConfigs
-	AwsKafkaTopoConfigs      *AwsKafkaTopoConfigs
-	AwsMongoTopoConfigs      *AwsMongoTopoConfigs
-	AwsESTopoConfigs         *AwsESTopoConfigs
-	AwsAuroraConfigs         *AwsAuroraConfigs
-	AwsPostgresConfigs       *AwsPostgresConfigs
-	AwsOracleConfigs         *AwsOracleConfigs
-	AwsRedshiftTopoConfigs   *AwsRedshiftTopoConfigs
-	AwsMSKTopoConfigs        *AwsMSKTopoConfigs
-	AwsMSConfigs             *AwsMSConfigs
-	AwsDMSConfigs            *AwsDMSConfigs
-	AwsCloudFormationConfigs *AwsCloudFormationConfigs
-	TiDBCloudConnInfo        *TiDBCloudConnInfo
-	TiDBCloud                *TiDBCloud
-	DrainerReplicate         *DrainerReplicate
-	MasterList               []string
+	GlobalOptions                  *GlobalOptions
+	MonitoredOptions               *MonitoredOptions
+	AwsWSConfigs                   *AwsWSConfigs
+	AwsTopoConfigs                 *AwsTopoConfigs
+	AwsKafkaTopoConfigs            *AwsKafkaTopoConfigs
+	AwsMongoTopoConfigs            *AwsMongoTopoConfigs
+	AwsESTopoConfigs               *AwsESTopoConfigs
+	AwsAuroraConfigs               *AwsAuroraConfigs
+	AwsPostgresConfigs             *AwsPostgresConfigs
+	AwsOracleConfigs               *AwsOracleConfigs
+	AwsRedshiftTopoConfigs         *AwsRedshiftTopoConfigs
+	AwsMSKConnectPluginTopoConfigs *AwsMSKConnectPluginTopoConfigs
+	AwsMSKTopoConfigs              *AwsMSKTopoConfigs
+	AwsMSConfigs                   *AwsMSConfigs
+	AwsDMSConfigs                  *AwsDMSConfigs
+	AwsCloudFormationConfigs       *AwsCloudFormationConfigs
+	TiDBCloudConnInfo              *TiDBCloudConnInfo
+	TiDBCloud                      *TiDBCloud
+	DrainerReplicate               *DrainerReplicate
+	MasterList                     []string
 
 	Monitors      []*PrometheusSpec
 	Grafanas      []*GrafanaSpec
@@ -417,25 +426,26 @@ type UpgradableMetadata interface {
 // NewPart implements ScaleOutTopology interface.
 func (s *Specification) NewPart() Topology {
 	return &Specification{
-		GlobalOptions:            s.GlobalOptions,
-		MonitoredOptions:         s.MonitoredOptions,
-		ServerConfigs:            s.ServerConfigs,
-		AwsWSConfigs:             s.AwsWSConfigs,
-		AwsTopoConfigs:           s.AwsTopoConfigs,
-		AwsKafkaTopoConfigs:      s.AwsKafkaTopoConfigs,
-		AwsMongoTopoConfigs:      s.AwsMongoTopoConfigs,
-		AwsESTopoConfigs:         s.AwsESTopoConfigs,
-		AwsAuroraConfigs:         s.AwsAuroraConfigs,
-		AwsPostgresConfigs:       s.AwsPostgresConfigs,
-		AwsOracleConfigs:         s.AwsOracleConfigs,
-		AwsRedshiftTopoConfigs:   s.AwsRedshiftTopoConfigs,
-		AwsMSKTopoConfigs:        s.AwsMSKTopoConfigs,
-		AwsMSConfigs:             s.AwsMSConfigs,
-		AwsDMSConfigs:            s.AwsDMSConfigs,
-		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
-		TiDBCloudConnInfo:        s.TiDBCloudConnInfo,
-		TiDBCloud:                s.TiDBCloud,
-		DrainerReplicate:         s.DrainerReplicate,
+		GlobalOptions:                  s.GlobalOptions,
+		MonitoredOptions:               s.MonitoredOptions,
+		ServerConfigs:                  s.ServerConfigs,
+		AwsWSConfigs:                   s.AwsWSConfigs,
+		AwsTopoConfigs:                 s.AwsTopoConfigs,
+		AwsKafkaTopoConfigs:            s.AwsKafkaTopoConfigs,
+		AwsMongoTopoConfigs:            s.AwsMongoTopoConfigs,
+		AwsESTopoConfigs:               s.AwsESTopoConfigs,
+		AwsAuroraConfigs:               s.AwsAuroraConfigs,
+		AwsPostgresConfigs:             s.AwsPostgresConfigs,
+		AwsOracleConfigs:               s.AwsOracleConfigs,
+		AwsRedshiftTopoConfigs:         s.AwsRedshiftTopoConfigs,
+		AwsMSKConnectPluginTopoConfigs: s.AwsMSKConnectPluginTopoConfigs,
+		AwsMSKTopoConfigs:              s.AwsMSKTopoConfigs,
+		AwsMSConfigs:                   s.AwsMSConfigs,
+		AwsDMSConfigs:                  s.AwsDMSConfigs,
+		AwsCloudFormationConfigs:       s.AwsCloudFormationConfigs,
+		TiDBCloudConnInfo:              s.TiDBCloudConnInfo,
+		TiDBCloud:                      s.TiDBCloud,
+		DrainerReplicate:               s.DrainerReplicate,
 	}
 }
 
@@ -470,28 +480,29 @@ func (s *Specification) Type() string {
 // BaseTopo implements Topology interface.
 func (s *Specification) BaseTopo() *BaseTopo {
 	return &BaseTopo{
-		GlobalOptions:            &s.GlobalOptions,
-		MonitoredOptions:         s.GetMonitoredOptions(),
-		AwsWSConfigs:             &s.AwsWSConfigs,
-		AwsTopoConfigs:           &s.AwsTopoConfigs,
-		AwsKafkaTopoConfigs:      &s.AwsKafkaTopoConfigs,
-		AwsMongoTopoConfigs:      &s.AwsMongoTopoConfigs,
-		AwsESTopoConfigs:         &s.AwsESTopoConfigs,
-		AwsAuroraConfigs:         &s.AwsAuroraConfigs,
-		AwsPostgresConfigs:       &s.AwsPostgresConfigs,
-		AwsOracleConfigs:         &s.AwsOracleConfigs,
-		AwsRedshiftTopoConfigs:   &s.AwsRedshiftTopoConfigs,
-		AwsMSKTopoConfigs:        &s.AwsMSKTopoConfigs,
-		AwsMSConfigs:             &s.AwsMSConfigs,
-		AwsDMSConfigs:            &s.AwsDMSConfigs,
-		AwsCloudFormationConfigs: &s.AwsCloudFormationConfigs,
-		TiDBCloudConnInfo:        &s.TiDBCloudConnInfo,
-		TiDBCloud:                &s.TiDBCloud,
-		DrainerReplicate:         &s.DrainerReplicate,
-		MasterList:               s.GetPDList(),
-		Monitors:                 s.Monitors,
-		Grafanas:                 s.Grafanas,
-		Alertmanagers:            s.Alertmanagers,
+		GlobalOptions:                  &s.GlobalOptions,
+		MonitoredOptions:               s.GetMonitoredOptions(),
+		AwsWSConfigs:                   &s.AwsWSConfigs,
+		AwsTopoConfigs:                 &s.AwsTopoConfigs,
+		AwsKafkaTopoConfigs:            &s.AwsKafkaTopoConfigs,
+		AwsMongoTopoConfigs:            &s.AwsMongoTopoConfigs,
+		AwsESTopoConfigs:               &s.AwsESTopoConfigs,
+		AwsAuroraConfigs:               &s.AwsAuroraConfigs,
+		AwsPostgresConfigs:             &s.AwsPostgresConfigs,
+		AwsOracleConfigs:               &s.AwsOracleConfigs,
+		AwsRedshiftTopoConfigs:         &s.AwsRedshiftTopoConfigs,
+		AwsMSKConnectPluginTopoConfigs: &s.AwsMSKConnectPluginTopoConfigs,
+		AwsMSKTopoConfigs:              &s.AwsMSKTopoConfigs,
+		AwsMSConfigs:                   &s.AwsMSConfigs,
+		AwsDMSConfigs:                  &s.AwsDMSConfigs,
+		AwsCloudFormationConfigs:       &s.AwsCloudFormationConfigs,
+		TiDBCloudConnInfo:              &s.TiDBCloudConnInfo,
+		TiDBCloud:                      &s.TiDBCloud,
+		DrainerReplicate:               &s.DrainerReplicate,
+		MasterList:                     s.GetPDList(),
+		Monitors:                       s.Monitors,
+		Grafanas:                       s.Grafanas,
+		Alertmanagers:                  s.Alertmanagers,
 	}
 }
 
@@ -686,38 +697,39 @@ func (s *Specification) GetEtcdProxyClient(tlsCfg *tls.Config, tcpProxy *proxy.T
 func (s *Specification) Merge(that Topology) Topology {
 	spec := that.(*Specification)
 	return &Specification{
-		GlobalOptions:            s.GlobalOptions,
-		MonitoredOptions:         s.MonitoredOptions,
-		ServerConfigs:            s.ServerConfigs,
-		AwsWSConfigs:             s.AwsWSConfigs,
-		AwsTopoConfigs:           s.AwsTopoConfigs,
-		AwsKafkaTopoConfigs:      s.AwsKafkaTopoConfigs,
-		AwsMongoTopoConfigs:      s.AwsMongoTopoConfigs,
-		AwsESTopoConfigs:         s.AwsESTopoConfigs,
-		AwsAuroraConfigs:         s.AwsAuroraConfigs,
-		AwsPostgresConfigs:       s.AwsPostgresConfigs,
-		AwsOracleConfigs:         s.AwsOracleConfigs,
-		AwsRedshiftTopoConfigs:   s.AwsRedshiftTopoConfigs,
-		AwsMSKTopoConfigs:        s.AwsMSKTopoConfigs,
-		AwsMSConfigs:             s.AwsMSConfigs,
-		AwsDMSConfigs:            s.AwsDMSConfigs,
-		AwsCloudFormationConfigs: s.AwsCloudFormationConfigs,
-		TiDBCloudConnInfo:        s.TiDBCloudConnInfo,
-		TiDBCloud:                s.TiDBCloud,
-		DrainerReplicate:         s.DrainerReplicate,
-		TiDBServers:              append(s.TiDBServers, spec.TiDBServers...),
-		TiKVServers:              append(s.TiKVServers, spec.TiKVServers...),
-		PDServers:                append(s.PDServers, spec.PDServers...),
-		TiFlashServers:           append(s.TiFlashServers, spec.TiFlashServers...),
-		PumpServers:              append(s.PumpServers, spec.PumpServers...),
-		Drainers:                 append(s.Drainers, spec.Drainers...),
-		CDCServers:               append(s.CDCServers, spec.CDCServers...),
-		TiSparkMasters:           append(s.TiSparkMasters, spec.TiSparkMasters...),
-		TiSparkWorkers:           append(s.TiSparkWorkers, spec.TiSparkWorkers...),
-		Monitors:                 append(s.Monitors, spec.Monitors...),
-		Grafanas:                 append(s.Grafanas, spec.Grafanas...),
-		Alertmanagers:            append(s.Alertmanagers, spec.Alertmanagers...),
-		NginxServers:             append(s.NginxServers, spec.NginxServers...),
+		GlobalOptions:                  s.GlobalOptions,
+		MonitoredOptions:               s.MonitoredOptions,
+		ServerConfigs:                  s.ServerConfigs,
+		AwsWSConfigs:                   s.AwsWSConfigs,
+		AwsTopoConfigs:                 s.AwsTopoConfigs,
+		AwsKafkaTopoConfigs:            s.AwsKafkaTopoConfigs,
+		AwsMongoTopoConfigs:            s.AwsMongoTopoConfigs,
+		AwsESTopoConfigs:               s.AwsESTopoConfigs,
+		AwsAuroraConfigs:               s.AwsAuroraConfigs,
+		AwsPostgresConfigs:             s.AwsPostgresConfigs,
+		AwsOracleConfigs:               s.AwsOracleConfigs,
+		AwsRedshiftTopoConfigs:         s.AwsRedshiftTopoConfigs,
+		AwsMSKConnectPluginTopoConfigs: s.AwsMSKConnectPluginTopoConfigs,
+		AwsMSKTopoConfigs:              s.AwsMSKTopoConfigs,
+		AwsMSConfigs:                   s.AwsMSConfigs,
+		AwsDMSConfigs:                  s.AwsDMSConfigs,
+		AwsCloudFormationConfigs:       s.AwsCloudFormationConfigs,
+		TiDBCloudConnInfo:              s.TiDBCloudConnInfo,
+		TiDBCloud:                      s.TiDBCloud,
+		DrainerReplicate:               s.DrainerReplicate,
+		TiDBServers:                    append(s.TiDBServers, spec.TiDBServers...),
+		TiKVServers:                    append(s.TiKVServers, spec.TiKVServers...),
+		PDServers:                      append(s.PDServers, spec.PDServers...),
+		TiFlashServers:                 append(s.TiFlashServers, spec.TiFlashServers...),
+		PumpServers:                    append(s.PumpServers, spec.PumpServers...),
+		Drainers:                       append(s.Drainers, spec.Drainers...),
+		CDCServers:                     append(s.CDCServers, spec.CDCServers...),
+		TiSparkMasters:                 append(s.TiSparkMasters, spec.TiSparkMasters...),
+		TiSparkWorkers:                 append(s.TiSparkWorkers, spec.TiSparkWorkers...),
+		Monitors:                       append(s.Monitors, spec.Monitors...),
+		Grafanas:                       append(s.Grafanas, spec.Grafanas...),
+		Alertmanagers:                  append(s.Alertmanagers, spec.Alertmanagers...),
+		NginxServers:                   append(s.NginxServers, spec.NginxServers...),
 	}
 }
 
@@ -749,6 +761,7 @@ var (
 	awsPostgresConfigsTypeName       = reflect.TypeOf(AwsPostgresConfigs{}).Name()
 	awsOracleConfigsTypeName         = reflect.TypeOf(AwsOracleConfigs{}).Name()
 	awsRedshiftConfigsTypeName       = reflect.TypeOf(AwsRedshiftTopoConfigs{}).Name()
+	awsMSKConnectPluginTopoConfigs   = reflect.TypeOf(AwsMSKConnectPluginTopoConfigs{}).Name()
 	awsMSKConfigsTypeName            = reflect.TypeOf(AwsMSKTopoConfigs{}).Name()
 	awsMSConfigsTypeName             = reflect.TypeOf(AwsMSConfigs{}).Name()
 	awsDMSConfigsTypeName            = reflect.TypeOf(AwsDMSConfigs{}).Name()
@@ -761,7 +774,7 @@ var (
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsRedshiftConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConnInfo || tp == drainerReplicate || tp == tidbCloud || tp == awsMongoTopoConfigsTypeName || tp == awsESTopoConfigsTypeName || tp == awsMSKConfigsTypeName
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsRedshiftConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConnInfo || tp == drainerReplicate || tp == tidbCloud || tp == awsMongoTopoConfigsTypeName || tp == awsESTopoConfigsTypeName || tp == awsMSKConfigsTypeName || tp == awsMSKConnectPluginTopoConfigs
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {

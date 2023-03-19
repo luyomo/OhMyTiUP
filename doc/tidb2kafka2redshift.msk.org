@@ -3,8 +3,23 @@
 ** DONE Redshift
 ** TODO TiCDC node with glue version
 ** DONE MSK
-** TODO Glue schema registry
-** TODO Connector with S3 plugin
+** DONE Connector with S3 plugin
+** DONE Glue schema registry
+   + Make zip file
+     - Compile the aws avro file
+     - Download
+   + Upload the zip file to S3
+   + Create cutom plugin from S3
+*** Process
+    | component   | Directory                                            |
+    |-------------+------------------------------------------------------|
+    | avro aws    | /tmp/aws-msk-example-plugin/aws-glue-schema-registry |
+    | plugin name | /tmp/aws-msk-example-plugin/example                  |
+
+
+    + aws avro compile and move it upload directory
+    + Download and move it to directory
+      
 ** TODO Sink connector preparation
 * DONE 
 ** DONE Create MSK

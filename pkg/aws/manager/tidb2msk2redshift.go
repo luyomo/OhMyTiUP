@@ -88,6 +88,7 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 	// var workstationInfo, mskClusterInfo task.ClusterInfo
 
 	var mainTask []*task.StepDisplay // tasks which are used to initialize environment
+
 	// Task: Redshift deployment.
 	redshiftTask := task.NewBuilder().
 		CreateRedshiftCluster(&m.localExe, "redshift", base.AwsRedshiftTopoConfigs, &redshiftClusterInfo).
@@ -137,13 +138,18 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 		BuildAsStep(fmt.Sprintf("  - Deploying redshift resource ... "))
 	task002 = append(task002, t25)
 
+	t26 := task.NewBuilder().
+		CreateMSKConnectPlugin(&m.localExe, &m.wsExe, base.AwsMSKConnectPluginTopoConfigs).
+		BuildAsStep(fmt.Sprintf("  - Preparing msk connect plugin ... ... "))
+	task002 = append(task002, t26)
+
 	// The es might be lag behind the tidb/kafka cluster
 	// Cluster generation -> transit gateway setup -> instance deployment
 	paraTask001 := task.NewBuilder().
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb", "redshift", "kafka"}).
 		CreateRouteTgw(&m.localExe, "kafka", []string{"tidb", "redshift"}).
-		RunCommonWS(&m.wsExe).
+		RunCommonWS(&m.wsExe, &[]string{"git", "maven", "zip"}).
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task002...).
 		BuildAsStep("Parallel Main step")
 

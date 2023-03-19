@@ -1710,9 +1710,26 @@ func (b *Builder) DestroyGlueSchemaRegistry(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
-func (b *Builder) RunCommonWS(wsExe *ctxt.Executor) *Builder {
+func (b *Builder) CreateMSKConnectPlugin(pexecutor *ctxt.Executor, wsExe *ctxt.Executor, awsMSKConnectPluginTopoConfigs *spec.AwsMSKConnectPluginTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateMSKConnectPlugin{
+		BaseMSKConnectPlugin: BaseMSKConnectPlugin{pexecutor: pexecutor, awsMSKConnectPluginTopoConfigs: awsMSKConnectPluginTopoConfigs},
+		wsExe:                wsExe,
+	})
+	return b
+}
+
+func (b *Builder) DestroyMSKConnectPlugin(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyMSKConnectPlugin{
+		BaseMSKConnectPlugin: BaseMSKConnectPlugin{pexecutor: pexecutor},
+	})
+
+	return b
+}
+
+func (b *Builder) RunCommonWS(wsExe *ctxt.Executor, packages *[]string) *Builder {
 	b.tasks = append(b.tasks, &RunCommonWS{
-		wsExe: wsExe,
+		wsExe:    wsExe,
+		packages: packages,
 	})
 	return b
 }

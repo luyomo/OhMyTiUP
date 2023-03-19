@@ -1494,17 +1494,26 @@ func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceSt
 
 // Deploy Redshift Instance
 type RunCommonWS struct {
-	wsExe *ctxt.Executor
+	wsExe    *ctxt.Executor
+	packages *[]string
 }
 
 // Execute implements the Task interface
 func (c *RunCommonWS) Execute(ctx context.Context) error {
+	if _, _, err := (*c.wsExe).Execute(ctx, "mkdir -p /opt/scripts", true); err != nil {
+		return err
+	}
+
 	if _, _, err := (*c.wsExe).Execute(ctx, "apt-get update -y", true); err != nil {
 		return err
 	}
 
-	if _, _, err := (*c.wsExe).Execute(ctx, "mkdir -p /opt/scripts", true); err != nil {
-		return err
+	if c.packages != nil {
+		for _, _package := range *c.packages {
+			if _, _, err := (*c.wsExe).Execute(ctx, fmt.Sprintf("apt-get install -y %s", _package), true); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
