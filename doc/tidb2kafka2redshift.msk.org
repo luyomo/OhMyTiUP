@@ -1,7 +1,7 @@
 * Script
 ** DONE TiDB Cluster
 ** DONE Redshift
-** TODO TiCDC node with glue version
+** DONE TiCDC node with glue version
 ** DONE MSK
 ** DONE Connector with S3 plugin
 ** DONE Glue schema registry

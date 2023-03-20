@@ -1726,6 +1726,18 @@ func (b *Builder) DestroyMSKConnectPlugin(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
+func (b *Builder) CreateTiCDCGlue(pexecutor *ctxt.Executor, wsExe *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &CreateTiCDCGlue{
+		BaseTiCDCGlue: BaseTiCDCGlue{
+			BaseTask: BaseTask{
+				pexecutor: pexecutor,
+				wsExe:     wsExe,
+			},
+		},
+	})
+	return b
+}
+
 func (b *Builder) RunCommonWS(wsExe *ctxt.Executor, packages *[]string) *Builder {
 	b.tasks = append(b.tasks, &RunCommonWS{
 		wsExe:    wsExe,

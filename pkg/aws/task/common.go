@@ -1471,6 +1471,80 @@ func (b *BaseResourceInfo) WriteIntoConfigFile(_fileName string) error {
 	return nil
 }
 
+type TiDBInstanceInfo struct {
+	ID            string `json:"id"`
+	Role          string `json:"role"`
+	Host          string `json:"host"`
+	Ports         string `json:"ports"`
+	OsArch        string `json:"os_arch"`
+	Status        string `json:"status"`
+	Memory        string `json:"memory"`
+	MemoryLimit   string `json:"memory_limit"`
+	CPUQuota      string `json:"cpu_quota"`
+	Since         string `json:"since"`
+	DataDir       string `json:"data_dir"`
+	DeployDir     string `json:"deploy_dir"`
+	ComponentName string `json:"ComponentName"`
+	Port          int    `json:"Port"`
+}
+
+type TiDBClusterDisplay struct {
+	ClusterMeta struct {
+		ClusterType    string `json:"cluster_type"`
+		ClusterName    string `json:"cluster_name"`
+		ClusterVersion string `json:"cluster_version"`
+		DeployUser     string `json:"deploy_user"`
+		SshType        string `json:"ssh_type"`
+		TlsEnabled     bool   `json:"tls_enabled"`
+		DashboardUrl   string `json:"dashboard_url"`
+	} `json:"cluster_meta"`
+	Instances []TiDBInstanceInfo `json:"instances"`
+}
+
+type BaseTask struct {
+	pexecutor *ctxt.Executor
+	wsExe     *ctxt.Executor
+
+	clusterName string // It's initialized from init() function
+	clusterType string // It's initialized from init() function
+
+	clusterInfo *ClusterInfo
+}
+
+func (b *BaseTask) getTiDBClusterInfo() (*TiDBClusterDisplay, error) {
+	stdout, _, err := (*b.wsExe).Execute(context.Background(), fmt.Sprintf("~/.tiup/bin/tiup cluster display --format json %s", b.clusterName), false)
+	if err != nil {
+		return nil, err
+	}
+
+	var tidbClusterDisplay TiDBClusterDisplay
+	if err = json.Unmarshal(stdout, &tidbClusterDisplay); err != nil {
+		return nil, err
+	}
+
+	return &tidbClusterDisplay, nil
+}
+
+/*
+componentName: alertmanager/cdc/grafana/pd/prometheus/tidb/tikv
+*/
+func (b *BaseTask) getTiDBComponent(componentName string) (*[]TiDBInstanceInfo, error) {
+	tidbClusterInfos, err := b.getTiDBClusterInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	var tidbInstancesInfo []TiDBInstanceInfo
+	for _, instanceInfo := range (*tidbClusterInfos).Instances {
+		if instanceInfo.Role == componentName {
+			tidbInstancesInfo = append(tidbInstancesInfo, instanceInfo)
+		}
+	}
+
+	return &tidbInstancesInfo, nil
+
+}
+
 func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceStateCheck func() (bool, error)) error {
 	timeout := time.After(_timeout)
 	d := time.NewTicker(_interval)

@@ -23,7 +23,7 @@ import (
 	// "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	// "github.com/aws/smithy-go"
 	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
 
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	// "go.uber.org/zap"
@@ -55,15 +55,17 @@ func (d *TiCDCGlueInfos) ToPrintTable() *[][]string {
 }
 
 type BaseTiCDCGlue struct {
-	pexecutor      *ctxt.Executor
+	BaseTask
+
+	// pexecutor      *ctxt.Executor
 	TiCDCGlueInfos *TiCDCGlueInfos
 	/* awsTiCDCGlueTopoConfigs *spec.AwsTiCDCGlueTopoConfigs */ // Replace the config here
 
 	// The below variables are initialized in the init() function
 	/* client  *example.Client */ // Replace the example to specific service
-	clusterName                   string // It's initialized from init() function
-	clusterType                   string // It's initialized from init() function
-	subClusterType                string // It's set from initializtion from caller
+	// clusterName                   string // It's initialized from init() function
+	// clusterType                   string // It's initialized from init() function
+	subClusterType string // It's set from initializtion from caller
 }
 
 func (b *BaseTiCDCGlue) init(ctx context.Context) error {
@@ -99,8 +101,8 @@ func (b *BaseTiCDCGlue) ReadTiCDCGlueInfo(ctx context.Context) error {
 type CreateTiCDCGlue struct {
 	BaseTiCDCGlue
 
-	wsExe       *ctxt.Executor
-	clusterInfo *ClusterInfo
+	// wsExe       *ctxt.Executor
+	// clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -109,16 +111,32 @@ func (c *CreateTiCDCGlue) Execute(ctx context.Context) error {
 
 	fmt.Printf("***** CreateTiCDCGlueCluster ****** \n\n\n")
 
-	if _, _, err := (*c.wsExe).Execute(context.Background(), "rm cdc.x86_64.zip && wget https://github.com/luyomo/tiflow-glue/releases/download/glue/cdc.x86_64.zip", false); err != nil {
+	if _, _, err := (*c.wsExe).Execute(context.Background(), "rm -f cdc.x86_64.zip && wget https://github.com/luyomo/tiflow-glue/releases/download/glue/cdc.x86_64.zip", false); err != nil {
 		return err
 	}
 
-	if _, _, err := (*c.wsExe).Execute(context.Background(), "rm cdc && unzip cdc.x86_64.zip", false); err != nil {
+	if _, _, err := (*c.wsExe).Execute(context.Background(), "rm -f cdc && unzip cdc.x86_64.zip", false); err != nil {
 		return err
 	}
 
-	if _, _, err := (*c.wsExe).Execute(context.Background(), "scp cdc 182.83.1.231:/home/admin/tidb/tidb-deploy/cdc-8300/bin", false); err != nil {
+	cdcInstances, err := c.getTiDBComponent("cdc")
+	if err != nil {
 		return err
+	}
+	fmt.Printf("The cdc data is <%#v> \n\n\n\n\n\n", cdcInstances)
+
+	for _, instance := range *cdcInstances {
+		if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("/home/admin/.tiup/bin/tiup cluster stop -y %s --node %s", c.clusterName, instance.ID), false); err != nil {
+			return err
+		}
+
+		if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("scp -o  StrictHostKeyChecking=no cdc %s:%s/bin", instance.Host, instance.DeployDir), false); err != nil {
+			return err
+		}
+
+		if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("/home/admin/.tiup/bin/tiup cluster start -y %s --node %s", c.clusterName, instance.ID), false); err != nil {
+			return err
+		}
 	}
 
 	return nil
