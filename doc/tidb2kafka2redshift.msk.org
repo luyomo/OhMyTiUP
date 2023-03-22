@@ -65,3 +65,26 @@ value.converter.schemaAutoRegistrationEnabled=true
 value.converter.avroRecordType=GENERIC_RECORD
 value.converter.registry.name=tidb2es
    #+END_SRC
+
+* Memo
+** Need to add the below environments to cdc-8300.service
+   #+BEGIN_SRC
+[Unit]
+Description=cdc service
+After=syslog.target network.target remote-fs.target nss-lookup.target
+
+[Service]
+Environment="AWS_DEFAULT_REGION=us-east-1"
+Environment="AWS_ACCESS_KEY_ID=XXXXXXXXXXXX"
+Environment="AWS_SECRET_ACCESS_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+LimitNOFILE=1000000
+LimitSTACK=10485760
+User=admin
+ExecStart=/bin/bash -c '/home/admin/tidb/tidb-deploy/cdc-8300/scripts/run_cdc.sh'
+Restart=always
+
+RestartSec=15s
+
+[Install]
+WantedBy=multi-user.target
+   #+END_SRC
