@@ -1,0 +1,13 @@
+* Cost reduction
+** confluent cost
+** MSK const
+** TiCDC cost
+* What TiCDC can do
+** Add glue schema registry support in the TiCDC (other schema registry)
+*** Block: How to support MSK's endpoint
+** Add replication to oracle directly. (Redshift/Postgres/Big Query as well)
+   If we are able to support oracle replication, it will open a door to other database as well.
+** Add other stream like kinese/pubsub/pulsar/flink
+** Add replication to go-plugin(grpc)
+   If we are able to add go-plugin as the downsteam, it will open one door to trigger(after change)
+** Add branch of insert/update/delete and specified columns

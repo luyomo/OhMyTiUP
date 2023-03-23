@@ -15,7 +15,7 @@ package task
 
 import (
 	"context"
-	// "errors"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -59,6 +59,22 @@ func (d *MSKInfos) Append(cluster *types.Cluster, clusterInfo *types.ClusterInfo
 		ClientVpcIpAddress:  clientVpcIpAddress,
 		NumberOfBrokerNodes: clusterInfo.NumberOfBrokerNodes,
 	})
+}
+
+func (d *MSKInfos) GetFirstEndpoint() (*string, error) {
+	if len((*d).Data) == 0 {
+		return nil, errors.New("No MSK endpoint found")
+	}
+	_firstElement := ((*d).Data[0]).(MSKInfo)
+	fmt.Printf("The element is <%#v> \n\n\n\n\n\n", _firstElement)
+
+	var endpoints []string
+	for _, ip := range _firstElement.ClientVpcIpAddress {
+		endpoints = append(endpoints, fmt.Sprintf("%s:%s", ip, "9092"))
+	}
+
+	strEndpoints := strings.Join(endpoints, ",")
+	return &strEndpoints, nil
 }
 
 func (d *MSKInfos) ToPrintTable() *[][]string {
@@ -139,6 +155,20 @@ func (b *BaseMSKCluster) ConfigurationExist(kafkaClient *kafka.Client, clusterNa
 		}
 	}
 	return false, nil
+}
+
+func (b *BaseMSKCluster) getConfigurationArn(kafkaClient *kafka.Client, clusterName string) (*string, error) {
+	configurations, err := kafkaClient.ListConfigurations(context.TODO(), &kafka.ListConfigurationsInput{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, configuration := range configurations.Configurations {
+		if *configuration.Name == clusterName {
+			return configuration.Arn, nil
+		}
+	}
+	return nil, nil
 }
 
 func (b *BaseMSKCluster) ReadMSKInfo(ctx context.Context) error {
@@ -241,7 +271,12 @@ zookeeper.session.timeout.ms=18000`),
 	}
 
 	if clusterExist == false {
-		_, err := client.CreateClusterV2(context.TODO(), &kafka.CreateClusterV2Input{
+		configuratinArn, err := c.getConfigurationArn(client, clusterName)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("configuration arn: <%#v> \n\n\n\n\n\n", *configuratinArn)
+		_, err = client.CreateClusterV2(context.TODO(), &kafka.CreateClusterV2Input{
 			ClusterName: aws.String(clusterName),
 			Provisioned: &types.ProvisionedRequest{
 				KafkaVersion: aws.String("3.3.2"),
@@ -253,6 +288,15 @@ zookeeper.session.timeout.ms=18000`),
 				NumberOfBrokerNodes: 3,
 				ClientAuthentication: &types.ClientAuthentication{
 					Unauthenticated: &types.Unauthenticated{Enabled: true},
+				},
+				ConfigurationInfo: &types.ConfigurationInfo{
+					Arn:      configuratinArn,
+					Revision: 1,
+				},
+				EncryptionInfo: &types.EncryptionInfo{
+					EncryptionInTransit: &types.EncryptionInTransit{
+						ClientBroker: types.ClientBrokerPlaintext,
+					},
 				},
 			},
 		})

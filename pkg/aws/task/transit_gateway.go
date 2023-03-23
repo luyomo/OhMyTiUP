@@ -40,7 +40,6 @@ type CreateTransitGateway struct {
 func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	fmt.Printf("Starting to create transit gateway \n\n\n")
 
 	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
 	if err != nil {

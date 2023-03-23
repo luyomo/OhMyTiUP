@@ -11,31 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package workstation
 
-import (
-	"context"
+import ()
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-)
-
-func GetAWSCrential() (*aws.Credentials, error) {
-	_ctx := context.TODO()
-	cfg, err := config.LoadDefaultConfig(_ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	_crentials, err := cfg.Credentials.Retrieve(_ctx)
-	return &_crentials, nil
-}
-
-func GetDefaultRegion() (*string, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-
-	return &cfg.Region, nil
+type RedshiftDBInfo struct {
+	Host     string `yaml:"host"`
+	Port     int32  `yaml:"port"`
+	DBName   string `yaml:"db_name"`
+	UserName string `yaml:"user_name"`
+	Password string `yaml:"password"`
+	Status   string
+	NodeType string
 }

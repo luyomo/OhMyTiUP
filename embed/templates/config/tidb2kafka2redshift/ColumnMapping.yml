@@ -1,220 +1,237 @@
-MapTiDB2PG:
-  - TiDB:
+Meta:
+  TableName: test01
+  Source:
+    DBType: tidb
+    DBName: test
+    PK: pk_col BIGINT PRIMARY KEY AUTO_RANDOM
+    Executor: /opt/scripts/run_tidb_query
+    TailColumns:
+      - tidb_timestamp timestamp default current_timestamp
+  Target:
+    DBType: redshift 
+    DBName: dev
+    PK: pk_col bigint PRIMARY KEY
+    Executor: /opt/scripts/run_redshift_query
+    TailColumns:
+      - tidb_timestamp timestamp
+      - pg_timestamp timestamp default current_timestamp
+Mapping:
+  - Source:
       DataType: BOOL
       Def: t_bool BOOL
-    PG:
+    Target:
       DataType: BOOL
       Def: t_bool BOOL
     Value: true
-  - TiDB:
+  - Source:
       DataType: TINYINT
       Def: t_tinyint TINYINT DEFAULT 10
-    PG:
+    Target:
       DataType: SMALLINT
       Def: t_tinyint SMALLINT
     Value: 1
-  - TiDB:
+  - Source:
       DataType: SMALLINT
       Def: t_smallint SMALLINT UNSIGNED
-    PG:
+    Target:
       DataType: INT
       Def: t_smallint INT
     Value: 1000
-  - TiDB:
+  - Source:
       DataType: MEDIUMINT
       Def: t_mediumint MEDIUMINT NOT NULL default 10
-    PG:
+    Target:
       DataType: INT
       Def: t_mediumint INT
     Value: 1000
-  - TiDB:
+  - Source:
       DataType: INT
       Def: t_int INT
-    PG:
+    Target:
       DataType: INT
       Def: t_int INT
     Value: 1000
-  - TiDB:
+  - Source:
       DataType: BIGINT
       Def: t_bigint BIGINT
-    PG:
+    Target:
       DataType: BIGINT
       Def: t_bigint BIGINT
     Value: 10000
-  - TiDB:
+  - Source:
       DataType: BIGINT UNSIGNED 
       Def: t_bigint_unsigned BIGINT UNSIGNED
-    PG:
+    Target:
       DataType: BIGINT
       Def: t_bigint_unsigned BIGINT
     Value: 10000
-  - TiDB:
+  - Source:
       DataType: TINYBLOB
       Def: t_tinyblob TINYBLOB
-    PG:
+    Target:
       DataType: bytea
       Def: t_tinyblob VARBYTE
       #      DataType: text
       #      Def: t_tinyblob text
     Value: <<<<This is the test>>>>
-  - TiDB:
+  - Source:
       DataType: BLOB
       Def: t_blob BLOB
-    PG:
+    Target:
       DataType: text
       Def: t_blob VARBYTE
     Value: <<<<This is the blob test message>>>>
-  - TiDB:
+  - Source:
       DataType: MEDIUMBLOB
       Def: t_mediumblob MEDIUMBLOB
-    PG:
+    Target:
       DataType: text
       Def: t_mediumblob VARBYTE
     Value: <<<<This is the mediumblob message>>>>
-  - TiDB:
+  - Source:
       DataType: LONGBLOB
       Def: t_longblob LONGBLOB
-    PG:
+    Target:
       DataType: text
       Def: t_longblob VARBYTE
     Value: <<<<This is the longblob message>>>>
-  - TiDB:
+  - Source:
       DataType: BINARY
       Def: t_binary BINARY
-    PG:
+    Target:
       DataType: VARBYTE
       Def: t_binary VARBYTE
     Value: <<<<t>>>>
-  - TiDB:
+  - Source:
       DataType: VARBINARY
       Def: t_varbinary VARBINARY(256)
-    PG:
+    Target:
       DataType: VARBYTE
       Def: t_varbinary VARBYTE
     Value: <<<<This is the barbinary message>>>>
-  - TiDB:
+  - Source:
       DataType: TINYTEXT
       Def: t_tinytext TINYTEXT
-    PG:
+    Target:
       DataType: VARCHAR
       Def: t_tinytext VARCHAR
     Value: <<<<This is TiNYTEXT>>>>
-  - TiDB:
+  - Source:
       DataType: TEXT
       Def: t_text TEXT
-    PG:
+    Target:
       DataType: VARCHAR
       Def: t_text VARCHAR
     Value: <<<<This is TEXT>>>>
-  - TiDB:
+  - Source:
       DataType: MEDIUMTEXT
       Def: t_mediumtext MEDIUMTEXT NOT NULL
-    PG:
+    Target:
       DataType: VARCHAR
       Def: t_mediumtext VARCHAR NOT NULL
     Value: <<<<This is medium text>>>>
-  - TiDB:
+  - Source:
       DataType: LONGTEXT
       Def: t_longtext LONGTEXT
-    PG:
+    Target:
       DataType: VARCHAR
       Def: t_longtext VARCHAR
     Value: <<<<This is long text>>>>
-  - TiDB:
+  - Source:
       DataType: CHAR
       Def: t_char CHAR
-    PG:
+    Target:
       DataType: CHAR
       Def: t_char char
     Value: <<<<a>>>>
-  - TiDB:
+  - Source:
       DataType: VARCHAR
       Def: t_varchar VARCHAR(255) NOT NULL
-    PG:
+    Target:
       DataType: VARCHAR
       Def: t_varchar VARCHAR(255) NOT NULL
     Value: <<<<a>>>>
-  - TiDB:
+  - Source:
       DataType: FLOAT 
       Def: t_float FLOAT
-    PG:
+    Target:
       DataType: NUMERIC
       Def: t_float NUMERIC(18, 6)
     Value: 10.123456789
-  - TiDB:
+  - Source:
       DataType: DOUBLE
       Def: t_double DOUBLE
-    PG:
+    Target:
       DataType: NUMERIC
       Def: t_double NUMERIC(18, 9)
     Value: 10.123456789
-  - TiDB:
+  - Source:
       DataType: DATETIME
       Def: t_datetime DATETIME
-    PG:
+    Target:
       DataType: TIMESTAMP
       Def: t_datetime TIMESTAMP
     Value: <<<<2022-08-01 11:34:56>>>>
-  - TiDB:
+  - Source:
       DataType: DATE
       Def: t_date DATE
-    PG:
+    Target:
       DataType: DATE
       Def: t_date DATE
     Value: <<<<2022-08-01>>>>
-  - TiDB:
+  - Source:
       DataType: TIMESTAMP
       Def: t_timestamp TIMESTAMP
-    PG:
+    Target:
       DataType: TIMESTAMP
       Def: t_timestamp TIMESTAMP
     Value: <<<<2022-08-01 11:34:56>>>>
-  - TiDB:
+  - Source:
       DataType: TIME
       Def: t_time TIME
-    PG:
+    Target:
       DataType: TIME
       Def: t_time TIME
     Value: <<<<11:23:09>>>>
-  - TiDB:
+  - Source:
       DataType: YEAR
       Def: t_year YEAR
-    PG:
+    Target:
       DataType: SMALLINT
       Def: t_year SMALLINT
     Value: 2022
-  - TiDB:
+  - Source:
       DataType: BIT
       Def: t_bit BIT
-    PG:
+    Target:
       DataType: BIT
       Def: t_bit BIT
     Value: 1
-  - TiDB:
+  - Source:
       DataType: JSON
       Def: t_json JSON
-    PG:
+    Target:
       DataType: VACHAR
       Def: t_json VARCHAR
     Value: <<<<{\\\"testKey\\\":\\\"testValue\\\"}>>>>
-  - TiDB:
+  - Source:
       DataType: ENUM
       Def: t_enum enum("a", "b", "c")
-    PG:
+    Target:
       DataType: VARCHAR
       Def: t_enum VARCHAR
     Value: <<<<a>>>>
-  - TiDB:
+  - Source:
       DataType: SET
       Def: t_set SET('"'"'a'"'"','"'"'b'"'"','"'"'c'"'"')
-    PG:
+    Target:
       DataType: VARCHAR
       Def: t_set VARCHAR
     Value: <<<<a,b>>>>
-  - TiDB:
+  - Source:
       DataType: DECIMAL
       Def: t_decimal DECIMAL(20, 10)
-    PG:
+    Target:
       DataType: DECIMAL
       Def: t_decimal DECIMAL(20, 10)
     Value: 10.123456789

@@ -4,13 +4,12 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package command
 
 import (
@@ -56,7 +55,7 @@ func newTiDB2Msk2RedshiftPerfCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newPerfPrepareTiDB2Kafka2Redshift(),
+		newPerfPrepareTiDB2MSK2Redshift(),
 		newPerfTiDB2Kafka2Redshift(),
 		newPerfCleanTiDB2Kafka2Redshift(),
 	)
@@ -160,6 +159,40 @@ You can retain some nodes and roles data when destroy cluster, eg:
 	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataNodes, "retain-node-data", nil, "Specify the nodes or hosts whose data will be retained")
 	cmd.Flags().StringArrayVar(&destroyOpt.RetainDataRoles, "retain-role-data", nil, "Specify the roles whose data will be retained")
 	cmd.Flags().BoolVar(&destroyOpt.Force, "force", false, "Force will ignore remote error while destroy the cluster")
+
+	return cmd
+}
+
+func newPerfPrepareTiDB2MSK2Redshift() *cobra.Command {
+	perfOpt := manager.KafkaPerfOpt{
+		Partitions:    1,
+		NumOfRecords:  100000,
+		BytesOfRecord: 1024,
+	}
+	cmd := &cobra.Command{
+		Use:          "prepare <cluster-name>",
+		Short:        "perf performance test preparation",
+		Long:         "Performance measurement against MSK cluster",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.PerfPrepareTiDB2MSK2Redshift(clusterName, TiDB2MSK2REDSHIFT, perfOpt, gOpt)
+		},
+	}
+
+	cmd.Flags().IntVar(&perfOpt.Partitions, "partitions", 16, "The partition number of the topic to be tested.")
+	cmd.Flags().IntVar(&perfOpt.NumOfRecords, "num-of-records", 100000, "The number of messages to be tested")
+	cmd.Flags().IntVar(&perfOpt.BytesOfRecord, "bytes-of-record", 1024, "Bytes of records to be tested")
+	cmd.Flags().StringArrayVar(&perfOpt.DataTypeDtr, "data-type", nil, "Specify all the data types to be tested")
 
 	return cmd
 }

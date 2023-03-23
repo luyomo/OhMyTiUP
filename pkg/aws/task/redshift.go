@@ -26,6 +26,8 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 type BaseRedshiftCluster struct {
@@ -307,22 +309,12 @@ func (c *DestroyRedshiftCluster) String() string {
 	return fmt.Sprintf("Echo: Destroying Redshift")
 }
 
-type RedshiftDBInfo struct {
-	Host     string `yaml:"host"`
-	Port     int32  `yaml:"port"`
-	DBName   string `yaml:"db_name"`
-	UserName string `yaml:"user_name"`
-	Password string `yaml:"password"`
-	Status   string
-	NodeType string
-}
-
 type RedshiftDBInfos struct {
 	BaseResourceInfo
 }
 
 func (d *RedshiftDBInfos) Append(cluster *types.Cluster, password string) {
-	(*d).Data = append((*d).Data, RedshiftDBInfo{
+	(*d).Data = append((*d).Data, ws.RedshiftDBInfo{
 		Host:     *cluster.Endpoint.Address,
 		Port:     cluster.Endpoint.Port,
 		UserName: *cluster.MasterUsername,
@@ -336,7 +328,7 @@ func (d *RedshiftDBInfos) Append(cluster *types.Cluster, password string) {
 func (d *RedshiftDBInfos) ToPrintTable() *[][]string {
 	tableRedshift := [][]string{{"Endpoint", "Port", "DB Name", "Master User", "State", "Node Type"}}
 	for _, _row := range (*d).Data {
-		_entry := _row.(RedshiftDBInfo)
+		_entry := _row.(ws.RedshiftDBInfo)
 		tableRedshift = append(tableRedshift, []string{
 			_entry.Host,
 			fmt.Sprintf("%d", _entry.Port),
@@ -359,7 +351,7 @@ func (d *RedshiftDBInfos) GetRedshiftDBInfo() (*map[string]string, error) {
 
 	dbInfo := make(map[string]string)
 	for _, _row := range (*d).Data {
-		_entry := _row.(RedshiftDBInfo)
+		_entry := _row.(ws.RedshiftDBInfo)
 
 		dbInfo["DBHost"] = _entry.Host
 		dbInfo["DBPort"] = fmt.Sprintf("%d", _entry.Port)

@@ -32,6 +32,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -563,7 +564,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 		return err
 	}
 
-	var redshiftDBInfos []task.RedshiftDBInfo
+	var redshiftDBInfos []ws.RedshiftDBInfo
 	err = yaml.Unmarshal(yfile, &redshiftDBInfos)
 	if err != nil {
 		return err

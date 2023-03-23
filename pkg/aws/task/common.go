@@ -15,7 +15,6 @@ package task
 
 import (
 	"context"
-	//	"encoding/json"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1519,7 +1518,7 @@ func (b *BaseTask) getTiDBClusterInfo() (*TiDBClusterDisplay, error) {
 
 	var tidbClusterDisplay TiDBClusterDisplay
 	if err = json.Unmarshal(stdout, &tidbClusterDisplay); err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed to unmarshal data: <%s>, cluster name: <%s>", string(stdout), b.clusterName))
 	}
 
 	return &tidbClusterDisplay, nil

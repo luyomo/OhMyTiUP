@@ -146,7 +146,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		// SubnetId:         aws.String(c.clusterInfo.publicSubnet),
 		// SecurityGroupIds: []string{c.clusterInfo.publicSecurityGroupId},
 		NetworkInterfaces: []types.InstanceNetworkInterfaceSpecification{
-			types.InstanceNetworkInterfaceSpecification{
+			{
 				AssociatePublicIpAddress: aws.Bool(true),
 				DeleteOnTermination:      aws.Bool(true),
 				DeviceIndex:              aws.Int32(0),
@@ -156,7 +156,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		},
 		TagSpecifications: tagSpecification,
 		BlockDeviceMappings: []types.BlockDeviceMapping{
-			types.BlockDeviceMapping{
+			{
 				DeviceName: aws.String("/dev/xvda"),
 				Ebs: &types.EbsBlockDevice{
 					DeleteOnTermination: aws.Bool(true),

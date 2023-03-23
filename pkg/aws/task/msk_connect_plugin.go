@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	// "os"
+	"errors"
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -32,17 +33,46 @@ import (
 	// "go.uber.org/zap"
 )
 
+/******************************************************************************/
+func (b *Builder) CreateMSKConnectPlugin(pexecutor *ctxt.Executor, wsExe *ctxt.Executor, awsMSKConnectPluginTopoConfigs *spec.AwsMSKConnectPluginTopoConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateMSKConnectPlugin{
+		BaseMSKConnectPlugin: BaseMSKConnectPlugin{pexecutor: pexecutor, awsMSKConnectPluginTopoConfigs: awsMSKConnectPluginTopoConfigs},
+		wsExe:                wsExe,
+	})
+	return b
+}
+
+func (b *Builder) ListMSKConnectPlugin(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &ListMSKConnectPlugin{
+		BaseMSKConnectPlugin: BaseMSKConnectPlugin{pexecutor: pexecutor},
+	})
+
+	return b
+}
+
+func (b *Builder) DestroyMSKConnectPlugin(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyMSKConnectPlugin{
+		BaseMSKConnectPlugin: BaseMSKConnectPlugin{pexecutor: pexecutor},
+	})
+
+	return b
+}
+
+/******************************************************************************/
+
 type MSKConnectPluginInfo struct {
-	ClusterName string
+	ClusterName *string
+	Arn         *string
 }
 
 type MSKConnectPluginInfos struct {
 	BaseResourceInfo
 }
 
-func (d *MSKConnectPluginInfos) Append( /*cluster *types.Cluster*/ ) {
+func (d *MSKConnectPluginInfos) Append(customPluginSummary *types.CustomPluginSummary) {
 	(*d).Data = append((*d).Data, MSKConnectPluginInfo{
-		ClusterName: "MSKConnectPlugin",
+		ClusterName: customPluginSummary.Name,
+		Arn:         customPluginSummary.CustomPluginArn,
 	})
 }
 
@@ -51,10 +81,20 @@ func (d *MSKConnectPluginInfos) ToPrintTable() *[][]string {
 	for _, _row := range (*d).Data {
 		_entry := _row.(MSKConnectPluginInfo)
 		tableMSKConnectPlugin = append(tableMSKConnectPlugin, []string{
-			_entry.ClusterName,
+			*_entry.ClusterName,
 		})
 	}
 	return &tableMSKConnectPlugin
+}
+
+func (d *MSKConnectPluginInfos) GetPluginArn() (*string, error) {
+	if len((*d).Data) == 0 {
+		return nil, errors.New("No plugin found")
+	}
+	if len((*d).Data) > 1 {
+		return nil, errors.New("Multiple plugins found")
+	}
+	return ((*d).Data[0]).(MSKConnectPluginInfo).Arn, nil
 }
 
 type BaseMSKConnectPlugin struct {
@@ -78,11 +118,13 @@ func (b *BaseMSKConnectPlugin) init(ctx context.Context) error {
 		return err
 	}
 
-	log.Infof(fmt.Sprintf("config: %#v", cfg))
-
 	b.client = kafkaconnect.NewFromConfig(cfg) // Replace the example to specific service
 
 	return nil
+}
+
+func (b *BaseMSKConnectPlugin) formatConnectName(inputName string) string {
+	return fmt.Sprintf("aws-msk-%s-plugin", inputName)
 }
 
 /*
@@ -107,6 +149,18 @@ func (b *BaseMSKConnectPlugin) ClusterExist(pluginName string) (bool, error) {
 }
 
 func (b *BaseMSKConnectPlugin) ReadMSKConnectPluginInfo(ctx context.Context) error {
+	resp, err := b.client.ListCustomPlugins(context.TODO(), &kafkaconnect.ListCustomPluginsInput{})
+	if err != nil {
+		return err
+	}
+
+	for _, plugin := range resp.CustomPlugins {
+		if *plugin.Name == b.formatConnectName("redshift-sink") {
+			fmt.Printf("Kafka Connect Custom Plugins: <%#v>\n\n\n\n", resp)
+			b.MSKConnectPluginInfos.Append(&plugin)
+			return nil
+		}
+	}
 	return nil
 }
 
@@ -131,7 +185,7 @@ func (c *CreateMSKConnectPlugin) Execute(ctx context.Context) error {
 
 	log.Infof("***** CreateMSKConnectPluginCluster ******")
 
-	pluginName := fmt.Sprintf("aws-msk-%s-plugin", c.awsMSKConnectPluginTopoConfigs.Name)
+	pluginName := c.formatConnectName(c.awsMSKConnectPluginTopoConfigs.Name)
 	pluginFolder := fmt.Sprintf("/tmp/%s", pluginName)
 
 	clusterExistFlag, err := c.ClusterExist(pluginName)
@@ -140,8 +194,6 @@ func (c *CreateMSKConnectPlugin) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		log.Infof("Started to deploy the cluster \n\n\n\n")
-
 		if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("mkdir -p %s", pluginFolder), false); err != nil {
 			return err
 		}
@@ -228,10 +280,8 @@ func (c *CreateMSKConnectPlugin) downloadKafkaConnectPlugin(pluginFolder string)
 	// "https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-aws-redshift/versions/1.2.2/confluentinc-kafka-connect-aws-redshift-1.2.2.zip"
 
 	fileName := filepath.Base(connectURL)
-	log.Infof("The file name is %s \n\n\n", fileName)
 	extension := filepath.Ext(fileName)
 	folderName := fileName[:len(fileName)-len(extension)]
-	log.Infof("The file name is %s \n\n\n", folderName)
 
 	pluginSubFolder := fmt.Sprintf("%s/%s", pluginFolder, folderName)
 

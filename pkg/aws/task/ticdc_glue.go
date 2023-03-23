@@ -29,87 +29,26 @@ import (
 	// "go.uber.org/zap"
 )
 
-type TiCDCGlueInfo struct {
-	ClusterName string
-}
-
-type TiCDCGlueInfos struct {
-	BaseResourceInfo
-}
-
-func (d *TiCDCGlueInfos) Append( /*cluster *types.Cluster*/ ) {
-	(*d).Data = append((*d).Data, TiCDCGlueInfo{
-		ClusterName: "TiCDCGlue",
-	})
-}
-
-func (d *TiCDCGlueInfos) ToPrintTable() *[][]string {
-	tableTiCDCGlue := [][]string{{"Cluster Name"}}
-	for _, _row := range (*d).Data {
-		_entry := _row.(TiCDCGlueInfo)
-		tableTiCDCGlue = append(tableTiCDCGlue, []string{
-			_entry.ClusterName,
-		})
-	}
-	return &tableTiCDCGlue
-}
-
 type BaseTiCDCGlue struct {
 	BaseTask
-
-	// pexecutor      *ctxt.Executor
-	TiCDCGlueInfos *TiCDCGlueInfos
-	/* awsTiCDCGlueTopoConfigs *spec.AwsTiCDCGlueTopoConfigs */ // Replace the config here
-
-	// The below variables are initialized in the init() function
-	/* client  *example.Client */ // Replace the example to specific service
-	// clusterName                   string // It's initialized from init() function
-	// clusterType                   string // It's initialized from init() function
-	subClusterType string // It's set from initializtion from caller
 }
 
 func (b *BaseTiCDCGlue) init(ctx context.Context) error {
 	b.clusterName = ctx.Value("clusterName").(string)
 	b.clusterType = ctx.Value("clusterType").(string)
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return err
-	}
-
-	log.Infof(fmt.Sprintf("config: %#v", cfg))
-
-	/* b.client = example.NewFromConfig(cfg) */ // Replace the example to specific service
-
-	return nil
-}
-
-/*
- * Return:
- *   (true, nil): Cluster exist
- *   (false, nil): Cluster does not exist
- *   (false, error): Failed to check
- */
-func (b *BaseTiCDCGlue) ClusterExist(checkAvailableState bool) (bool, error) {
-	return false, nil
-}
-
-func (b *BaseTiCDCGlue) ReadTiCDCGlueInfo(ctx context.Context) error {
 	return nil
 }
 
 type CreateTiCDCGlue struct {
 	BaseTiCDCGlue
-
-	// wsExe       *ctxt.Executor
-	// clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateTiCDCGlue) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** CreateTiCDCGlueCluster ****** \n\n\n")
+	log.Infof("***** CreateTiCDCGlueCluster ****** \n\n\n")
 
 	if _, _, err := (*c.wsExe).Execute(context.Background(), "rm -f cdc.x86_64.zip && wget https://github.com/luyomo/tiflow-glue/releases/download/glue/cdc.x86_64.zip", false); err != nil {
 		return err
@@ -123,7 +62,6 @@ func (c *CreateTiCDCGlue) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The cdc data is <%#v> \n\n\n\n\n\n", cdcInstances)
 
 	for _, instance := range *cdcInstances {
 		if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("/home/admin/.tiup/bin/tiup cluster stop -y %s --node %s", c.clusterName, instance.ID), false); err != nil {
@@ -133,6 +71,8 @@ func (c *CreateTiCDCGlue) Execute(ctx context.Context) error {
 		if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("scp -o  StrictHostKeyChecking=no cdc %s:%s/bin", instance.Host, instance.DeployDir), false); err != nil {
 			return err
 		}
+
+		c.syncCDCServiceFile(instance.Host)
 
 		if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("/home/admin/.tiup/bin/tiup cluster start -y %s --node %s", c.clusterName, instance.ID), false); err != nil {
 			return err
@@ -149,5 +89,40 @@ func (c *CreateTiCDCGlue) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateTiCDCGlue) String() string {
-	return fmt.Sprintf("Echo: Create example ... ...  ")
+	return fmt.Sprintf("Echo: Create TiCDC Glue  ... ...  ")
+}
+
+func (c *CreateTiCDCGlue) syncCDCServiceFile(cdcIP string) error {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	serviceFileENV := make(map[string]string)
+	crentials, err := cfg.Credentials.Retrieve(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	serviceFileENV["AWS_REGION"] = cfg.Region
+	serviceFileENV["AWS_ACCESS_KEY_ID"] = crentials.AccessKeyID
+	serviceFileENV["AWS_SECRET_ACCESS_KEY"] = crentials.SecretAccessKey
+
+	if err = (*c.wsExe).TransferTemplate(context.Background(), "templates/systemd/cdc.awsenv.service.tpl", "/tmp/cdc-8300.service", "0644", serviceFileENV, false, 0); err != nil {
+		return err
+	}
+
+	if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("scp -o StrictHostKeyChecking=no /tmp/cdc-8300.service %s:/tmp/", cdcIP), false); err != nil {
+		return err
+	}
+
+	if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("ssh %s 'sudo mv /tmp/cdc-8300.service /etc/systemd/system/cdc-8300.service'", cdcIP), false); err != nil {
+		return err
+	}
+
+	if _, _, err := (*c.wsExe).Execute(context.Background(), fmt.Sprintf("ssh %s 'sudo systemctl daemon-reload'", cdcIP), false); err != nil {
+		return err
+	}
+
+	return nil
 }
