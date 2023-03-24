@@ -185,6 +185,16 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 			return err
 		}
 		fmt.Printf("The worker configuration : <%#v>\n\n\n\n ", *workerConfigurationArn)
+
+		listServiceIamRole := &ListServiceIamRole{BaseServiceIamRole: BaseServiceIamRole{BaseTask: BaseTask{pexecutor: c.pexecutor, clusterName: c.clusterName}}}
+		if err := listServiceIamRole.Execute(ctx); err != nil {
+			return err
+		}
+		roleArn, err := listServiceIamRole.ResourceData.GetResourceArn()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The role arn : <%s>\n\n\n\n ", *roleArn)
 		return nil
 
 		connectConfiguration["connector.class"] = "io.confluent.connect.aws.redshift.RedshiftSinkConnector"
@@ -248,7 +258,7 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 					},
 				},
 			},
-			ServiceExecutionRoleArn: aws.String("arn:aws:iam::729581434105:role/tidb2es-role"),
+			ServiceExecutionRoleArn: roleArn,
 			WorkerConfiguration: &types.WorkerConfiguration{
 				WorkerConfigurationArn: workerConfigurationArn,
 				Revision:               1,

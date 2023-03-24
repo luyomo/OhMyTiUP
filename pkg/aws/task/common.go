@@ -1452,6 +1452,15 @@ func CleanClusterSA(executor *ctxt.Executor, clusterName string) error {
 	return nil
 }
 
+type ResourceData interface {
+	Append(interface{})
+	ResourceExist() (bool, error)
+	ToPrintTable() *[][]string
+	GetResourceArn() (*string, error)
+
+	WriteIntoConfigFile(_fileName string) error
+}
+
 type BaseResourceInfo struct {
 	Data []interface{}
 }
@@ -1468,6 +1477,26 @@ func (b *BaseResourceInfo) WriteIntoConfigFile(_fileName string) error {
 		return err
 	}
 	return nil
+}
+
+func (d *BaseResourceInfo) Append(data interface{}) {
+	d.Data = append(d.Data, data)
+}
+
+/*
+ * Return:
+ *   (true, nil): Cluster exist
+ *   (false, nil): Cluster does not exist
+ *   (false, error): Failed to check
+ */
+func (b *BaseResourceInfo) ResourceExist() (bool, error) {
+	if len(b.Data) == 0 {
+		return false, nil
+	}
+	if len(b.Data) > 1 {
+		return false, errors.New("Multiple resources found")
+	}
+	return true, nil
 }
 
 type TiDBInstanceInfo struct {
