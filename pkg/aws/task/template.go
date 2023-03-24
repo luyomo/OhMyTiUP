@@ -19,101 +19,131 @@ import (
 
 	// "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	// "github.com/aws/aws-sdk-go-v2/service/ec2"
-	// "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	// "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	// "github.com/aws/smithy-go"
 	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-
+	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	// "go.uber.org/zap"
 )
 
-type ExampleInfo struct {
-	ClusterName string
+/******************************************************************************/
+func (b *Builder) CreateTemplate() *Builder {
+	b.tasks = append(b.tasks, &CreateTemplate{})
+	return b
 }
 
-type ExampleInfos struct {
+func (b *Builder) ListTemplate() *Builder {
+	b.tasks = append(b.tasks, &ListTemplate{})
+	return b
+}
+
+func (b *Builder) DestroyTemplate() *Builder {
+	b.tasks = append(b.tasks, &DestroyTemplate{})
+	return b
+}
+
+/******************************************************************************/
+
+type Templates struct {
 	BaseResourceInfo
 }
 
-func (d *ExampleInfos) Append( /*cluster *types.Cluster*/ ) {
-	(*d).Data = append((*d).Data, ExampleInfo{
-		ClusterName: "Example",
-	})
-}
+func (d *Templates) ToPrintTable() *[][]string {
+	tableTemplate := [][]string{{"Cluster Name"}}
+	for _, _row := range d.Data {
+		// _entry := _row.(Template)
+		// tableTemplate = append(tableTemplate, []string{
+		// 	// *_entry.PolicyName,
+		// })
 
-func (d *ExampleInfos) ToPrintTable() *[][]string {
-	tableExample := [][]string{{"Cluster Name"}}
-	for _, _row := range (*d).Data {
-		_entry := _row.(ExampleInfo)
-		tableExample = append(tableExample, []string{
-			_entry.ClusterName,
-		})
+		log.Infof("%#v", _row)
 	}
-	return &tableExample
+	return &tableTemplate
 }
 
-type BaseExampleCluster struct {
-	pexecutor    *ctxt.Executor
-	ExampleInfos *ExampleInfos
+/******************************************************************************/
+type BaseTemplate struct {
+	BaseTask
+
+	ResourceData ResourceData
 	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
 
 	// The below variables are initialized in the init() function
-	/* client  *example.Client */ // Replace the example to specific service
-	clusterName                   string // It's initialized from init() function
-	clusterType                   string // It's initialized from init() function
-	subClusterType                string // It's set from initializtion from caller
+	client *iam.Client // Replace the example to specific service
 }
 
-func (b *BaseExampleCluster) init(ctx context.Context) error {
+func (b *BaseTemplate) init(ctx context.Context) error {
 	b.clusterName = ctx.Value("clusterName").(string)
 	b.clusterType = ctx.Value("clusterType").(string)
 
+	// Client initialization
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
 
-	log.Infof(fmt.Sprintf("config: %#v", cfg))
+	b.client = iam.NewFromConfig(cfg) // Replace the example to specific service
 
-	/* b.client = example.NewFromConfig(cfg) */ // Replace the example to specific service
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &Templates{}
+	}
+
+	if err := b.readResources(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-/*
- * Return:
- *   (true, nil): Cluster exist
- *   (false, nil): Cluster does not exist
- *   (false, error): Failed to check
- */
-func (b *BaseExampleCluster) ClusterExist(checkAvailableState bool) (bool, error) {
-	return false, nil
-}
+func (b *BaseTemplate) readResources() error {
 
-func (b *BaseExampleCluster) ReadExampleInfo(ctx context.Context) error {
+	resp, err := b.client.ListPolicies(context.TODO(), &iam.ListPoliciesInput{})
+	if err != nil {
+		return err
+	}
+
+	for _, policy := range resp.Policies {
+		if *policy.PolicyName == b.clusterName {
+			b.ResourceData.Append(&policy)
+		}
+	}
 	return nil
 }
 
-type CreateExampleCluster struct {
-	BaseExampleCluster
+/******************************************************************************/
+type CreateTemplate struct {
+	BaseTemplate
 
 	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
-func (c *CreateExampleCluster) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
+func (c *CreateTemplate) Execute(ctx context.Context) error {
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
+	}
 
-	fmt.Printf("***** CreateExampleCluster ****** \n\n\n")
-
-	clusterExistFlag, err := c.ClusterExist(false)
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
 		return err
 	}
+
 	if clusterExistFlag == false {
-		// TODO: Create the cluster
+		// TODO: Add resource preparation
+
+		// tags := []types.Tag{
+		// 	{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
+		// 	{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
+		// 	{Key: aws.String("Type"), Value: aws.String("glue")},
+		// 	{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
+		// }
+
+		// if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{}); err != nil {
+		// 	return err
+		// }
 
 		// TODO: Check cluster status until expected status
 	}
@@ -122,71 +152,67 @@ func (c *CreateExampleCluster) Execute(ctx context.Context) error {
 }
 
 // Rollback implements the Task interface
-func (c *CreateExampleCluster) Rollback(ctx context.Context) error {
+func (c *CreateTemplate) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *CreateExampleCluster) String() string {
-	return fmt.Sprintf("Echo: Create example ... ...  ")
+func (c *CreateTemplate) String() string {
+	return fmt.Sprintf("Echo: Create Template ... ...  ")
 }
 
-type DestroyExampleCluster struct {
-	BaseExampleCluster
+type DestroyTemplate struct {
+	BaseTemplate
 	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
-func (c *DestroyExampleCluster) Execute(ctx context.Context) error {
+func (c *DestroyTemplate) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroyExampleCluster ****** \n\n\n")
+	fmt.Printf("***** DestroyTemplate ****** \n\n\n")
 
-	clusterExistFlag, err := c.ClusterExist(false)
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
 		return err
 	}
 
 	if clusterExistFlag == true {
-		// Destroy the cluster
+		// TODO: Destroy the cluster
 	}
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *DestroyExampleCluster) Rollback(ctx context.Context) error {
+func (c *DestroyTemplate) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *DestroyExampleCluster) String() string {
-	return fmt.Sprintf("Echo: Destroying example")
+func (c *DestroyTemplate) String() string {
+	return fmt.Sprintf("Echo: Destroying Template")
 }
 
-type ListExampleCluster struct {
-	BaseExampleCluster
+type ListTemplate struct {
+	BaseTemplate
 }
 
 // Execute implements the Task interface
-func (c *ListExampleCluster) Execute(ctx context.Context) error {
+func (c *ListTemplate) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** ListExampleCluster ****** \n\n\n")
-
-	if err := c.ReadExampleInfo(ctx); err != nil {
-		return err
-	}
+	fmt.Printf("***** ListTemplate ****** \n\n\n")
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *ListExampleCluster) Rollback(ctx context.Context) error {
+func (c *ListTemplate) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *ListExampleCluster) String() string {
-	return fmt.Sprintf("Echo: List Example ")
+func (c *ListTemplate) String() string {
+	return fmt.Sprintf("Echo: List  ")
 }
