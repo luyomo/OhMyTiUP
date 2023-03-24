@@ -120,6 +120,10 @@ func (b *BaseMSKConnectPlugin) init(ctx context.Context) error {
 
 	b.client = kafkaconnect.NewFromConfig(cfg) // Replace the example to specific service
 
+	if b.MSKConnectPluginInfos == nil {
+		b.MSKConnectPluginInfos = &MSKConnectPluginInfos{}
+	}
+
 	return nil
 }
 
@@ -156,7 +160,6 @@ func (b *BaseMSKConnectPlugin) ReadMSKConnectPluginInfo(ctx context.Context) err
 
 	for _, plugin := range resp.CustomPlugins {
 		if *plugin.Name == b.formatConnectName("redshift-sink") {
-			fmt.Printf("Kafka Connect Custom Plugins: <%#v>\n\n\n\n", resp)
 			b.MSKConnectPluginInfos.Append(&plugin)
 			return nil
 		}

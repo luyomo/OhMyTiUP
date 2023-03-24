@@ -470,6 +470,10 @@ func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt 
 		return err
 	}
 
+	if includeWS == false {
+		return nil
+	}
+
 	m.workstation, err = workstation.NewAWSWorkstation(&m.localExe, clusterName, clusterType, (*gOpt).SSHUser, (*gOpt).IdentityFile, true)
 	if err != nil {
 		return err

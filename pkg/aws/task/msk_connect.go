@@ -163,12 +163,12 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 		// 1. Get subnets
 		// 2. Get security group
 		// 3. Get custom plugin arn
-		var mskConnectPluginInfos MSKConnectPluginInfos
-		listMSKConnectPlugin := &ListMSKConnectPlugin{BaseMSKConnectPlugin: BaseMSKConnectPlugin{pexecutor: c.pexecutor, MSKConnectPluginInfos: &mskConnectPluginInfos, clusterName: c.clusterName}}
+		// var mskConnectPluginInfos MSKConnectPluginInfos
+		listMSKConnectPlugin := &ListMSKConnectPlugin{BaseMSKConnectPlugin: BaseMSKConnectPlugin{pexecutor: c.pexecutor, clusterName: c.clusterName}}
 		if err := listMSKConnectPlugin.Execute(ctx); err != nil {
 			return err
 		}
-		pluginArn, err := mskConnectPluginInfos.GetPluginArn()
+		pluginArn, err := listMSKConnectPlugin.MSKConnectPluginInfos.GetPluginArn()
 		if err != nil {
 			return err
 		}
@@ -176,6 +176,15 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 
 		// 4. Execution role
 		// 5. worker configuration arn
+		listWorkerConfiguration := &ListWorkerConfiguration{BaseWorkerConfiguration: BaseWorkerConfiguration{clusterName: c.clusterName}}
+		if err := listWorkerConfiguration.Execute(ctx); err != nil {
+			return err
+		}
+		workerConfigurationArn, err := listWorkerConfiguration.WorkerConfigurationInfos.GetWorkerConfigurationARN()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The worker configuration : <%#v>\n\n\n\n ", *workerConfigurationArn)
 		return nil
 
 		connectConfiguration["connector.class"] = "io.confluent.connect.aws.redshift.RedshiftSinkConnector"
@@ -234,14 +243,14 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 			Plugins: []types.Plugin{
 				types.Plugin{
 					CustomPlugin: &types.CustomPlugin{
-						CustomPluginArn: aws.String("arn:aws:kafkaconnect:us-east-1:729581434105:custom-plugin/aws-msk-redshift-sink-plugin/9eb7f4c7-5b37-4e5c-8e95-39d9fffa6c3a-2"),
+						CustomPluginArn: pluginArn,
 						Revision:        1,
 					},
 				},
 			},
 			ServiceExecutionRoleArn: aws.String("arn:aws:iam::729581434105:role/tidb2es-role"),
 			WorkerConfiguration: &types.WorkerConfiguration{
-				WorkerConfigurationArn: aws.String("arn:aws:kafkaconnect:us-east-1:729581434105:worker-configuration/test001/0fbbe690-6f20-4555-bc2b-09c736b7cf02-2"),
+				WorkerConfigurationArn: workerConfigurationArn,
 				Revision:               1,
 			},
 		})

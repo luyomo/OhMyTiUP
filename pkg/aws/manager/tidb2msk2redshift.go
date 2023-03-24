@@ -418,6 +418,7 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 	t2 := task.NewBuilder().
 		// CreatePerfTables(&m.wsExe, "embed/templates/config/tidb2kafka2redshift/ColumnMapping.yml", strings.Split("BOOL,TINYINT,SMALLINT", ",")).
 		// CreateChangefeed(&m.wsExe, mskEndpoints).
+		CreateWorkerConfiguration().
 		CreateMskConnect(&m.wsExe, &task.CreateMskConnectInput{
 			RedshiftDBInfo:     redshiftDBInfo,
 			MskEndpoints:       mskEndpoints,
