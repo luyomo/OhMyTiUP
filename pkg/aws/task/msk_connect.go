@@ -195,7 +195,30 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 			return err
 		}
 		fmt.Printf("The role arn : <%s>\n\n\n\n ", *roleArn)
-		return nil
+
+		// Get security group
+		listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: c.pexecutor}}}
+		if err := listSecurityGroup.Execute(ctx); err != nil {
+			return err
+		}
+
+		securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The security group is : <%s> \n\n\n", *securityGroupID)
+
+		// Get subnet group
+		listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: "msk"}}}
+		if err := listSubnets.Execute(ctx); err != nil {
+			return err
+		}
+
+		subnets, err := listSubnets.GetSubnets(3)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("The subnet is : <%s> \n\n\n", subnets)
 
 		connectConfiguration["connector.class"] = "io.confluent.connect.aws.redshift.RedshiftSinkConnector"
 		connectConfiguration["tasks.max"] = "1"
@@ -238,8 +261,8 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 				ApacheKafkaCluster: &types.ApacheKafkaCluster{
 					BootstrapServers: c.createMskConnectInput.MskEndpoints,
 					Vpc: &types.Vpc{
-						Subnets:        []string{"subnet-0fb529d0d16dbe33b", "subnet-03974f66caf5253f0", "subnet-0fed73a70606d4af3"},
-						SecurityGroups: []string{"sg-0789992f83fbc7353"},
+						Subnets:        *subnets,
+						SecurityGroups: []string{*securityGroupID},
 					},
 				},
 			},
@@ -262,6 +285,15 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 			WorkerConfiguration: &types.WorkerConfiguration{
 				WorkerConfigurationArn: workerConfigurationArn,
 				Revision:               1,
+			},
+			LogDelivery: &types.LogDelivery{
+				WorkerLogDelivery: &types.WorkerLogDelivery{
+					S3: &types.S3LogDelivery{
+						Enabled: true,
+						Bucket:  aws.String("ossinsight-data"),
+						Prefix:  aws.String("kafka/tidb2redshift"),
+					},
+				},
 			},
 		})
 		if err != nil {

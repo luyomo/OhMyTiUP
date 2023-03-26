@@ -220,7 +220,7 @@ func (m *Manager) TiDB2AuroraDeploy(
 
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(&sexecutor, "test", &clusterInfo).
+				CreateVPC(&sexecutor, "test", &clusterInfo).
 				CreateRouteTable(&sexecutor, "test", true, &clusterInfo).
 				CreateNetwork(&sexecutor, "test", true, &clusterInfo).
 				CreateSecurityGroup(&sexecutor, "test", true, &clusterInfo, []int{22}, []int{}).

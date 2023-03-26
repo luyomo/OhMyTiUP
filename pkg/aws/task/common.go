@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -1453,10 +1454,12 @@ func CleanClusterSA(executor *ctxt.Executor, clusterName string) error {
 }
 
 type ResourceData interface {
+	Reset() error
 	Append(interface{})
 	ResourceExist() (bool, error)
 	ToPrintTable() *[][]string
 	GetResourceArn() (*string, error)
+	GetData() []interface{}
 
 	WriteIntoConfigFile(_fileName string) error
 }
@@ -1479,8 +1482,17 @@ func (b *BaseResourceInfo) WriteIntoConfigFile(_fileName string) error {
 	return nil
 }
 
+func (d *BaseResourceInfo) Reset() error {
+	d.Data = d.Data[:0]
+	return nil
+}
+
 func (d *BaseResourceInfo) Append(data interface{}) {
 	d.Data = append(d.Data, data)
+}
+
+func (d *BaseResourceInfo) GetData() []interface{} {
+	return d.Data
 }
 
 /*
@@ -1494,7 +1506,8 @@ func (b *BaseResourceInfo) ResourceExist() (bool, error) {
 		return false, nil
 	}
 	if len(b.Data) > 1 {
-		return false, errors.New("Multiple resources found")
+		debug.PrintStack()
+		return false, errors.New(fmt.Sprintf("Multiple resources found: <%#v>", b.Data))
 	}
 	return true, nil
 }
@@ -1533,8 +1546,12 @@ type BaseTask struct {
 	pexecutor *ctxt.Executor
 	wsExe     *ctxt.Executor
 
-	clusterName string // It's initialized from init() function
-	clusterType string // It's initialized from init() function
+	ResourceData ResourceData
+
+	clusterName    string // It's initialized from init() function
+	clusterType    string // It's initialized from init() function
+	subClusterType string // tidb/msk/workstation
+	scope          string // public/private
 
 	clusterInfo *ClusterInfo
 }
@@ -1551,6 +1568,61 @@ func (b *BaseTask) getTiDBClusterInfo() (*TiDBClusterDisplay, error) {
 	}
 
 	return &tidbClusterDisplay, nil
+}
+
+func (b *BaseTask) GetSubnetsInfo(numSubnets int) (*[]string, error) {
+	// Get the subnet for workstation
+	listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{
+		pexecutor:      b.pexecutor,
+		clusterName:    b.clusterName,
+		clusterType:    b.clusterType,
+		subClusterType: b.subClusterType,
+		scope:          b.scope,
+	}}}
+	if err := listSubnets.Execute(nil); err != nil {
+		return nil, err
+	}
+
+	return listSubnets.GetSubnets(numSubnets)
+}
+
+func (b *BaseTask) GetSecurityGroup() (*string, error) {
+	listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{
+		pexecutor:      b.pexecutor,
+		clusterName:    b.clusterName,
+		clusterType:    b.clusterType,
+		subClusterType: b.subClusterType,
+		scope:          b.scope}}}
+	if err := listSecurityGroup.Execute(nil); err != nil {
+		return nil, err
+	}
+
+	return listSecurityGroup.ResourceData.GetResourceArn()
+}
+
+func (b *BaseTask) GetVpcItem(itemType string) (*string, error) {
+	listVPC := &ListVPC{BaseVPC: BaseVPC{BaseTask: BaseTask{
+		pexecutor:      b.pexecutor,
+		clusterName:    b.clusterName,
+		clusterType:    b.clusterType,
+		subClusterType: b.subClusterType,
+		scope:          b.scope}}}
+	if err := listVPC.Execute(nil); err != nil {
+		return nil, err
+	}
+
+	// resourceExistFlag, err := b.ResourceData.ResourceExist()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// if resourceExistFlag == false {
+	// 	return nil, errors.New("No VPC found")
+	// }
+
+	return listVPC.GetVPCItem(itemType)
+
+	// return listVPC.ResourceData.GetResourceArn()
 }
 
 /*

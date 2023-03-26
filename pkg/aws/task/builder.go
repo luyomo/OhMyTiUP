@@ -490,15 +490,6 @@ func (b *Builder) Deploy(user, host string) *Builder {
 	return b
 }
 
-func (b *Builder) CreateVpc(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateVpc{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-	})
-	return b
-}
-
 func (b *Builder) CreateNetwork(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateNetwork{
 		pexecutor:      pexecutor,
@@ -515,18 +506,6 @@ func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType stri
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 		isPrivate:      isPrivate,
-	})
-	return b
-}
-
-func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo, openPortsPublic, openPortsPrivate []int) *Builder {
-	b.tasks = append(b.tasks, &CreateSecurityGroup{
-		pexecutor:        pexecutor,
-		subClusterType:   subClusterType,
-		clusterInfo:      clusterInfo,
-		isPrivate:        isPrivate,
-		openPortsPublic:  openPortsPublic,
-		openPortsPrivate: openPortsPrivate,
 	})
 	return b
 }
@@ -780,14 +759,6 @@ func (b *Builder) DestroyEC(pexecutor *ctxt.Executor, subClusterType string) *Bu
 	return b
 }
 
-func (b *Builder) DestroySecurityGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroySecurityGroup{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
-	return b
-}
-
 func (b *Builder) DestroyVpcPeering(pexecutor *ctxt.Executor, listComponent []string) *Builder {
 	b.tasks = append(b.tasks, &DestroyVpcPeering{
 		pexecutor:     pexecutor,
@@ -814,14 +785,6 @@ func (b *Builder) DestroyRouteTable(pexecutor *ctxt.Executor, subClusterType str
 
 func (b *Builder) DestroyInternetGateway(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyInternetGateway{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
-	return b
-}
-
-func (b *Builder) DestroyVpc(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyVpc{
 		pexecutor:      pexecutor,
 		subClusterType: subClusterType,
 	})
@@ -1146,7 +1109,7 @@ func (b *Builder) DestroyTransitGateway(pexecutor *ctxt.Executor) *Builder {
 func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo, openPortsPublic, openPortsPrivate []int) *Builder {
 	if isPrivate == true {
 		if clusterInfo.enableNAT == "true" {
-			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
+			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				// NAT creation should be after the network preparation, otherwise the nat subnet is taken as one of the private subnets.
@@ -1154,7 +1117,7 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 				Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
 		} else {
-			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
+			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
@@ -1162,7 +1125,7 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 		}
 
 	} else {
-		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVpc(pexecutor, subClusterType, clusterInfo).Build()).
+		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Creating route table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
@@ -1327,7 +1290,7 @@ func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType 
 		Step(fmt.Sprintf("%s : Destroying nat ... ...", subClusterType), NewBuilder().DestroyNAT(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying network ... ...", subClusterType), NewBuilder().DestroyNetwork(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying route table ... ...", subClusterType), NewBuilder().DestroyRouteTable(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyVpc(pexecutor, subClusterType).Build())
+		Step(fmt.Sprintf("%s : Destroying VPC ... ...", subClusterType), NewBuilder().DestroyVPC(pexecutor, subClusterType).Build())
 
 	return b
 }
@@ -1418,14 +1381,6 @@ func (b *Builder) PrepareSysbenchTiCDC(pexecutor *ctxt.Executor, identityFile st
 	return b
 }
 
-func (b *Builder) ListVpc(pexecutor *ctxt.Executor, tableVPC *[][]string) *Builder {
-	b.tasks = append(b.tasks, &ListVpc{
-		pexecutor: pexecutor,
-		tableVPC:  tableVPC,
-	})
-	return b
-}
-
 func (b *Builder) ListAccount(pexecutor *ctxt.Executor, account *string) *Builder {
 	b.tasks = append(b.tasks, &ListAccount{
 		pexecutor: pexecutor,
@@ -1446,14 +1401,6 @@ func (b *Builder) ListRouteTable(pexecutor *ctxt.Executor, tableRouteTables *[][
 	b.tasks = append(b.tasks, &ListRouteTable{
 		pexecutor:        pexecutor,
 		tableRouteTables: tableRouteTables,
-	})
-	return b
-}
-
-func (b *Builder) ListSecurityGroup(pexecutor *ctxt.Executor, tableSecurityGroups *[][]string) *Builder {
-	b.tasks = append(b.tasks, &ListSecurityGroup{
-		pexecutor:           pexecutor,
-		tableSecurityGroups: tableSecurityGroups,
 	})
 	return b
 }
@@ -1625,73 +1572,6 @@ func (b *Builder) CreateOracle(pexecutor *ctxt.Executor, awsOracleConfigs *spec.
 		awsOracleConfigs: awsOracleConfigs,
 		clusterInfo:      clusterInfo,
 	})
-	return b
-}
-
-func (b *Builder) CreateRedshiftCluster(pexecutor *ctxt.Executor, subClusterType string, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	clusterInfo.cidr = awsRedshiftTopoConfigs.CIDR
-
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{5439}).Build()).
-		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateRedshiftCluster{
-			BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
-			clusterInfo:         clusterInfo,
-		})
-
-	return b
-}
-
-func (b *Builder) DeployRedshiftInstance(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, wsExe *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &DeployRedshiftInstance{
-		BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
-		wsExe:               wsExe,
-	})
-
-	return b
-}
-
-func (b *Builder) ListRedshiftCluster(pexecutor *ctxt.Executor, redshiftDBInfos *RedshiftDBInfos) *Builder {
-	b.tasks = append(b.tasks, &ListRedshiftCluster{
-		BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor, RedshiftDBInfos: redshiftDBInfos},
-	})
-	return b
-}
-
-func (b *Builder) DestroyRedshiftCluster(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyRedshiftCluster{
-		BaseRedshiftCluster: BaseRedshiftCluster{pexecutor: pexecutor},
-	})
-
-	b.Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
-	return b
-}
-
-func (b *Builder) CreateMSKCluster(pexecutor *ctxt.Executor, subClusterType string, awsMSKTopoConfigs *spec.AwsMSKTopoConfigs, clusterInfo *ClusterInfo) *Builder {
-	clusterInfo.cidr = awsMSKTopoConfigs.CIDR
-
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{9092}).Build()).
-		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateMSKCluster{
-			BaseMSKCluster: BaseMSKCluster{pexecutor: pexecutor, awsMSKTopoConfigs: awsMSKTopoConfigs},
-			clusterInfo:    clusterInfo,
-		})
-
-	return b
-}
-
-func (b *Builder) ListMSKCluster(pexecutor *ctxt.Executor, mskInfos *MSKInfos) *Builder {
-	b.tasks = append(b.tasks, &ListMSKCluster{
-		BaseMSKCluster: BaseMSKCluster{pexecutor: pexecutor, MSKInfos: mskInfos},
-	})
-	return b
-}
-
-func (b *Builder) DestroyMSKCluster(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyMSKCluster{
-		BaseMSKCluster: BaseMSKCluster{pexecutor: pexecutor},
-	})
-
-	b.Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 	return b
 }
 

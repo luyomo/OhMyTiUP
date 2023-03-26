@@ -63,9 +63,20 @@ func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 		return nil
 	}
 
+	// Fetch the vpc id
+	listVpc := &ListVPC{BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType}}}
+	if err := listVpc.Execute(ctx); err != nil {
+		return err
+	}
+
+	vpcId, err := listVpc.GetVpcID()
+	if err != nil {
+		return err
+	}
+
 	zap.L().Debug("New Internet gateway", zap.String("newInternetGateway", newInternetGateway.String()))
 	//	fmt.Printf("The stdout from the internet gateway preparation: %#v \n\n\n", newInternetGateway)
-	command = fmt.Sprintf("aws ec2 attach-internet-gateway --internet-gateway-id %s --vpc-id %s", newInternetGateway.InternetGateway.InternetGatewayId, c.clusterInfo.vpcInfo.VpcId)
+	command = fmt.Sprintf("aws ec2 attach-internet-gateway --internet-gateway-id %s --vpc-id %s", newInternetGateway.InternetGateway.InternetGatewayId, *vpcId)
 	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
 	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
 	if err != nil {

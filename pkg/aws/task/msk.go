@@ -29,6 +29,35 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 )
 
+func (b *Builder) CreateMSKCluster(pexecutor *ctxt.Executor, subClusterType string, awsMSKTopoConfigs *spec.AwsMSKTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsMSKTopoConfigs.CIDR
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{9092}).Build()).
+		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateMSKCluster{
+			BaseMSKCluster: BaseMSKCluster{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: "private"}, awsMSKTopoConfigs: awsMSKTopoConfigs},
+			clusterInfo:    clusterInfo,
+		})
+
+	return b
+}
+
+func (b *Builder) ListMSKCluster(pexecutor *ctxt.Executor, mskInfos *MSKInfos) *Builder {
+	b.tasks = append(b.tasks, &ListMSKCluster{
+		BaseMSKCluster: BaseMSKCluster{BaseTask: BaseTask{pexecutor: pexecutor}, MSKInfos: mskInfos},
+	})
+	return b
+}
+
+func (b *Builder) DestroyMSKCluster(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyMSKCluster{
+		BaseMSKCluster: BaseMSKCluster{BaseTask: BaseTask{pexecutor: pexecutor}},
+	})
+
+	b.Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
+	return b
+}
+
 type MSKInfo struct {
 	ClusterName         string
 	KafkaVersion        string
@@ -43,25 +72,26 @@ type MSKInfos struct {
 	BaseResourceInfo
 }
 
-func (d *MSKInfos) Append(cluster *types.Cluster, clusterInfo *types.ClusterInfo, listNodeInfo *[]types.NodeInfo) {
-	var endpoints []string
-	var clientVpcIpAddress []string
-	for _, nodeInfo := range *listNodeInfo {
-		endpoints = append(endpoints, nodeInfo.BrokerNodeInfo.Endpoints...)
-		clientVpcIpAddress = append(clientVpcIpAddress, *nodeInfo.BrokerNodeInfo.ClientVpcIpAddress)
-	}
-	(*d).Data = append((*d).Data, MSKInfo{
-		ClusterName:         *cluster.ClusterName,
-		KafkaVersion:        *clusterInfo.CurrentBrokerSoftwareInfo.KafkaVersion,
-		State:               string(cluster.State),
-		ClusterType:         string(cluster.ClusterType),
-		Endpoints:           endpoints,
-		ClientVpcIpAddress:  clientVpcIpAddress,
-		NumberOfBrokerNodes: clusterInfo.NumberOfBrokerNodes,
-	})
-}
+// func (d *MSKInfos) Append(cluster *types.Cluster, clusterInfo *types.ClusterInfo, listNodeInfo *[]types.NodeInfo) {
+// 	var endpoints []string
+// 	var clientVpcIpAddress []string
+// 	for _, nodeInfo := range *listNodeInfo {
+// 		endpoints = append(endpoints, nodeInfo.BrokerNodeInfo.Endpoints...)
+// 		clientVpcIpAddress = append(clientVpcIpAddress, *nodeInfo.BrokerNodeInfo.ClientVpcIpAddress)
+// 	}
+// 	(*d).Data = append((*d).Data, MSKInfo{
+// 		ClusterName:         *cluster.ClusterName,
+// 		KafkaVersion:        *clusterInfo.CurrentBrokerSoftwareInfo.KafkaVersion,
+// 		State:               string(cluster.State),
+// 		ClusterType:         string(cluster.ClusterType),
+// 		Endpoints:           endpoints,
+// 		ClientVpcIpAddress:  clientVpcIpAddress,
+// 		NumberOfBrokerNodes: clusterInfo.NumberOfBrokerNodes,
+// 	})
+// }
 
 func (d *MSKInfos) GetFirstEndpoint() (*string, error) {
+
 	if len((*d).Data) == 0 {
 		return nil, errors.New("No MSK endpoint found")
 	}
@@ -75,6 +105,16 @@ func (d *MSKInfos) GetFirstEndpoint() (*string, error) {
 
 	strEndpoints := strings.Join(endpoints, ",")
 	return &strEndpoints, nil
+}
+
+func (d *MSKInfos) GetResourceArn() (*string, error) {
+	// TODO: Implement
+	_, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (d *MSKInfos) ToPrintTable() *[][]string {
@@ -94,10 +134,39 @@ func (d *MSKInfos) ToPrintTable() *[][]string {
 }
 
 type BaseMSKCluster struct {
-	pexecutor *ctxt.Executor
+	BaseTask
+
+	// pexecutor *ctxt.Executor
+	client *kafka.Client // Replace the example to specific service
 
 	MSKInfos          *MSKInfos
 	awsMSKTopoConfigs *spec.AwsMSKTopoConfigs
+}
+
+func (b *BaseMSKCluster) init(ctx context.Context) error {
+	if ctx != nil {
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
+
+	// Client initialization
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	b.client = kafka.NewFromConfig(cfg) // Replace the example to specific service
+
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &MSKInfos{}
+	}
+
+	if err := b.readResources(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 /*
@@ -106,13 +175,13 @@ type BaseMSKCluster struct {
  *   (false, nil): Cluster does not exist
  *   (false, error): Failed to check
  */
-func (b *BaseMSKCluster) ClusterExist(kafkaClient *kafka.Client, clusterName string, checkAvailableState bool) (bool, error) {
-	clusters, err := kafkaClient.ListClustersV2(context.TODO(), &kafka.ListClustersV2Input{ClusterNameFilter: aws.String(clusterName)})
+func (b *BaseMSKCluster) ClusterExist( /*kafkaClient *kafka.Client, clusterName string,*/ checkAvailableState bool) (bool, error) {
+	clusters, err := b.client.ListClustersV2(context.TODO(), &kafka.ListClustersV2Input{ClusterNameFilter: aws.String(b.clusterName)})
 	if err != nil {
 		return false, err
 	}
 	for _, cluster := range clusters.ClusterInfoList {
-		if *cluster.ClusterName == clusterName {
+		if *cluster.ClusterName == b.clusterName {
 			if checkAvailableState == true {
 				if cluster.State == "ACTIVE" {
 					return true, nil
@@ -129,13 +198,13 @@ func (b *BaseMSKCluster) ClusterExist(kafkaClient *kafka.Client, clusterName str
 	return false, nil
 }
 
-func (b *BaseMSKCluster) getClusterArn(kafkaClient *kafka.Client, clusterName string) (*string, error) {
-	clusters, err := kafkaClient.ListClustersV2(context.TODO(), &kafka.ListClustersV2Input{ClusterNameFilter: aws.String(clusterName)})
+func (b *BaseMSKCluster) getClusterArn( /*kafkaClient *kafka.Client, clusterName string*/ ) (*string, error) {
+	clusters, err := b.client.ListClustersV2(context.TODO(), &kafka.ListClustersV2Input{ClusterNameFilter: aws.String(b.clusterName)})
 	if err != nil {
 		return nil, err
 	}
 	for _, cluster := range clusters.ClusterInfoList {
-		if *cluster.ClusterName == clusterName {
+		if *cluster.ClusterName == b.clusterName {
 			return cluster.ClusterArn, nil
 		}
 	}
@@ -143,60 +212,76 @@ func (b *BaseMSKCluster) getClusterArn(kafkaClient *kafka.Client, clusterName st
 	return nil, nil
 }
 
-func (b *BaseMSKCluster) ConfigurationExist(kafkaClient *kafka.Client, clusterName string) (bool, error) {
-	configurations, err := kafkaClient.ListConfigurations(context.TODO(), &kafka.ListConfigurationsInput{})
+func (b *BaseMSKCluster) ConfigurationExist( /*kafkaClient *kafka.Client, clusterName string*/ ) (bool, error) {
+	configurations, err := b.client.ListConfigurations(context.TODO(), &kafka.ListConfigurationsInput{})
 	if err != nil {
 		return false, err
 	}
 
 	for _, configuration := range configurations.Configurations {
-		if *configuration.Name == clusterName {
+		if *configuration.Name == b.clusterName {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func (b *BaseMSKCluster) getConfigurationArn(kafkaClient *kafka.Client, clusterName string) (*string, error) {
-	configurations, err := kafkaClient.ListConfigurations(context.TODO(), &kafka.ListConfigurationsInput{})
+func (b *BaseMSKCluster) getConfigurationArn( /*kafkaClient *kafka.Client, clusterName string*/ ) (*string, error) {
+	configurations, err := b.client.ListConfigurations(context.TODO(), &kafka.ListConfigurationsInput{})
 	if err != nil {
 		return nil, err
 	}
 
 	for _, configuration := range configurations.Configurations {
-		if *configuration.Name == clusterName {
+		if *configuration.Name == b.clusterName {
 			return configuration.Arn, nil
 		}
 	}
 	return nil, nil
 }
 
-func (b *BaseMSKCluster) ReadMSKInfo(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
+func (b *BaseMSKCluster) readResources() error {
+	// cfg, err := config.LoadDefaultConfig(context.TODO())
+	// if err != nil {
+	// 	return err
+	// }
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return err
-	}
+	// client := kafka.NewFromConfig(cfg)
 
-	client := kafka.NewFromConfig(cfg)
-
-	clusters, err := client.ListClustersV2(context.TODO(), &kafka.ListClustersV2Input{ClusterNameFilter: aws.String(clusterName)})
+	clusters, err := b.client.ListClustersV2(context.TODO(), &kafka.ListClustersV2Input{ClusterNameFilter: aws.String(b.clusterName)})
 	if err != nil {
 		return err
 	}
 	for _, cluster := range clusters.ClusterInfoList {
-		if *cluster.ClusterName == clusterName {
-			describeCluster, err := client.DescribeCluster(context.TODO(), &kafka.DescribeClusterInput{ClusterArn: cluster.ClusterArn})
+		if *cluster.ClusterName == b.clusterName {
+			describeCluster, err := b.client.DescribeCluster(context.TODO(), &kafka.DescribeClusterInput{ClusterArn: cluster.ClusterArn})
 			if err != nil {
 				return err
 			}
 
-			listNodes, err := client.ListNodes(context.TODO(), &kafka.ListNodesInput{ClusterArn: cluster.ClusterArn})
+			listNodes, err := b.client.ListNodes(context.TODO(), &kafka.ListNodesInput{ClusterArn: cluster.ClusterArn})
 			if err != nil {
 				return err
 			}
-			b.MSKInfos.Append(&cluster, describeCluster.ClusterInfo, &listNodes.NodeInfoList)
+
+			var endpoints []string
+			var clientVpcIpAddress []string
+			for _, nodeInfo := range listNodes.NodeInfoList {
+				endpoints = append(endpoints, nodeInfo.BrokerNodeInfo.Endpoints...)
+				clientVpcIpAddress = append(clientVpcIpAddress, *nodeInfo.BrokerNodeInfo.ClientVpcIpAddress)
+			}
+			mskInfo := MSKInfo{
+				ClusterName:         *cluster.ClusterName,
+				KafkaVersion:        string(*describeCluster.ClusterInfo.CurrentBrokerSoftwareInfo.KafkaVersion),
+				State:               string(cluster.State),
+				ClusterType:         string(cluster.ClusterType),
+				Endpoints:           endpoints,
+				ClientVpcIpAddress:  clientVpcIpAddress,
+				NumberOfBrokerNodes: describeCluster.ClusterInfo.NumberOfBrokerNodes,
+			}
+
+			b.ResourceData.Append(mskInfo)
+			// b.MSKInfos.Append(&cluster, describeCluster.ClusterInfo, &listNodes.NodeInfoList)
 		}
 	}
 
@@ -212,14 +297,9 @@ type CreateMSKCluster struct {
 
 // Execute implements the Task interface
 func (c *CreateMSKCluster) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
+	if err := c.init(ctx); err != nil {
 		return err
 	}
-
-	client := kafka.NewFromConfig(cfg)
 
 	// tags := []types.Tag{
 	// 	{Key: aws.String("Cluster"), Value: aws.String(clusterType)},
@@ -227,15 +307,15 @@ func (c *CreateMSKCluster) Execute(ctx context.Context) error {
 	// 	{Key: aws.String("Name"), Value: aws.String(clusterName)},
 	// }
 
-	configurationExist, err := c.ConfigurationExist(client, clusterName)
+	configurationExist, err := c.ConfigurationExist()
 	if err != nil {
 		return err
 	}
 
 	if configurationExist == false {
 
-		_, err := client.CreateConfiguration(context.TODO(), &kafka.CreateConfigurationInput{
-			Name:          aws.String(clusterName),
+		_, err := c.client.CreateConfiguration(context.TODO(), &kafka.CreateConfigurationInput{
+			Name:          aws.String(c.clusterName),
 			KafkaVersions: []string{"3.3.2"},
 			ServerProperties: []byte(`auto.create.topics.enable=false
 auto.create.topics.enable=false
@@ -257,7 +337,7 @@ zookeeper.session.timeout.ms=18000`),
 		}
 	}
 
-	clusterExist, err := c.ClusterExist(client, clusterName, false)
+	clusterExist, err := c.ClusterExist( /*client, clusterName,*/ false)
 	if err != nil {
 		return err
 	}
@@ -265,25 +345,38 @@ zookeeper.session.timeout.ms=18000`),
 	/*
 	   BadRequestException: Specify either two or three client subnets.
 	*/
-	var clusterSubnets []string
-	for idx := 0; idx < 3; idx++ {
-		clusterSubnets = append(clusterSubnets, c.clusterInfo.privateSubnets[idx])
+	// var clusterSubnets []string
+	// for idx := 0; idx < 3; idx++ {
+	// 	clusterSubnets = append(clusterSubnets, c.clusterInfo.privateSubnets[idx])
+	// }
+
+	clusterSubnets, err := c.GetSubnetsInfo(3)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The subnets for msk is <%#v> \n\n\n\n\n\n", clusterSubnets)
+
+	securityGroup, err := c.GetSecurityGroup()
+	if err != nil {
+		return err
 	}
 
 	if clusterExist == false {
-		configuratinArn, err := c.getConfigurationArn(client, clusterName)
+		configuratinArn, err := c.getConfigurationArn( /*client, clusterName*/ )
 		if err != nil {
 			return err
 		}
 		fmt.Printf("configuration arn: <%#v> \n\n\n\n\n\n", *configuratinArn)
-		_, err = client.CreateClusterV2(context.TODO(), &kafka.CreateClusterV2Input{
-			ClusterName: aws.String(clusterName),
+		_, err = c.client.CreateClusterV2(context.TODO(), &kafka.CreateClusterV2Input{
+			ClusterName: aws.String(c.clusterName),
 			Provisioned: &types.ProvisionedRequest{
 				KafkaVersion: aws.String("3.3.2"),
 				BrokerNodeGroupInfo: &types.BrokerNodeGroupInfo{
-					ClientSubnets:  clusterSubnets,
-					InstanceType:   aws.String(c.awsMSKTopoConfigs.InstanceType),
-					SecurityGroups: []string{c.clusterInfo.privateSecurityGroupId},
+					// ClientSubnets:  clusterSubnets,
+					ClientSubnets: *clusterSubnets,
+					InstanceType:  aws.String(c.awsMSKTopoConfigs.InstanceType),
+					// SecurityGroups: []string{c.clusterInfo.privateSecurityGroupId},
+					SecurityGroups: []string{*securityGroup},
 				},
 				NumberOfBrokerNodes: 3,
 				ClientAuthentication: &types.ClientAuthentication{
@@ -305,7 +398,7 @@ zookeeper.session.timeout.ms=18000`),
 		}
 
 		if err = WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
-			clusterExist, err := c.ClusterExist(client, clusterName, true)
+			clusterExist, err := c.ClusterExist( /*client, clusterName,*/ true)
 			return clusterExist, err
 		}); err != nil {
 			return err
@@ -332,7 +425,9 @@ type DestroyMSKCluster struct {
 
 // Execute implements the Task interface
 func (c *DestroyMSKCluster) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
+	if err := c.init(ctx); err != nil {
+		return err
+	}
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -341,13 +436,13 @@ func (c *DestroyMSKCluster) Execute(ctx context.Context) error {
 
 	client := kafka.NewFromConfig(cfg)
 
-	clusterExistFlag, err := c.ClusterExist(client, clusterName, false)
+	clusterExistFlag, err := c.ClusterExist( /*client, clusterName,*/ false)
 	if err != nil {
 		return err
 	}
 
 	if clusterExistFlag == true {
-		clusterArn, err := c.getClusterArn(client, clusterName)
+		clusterArn, err := c.getClusterArn( /*client, clusterName*/ )
 		if err != nil {
 			return err
 		}
@@ -359,7 +454,7 @@ func (c *DestroyMSKCluster) Execute(ctx context.Context) error {
 		}
 
 		if err = WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
-			clusterExist, err := c.ClusterExist(client, clusterName, false)
+			clusterExist, err := c.ClusterExist( /*client, clusterName, */ false)
 			return !clusterExist, err
 		}); err != nil {
 			return err
@@ -386,7 +481,7 @@ type ListMSKCluster struct {
 
 // Execute implements the Task interface
 func (c *ListMSKCluster) Execute(ctx context.Context) error {
-	if err := c.ReadMSKInfo(ctx); err != nil {
+	if err := c.init(ctx); err != nil {
 		return err
 	}
 

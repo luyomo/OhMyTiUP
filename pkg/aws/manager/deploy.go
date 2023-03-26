@@ -234,7 +234,7 @@ func (m *Manager) Deploy(
 
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
-				CreateVpc(&sexecutor, "tidb", &clusterInfo).
+				CreateVPC(&sexecutor, "tidb", &clusterInfo).
 				CreateRouteTable(&sexecutor, "tidb", false, &clusterInfo).
 				CreateNetwork(&sexecutor, "tidb", false, &clusterInfo).
 				CreateSecurityGroup(&sexecutor, "tidb", false, &clusterInfo, []int{22}, []int{}).

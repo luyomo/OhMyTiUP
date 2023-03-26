@@ -133,6 +133,40 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 
 	}
 
+	// ********** TODO: Replace below login by common function --------------------
+	// Get the subnet for workstation
+	listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: "workstation", scope: "public"}}}
+	if err := listSubnets.Execute(ctx); err != nil {
+		return err
+	}
+
+	subnets, err := listSubnets.GetSubnets(1)
+	if err != nil {
+		return err
+	}
+	if len(*subnets) > 1 {
+		return errors.New("Multipl subnets for workstation")
+	}
+
+	if len(*subnets) == 0 {
+		return errors.New("No subnet for workstation")
+	}
+
+	fmt.Printf("subnet for workstation: <%#v> \n\n\n\n\n", subnets)
+
+	// Get the security group for workstation
+	listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType, scope: "public"}}}
+	if err := listSecurityGroup.Execute(ctx); err != nil {
+		return err
+	}
+
+	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The security group is : <%s> \n\n\n", *securityGroupID)
+	// ********** TODO: Replace below login by common function --------------------
+
 	// 03. Template data preparation
 	var tagSpecification []types.TagSpecification
 	tagSpecification = append(tagSpecification, types.TagSpecification{ResourceType: types.ResourceTypeInstance, Tags: tags})
@@ -150,8 +184,10 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 				AssociatePublicIpAddress: aws.Bool(true),
 				DeleteOnTermination:      aws.Bool(true),
 				DeviceIndex:              aws.Int32(0),
-				SubnetId:                 aws.String(c.clusterInfo.publicSubnet),
-				Groups:                   []string{c.clusterInfo.publicSecurityGroupId},
+				SubnetId:                 aws.String((*subnets)[0]),
+				Groups:                   []string{*securityGroupID},
+				// Groups:                   []string{c.clusterInfo.publicSecurityGroupId},
+				// SubnetId:                 aws.String(c.clusterInfo.publicSubnet),
 			},
 		},
 		TagSpecifications: tagSpecification,
@@ -685,7 +721,7 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
 			if ae.ErrorCode() == "InvalidLaunchTemplateName.NotFoundException" {
-				c.CreateLaunchTemplate(client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
+				c.CreateLaunchTemplate(ctx, client, &combinedName, clusterName, clusterType, tagOwner, tagProject)
 			} else {
 				return err
 			}
@@ -706,6 +742,37 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// ********** TODO: Replace below login by common function --------------------
+	// Get the subnet for workstation
+	listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType, scope: "private"}}}
+	if err := listSubnets.Execute(ctx); err != nil {
+		return err
+	}
+
+	subnets, err := listSubnets.GetSubnets(0)
+	if err != nil {
+		return err
+	}
+
+	if len(*subnets) == 0 {
+		return errors.New("No subnet for workstation")
+	}
+
+	fmt.Printf("subnet for workstation: <%#v> \n\n\n\n\n", subnets)
+
+	// Get the security group for workstation
+	listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType, scope: "private"}}}
+	if err := listSecurityGroup.Execute(ctx); err != nil {
+		return err
+	}
+
+	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The security group is : <%s> \n\n\n", *securityGroupID)
+	// ********** TODO: Replace below login by common function --------------------
 
 	/***************************************************************************************************************
 	 * 05. Auto scaling generation
@@ -730,7 +797,8 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 				LaunchTemplateName: aws.String(combinedName),
 				Version:            aws.String("$Latest"),
 			},
-			VPCZoneIdentifier: aws.String(strings.Join(c.clusterInfo.privateSubnets, ",")),
+			// VPCZoneIdentifier: aws.String(strings.Join(c.clusterInfo.privateSubnets, ",")),
+			VPCZoneIdentifier: aws.String(strings.Join(*subnets, ",")),
 			Tags:              tags,
 		}
 
@@ -754,8 +822,22 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (c *CreateEC2Nodes) CreateLaunchTemplate(client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
+func (c *CreateEC2Nodes) CreateLaunchTemplate(ctx context.Context, client *ec2.Client, templateName *string, clusterName, clusterType, tagOwner, tagProject string) error {
 	requestLaunchTemplateData := types.RequestLaunchTemplateData{}
+
+	// ********** TODO: Replace below login by common function --------------------
+	// Get the security group for workstation
+	listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType, scope: "private"}}}
+	if err := listSecurityGroup.Execute(ctx); err != nil {
+		return err
+	}
+
+	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The security group is : <%s> \n\n\n", *securityGroupID)
+	// ********** TODO: Replace below login by common function --------------------
 
 	// 02. Storage template preparation
 	var launchTemplateBlockDeviceMappingRequest []types.LaunchTemplateBlockDeviceMappingRequest
@@ -783,11 +865,12 @@ func (c *CreateEC2Nodes) CreateLaunchTemplate(client *ec2.Client, templateName *
 		launchTemplateBlockDeviceMappingRequest = append(launchTemplateBlockDeviceMappingRequest, blockDeviceMapping)
 	}
 	requestLaunchTemplateData.BlockDeviceMappings = launchTemplateBlockDeviceMappingRequest
-	requestLaunchTemplateData.EbsOptimized = aws.Bool(false)                                    // EbsOptimized flag, not support all the instance type
-	requestLaunchTemplateData.ImageId = aws.String(c.awsGeneralConfigs.ImageId)                 // ImageID
-	requestLaunchTemplateData.InstanceType = types.InstanceType(c.awsTopoConfigs.InstanceType)  // Instance Type
-	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                 // Key name
-	requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId} // security group
+	requestLaunchTemplateData.EbsOptimized = aws.Bool(false)                                   // EbsOptimized flag, not support all the instance type
+	requestLaunchTemplateData.ImageId = aws.String(c.awsGeneralConfigs.ImageId)                // ImageID
+	requestLaunchTemplateData.InstanceType = types.InstanceType(c.awsTopoConfigs.InstanceType) // Instance Type
+	requestLaunchTemplateData.KeyName = aws.String(c.awsGeneralConfigs.KeyName)                // Key name
+	// requestLaunchTemplateData.SecurityGroupIds = []string{c.clusterInfo.privateSecurityGroupId} // security group
+	requestLaunchTemplateData.SecurityGroupIds = []string{*securityGroupID} // security group
 
 	tags := []types.Tag{
 		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},       // ex: ohmytiup-tidb
@@ -808,8 +891,7 @@ func (c *CreateEC2Nodes) CreateLaunchTemplate(client *ec2.Client, templateName *
 	}
 
 	// 04. Template generation
-	_, err := client.CreateLaunchTemplate(context.TODO(), createLaunchTemplateInput)
-	if err != nil {
+	if _, err := client.CreateLaunchTemplate(context.TODO(), createLaunchTemplateInput); err != nil {
 		return err
 	}
 

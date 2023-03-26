@@ -231,7 +231,7 @@ func (m *Manager) ListTiDB2Kafka2RedshiftCluster(clusterName, clusterType string
 
 	// 001. VPC listing
 	tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
-	t1 := task.NewBuilder().ListVpc(&m.localExe, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
+	t1 := task.NewBuilder().ListVPC(&m.localExe, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
 	listTasks = append(listTasks, t1)
 
 	// 002. subnets

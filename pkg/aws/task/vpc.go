@@ -15,164 +15,302 @@ package task
 
 import (
 	"context"
-	//	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/smithy-go"
+	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	"go.uber.org/zap"
-	"sort"
-	"time"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	// "go.uber.org/zap"
 )
 
-type CreateVpc struct {
-	pexecutor      *ctxt.Executor
-	subClusterType string
-	clusterInfo    *ClusterInfo
-	exePhase       string
+/******************************************************************************/
+// func (b *Builder) CreateVpc(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+// 	b.tasks = append(b.tasks, &CreateVpc{
+// 		pexecutor:      pexecutor,
+// 		subClusterType: subClusterType,
+// 		clusterInfo:    clusterInfo,
+// 	})
+// 	return b
+// }
+
+// func (b *Builder) DestroyVpc(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+// 	b.tasks = append(b.tasks, &DestroyVpc{
+// 		pexecutor:      pexecutor,
+// 		subClusterType: subClusterType,
+// 	})
+// 	return b
+// }
+
+//	func (b *Builder) ListVpc(pexecutor *ctxt.Executor, tableVPC *[][]string) *Builder {
+//		b.tasks = append(b.tasks, &ListVpc{
+//			pexecutor: pexecutor,
+//			tableVPC:  tableVPC,
+//		})
+//		return b
+//	}
+func (b *Builder) CreateVPC(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateVPC{
+		BaseVPC:     BaseVPC{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}},
+		clusterInfo: clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) ListVPC(pexecutor *ctxt.Executor, tableVPC *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListVPC{
+		BaseVPC:  BaseVPC{BaseTask: BaseTask{pexecutor: pexecutor}},
+		tableVPC: tableVPC,
+	})
+	return b
+}
+
+func (b *Builder) DestroyVPC(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyVPC{
+		BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: pexecutor}},
+	})
+	return b
+}
+
+/******************************************************************************/
+
+type VPCs struct {
+	BaseResourceInfo
+}
+
+func (d *VPCs) ToPrintTable() *[][]string {
+	tableVPC := [][]string{{"Cluster Name"}}
+	for _, _row := range d.Data {
+		// _entry := _row.(VPC)
+		// tableVPC = append(tableVPC, []string{
+		// 	// *_entry.PolicyName,
+		// })
+
+		log.Infof("%#v", _row)
+	}
+	return &tableVPC
+}
+
+func (d *VPCs) GetResourceArn() (*string, error) {
+	// TODO: Implement
+	resourceExists, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+	if resourceExists == false {
+		return nil, errors.New("No resource found - TODO: replace name")
+	}
+
+	// return (d.Data[0]).(*types.Role).Arn, nil
+	return nil, nil
+}
+
+/******************************************************************************/
+type BaseVPC struct {
+	BaseTask
+
+	ResourceData ResourceData
+	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
+
+	// The below variables are initialized in the init() function
+	client *ec2.Client // Replace the example to specific service
+	// subClusterType string
+}
+
+func (b *BaseVPC) init(ctx context.Context) error {
+	if ctx != nil {
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
+
+	// Client initialization
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	b.client = ec2.NewFromConfig(cfg) // Replace the example to specific service
+
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &VPCs{}
+	}
+
+	if err := b.readResources(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *BaseVPC) readResources() error {
+
+	var filters []types.Filter
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
+	}
+
+	resp, err := b.client.DescribeVpcs(context.TODO(), &ec2.DescribeVpcsInput{Filters: filters})
+	if err != nil {
+		return err
+	}
+
+	for _, vpc := range resp.Vpcs {
+		b.ResourceData.Append(vpc)
+	}
+	return nil
+}
+
+func (b *BaseVPC) GetVPCItem(itemType string) (*string, error) {
+	resourceExistFlag, err := b.ResourceData.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+
+	if resourceExistFlag == false {
+		return nil, errors.New("No VPC found")
+	}
+
+	_data := b.ResourceData.GetData()
+
+	if itemType == "VpcId" {
+		return _data[0].(types.Vpc).VpcId, nil
+	} else if itemType == "CidrBlock" {
+		return _data[0].(types.Vpc).CidrBlock, nil
+	} else if itemType == "State" {
+		state := string(_data[0].(types.Vpc).State)
+		return &state, nil
+	}
+
+	return nil, errors.New(fmt.Sprintf("not support item from vpc", itemType))
+
+}
+
+func (b *BaseVPC) GetVpcID() (*string, error) {
+	resourceExistFlag, err := b.ResourceData.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+
+	if resourceExistFlag == false {
+		return nil, errors.New("No VPC found")
+	}
+
+	_data := b.ResourceData.GetData()
+	return _data[0].(types.Vpc).VpcId, nil
+}
+
+/******************************************************************************/
+type CreateVPC struct {
+	BaseVPC
+
+	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
-func (c *CreateVpc) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-	c.exePhase = "Fetching VPC info"
-
-	vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
-	if err == nil {
-		zap.L().Info("Fetched VPC Info", zap.String("VPC Info", vpcInfo.String()))
-		c.clusterInfo.vpcInfo = *vpcInfo
-		return nil
-	}
-	if err.Error() != "No VPC found" {
-		zap.L().Debug("Failed to fetch vpc info ", zap.Error(err))
+func (c *CreateVPC) Execute(ctx context.Context) error {
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}
 
-	c.exePhase = "Creating VPC phase"
-	_, _, err = (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 create-vpc --cidr-block %s --tag-specifications \"ResourceType=vpc,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", c.clusterInfo.cidr, clusterName, clusterType, c.subClusterType), false)
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
-		zap.L().Error("Failed to create vpc. VPCInfo: ", zap.String("VpcInfo", c.clusterInfo.String()))
 		return err
 	}
 
-	time.Sleep(5 * time.Second)
+	if clusterExistFlag == false {
+		// TODO: Add resource preparation
 
-	c.exePhase = "Checking VPC status"
-	vpcInfo, err = getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
-	if err == nil {
-		zap.L().Info("Fetched VPC Info", zap.String("VPC Info", vpcInfo.String()))
-		c.clusterInfo.vpcInfo = *vpcInfo
-		return nil
+		// tags := []types.Tag{
+		// 	{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
+		// 	{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
+		// 	{Key: aws.String("Type"), Value: aws.String("glue")},
+		// 	{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
+		// }
 
-	}
+		// if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{}); err != nil {
+		// 	return err
+		// }
 
-	return errors.New("Failed to create vpc")
-}
-
-// Rollback implements the Task interface
-func (c *CreateVpc) Rollback(ctx context.Context) error {
-	return ErrUnsupportedRollback
-}
-
-// String implements the fmt.Stringer interface
-func (c *CreateVpc) String() string {
-	return fmt.Sprintf("Echo: [%s] Creating VPC ... ... ", c.exePhase)
-}
-
-/******************************************************************************/
-
-type DestroyVpc struct {
-	pexecutor      *ctxt.Executor
-	subClusterType string
-}
-
-/*
-Description: Destroy the VPC if it does not exists.
-*/
-func (c *DestroyVpc) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-
-	// Fetch the vpc info.
-	//  1. Return if no vpc is found
-	//  2. Return error if it fails
-	vpcInfo, err := getVPCInfo(*(c.pexecutor), ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
-
-	if err != nil {
-		if err.Error() == "No VPC found" {
-			return nil
-		} else {
-			zap.L().Debug("Failed to fetch vpc info ", zap.Error(err))
-			return err
-		}
-	}
-
-	// Delete the specified vpc
-	command := fmt.Sprintf("aws ec2 delete-vpc --vpc-id %s", (*vpcInfo).VpcId)
-	_, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
-		zap.L().Debug("Failed to delete vpc info ", zap.Error(err))
-		return err
+		// TODO: Check cluster status until expected status
 	}
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *DestroyVpc) Rollback(ctx context.Context) error {
+func (c *CreateVPC) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *DestroyVpc) String() string {
-	return fmt.Sprintf("Echo: Destroying vpc")
+func (c *CreateVPC) String() string {
+	return fmt.Sprintf("Echo: Create VPC ... ...  ")
 }
 
-/******************************************************************************/
-
-type ListVpc struct {
-	pexecutor *ctxt.Executor
-	tableVPC  *[][]string
+type DestroyVPC struct {
+	BaseVPC
+	clusterInfo *ClusterInfo
 }
 
-func (c *ListVpc) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+// Execute implements the Task interface
+func (c *DestroyVPC) Execute(ctx context.Context) error {
+	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	// Fetch the vpc info.
-	//  1. Return if no vpc is found
-	//  2. Return error if it fails
-	vpcInfos, err := getVPCInfos(*(c.pexecutor), ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType})
+	fmt.Printf("***** DestroyVPC ****** \n\n\n")
 
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
 		return err
 	}
-	for _, vpc := range vpcInfos.Vpcs {
-		componentName := "-"
-		for _, tagItem := range vpc.Tags {
-			if tagItem.Key == "Type" {
-				componentName = tagItem.Value
-			}
-		}
-		(*c.tableVPC) = append(*c.tableVPC, []string{
-			componentName,
-			vpc.VpcId,
-			vpc.CidrBlock,
-			vpc.State,
-		})
-	}
 
-	sort.Sort(byComponentName(*c.tableVPC))
+	if clusterExistFlag == true {
+		// TODO: Destroy the cluster
+	}
 
 	return nil
 }
 
 // Rollback implements the Task interface
-func (c *ListVpc) Rollback(ctx context.Context) error {
+func (c *DestroyVPC) Rollback(ctx context.Context) error {
 	return ErrUnsupportedRollback
 }
 
 // String implements the fmt.Stringer interface
-func (c *ListVpc) String() string {
-	return fmt.Sprintf("Echo: Listing vpc")
+func (c *DestroyVPC) String() string {
+	return fmt.Sprintf("Echo: Destroying VPC")
+}
+
+type ListVPC struct {
+	BaseVPC
+
+	tableVPC *[][]string
+}
+
+// Execute implements the Task interface
+func (c *ListVPC) Execute(ctx context.Context) error {
+	c.init(ctx) // ClusterName/ClusterType and client initialization
+
+	fmt.Printf("***** ListVPC ****** \n\n\n")
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListVPC) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListVPC) String() string {
+	return fmt.Sprintf("Echo: List  ")
 }

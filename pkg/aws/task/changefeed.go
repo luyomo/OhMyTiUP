@@ -141,7 +141,16 @@ func (c *CreateChangefeed) Execute(ctx context.Context) error {
 		return err
 	}
 	fmt.Printf("Fetch the cdc instance : <%#v> \n\n\n\n\n\n", cdcInstances)
+
+	if err := (*c.wsExe).TransferTemplate(ctx, "templates/config/ticdc.source.toml.tpl", "/opt/kafka/source.toml", "0644", nil, true, 0); err != nil {
+		return err
+	}
+
 	createChangefeedCmd := fmt.Sprintf(`~/cdc cli changefeed create --server http://%s --changefeed-id=%s --sink-uri="kafka://%s/topic-name?protocol=avro&replication-factor=3" --schema-registry=%s --schema-registry-provider=glue --config /opt/kafka/source.toml`, (*cdcInstances)[0].ID, c.clusterName, *c.mskEndpoints, c.clusterName)
+
+	if _, _, err := (*c.wsExe).Execute(context.Background(), createChangefeedCmd, false); err != nil {
+		return err
+	}
 
 	fmt.Printf("command: %s", createChangefeedCmd)
 

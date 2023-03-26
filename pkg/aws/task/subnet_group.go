@@ -1,0 +1,320 @@
+// Copyright 2020 PingCAP, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package task
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"runtime/debug"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/smithy-go"
+	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	// "go.uber.org/zap"
+)
+
+/******************************************************************************/
+func (b *Builder) CreateSubnets(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool) *Builder {
+	var scope string
+	if isPrivate == true {
+		scope = "private"
+	} else {
+		scope = "public"
+	}
+	b.tasks = append(b.tasks, &CreateSubnets{
+		BaseSubnets: BaseSubnets{
+			BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope},
+			// clusterInfo:    clusterInfo,
+			// isPrivate: isPrivate,
+
+		},
+	})
+	return b
+}
+
+func (b *Builder) DestroySubnets(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool) *Builder {
+	var scope string
+	if isPrivate == true {
+		scope = "private"
+	} else {
+		scope = "public"
+	}
+
+	b.tasks = append(b.tasks, &DestroySubnets{
+		BaseSubnets: BaseSubnets{
+			BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope},
+		},
+	})
+	return b
+}
+
+func (b *Builder) ListSubnets(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool) *Builder {
+	var scope string
+	if isPrivate == true {
+		scope = "private"
+	} else {
+		scope = "public"
+	}
+
+	b.tasks = append(b.tasks, &ListSubnets{
+		BaseSubnets: BaseSubnets{
+			BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope},
+		},
+	})
+	return b
+}
+
+// func (b *Builder) CreateSubnet() *Builder {
+// 	b.tasks = append(b.tasks, &CreateSubnets{})
+// 	return b
+// }
+
+// func (b *Builder) ListSubnet() *Builder {
+// 	b.tasks = append(b.tasks, &ListSubnets{})
+// 	return b
+// }
+
+// func (b *Builder) DestroySubnet() *Builder {
+// 	b.tasks = append(b.tasks, &DestroySubnets{})
+// 	return b
+// }
+
+/******************************************************************************/
+
+type SubnetsInfo struct {
+	BaseResourceInfo
+}
+
+func (d *SubnetsInfo) ToPrintTable() *[][]string {
+	tableSubnet := [][]string{{"Cluster Name"}}
+	for _, _row := range d.Data {
+		// _entry := _row.(Subnet)
+		// tableSubnet = append(tableSubnet, []string{
+		// 	// *_entry.PolicyName,
+		// })
+
+		log.Infof("%#v", _row)
+	}
+	return &tableSubnet
+}
+
+func (d *SubnetsInfo) GetResourceArn() (*string, error) {
+	// TODO: Implement
+	_, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+/******************************************************************************/
+type BaseSubnets struct {
+	BaseTask
+
+	// ResourceData ResourceData
+	// subClusterType string
+
+	// scope string
+	// isPrivate bool `default:false`
+	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
+
+	// The below variables are initialized in the init() function
+	client *ec2.Client // Replace the example to specific service
+}
+
+func (b *BaseSubnets) init(ctx context.Context) error {
+	fmt.Printf("Context is <%#v> \n\n\n\n\n\n ", ctx)
+	if ctx != nil {
+		fmt.Printf("Reaching here ???? \n\n\n")
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
+
+	// Client initialization
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	b.client = ec2.NewFromConfig(cfg) // Replace the example to specific service
+
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &SubnetsInfo{}
+	}
+
+	if err := b.readResources(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *BaseSubnets) GetSubnets(numSubnets int) (*[]string, error) {
+	_data := b.ResourceData.GetData()
+	if _data == nil {
+		debug.PrintStack()
+		return nil, errors.New("No valid subnets found")
+	}
+
+	var subnets []string
+	for idx, _entry := range _data {
+		_subnet := _entry.(types.Subnet)
+		if numSubnets == 0 || idx < numSubnets {
+			subnets = append(subnets, *_subnet.SubnetId)
+		}
+	}
+
+	return &subnets, nil
+}
+
+func (b *BaseSubnets) readResources() error {
+	if err := b.ResourceData.Reset(); err != nil {
+		return err
+	}
+
+	var filters []types.Filter
+	fmt.Printf("Name: %s, Cluster: %s, Type: %s, Scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
+	}
+
+	if b.scope != "" {
+		filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{b.scope}})
+	}
+
+	resp, err := b.client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{Filters: filters})
+	if err != nil {
+		return err
+	}
+
+	for _, subnet := range resp.Subnets {
+		b.ResourceData.Append(subnet)
+	}
+	return nil
+}
+
+/******************************************************************************/
+type CreateSubnets struct {
+	BaseSubnets
+
+	clusterInfo *ClusterInfo
+}
+
+// Execute implements the Task interface
+func (c *CreateSubnets) Execute(ctx context.Context) error {
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
+	}
+
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	if err != nil {
+		return err
+	}
+
+	if clusterExistFlag == false {
+		// TODO: Add resource preparation
+
+		// tags := []types.Tag{
+		// 	{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
+		// 	{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
+		// 	{Key: aws.String("Type"), Value: aws.String("glue")},
+		// 	{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
+		// }
+
+		// if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{}); err != nil {
+		// 	return err
+		// }
+
+		// TODO: Check cluster status until expected status
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *CreateSubnets) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *CreateSubnets) String() string {
+	return fmt.Sprintf("Echo: Create Subnet ... ...  ")
+}
+
+type DestroySubnets struct {
+	BaseSubnets
+}
+
+// Execute implements the Task interface
+func (c *DestroySubnets) Execute(ctx context.Context) error {
+	c.init(ctx) // ClusterName/ClusterType and client initialization
+
+	fmt.Printf("***** DestroySubnet ****** \n\n\n")
+
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	if err != nil {
+		return err
+	}
+
+	if clusterExistFlag == true {
+		// TODO: Destroy the cluster
+	}
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *DestroySubnets) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *DestroySubnets) String() string {
+	return fmt.Sprintf("Echo: Destroying Subnet")
+}
+
+type ListSubnets struct {
+	BaseSubnets
+}
+
+// Execute implements the Task interface
+func (c *ListSubnets) Execute(ctx context.Context) error {
+	c.init(ctx) // ClusterName/ClusterType and client initialization
+
+	fmt.Printf("***** ListSubnets ****** \n\n\n")
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListSubnets) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListSubnets) String() string {
+	return fmt.Sprintf("Echo: List  ")
+}

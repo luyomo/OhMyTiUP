@@ -30,9 +30,49 @@ import (
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
-type BaseRedshiftCluster struct {
-	pexecutor *ctxt.Executor
+func (b *Builder) CreateRedshiftCluster(pexecutor *ctxt.Executor, subClusterType string, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsRedshiftTopoConfigs.CIDR
 
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{5439}).Build()).
+		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateRedshiftCluster{
+			BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor, subCluster: subCluster, scope: "private"}, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
+			clusterInfo:         clusterInfo,
+		})
+
+	return b
+}
+
+func (b *Builder) DeployRedshiftInstance(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, wsExe *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DeployRedshiftInstance{
+		BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor}, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
+		wsExe:               wsExe,
+	})
+
+	return b
+}
+
+func (b *Builder) ListRedshiftCluster(pexecutor *ctxt.Executor, redshiftDBInfos *RedshiftDBInfos) *Builder {
+	b.tasks = append(b.tasks, &ListRedshiftCluster{
+		BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor}, RedshiftDBInfos: redshiftDBInfos},
+	})
+	return b
+}
+
+func (b *Builder) DestroyRedshiftCluster(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyRedshiftCluster{
+		BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor}},
+	})
+
+	b.Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
+	return b
+}
+
+type BaseRedshiftCluster struct {
+	BaseTask
+	// pexecutor *ctxt.Executor
+
+	client                 *redshift.Client // Replace the example to specific service
 	RedshiftDBInfos        *RedshiftDBInfos
 	awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs
 }
@@ -96,21 +136,48 @@ func (b *BaseRedshiftCluster) ClusterParameterGroupsExist(redshiftClient *redshi
 	return true, nil
 }
 
-func (b *BaseRedshiftCluster) ReadRedshiftDBInfo(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
+func (b *BaseRedshiftCluster) init(ctx context.Context) error {
+	if ctx != nil {
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
 
-	// var redshiftDBInfos RedshiftDBInfos
-
+	// Client initialization
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
 
-	client := redshift.NewFromConfig(cfg)
+	b.client = redshift.NewFromConfig(cfg) // Replace the example to specific service
+
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &RedshiftDBInfos{}
+	}
+
+	if err := b.readResources(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// func (b *BaseRedshiftCluster) ReadRedshiftDBInfo(ctx context.Context) error {
+func (b *BaseRedshiftCluster) readResources() error {
+	// clusterName := ctx.Value("clusterName").(string)
+
+	// var redshiftDBInfos RedshiftDBInfos
+
+	// cfg, err := config.LoadDefaultConfig(context.TODO())
+	// if err != nil {
+	// 	return err
+	// }
+
+	// client := redshift.NewFromConfig(cfg)
 
 	// Cluster
-	describeClusters, err := client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{
-		ClusterIdentifier: aws.String(clusterName),
+	describeClusters, err := b.client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{
+		ClusterIdentifier: aws.String(b.clusterName),
 	})
 	if err != nil {
 		var ae smithy.APIError
@@ -126,11 +193,23 @@ func (b *BaseRedshiftCluster) ReadRedshiftDBInfo(ctx context.Context) error {
 
 	if describeClusters != nil {
 		for _, cluster := range describeClusters.Clusters {
-			if b.awsRedshiftTopoConfigs == nil {
-				b.RedshiftDBInfos.Append(&cluster, "")
-			} else {
-				b.RedshiftDBInfos.Append(&cluster, b.awsRedshiftTopoConfigs.Password)
+			password := ""
+			if b.awsRedshiftTopoConfigs != nil {
+				password = b.awsRedshiftTopoConfigs.Password
 			}
+			_data := ws.RedshiftDBInfo{
+				Host:     *cluster.Endpoint.Address,
+				Port:     cluster.Endpoint.Port,
+				UserName: *cluster.MasterUsername,
+				DBName:   *cluster.DBName,
+				Password: password,
+				Status:   *cluster.ClusterAvailabilityStatus,
+				NodeType: *cluster.NodeType,
+			}
+
+			b.ResourceData.Append(_data)
+			// b.RedshiftDBInfos.Append(cluster)
+
 		}
 	}
 
@@ -166,12 +245,19 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 		return err
 	}
 
+	clusterSubnets, err := c.GetSubnetsInfo(0)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The subnets for msk is <%#v> \n\n\n\n\n\n", clusterSubnets)
+
 	if clusterSubnetGroupNameExistFlag == false {
 		if _, err := client.CreateClusterSubnetGroup(context.TODO(), &redshift.CreateClusterSubnetGroupInput{
 			ClusterSubnetGroupName: aws.String(clusterName),
 			Description:            aws.String(clusterName),
-			SubnetIds:              c.clusterInfo.privateSubnets,
-			Tags:                   tags,
+			// SubnetIds:              c.clusterInfo.privateSubnets,
+			SubnetIds: *clusterSubnets,
+			Tags:      tags,
 		}); err != nil {
 			return err
 		}
@@ -200,6 +286,11 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
+		securityGroup, err := c.GetSecurityGroup()
+		if err != nil {
+			return err
+		}
+
 		if _, err := client.CreateCluster(context.TODO(), &redshift.CreateClusterInput{
 			ClusterIdentifier:         aws.String(clusterName),
 			MasterUserPassword:        aws.String(c.awsRedshiftTopoConfigs.Password),
@@ -208,10 +299,11 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 			NodeType:                  aws.String(c.awsRedshiftTopoConfigs.InstanceType),
 			NumberOfNodes:             aws.Int32(1),
 			ClusterType:               aws.String(c.awsRedshiftTopoConfigs.ClusterType),
-			VpcSecurityGroupIds:       []string{c.clusterInfo.privateSecurityGroupId},
-			PubliclyAccessible:        aws.Bool(false),
-			ClusterSubnetGroupName:    aws.String(clusterName),
-			Tags:                      tags,
+			// VpcSecurityGroupIds:       []string{c.clusterInfo.privateSecurityGroupId},
+			VpcSecurityGroupIds:    []string{*securityGroup},
+			PubliclyAccessible:     aws.Bool(false),
+			ClusterSubnetGroupName: aws.String(clusterName),
+			Tags:                   tags,
 		}); err != nil {
 			return err
 		}
@@ -313,16 +405,26 @@ type RedshiftDBInfos struct {
 	BaseResourceInfo
 }
 
-func (d *RedshiftDBInfos) Append(cluster *types.Cluster, password string) {
-	(*d).Data = append((*d).Data, ws.RedshiftDBInfo{
-		Host:     *cluster.Endpoint.Address,
-		Port:     cluster.Endpoint.Port,
-		UserName: *cluster.MasterUsername,
-		DBName:   *cluster.DBName,
-		Password: password,
-		Status:   *cluster.ClusterAvailabilityStatus,
-		NodeType: *cluster.NodeType,
-	})
+// func (d *RedshiftDBInfos) Append(cluster *types.Cluster, password string) {
+// 	(*d).Data = append((*d).Data, ws.RedshiftDBInfo{
+// 		Host:     *cluster.Endpoint.Address,
+// 		Port:     cluster.Endpoint.Port,
+// 		UserName: *cluster.MasterUsername,
+// 		DBName:   *cluster.DBName,
+// 		Password: password,
+// 		Status:   *cluster.ClusterAvailabilityStatus,
+// 		NodeType: *cluster.NodeType,
+// 	})
+// }
+
+func (d *RedshiftDBInfos) GetResourceArn() (*string, error) {
+	// TODO: Implement
+	_, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (d *RedshiftDBInfos) ToPrintTable() *[][]string {
@@ -367,9 +469,12 @@ type ListRedshiftCluster struct {
 
 // Execute implements the Task interface
 func (c *ListRedshiftCluster) Execute(ctx context.Context) error {
-	if err := c.ReadRedshiftDBInfo(ctx); err != nil {
+	if err := c.init(ctx); err != nil {
 		return err
 	}
+	// if err := c.ReadRedshiftDBInfo(ctx); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -394,11 +499,14 @@ type DeployRedshiftInstance struct {
 
 // Execute implements the Task interface
 func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
-	c.RedshiftDBInfos = &RedshiftDBInfos{}
-
-	if err := c.ReadRedshiftDBInfo(ctx); err != nil {
+	if err := c.init(ctx); err != nil {
 		return err
 	}
+	// c.RedshiftDBInfos = &RedshiftDBInfos{}
+
+	// if err := c.ReadRedshiftDBInfo(ctx); err != nil {
+	// 	return err
+	// }
 
 	tmpFile := "/tmp/redshift.dbinfo.yaml"
 	if err := c.RedshiftDBInfos.WriteIntoConfigFile(tmpFile); err != nil {

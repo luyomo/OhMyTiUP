@@ -15,30 +15,289 @@ package task
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/smithy-go"
+	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	"go.uber.org/zap"
-	"strconv"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	// "go.uber.org/zap"
 )
 
+/******************************************************************************/
+func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo, openPortsPublic, openPortsPrivate []int) *Builder {
+	var scope string
+	var openPorts []int
+	if isPrivate == true {
+		scope = "private"
+		openPorts = openPortsPrivate
+	} else {
+		scope = "public"
+		openPorts = openPortsPublic
+	}
+
+	b.tasks = append(b.tasks, &CreateSecurityGroup{
+		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope}},
+		clusterInfo:       clusterInfo,
+		openPorts:         openPorts,
+		// openPortsPublic:   openPortsPublic,
+		// openPortsPrivate:  openPortsPrivate,
+
+	})
+	return b
+}
+
+func (b *Builder) ListSecurityGroup(pexecutor *ctxt.Executor, tableSecurityGroups *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListSecurityGroup{
+		BaseSecurityGroup:   BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor}},
+		tableSecurityGroups: tableSecurityGroups,
+	})
+	return b
+}
+
+func (b *Builder) DestroySecurityGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroySecurityGroup{
+		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor}},
+	})
+	return b
+}
+
+/******************************************************************************/
+
+type SecurityGroupsInfo struct {
+	BaseResourceInfo
+}
+
+func (d *SecurityGroupsInfo) ToPrintTable() *[][]string {
+	tableSecurityGroup := [][]string{{"Cluster Name"}}
+	for _, _row := range d.Data {
+		// _entry := _row.(SecurityGroup)
+		// tableSecurityGroup = append(tableSecurityGroup, []string{
+		// 	// *_entry.PolicyName,
+		// })
+
+		log.Infof("%#v", _row)
+	}
+	return &tableSecurityGroup
+}
+
+func (d *SecurityGroupsInfo) GetResourceArn() (*string, error) {
+	// TODO: Implement
+	roleExists, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+	if roleExists == false {
+		return nil, errors.New("No resource found - TODO: replace name")
+	}
+
+	return (d.Data[0]).(types.SecurityGroup).GroupId, nil
+}
+
+/******************************************************************************/
+type BaseSecurityGroup struct {
+	BaseTask
+
+	ResourceData ResourceData
+	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
+
+	// The below variables are initialized in the init() function
+	client *ec2.Client // Replace the example to specific service
+	// subClusterType string
+	// scope          string
+	// isPrivate      bool `default:false`
+
+}
+
+func (b *BaseSecurityGroup) init(ctx context.Context) error {
+	if ctx != nil {
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
+
+	// Client initialization
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	b.client = ec2.NewFromConfig(cfg) // Replace the example to specific service
+
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &SecurityGroupsInfo{}
+	}
+	if err := b.readResources(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *BaseSecurityGroup) readResources() error {
+	if err := b.ResourceData.Reset(); err != nil {
+		return err
+	}
+	var filters []types.Filter
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
+	}
+
+	if b.scope != "" {
+		filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{b.scope}})
+	}
+
+	resp, err := b.client.DescribeSecurityGroups(context.TODO(), &ec2.DescribeSecurityGroupsInput{Filters: filters})
+	if err != nil {
+		return err
+	}
+
+	for _, securityGroup := range resp.SecurityGroups {
+		b.ResourceData.Append(securityGroup)
+	}
+
+	return nil
+}
+
+/******************************************************************************/
 type CreateSecurityGroup struct {
-	pexecutor        *ctxt.Executor
-	subClusterType   string
-	clusterInfo      *ClusterInfo
-	isPrivate        bool `default:false`
-	openPortsPublic  []int
-	openPortsPrivate []int
+	BaseSecurityGroup
+
+	clusterInfo *ClusterInfo
+
+	openPorts []int
+	// openPortsPublic  []int
+	// openPortsPrivate []int
 }
 
 // Execute implements the Task interface
 func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
-
-	if c.isPrivate == true {
-		c.createPrivateSG(*c.pexecutor, ctx)
-	} else {
-		c.createPublicSG(*c.pexecutor, ctx)
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
 	}
+
+	if err := c.readResources(); err != nil {
+		return err
+	}
+
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	if err != nil {
+		return err
+	}
+
+	if clusterExistFlag == false {
+		var tags []types.Tag
+		tags = append(tags, types.Tag{Key: aws.String("Name"), Value: aws.String(c.clusterName)})
+		tags = append(tags, types.Tag{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)})
+
+		// If the subClusterType is not specified, it is called from destroy to remove all the security group
+		if c.subClusterType != "" {
+			tags = append(tags, types.Tag{Key: aws.String("Type"), Value: aws.String(c.subClusterType)})
+		}
+
+		if c.scope != "" {
+			tags = append(tags, types.Tag{Key: aws.String("Scope"), Value: aws.String(c.scope)})
+		}
+
+		// Fetch the vpc id
+		listVpc := &ListVPC{BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType}}}
+		if err := listVpc.Execute(ctx); err != nil {
+			return err
+		}
+
+		vpcId, err := listVpc.GetVpcID()
+		if err != nil {
+			return err
+		}
+
+		if _, err = c.client.CreateSecurityGroup(context.TODO(), &ec2.CreateSecurityGroupInput{
+			GroupName: aws.String(c.clusterName),
+			VpcId:     vpcId,
+			TagSpecifications: []types.TagSpecification{
+				types.TagSpecification{
+					ResourceType: types.ResourceTypeSecurityGroup,
+					Tags:         tags,
+				},
+			},
+			Description: aws.String(c.clusterName),
+		}); err != nil {
+			return err
+		}
+	}
+
+	if err := c.readResources(); err != nil {
+		return err
+	}
+
+	if err := c.addOpenPorts(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *CreateSecurityGroup) addOpenPorts() error {
+	securityGroupID, err := c.ResourceData.GetResourceArn()
+	if err != nil {
+		return err
+	}
+
+	for _, port := range c.openPorts {
+		if _, err = c.client.AuthorizeSecurityGroupIngress(context.TODO(), &ec2.AuthorizeSecurityGroupIngressInput{
+			CidrIp:     aws.String("0.0.0.0/0"),
+			GroupId:    securityGroupID,
+			IpProtocol: aws.String("tcp"),
+			FromPort:   aws.Int32(int32(port)),
+			ToPort:     aws.Int32(int32(port)),
+		}); err != nil {
+			// TODO: Added check before
+			// return err
+		}
+	}
+
+	cidr, err := c.GetVpcItem("CidrBlock")
+	if err != nil {
+		return err
+	}
+
+	if _, err = c.client.AuthorizeSecurityGroupIngress(context.TODO(), &ec2.AuthorizeSecurityGroupIngressInput{
+		CidrIp:     cidr,
+		GroupId:    securityGroupID,
+		IpProtocol: aws.String("tcp"),
+		FromPort:   aws.Int32(0),
+		ToPort:     aws.Int32(65535),
+	}); err != nil {
+		// TODO: Added check before
+		// return err
+	}
+
+	if _, err = c.client.AuthorizeSecurityGroupIngress(context.TODO(), &ec2.AuthorizeSecurityGroupIngressInput{
+		CidrIp:     cidr,
+		GroupId:    securityGroupID,
+		IpProtocol: aws.String("icmp"),
+		FromPort:   aws.Int32(-1),
+		ToPort:     aws.Int32(-1),
+	}); err != nil {
+		// TODO: Add check before
+		// return err
+	}
+
+	// if _, err = c.client.AuthorizeSecurityGroupIngress(context.TODO(), &ec2.AuthorizeSecurityGroupIngressInput{
+	// 	CidrIp:     aws.String("0.0.0.0/0"),
+	// 	GroupId:    securityGroupID,
+	// 	IpProtocol: aws.String("tcp"),
+	// }); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -50,168 +309,39 @@ func (c *CreateSecurityGroup) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateSecurityGroup) String() string {
-	return fmt.Sprintf("Echo: Creating security group ")
+	return fmt.Sprintf("Echo: Create SecurityGroup ... ...  ")
 }
-
-func (c *CreateSecurityGroup) createPrivateSG(executor ctxt.Executor, ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-
-	// Get the available zones
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", clusterName, clusterType, c.subClusterType)
-	stdout, _, err := executor.Execute(ctx, command, false)
-	if err != nil {
-		return nil
-	}
-
-	var securityGroups SecurityGroups
-	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("security group", string(stdout)))
-		return nil
-	}
-	if len(securityGroups.SecurityGroups) > 0 {
-		c.clusterInfo.privateSecurityGroupId = securityGroups.SecurityGroups[0].GroupId
-		zap.L().Info("Security group existed", zap.String("Security group", c.clusterInfo.privateSecurityGroupId))
-		return nil
-	}
-
-	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", clusterName, c.clusterInfo.vpcInfo.VpcId, clusterName, clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("create-security-group", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return nil
-	}
-
-	var securityGroup SecurityGroup
-	if err = json.Unmarshal(stdout, &securityGroup); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("create-security-group", string(stdout)))
-		return nil
-	}
-	fmt.Printf("The security group is <%s>\n\n\n", securityGroup.GroupId)
-	c.clusterInfo.privateSecurityGroupId = securityGroup.GroupId
-	zap.L().Info("Variable confirmation", zap.String("clusterInfo.privateSecurityGroupId", c.clusterInfo.privateSecurityGroupId))
-
-	//	for _, port := range []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180} {
-	for _, port := range c.openPortsPrivate {
-		command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port %d --cidr 0.0.0.0/0", c.clusterInfo.privateSecurityGroupId, port)
-		zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
-		stdout, _, err = executor.Execute(ctx, command, false)
-		if err != nil {
-			return nil
-		}
-	}
-
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", c.clusterInfo.privateSecurityGroupId, c.clusterInfo.cidr)
-	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return nil
-	}
-
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%s}]", c.clusterInfo.privateSecurityGroupId, c.clusterInfo.cidr)
-	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return nil
-	}
-
-	return nil
-}
-
-func (c *CreateSecurityGroup) createPublicSG(executor ctxt.Executor, ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-
-	// Get the available zones
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("describe-security-groups", command))
-	stdout, _, err := executor.Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-
-	var securityGroups SecurityGroups
-	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("describe-security-group", string(stdout)))
-		return err
-	}
-	if len(securityGroups.SecurityGroups) > 0 {
-		c.clusterInfo.publicSecurityGroupId = securityGroups.SecurityGroups[0].GroupId
-		zap.L().Info("Security group existed", zap.String("Security group", c.clusterInfo.publicSecurityGroupId))
-		return err
-	}
-
-	command = fmt.Sprintf("aws ec2 create-security-group --group-name %s-public --vpc-id %s --description %s --tag-specifications \"ResourceType=security-group,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", clusterName, c.clusterInfo.vpcInfo.VpcId, clusterName, clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("create-security-group", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-	var securityGroup SecurityGroup
-	if err = json.Unmarshal(stdout, &securityGroup); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("create-security-group", string(stdout)))
-		return err
-	}
-
-	c.clusterInfo.publicSecurityGroupId = securityGroup.GroupId
-
-	//	for _, port := range []int{22, 80, 3000} {
-	for _, port := range c.openPortsPublic {
-		command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --protocol tcp --port %d --cidr 0.0.0.0/0", c.clusterInfo.publicSecurityGroupId, port)
-		zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
-		stdout, _, err = executor.Execute(ctx, command, false)
-		if err != nil {
-			return nil
-		}
-	}
-
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=tcp,FromPort=0,ToPort=65535,IpRanges=[{CidrIp=%s}]", c.clusterInfo.publicSecurityGroupId, c.clusterInfo.cidr)
-	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return nil
-	}
-
-	command = fmt.Sprintf("aws ec2 authorize-security-group-ingress --group-id %s --ip-permissions IpProtocol=icmp,FromPort=-1,ToPort=-1,IpRanges=[{CidrIp=%s}]", c.clusterInfo.publicSecurityGroupId, c.clusterInfo.cidr)
-	zap.L().Debug("Command", zap.String("authorize-security-group-ingress", command))
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return nil
-	}
-
-	return nil
-}
-
-/******************************************************************************/
 
 type DestroySecurityGroup struct {
-	pexecutor      *ctxt.Executor
+	BaseSecurityGroup
+	clusterInfo *ClusterInfo
+
 	subClusterType string
 }
 
 // Execute implements the Task interface
 func (c *DestroySecurityGroup) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, c.subClusterType)
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
+	fmt.Printf("***** DestroySecurityGroup ****** \n\n\n")
 
-	var securityGroups SecurityGroups
-	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("security group", string(stdout)))
-		return err
-	}
-	for _, sg := range securityGroups.SecurityGroups {
-		command = fmt.Sprintf("aws ec2 delete-security-group --group-id %s ", sg.GroupId)
-		zap.L().Debug("Command", zap.String("delete-security-group", command))
-		_, _, err = (*c.pexecutor).Execute(ctx, command, false)
-		if err != nil {
+	c.init(ctx) // ClusterName/ClusterType and client initialization
+
+	for _, securityGroup := range c.ResourceData.GetData() {
+		fmt.Printf("The security group is <%#v> \n\n\n", securityGroup)
+
+		if _, err := c.client.DeleteSecurityGroup(context.Background(), &ec2.DeleteSecurityGroupInput{
+			GroupId: securityGroup.(types.SecurityGroup).GroupId,
+		}); err != nil {
 			return err
 		}
 	}
+	// clusterExistFlag, err := c.ResourceData.ResourceExist()
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if clusterExistFlag == true {
+	// 	// TODO: Destroy the cluster
+	// }
 
 	return nil
 }
@@ -223,55 +353,20 @@ func (c *DestroySecurityGroup) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroySecurityGroup) String() string {
-	return fmt.Sprintf("Echo: Destroying security group")
+	return fmt.Sprintf("Echo: Destroying SecurityGroup")
 }
 
-/******************************************************************************/
-
 type ListSecurityGroup struct {
-	pexecutor           *ctxt.Executor
+	BaseSecurityGroup
+
 	tableSecurityGroups *[][]string
 }
 
 // Execute implements the Task interface
 func (c *ListSecurityGroup) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-	command := fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" ", clusterName, clusterType)
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
+	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	var securityGroups SecurityGroups
-	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("security group", string(stdout)))
-		return err
-	}
-	for _, sg := range securityGroups.SecurityGroups {
-		componentName := "-"
-		for _, tagItem := range sg.Tags {
-			if tagItem.Key == "Type" {
-				componentName = tagItem.Value
-			}
-		}
-		for _, ipPermission := range sg.IpPermissions {
-			(*c.tableSecurityGroups) = append(*c.tableSecurityGroups, []string{
-				componentName,
-				ipPermission.IpProtocol,
-				ipPermission.IpRanges[0].CidrIp,
-				strconv.Itoa(ipPermission.FromPort),
-				strconv.Itoa(ipPermission.ToPort),
-			})
-
-		}
-		// command = fmt.Sprintf("aws ec2 delete-security-group --group-id %s ", sg.GroupId)
-		// zap.L().Debug("Command", zap.String("delete-security-group", command))
-		// _, _, err = (*c.pexecutor).Execute(ctx, command, false)
-		// if err != nil {
-		// 	return err
-		// }
-	}
+	fmt.Printf("***** ListSecurityGroup ****** \n\n\n")
 
 	return nil
 }
@@ -283,5 +378,5 @@ func (c *ListSecurityGroup) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *ListSecurityGroup) String() string {
-	return fmt.Sprintf("Echo: Listing security group")
+	return fmt.Sprintf("Echo: List  ")
 }

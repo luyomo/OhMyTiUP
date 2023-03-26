@@ -63,7 +63,7 @@ func (m *Manager) ListPDNSService(clusterName string, opt DeployOptions) error {
 
 	// 001. VPC listing
 	tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
-	t1 := task.NewBuilder().ListVpc(&sexecutor, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
+	t1 := task.NewBuilder().ListVPC(&sexecutor, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
 	listTasks = append(listTasks, t1)
 
 	// 002. subnets

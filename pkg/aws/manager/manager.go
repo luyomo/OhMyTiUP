@@ -479,6 +479,12 @@ func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt 
 		return err
 	}
 
+	pWsExe, err := m.workstation.GetExecutor()
+	if err != nil {
+		return err
+	}
+	m.wsExe = *pWsExe
+
 	// return nil
 
 	// // Lookup ssh user and private file

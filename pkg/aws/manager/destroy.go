@@ -60,7 +60,7 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 		DestroyNetwork(&sexecutor, "test").
 		DestroyRouteTable(&sexecutor, "test").
 		DestroyInternetGateway(&sexecutor, "test").
-		DestroyVpc(&sexecutor, "test").
+		DestroyVPC(&sexecutor, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)

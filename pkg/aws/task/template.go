@@ -66,11 +66,11 @@ func (d *Templates) ToPrintTable() *[][]string {
 
 func (d *Templates) GetResourceArn() (*string, error) {
 	// TODO: Implement
-	roleExists, err := d.ResourceExist()
+	resourceExists, err := d.ResourceExist()
 	if err != nil {
 		return nil, err
 	}
-	if roleExists == false {
+	if resourceExists == false {
 		return nil, errors.New("No resource found - TODO: replace name")
 	}
 
@@ -114,6 +114,15 @@ func (b *BaseTemplate) init(ctx context.Context) error {
 }
 
 func (b *BaseTemplate) readResources() error {
+
+	// TODO: Replace if necessary
+	// filters := []types.Filter{
+	// 	types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}},
+	// 	types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}},
+	// 	types.Filter{Name: aws.String("tag:Component"), Values: []string{c.subClusterType}},
+	// 	types.Filter{Name: aws.String("tag:Type"), Values: []string{"msk"}},
+	// 	types.Filter{Name: aws.String("tag:Scope"), Values: []string{"Scope"}},
+	// }
 
 	resp, err := b.client.ListPolicies(context.TODO(), &iam.ListPoliciesInput{})
 	if err != nil {

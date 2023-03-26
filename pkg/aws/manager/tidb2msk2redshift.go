@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/fatih/color"
@@ -245,7 +246,7 @@ func (m *Manager) ListTiDB2Msk2RedshiftCluster(clusterName, clusterType string, 
 
 	// 001. VPC listing
 	tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
-	t1 := task.NewBuilder().ListVpc(&m.localExe, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
+	t1 := task.NewBuilder().ListVPC(&m.localExe, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
 	listTasks = append(listTasks, t1)
 
 	// 002. subnets
@@ -378,7 +379,7 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := m.makeExeContext(ctx, nil, &gOpt, true, false); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
 		return err
 	}
 
@@ -416,8 +417,8 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 	}
 
 	t2 := task.NewBuilder().
-		// CreatePerfTables(&m.wsExe, "embed/templates/config/tidb2kafka2redshift/ColumnMapping.yml", strings.Split("BOOL,TINYINT,SMALLINT", ",")).
-		// CreateChangefeed(&m.wsExe, mskEndpoints).
+		CreatePerfTables(&m.wsExe, "embed/templates/config/tidb2kafka2redshift/ColumnMapping.yml", strings.Split("BOOL,TINYINT,SMALLINT", ",")).
+		CreateChangefeed(&m.wsExe, mskEndpoints).
 		CreateWorkerConfiguration().
 		CreateServiceIamPolicy().
 		CreateServiceIamRole().
