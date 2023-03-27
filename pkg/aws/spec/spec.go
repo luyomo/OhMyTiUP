@@ -144,6 +144,7 @@ type (
 		InstanceType string   `yaml:"instance_type,omitempty"`
 		ExcludedAZ   []string `yaml:"excluded_az,omitempty"`
 		IncludedAZ   []string `yaml:"included_az,omitempty"`
+		SubnetsNum   int      `yaml:"subnet_num,omitempty"`
 	}
 
 	AwsTopoConfigsGeneral struct {
@@ -157,6 +158,7 @@ type (
 		TiDBVersion  string   `yaml:"tidb_version"`
 		ExcludedAZ   []string `yaml:"excluded_az,omitempty"`
 		IncludedAZ   []string `yaml:"included_az,omitempty"`
+		SubnetsNum   int      `yaml:"subnet_num,omitempty"`
 		EnableNAT    string   `yaml:"enable_nat" default:"true"`
 		EnableThanos string   `yaml:"enable_thanos", default:"disabled"` // enabled/disabled
 	}

@@ -22,7 +22,7 @@ import (
 
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"go.uber.org/zap"
-	"strconv"
+	//"strconv"
 	"strings"
 	//"time"
 
@@ -119,12 +119,12 @@ func (c *CreateNetwork) String() string {
 	return fmt.Sprintf("Echo: Creating network ")
 }
 
-func getNextCidr(cidr string, idx int) string {
-	ip := strings.Split(cidr, "/")[0]
-	ipSegs := strings.Split(ip, ".")
-
-	return ipSegs[0] + "." + ipSegs[1] + "." + strconv.Itoa(idx) + ".0/24"
-}
+//func getNextCidr(cidr string, idx int) string {
+//	ip := strings.Split(cidr, "/")[0]
+//	ipSegs := strings.Split(ip, ".")
+//
+//	return ipSegs[0] + "." + ipSegs[1] + "." + strconv.Itoa(idx) + ".0/24"
+//}
 
 func associateSubnet2RouteTable(subnet string, routeTableId string, executor ctxt.Executor, ctx context.Context) {
 	command := fmt.Sprintf("aws ec2 associate-route-table --route-table-id %s --subnet-id %s ", routeTableId, subnet)

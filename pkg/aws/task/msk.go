@@ -31,6 +31,9 @@ import (
 
 func (b *Builder) CreateMSKCluster(pexecutor *ctxt.Executor, subClusterType string, awsMSKTopoConfigs *spec.AwsMSKTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	clusterInfo.cidr = awsMSKTopoConfigs.CIDR
+	clusterInfo.excludedAZ = awsMSKTopoConfigs.ExcludedAZ
+	clusterInfo.includedAZ = awsMSKTopoConfigs.IncludedAZ
+	clusterInfo.subnetsNum = awsMSKTopoConfigs.SubnetsNum
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
 		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{9092}).Build()).

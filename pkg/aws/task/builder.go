@@ -500,16 +500,6 @@ func (b *Builder) CreateNetwork(pexecutor *ctxt.Executor, subClusterType string,
 	return b
 }
 
-func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateRouteTable{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-		isPrivate:      isPrivate,
-	})
-	return b
-}
-
 func (b *Builder) CreatePDNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
 		pexecutor:         pexecutor,
@@ -667,6 +657,9 @@ func (b *Builder) WrapCreateEC2Nodes(pexecutor *ctxt.Executor, subClusterType st
 }
 
 func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo, wsExe *ctxt.Executor, gOpt *operator.Options) *Builder {
+	clusterInfo.cidr = awsWSConfigs.CIDR
+	clusterInfo.subnetsNum = 1
+
 	b.tasks = append(b.tasks, &CreateWorkstation{
 		pexecutor:      pexecutor,
 		awsWSConfigs:   awsWSConfigs,
@@ -769,14 +762,6 @@ func (b *Builder) DestroyVpcPeering(pexecutor *ctxt.Executor, listComponent []st
 
 func (b *Builder) DestroyNetwork(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyNetwork{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
-	return b
-}
-
-func (b *Builder) DestroyRouteTable(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyRouteTable{
 		pexecutor:      pexecutor,
 		subClusterType: subClusterType,
 	})
@@ -932,6 +917,7 @@ func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.
 	clusterInfo.cidr = awsESConfigs.General.CIDR
 	clusterInfo.excludedAZ = awsESConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
+	clusterInfo.subnetsNum = awsESConfigs.General.SubnetsNum
 	// clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
 	clusterInfo.enableNAT = "true" // The nat is mandatory for EKS node group. If the NAT wants to be disable, need to set the private endpoint to acces EKS control plane
 
@@ -952,6 +938,7 @@ func (b *Builder) CreateK8SESCluster(pexecutor *ctxt.Executor, awsWSConfigs *spe
 	clusterInfo.cidr = awsESConfigs.General.CIDR
 	clusterInfo.excludedAZ = awsESConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
+	clusterInfo.subnetsNum = awsESConfigs.General.SubnetsNum
 	clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating ES on EKS ... ...", subClusterType), &DeployK8SES{
@@ -1044,22 +1031,6 @@ func (b *Builder) CreateDMSTask(pexecutor *ctxt.Executor, subClusterType string,
 	return b
 }
 
-func (b *Builder) CreateTransitGateway(pexecutor *ctxt.Executor) *Builder {
-	fmt.Printf("----------------------------- \n\n\n\n\n\n")
-	b.tasks = append(b.tasks, &CreateTransitGateway{
-		pexecutor: pexecutor,
-	})
-	return b
-}
-
-func (b *Builder) CreateTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &CreateTransitGatewayVpcAttachment{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
-	return b
-}
-
 func (b *Builder) DestroyDMSInstance(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyDMSInstance{
 		pexecutor:      pexecutor,
@@ -1092,20 +1063,6 @@ func (b *Builder) DestroyDMSSubnetGroup(pexecutor *ctxt.Executor, subClusterType
 	return b
 }
 
-func (b *Builder) DestroyTransitGatewayVpcAttachment(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &DestroyTransitGatewayVpcAttachment{
-		pexecutor: pexecutor,
-	})
-	return b
-}
-
-func (b *Builder) DestroyTransitGateway(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &DestroyTransitGateway{
-		pexecutor: pexecutor,
-	})
-	return b
-}
-
 func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo, openPortsPublic, openPortsPrivate []int) *Builder {
 	if isPrivate == true {
 		if clusterInfo.enableNAT == "true" {
@@ -1113,13 +1070,15 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 				Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				// NAT creation should be after the network preparation, otherwise the nat subnet is taken as one of the private subnets.
-				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+				// Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
 		} else {
 			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+				// Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 				Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
 				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
 		}
@@ -1127,7 +1086,8 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 	} else {
 		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Creating route table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			// Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+			Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
 			Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
 			Step(fmt.Sprintf("%s : Creating security group ... ...", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build()).
 			Step(fmt.Sprintf("%s : Creating internet gateway ... ...", subClusterType), NewBuilder().CreateInternetGateway(pexecutor, subClusterType, clusterInfo).Build())
@@ -1140,7 +1100,7 @@ func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterT
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, false, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
 		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo, wsExe, gOpt).Build())
 
 	return b
@@ -1166,6 +1126,7 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	clusterInfo.cidr = awsTopoConfigs.General.CIDR
 	clusterInfo.excludedAZ = awsTopoConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
+	clusterInfo.subnetsNum = awsTopoConfigs.General.SubnetsNum
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
 	var parallelTasks []Task
@@ -1223,6 +1184,7 @@ func (b *Builder) CreateDMCluster(pexecutor *ctxt.Executor, subClusterType strin
 	clusterInfo.cidr = awsTopoConfigs.General.CIDR
 	clusterInfo.excludedAZ = awsTopoConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
+	clusterInfo.subnetsNum = awsTopoConfigs.General.SubnetsNum
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
@@ -1239,6 +1201,7 @@ func (b *Builder) CreateKafkaCluster(pexecutor *ctxt.Executor, subClusterType st
 	clusterInfo.cidr = topo.General.CIDR
 	clusterInfo.excludedAZ = topo.General.ExcludedAZ
 	clusterInfo.includedAZ = topo.General.IncludedAZ
+	clusterInfo.subnetsNum = topo.General.SubnetsNum
 	clusterInfo.enableNAT = topo.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
@@ -1261,6 +1224,7 @@ func (b *Builder) CreateMongoCluster(pexecutor *ctxt.Executor, subClusterType st
 	clusterInfo.cidr = topo.General.CIDR
 	clusterInfo.excludedAZ = topo.General.ExcludedAZ
 	clusterInfo.includedAZ = topo.General.IncludedAZ
+	clusterInfo.subnetsNum = topo.General.SubnetsNum
 	clusterInfo.enableNAT = topo.General.EnableNAT
 
 	var envInitTasks []Task
@@ -1393,30 +1357,6 @@ func (b *Builder) ListNetwork(pexecutor *ctxt.Executor, tableSubnets *[][]string
 	b.tasks = append(b.tasks, &ListNetwork{
 		pexecutor:    pexecutor,
 		tableSubnets: tableSubnets,
-	})
-	return b
-}
-
-func (b *Builder) ListRouteTable(pexecutor *ctxt.Executor, tableRouteTables *[][]string) *Builder {
-	b.tasks = append(b.tasks, &ListRouteTable{
-		pexecutor:        pexecutor,
-		tableRouteTables: tableRouteTables,
-	})
-	return b
-}
-
-func (b *Builder) ListTransitGateway(pexecutor *ctxt.Executor, transitGateway *TransitGateway) *Builder {
-	b.tasks = append(b.tasks, &ListTransitGateway{
-		pexecutor:      pexecutor,
-		transitGateway: transitGateway,
-	})
-	return b
-}
-
-func (b *Builder) ListTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, tableTransitGatewayVpcAttachments *[][]string) *Builder {
-	b.tasks = append(b.tasks, &ListTransitGatewayVpcAttachment{
-		pexecutor:                         pexecutor,
-		tableTransitGatewayVpcAttachments: tableTransitGatewayVpcAttachments,
 	})
 	return b
 }

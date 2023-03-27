@@ -42,6 +42,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -85,6 +86,7 @@ type ClusterInfo struct {
 	excludedAZ             []string
 	includedAZ             []string
 	enableNAT              string
+	subnetsNum             int
 }
 
 type DBInfo struct {
@@ -312,6 +314,13 @@ type DisplayDMCluster struct {
 		ComponentName string `json:"ComponentName"`
 		Port          int    `json:"Port"`
 	} `json:"instances"`
+}
+
+func getNextCidr(cidr string, idx int) string {
+	ip := strings.Split(cidr, "/")[0]
+	ipSegs := strings.Split(ip, ".")
+
+	return ipSegs[0] + "." + ipSegs[1] + "." + strconv.Itoa(idx) + ".0/24"
 }
 
 func contains(s *[]map[string]string, str string) bool {
@@ -986,13 +995,21 @@ func installWebSSH2(wexecutor *ctxt.Executor, ctx context.Context) error {
 }
 
 func containsInArray(s []string, searchterm string) bool {
-
 	if len(s) == 0 {
 		return false
 	}
 	i := sort.SearchStrings(s, searchterm)
 
 	return i < len(s) && s[i] == searchterm
+}
+
+func ListContainElement(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
 }
 
 type DBConnectInfo struct {
@@ -1570,8 +1587,44 @@ func (b *BaseTask) getTiDBClusterInfo() (*TiDBClusterDisplay, error) {
 	return &tidbClusterDisplay, nil
 }
 
+func (b *BaseTask) MakeEC2Tags() *[]ec2types.Tag {
+	var tags []ec2types.Tag
+	tags = append(tags, ec2types.Tag{Key: aws.String("Name"), Value: aws.String(b.clusterName)})
+	tags = append(tags, ec2types.Tag{Key: aws.String("Cluster"), Value: aws.String(b.clusterType)})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		tags = append(tags, ec2types.Tag{Key: aws.String("Type"), Value: aws.String(b.subClusterType)})
+	}
+
+	if b.scope != "" {
+		tags = append(tags, ec2types.Tag{Key: aws.String("Scope"), Value: aws.String(b.scope)})
+	}
+
+	return &tags
+}
+
+func (b *BaseTask) MakeEC2Filters() *[]ec2types.Filter {
+	var filters []ec2types.Filter
+
+	filters = append(filters, ec2types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
+	filters = append(filters, ec2types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		filters = append(filters, ec2types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
+	}
+
+	if b.scope != "" {
+		filters = append(filters, ec2types.Filter{Name: aws.String("tag:Scope"), Values: []string{b.scope}})
+	}
+
+	return &filters
+}
+
 func (b *BaseTask) GetSubnetsInfo(numSubnets int) (*[]string, error) {
 	// Get the subnet for workstation
+	fmt.Printf("Info: name:%s, type: %s, clusterType:%s, scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
 	listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,
 		clusterName:    b.clusterName,
@@ -1611,18 +1664,20 @@ func (b *BaseTask) GetVpcItem(itemType string) (*string, error) {
 		return nil, err
 	}
 
-	// resourceExistFlag, err := b.ResourceData.ResourceExist()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// if resourceExistFlag == false {
-	// 	return nil, errors.New("No VPC found")
-	// }
-
 	return listVPC.GetVPCItem(itemType)
+}
 
-	// return listVPC.ResourceData.GetResourceArn()
+func (b *BaseTask) GetTransitGatewayID() (*string, error) {
+	listTransitGateway := &ListTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{
+		pexecutor:   b.pexecutor,
+		clusterName: b.clusterName,
+		clusterType: b.clusterType,
+	}}}
+	if err := listTransitGateway.Execute(nil); err != nil {
+		return nil, err
+	}
+
+	return listTransitGateway.GetTransitGatewayID()
 }
 
 /*

@@ -62,7 +62,7 @@ func (b *Builder) ListSecurityGroup(pexecutor *ctxt.Executor, tableSecurityGroup
 
 func (b *Builder) DestroySecurityGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroySecurityGroup{
-		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor}},
+		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}},
 	})
 	return b
 }
@@ -209,12 +209,16 @@ func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
 		}
 
 		// Fetch the vpc id
-		listVpc := &ListVPC{BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType}}}
-		if err := listVpc.Execute(ctx); err != nil {
-			return err
-		}
+		// listVpc := &ListVPC{BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType}}}
+		// if err := listVpc.Execute(ctx); err != nil {
+		// 	return err
+		// }
 
-		vpcId, err := listVpc.GetVpcID()
+		// vpcId, err := listVpc.GetVpcID()
+		// if err != nil {
+		// 	return err
+		// }
+		vpcId, err := c.GetVpcItem("VpcId")
 		if err != nil {
 			return err
 		}
@@ -334,6 +338,7 @@ func (c *DestroySecurityGroup) Execute(ctx context.Context) error {
 			return err
 		}
 	}
+	return nil
 	// clusterExistFlag, err := c.ResourceData.ResourceExist()
 	// if err != nil {
 	// 	return err

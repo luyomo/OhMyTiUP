@@ -15,35 +15,216 @@ package task
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	"go.uber.org/zap"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
+	// "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/smithy-go"
+	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	// "go.uber.org/zap"
 )
 
-// Mkdir is used to create directory on the target host
+/******************************************************************************/
+func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
+	var scope string
+	if isPrivate == true {
+		scope = "private"
+	} else {
+		scope = "public"
+	}
+	b.tasks = append(b.tasks, &CreateRouteTable{
+		BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope}},
+		clusterInfo:    clusterInfo,
+	})
+	return b
+}
+
+func (b *Builder) ListRouteTable(pexecutor *ctxt.Executor, tableRouteTables *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListRouteTable{
+		BaseRouteTable:   BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor}},
+		tableRouteTables: tableRouteTables,
+	})
+	return b
+}
+
+func (b *Builder) DestroyRouteTable(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyRouteTable{
+		BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}},
+	})
+	return b
+}
+
+/******************************************************************************/
+
+type RouteTablesInfo struct {
+	BaseResourceInfo
+}
+
+func (d *RouteTablesInfo) ToPrintTable() *[][]string {
+	tableRouteTable := [][]string{{"Cluster Name"}}
+	for _, _row := range d.Data {
+		// _entry := _row.(RouteTable)
+		// tableRouteTable = append(tableRouteTable, []string{
+		// 	// *_entry.PolicyName,
+		// })
+
+		log.Infof("%#v", _row)
+	}
+	return &tableRouteTable
+}
+
+func (d *RouteTablesInfo) GetResourceArn() (*string, error) {
+	// TODO: Implement
+	resourceExists, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+	if resourceExists == false {
+		return nil, errors.New("No resource found - TODO: replace name")
+	}
+
+	// return (d.Data[0]).(*types.Role).Arn, nil
+	return nil, nil
+}
+
+/******************************************************************************/
+type BaseRouteTable struct {
+	BaseTask
+
+	ResourceData ResourceData
+	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
+
+	// The below variables are initialized in the init() function
+	client *ec2.Client // Replace the example to specific service
+}
+
+func (b *BaseRouteTable) init(ctx context.Context) error {
+	if ctx != nil {
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
+
+	// Client initialization
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	b.client = ec2.NewFromConfig(cfg) // Replace the example to specific service
+
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &RouteTablesInfo{}
+	}
+
+	if err := b.readResources(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *BaseRouteTable) readResources() error {
+	if err := b.ResourceData.Reset(); err != nil {
+		return err
+	}
+
+	filters := b.MakeEC2Filters()
+
+	resp, err := b.client.DescribeRouteTables(context.TODO(), &ec2.DescribeRouteTablesInput{Filters: *filters})
+	if err != nil {
+		return err
+	}
+
+	for _, routeTable := range resp.RouteTables {
+		b.ResourceData.Append(routeTable)
+	}
+	return nil
+}
+
+/******************************************************************************/
 type CreateRouteTable struct {
-	pexecutor      *ctxt.Executor
-	awsTopoConfigs *spec.AwsTopoConfigs
-	subClusterType string
-	clusterInfo    *ClusterInfo
-	isPrivate      bool `default:false`
+	BaseRouteTable
+
+	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *CreateRouteTable) Execute(ctx context.Context) error {
-	if c.isPrivate == true {
-		c.createPrivateSubnets(*c.pexecutor, ctx)
-	} else {
-		c.createPublicSubnets(*c.pexecutor, ctx)
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
 	}
 
+	fmt.Printf("CreateRouteTable -> ClusterName: %s, ClusterType: %s, subClusterType: %s, scope: %s \n\n\n\n", c.clusterName, c.clusterType, c.subClusterType, c.scope)
+	return nil
+
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	if err != nil {
+		return err
+	}
+
+	if clusterExistFlag == false {
+		tags := c.MakeEC2Tags()
+
+		vpcId, err := c.GetVpcItem("VpcId")
+		if err != nil {
+			return err
+		}
+
+		if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
+			VpcId: vpcId,
+			TagSpecifications: []types.TagSpecification{
+				types.TagSpecification{
+					ResourceType: types.ResourceTypeRouteTable,
+					Tags:         *tags,
+				},
+			},
+		}); err != nil {
+			return err
+		}
+
+		// TODO: Check cluster status until expected status
+	}
+
+	if c.subClusterType == "redshift" {
+		return nil
+	}
+	fmt.Printf("ClusterName: %s, ClusterType: %s, subClusterType: %s, scope: %s \n\n\n\n", c.clusterName, c.clusterType, c.subClusterType, c.scope)
+	if c.scope == "public" {
+		fmt.Printf("------------------- \n\n\n\n\n")
+		if err := c.CreateInternetGateway(); err != nil {
+			return err
+		}
+		if err := c.CreateRoute(); err != nil {
+			return err
+		}
+
+		return errors.New("Stop here")
+	}
+
+	return errors.New("Stop here 02")
+}
+
+func (c *CreateRouteTable) CreateInternetGateway() error {
+
+	filters := c.MakeEC2Filters()
+
+	resp, err := c.client.DescribeInternetGateways(context.TODO(), &ec2.DescribeInternetGatewaysInput{Filters: *filters})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("The response is <%#v> \n\n\n\n\n", resp.InternetGateways)
+
+	return nil
+}
+
+func (c *CreateRouteTable) CreateRoute() error {
 	return nil
 }
 
@@ -54,161 +235,29 @@ func (c *CreateRouteTable) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateRouteTable) String() string {
-	return fmt.Sprintf("Echo: Creating route table")
+	return fmt.Sprintf("Echo: Create RouteTable ... ...  ")
 }
 
-func (c *CreateRouteTable) createPrivateSubnets(executor ctxt.Executor, ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-
-	// Get the available zones
-	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=private\"", clusterName, clusterType, c.subClusterType), false)
-	if err != nil {
-		return err
-	}
-
-	var routeTables RouteTables
-	if err = json.Unmarshal(stdout, &routeTables); err != nil {
-		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
-		return err
-	}
-
-	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
-	if len(routeTables.RouteTables) > 0 {
-		c.clusterInfo.privateRouteTableId = routeTables.RouteTables[0].RouteTableId
-		return nil
-	}
-
-	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=private}]\"", c.clusterInfo.vpcInfo.VpcId, clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("create-route-table", zap.String("command", command))
-	var retRouteTable ResultRouteTable
-	stdout, _, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		return nil
-	}
-
-	if err = json.Unmarshal(stdout, &retRouteTable); err != nil {
-		zap.L().Error("Failed to parse the json", zap.String("return route table", string(stdout)))
-		return nil
-	}
-
-	zap.L().Debug("Print the variable", zap.String("route table id", retRouteTable.TheRouteTable.RouteTableId))
-	c.clusterInfo.privateRouteTableId = retRouteTable.TheRouteTable.RouteTableId
-
-	// Add route to route table
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-
-	if err != nil {
-		return err
-	}
-
-	client := ec2.NewFromConfig(cfg)
-
-	var filters []types.Filter
-	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Component"), Values: []string{c.subClusterType}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{"nat"}})
-
-	natGatewayId, err := SearchNatGateway(client, filters, []string{"available"})
-	if err != nil {
-		return err
-	}
-
-	if natGatewayId != nil {
-		createRouteInput := &ec2.CreateRouteInput{
-			RouteTableId:         aws.String(retRouteTable.TheRouteTable.RouteTableId),
-			DestinationCidrBlock: aws.String("0.0.0.0/0"),
-			GatewayId:            natGatewayId,
-		}
-
-		if _, err = client.CreateRoute(context.TODO(), createRouteInput); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (c *CreateRouteTable) createPublicSubnets(executor ctxt.Executor, ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-
-	// Get the available zones
-	stdout, stderr, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Cluster\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Scope\" \"Name=tag-value,Values=public\"", clusterName, clusterType, c.subClusterType), false)
-	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
-	}
-
-	var routeTables RouteTables
-	if err = json.Unmarshal(stdout, &routeTables); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
-		return nil
-	}
-
-	if len(routeTables.RouteTables) > 0 {
-		c.clusterInfo.publicRouteTableId = routeTables.RouteTables[0].RouteTableId
-		return nil
-	}
-
-	command := fmt.Sprintf("aws ec2 create-route-table --vpc-id %s --tag-specifications \"ResourceType=route-table,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s},{Key=Scope,Value=public}]\"", c.clusterInfo.vpcInfo.VpcId, clusterName, clusterType, c.subClusterType)
-	var retRouteTable ResultRouteTable
-	stdout, stderr, err = executor.Execute(ctx, command, false)
-	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
-		return nil
-	}
-	//	fmt.Printf("The output from the route table preparation <%s> \n\n\n", stdout)
-
-	if err = json.Unmarshal(stdout, &retRouteTable); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n\n", err)
-		return nil
-	}
-	//fmt.Printf("The stdout from the subnett preparation: %s \n\n\n", sub_stdout)
-
-	c.clusterInfo.publicRouteTableId = retRouteTable.TheRouteTable.RouteTableId
-
-	return nil
-}
-
-/******************************************************************************/
-
-// Mkdir is used to create directory on the target host
 type DestroyRouteTable struct {
-	pexecutor      *ctxt.Executor
-	awsTopoConfigs *spec.AwsTopoConfigs
-	subClusterType string
+	BaseRouteTable
+	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *DestroyRouteTable) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	stdout, _, err := (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, c.subClusterType), false)
-	if err != nil {
-		return err
-	}
+	fmt.Printf("***** DestroyRouteTable ****** \n\n\n")
 
-	var routeTables RouteTables
-	if err = json.Unmarshal(stdout, &routeTables); err != nil {
-		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
-		return err
-	}
-
-	for _, routeTable := range routeTables.RouteTables {
-		command := fmt.Sprintf("aws ec2 delete-route-table --route-table-id %s", routeTable.RouteTableId)
-		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
-		if err != nil {
-			fmt.Printf("The error here is <%#v> \n\n", err)
-			fmt.Printf("----------\n\n")
+	_data := c.ResourceData.GetData()
+	for _, routeTable := range _data {
+		_entry := routeTable.(types.RouteTable)
+		if _, err := c.client.DeleteRouteTable(context.TODO(), &ec2.DeleteRouteTableInput{
+			RouteTableId: _entry.RouteTableId,
+		}); err != nil {
 			return err
 		}
+
 	}
 
 	return nil
@@ -221,52 +270,20 @@ func (c *DestroyRouteTable) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyRouteTable) String() string {
-	return fmt.Sprintf("Echo: Destroying route table ")
+	return fmt.Sprintf("Echo: Destroying RouteTable")
 }
 
-/******************************************************************************/
-
-// Mkdir is used to create directory on the target host
 type ListRouteTable struct {
-	pexecutor        *ctxt.Executor
+	BaseRouteTable
+
 	tableRouteTables *[][]string
 }
 
 // Execute implements the Task interface
 func (c *ListRouteTable) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	stdout, _, err := (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" ", clusterName, clusterType), false)
-	if err != nil {
-		return err
-	}
-
-	var routeTables RouteTables
-	if err = json.Unmarshal(stdout, &routeTables); err != nil {
-		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
-		return err
-	}
-
-	for _, routeTable := range routeTables.RouteTables {
-		componentName := "-"
-		for _, tagItem := range routeTable.Tags {
-			if tagItem.Key == "Type" {
-				componentName = tagItem.Value
-			}
-		}
-		for _, route := range routeTable.Routes {
-			(*c.tableRouteTables) = append(*c.tableRouteTables, []string{
-				componentName,
-				routeTable.RouteTableId,
-				route.DestinationCidrBlock,
-				route.TransitGatewayId,
-				route.GatewayId,
-				route.State,
-				route.Origin,
-			})
-		}
-	}
+	fmt.Printf("***** ListRouteTable ****** \n\n\n")
 
 	return nil
 }
@@ -278,5 +295,5 @@ func (c *ListRouteTable) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *ListRouteTable) String() string {
-	return fmt.Sprintf("Echo: Listing route table ")
+	return fmt.Sprintf("Echo: List  ")
 }

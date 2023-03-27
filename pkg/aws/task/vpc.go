@@ -29,31 +29,6 @@ import (
 	// "go.uber.org/zap"
 )
 
-/******************************************************************************/
-// func (b *Builder) CreateVpc(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-// 	b.tasks = append(b.tasks, &CreateVpc{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 		clusterInfo:    clusterInfo,
-// 	})
-// 	return b
-// }
-
-// func (b *Builder) DestroyVpc(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-// 	b.tasks = append(b.tasks, &DestroyVpc{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 	})
-// 	return b
-// }
-
-//	func (b *Builder) ListVpc(pexecutor *ctxt.Executor, tableVPC *[][]string) *Builder {
-//		b.tasks = append(b.tasks, &ListVpc{
-//			pexecutor: pexecutor,
-//			tableVPC:  tableVPC,
-//		})
-//		return b
-//	}
 func (b *Builder) CreateVPC(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateVPC{
 		BaseVPC:     BaseVPC{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}},
@@ -72,7 +47,7 @@ func (b *Builder) ListVPC(pexecutor *ctxt.Executor, tableVPC *[][]string) *Build
 
 func (b *Builder) DestroyVPC(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyVPC{
-		BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: pexecutor}},
+		BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}},
 	})
 	return b
 }
@@ -229,19 +204,33 @@ func (c *CreateVPC) Execute(ctx context.Context) error {
 
 	if clusterExistFlag == false {
 		// TODO: Add resource preparation
+		// var tags []types.Tag
+		// tags = append(tags, types.Tag{Key: aws.String("Name"), Value: aws.String(c.clusterName)})
+		// tags = append(tags, types.Tag{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)})
 
-		// tags := []types.Tag{
-		// 	{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
-		// 	{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
-		// 	{Key: aws.String("Type"), Value: aws.String("glue")},
-		// 	{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
+		// // If the subClusterType is not specified, it is called from destroy to remove all the security group
+		// if c.subClusterType != "" {
+		// 	tags = append(tags, types.Tag{Key: aws.String("Type"), Value: aws.String(c.subClusterType)})
 		// }
 
-		// if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{}); err != nil {
-		// 	return err
+		// if c.scope != "" {
+		// 	tags = append(tags, types.Tag{Key: aws.String("Scope"), Value: aws.String(c.scope)})
 		// }
 
-		// TODO: Check cluster status until expected status
+		tags := c.MakeEC2Tags()
+
+		if _, err = c.client.CreateVpc(context.TODO(), &ec2.CreateVpcInput{
+			CidrBlock: aws.String(c.clusterInfo.cidr),
+			TagSpecifications: []types.TagSpecification{
+				types.TagSpecification{
+					ResourceType: types.ResourceTypeVpc,
+					Tags:         *tags,
+				},
+			},
+		}); err != nil {
+			return err
+		}
+
 	}
 
 	return nil
@@ -268,14 +257,24 @@ func (c *DestroyVPC) Execute(ctx context.Context) error {
 
 	fmt.Printf("***** DestroyVPC ****** \n\n\n")
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
-	if err != nil {
-		return err
+	for _, vpc := range c.ResourceData.GetData() {
+		fmt.Printf("The subnets is <%#v> \n\n\n", vpc)
+
+		if _, err := c.client.DeleteVpc(context.Background(), &ec2.DeleteVpcInput{
+			VpcId: vpc.(types.Vpc).VpcId,
+		}); err != nil {
+			return err
+		}
 	}
 
-	if clusterExistFlag == true {
-		// TODO: Destroy the cluster
-	}
+	// clusterExistFlag, err := c.ResourceData.ResourceExist()
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if clusterExistFlag == true {
+	// 	// TODO: Destroy the cluster
+	// }
 
 	return nil
 }

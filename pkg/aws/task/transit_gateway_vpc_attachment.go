@@ -15,139 +15,226 @@ package task
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	//"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/smithy-go"
+	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	//	"go.uber.org/zap"
-	//"strings"
-	//"time"
-	"time"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	// "go.uber.org/zap"
 )
 
-type TransitGatewayVpcAttachment struct {
-	TransitGatewayAttachmentId string `json:"TransitGatewayAttachmentId"`
-	VpcId                      string `json:"VpcId"`
-	State                      string `json:"State"`
-	Tags                       []Tag  `json:"Tags"`
+/******************************************************************************/
+
+func (b *Builder) CreateTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateTransitGatewayVpcAttachment{
+		BaseTransitGatewayVpcAttachment: BaseTransitGatewayVpcAttachment{
+			BaseTask: BaseTask{
+				pexecutor:      pexecutor,
+				subClusterType: subClusterType,
+			},
+		},
+	})
+	return b
 }
+
+func (b *Builder) ListTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, tableTransitGatewayVpcAttachments *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListTransitGatewayVpcAttachment{
+		BaseTransitGatewayVpcAttachment: BaseTransitGatewayVpcAttachment{
+			BaseTask: BaseTask{
+				pexecutor: pexecutor,
+			},
+		},
+		tableTransitGatewayVpcAttachments: tableTransitGatewayVpcAttachments,
+	})
+	return b
+}
+
+func (b *Builder) DestroyTransitGatewayVpcAttachment(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyTransitGatewayVpcAttachment{
+		BaseTransitGatewayVpcAttachment: BaseTransitGatewayVpcAttachment{
+			BaseTask: BaseTask{
+				pexecutor: pexecutor,
+			},
+		},
+	})
+	return b
+}
+
+//func (b *Builder) CreateTransitGatewayVpcAttachment() *Builder {
+// 	b.tasks = append(b.tasks, &CreateTransitGatewayVpcAttachment{})
+// 	return b
+// }
+
+// func (b *Builder) ListTransitGatewayVpcAttachment() *Builder {
+// 	b.tasks = append(b.tasks, &ListTransitGatewayVpcAttachment{})
+// 	return b
+// }
+
+// func (b *Builder) DestroyTransitGatewayVpcAttachment() *Builder {
+// 	b.tasks = append(b.tasks, &DestroyTransitGatewayVpcAttachment{})
+// 	return b
+// }
+
+/******************************************************************************/
 
 type TransitGatewayVpcAttachments struct {
-	TransitGatewayVpcAttachments []TransitGatewayVpcAttachment `json:"TransitGatewayVpcAttachments"`
+	BaseResourceInfo
 }
 
+func (d *TransitGatewayVpcAttachments) ToPrintTable() *[][]string {
+	tableTransitGatewayVpcAttachment := [][]string{{"Cluster Name"}}
+	for _, _row := range d.Data {
+		// _entry := _row.(TransitGatewayVpcAttachment)
+		// tableTransitGatewayVpcAttachment = append(tableTransitGatewayVpcAttachment, []string{
+		// 	// *_entry.PolicyName,
+		// })
+
+		log.Infof("%#v", _row)
+	}
+	return &tableTransitGatewayVpcAttachment
+}
+
+func (d *TransitGatewayVpcAttachments) GetResourceArn() (*string, error) {
+	// TODO: Implement
+	resourceExists, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+	if resourceExists == false {
+		return nil, errors.New("No resource found - TODO: replace name")
+	}
+
+	// return (d.Data[0]).(*types.Role).Arn, nil
+	return nil, nil
+}
+
+/******************************************************************************/
+type BaseTransitGatewayVpcAttachment struct {
+	BaseTask
+
+	ResourceData ResourceData
+	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
+
+	// The below variables are initialized in the init() function
+	client *ec2.Client // Replace the example to specific service
+}
+
+func (b *BaseTransitGatewayVpcAttachment) init(ctx context.Context) error {
+	if ctx != nil {
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
+
+	// Client initialization
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	b.client = ec2.NewFromConfig(cfg) // Replace the example to specific service
+
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &TransitGatewayVpcAttachments{}
+	}
+
+	if err := b.readResources(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *BaseTransitGatewayVpcAttachment) readResources() error {
+	if err := b.ResourceData.Reset(); err != nil {
+		return err
+	}
+
+	// TODO: Replace if necessary
+	var filters []types.Filter
+
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
+	}
+
+	if b.scope != "" {
+		filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{b.scope}})
+	}
+
+	resp, err := b.client.DescribeTransitGatewayAttachments(context.TODO(), &ec2.DescribeTransitGatewayAttachmentsInput{
+		Filters: filters,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, transitGatewayAttachment := range resp.TransitGatewayAttachments {
+		b.ResourceData.Append(transitGatewayAttachment)
+	}
+	return nil
+}
+
+/******************************************************************************/
 type CreateTransitGatewayVpcAttachment struct {
-	pexecutor      *ctxt.Executor
-	subClusterType string
+	BaseTransitGatewayVpcAttachment
+
+	clusterInfo *ClusterInfo
 }
 
+// Execute implements the Task interface
 func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
+	}
 
-	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType, c.subClusterType)
-
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
 		return err
 	}
-	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
-	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-		return err
-	}
 
-	if len(transitGatewayVpcAttachments.TransitGatewayVpcAttachments) > 0 {
-		return nil
-	}
+	if clusterExistFlag == false {
+		// TODO: Add resource preparation
 
-	var transitGateway *TransitGateway
-	for idx := 0; idx < 40; idx++ {
-		transitGateway, err = getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
+		tags := c.MakeEC2Tags()
+
+		clusterSubnets, err := c.GetSubnetsInfo(0)
 		if err != nil {
 			return err
 		}
-		if transitGateway == nil || transitGateway.State == "pending" {
-			time.Sleep(30 * time.Second)
-			continue
-		}
-		break
-	}
-	if transitGateway == nil {
-		return errors.New("No transit gateway found")
-	}
 
-	var vpc *Vpc
-	for idx := 0; idx < 20; idx++ {
-		vpc, err = getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
-		if err != nil {
-			if err.Error() == "No VPC found" {
-				time.Sleep(30 * time.Second)
-				fmt.Printf("---01: Checking the VPC's existeness <%s> \n\n\n\n", c.subClusterType)
-				continue
-			}
-			return err
-		}
-		if vpc == nil {
-			time.Sleep(30 * time.Second)
-			fmt.Printf("---02: Checking the VPC's existeness <%s> \n\n\n\n", c.subClusterType)
-			continue
-		}
-
-		break
-	}
-	if err != nil {
-		fmt.Printf("---03: VPC not exists <%s> \n\n\n\n", c.subClusterType)
-		return err
-	}
-
-	var subnets string
-	for idx := 0; idx < 80; idx++ {
-		subnets, err = getNetworksString(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType, "private")
+		vpcId, err := c.GetVpcItem("VpcId")
 		if err != nil {
 			return err
 		}
-		if subnets == "[]" {
-			time.Sleep(30 * time.Second)
-			fmt.Printf("---04: Checking the subnets' existeness <%s> \n\n\n\n\n\n\n", c.subClusterType)
-			continue
-			// return errors.New("No subnets found")
-		}
-		break
-	}
-	if subnets == "[]" {
-		fmt.Printf("---05: Checking the subnets' existeness <%s> \n\n\n\n", c.subClusterType)
-		return errors.New("No subnets found")
-	}
 
-	command = fmt.Sprintf("aws ec2 create-transit-gateway-vpc-attachment --transit-gateway-id %s --vpc-id %s --subnet-ids '\"'\"'%s'\"'\"' --tag-specifications \"ResourceType=transit-gateway-attachment,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", transitGateway.TransitGatewayId, vpc.VpcId, subnets, clusterName, clusterType, c.subClusterType)
-
-	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-	var transitGatewayVpcAttachment TransitGatewayVpcAttachment
-
-	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachment); err != nil {
-		return err
-	}
-
-	for cnt := 0; cnt < 60; cnt++ {
-		command = fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType, c.subClusterType)
-
-		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
+		transitGatewayID, err := c.GetTransitGatewayID()
 		if err != nil {
 			return err
 		}
-		var transitGatewayVpcAttachments TransitGatewayVpcAttachments
-		if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
+
+		if _, err = c.client.CreateTransitGatewayVpcAttachment(context.TODO(), &ec2.CreateTransitGatewayVpcAttachmentInput{
+			VpcId:            vpcId,
+			SubnetIds:        *clusterSubnets,
+			TransitGatewayId: transitGatewayID,
+			TagSpecifications: []types.TagSpecification{
+				types.TagSpecification{
+					ResourceType: types.ResourceTypeTransitGatewayAttachment,
+					Tags:         *tags,
+				},
+			},
+		}); err != nil {
 			return err
 		}
-
-		if len(transitGatewayVpcAttachments.TransitGatewayVpcAttachments) > 0 && (transitGatewayVpcAttachments.TransitGatewayVpcAttachments)[0].State == "available" {
-			break
-		}
-		time.Sleep(1 * time.Minute)
 	}
 
 	return nil
@@ -160,67 +247,32 @@ func (c *CreateTransitGatewayVpcAttachment) Rollback(ctx context.Context) error 
 
 // String implements the fmt.Stringer interface
 func (c *CreateTransitGatewayVpcAttachment) String() string {
-	return fmt.Sprintf("Echo: Creating transit gateway vpc attachment")
+	return fmt.Sprintf("Echo: Create TransitGatewayVpcAttachment ... ...  ")
 }
-
-/******************************************************************************/
 
 type DestroyTransitGatewayVpcAttachment struct {
-	pexecutor *ctxt.Executor
+	BaseTransitGatewayVpcAttachment
+	clusterInfo *ClusterInfo
 }
 
+// Execute implements the Task interface
 func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-
-	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
-
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
-
-	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}
 
-	var deletingAttachments []string
-	for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
-		command = fmt.Sprintf("aws ec2 delete-transit-gateway-vpc-attachment --transit-gateway-attachment-id  %s", attachment.TransitGatewayAttachmentId)
-		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
+	fmt.Printf("***** DestroyTransitGatewayVpcAttachment ****** \n\n\n")
 
-		if err != nil {
+	_data := c.ResourceData.GetData()
+	for _, attachment := range _data {
+		_entry := attachment.(types.TransitGatewayAttachment)
+		if _, err := c.client.DeleteTransitGatewayVpcAttachment(context.TODO(), &ec2.DeleteTransitGatewayVpcAttachmentInput{
+			TransitGatewayAttachmentId: _entry.TransitGatewayAttachmentId,
+		}); err != nil {
 			return err
 		}
-		deletingAttachments = append(deletingAttachments, attachment.TransitGatewayAttachmentId)
 	}
 
-	command = fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending,deleting\"", clusterName, clusterType)
-
-	for i := 1; i <= 50; i++ {
-		cntAttachments := 0
-		stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
-		if err != nil {
-			return err
-		}
-		var transitGatewayVpcAttachments TransitGatewayVpcAttachments
-
-		if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-			return err
-		}
-		for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
-			for _, hitAttachment := range deletingAttachments {
-				if hitAttachment == attachment.TransitGatewayAttachmentId {
-					cntAttachments++
-				}
-			}
-		}
-		if cntAttachments == 0 {
-			break
-		}
-		time.Sleep(30 * time.Second)
-	}
 	return nil
 }
 
@@ -231,45 +283,20 @@ func (c *DestroyTransitGatewayVpcAttachment) Rollback(ctx context.Context) error
 
 // String implements the fmt.Stringer interface
 func (c *DestroyTransitGatewayVpcAttachment) String() string {
-	return fmt.Sprintf("Echo: Destroying transit gateway vpc attachment")
+	return fmt.Sprintf("Echo: Destroying TransitGatewayVpcAttachment")
 }
 
-/******************************************************************************/
-
 type ListTransitGatewayVpcAttachment struct {
-	pexecutor                         *ctxt.Executor
+	BaseTransitGatewayVpcAttachment
+
 	tableTransitGatewayVpcAttachments *[][]string
 }
 
+// Execute implements the Task interface
 func (c *ListTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	command := fmt.Sprintf("aws ec2 describe-transit-gateway-vpc-attachments --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
-
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-	var transitGatewayVpcAttachments TransitGatewayVpcAttachments
-
-	if err = json.Unmarshal(stdout, &transitGatewayVpcAttachments); err != nil {
-		return err
-	}
-
-	for _, attachment := range transitGatewayVpcAttachments.TransitGatewayVpcAttachments {
-		componentName := "-"
-		for _, tagItem := range attachment.Tags {
-			if tagItem.Key == "Type" {
-				componentName = tagItem.Value
-			}
-		}
-		(*c.tableTransitGatewayVpcAttachments) = append(*c.tableTransitGatewayVpcAttachments, []string{
-			componentName,
-			attachment.VpcId,
-			attachment.State,
-		})
-	}
+	fmt.Printf("***** ListTransitGatewayVpcAttachment ****** \n\n\n")
 
 	return nil
 }
@@ -281,5 +308,5 @@ func (c *ListTransitGatewayVpcAttachment) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *ListTransitGatewayVpcAttachment) String() string {
-	return fmt.Sprintf("Echo: Listing transit gateway vpc attachment")
+	return fmt.Sprintf("Echo: List  ")
 }

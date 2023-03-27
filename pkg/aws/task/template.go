@@ -24,24 +24,28 @@ import (
 	// "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	// "github.com/aws/smithy-go"
 	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	// "go.uber.org/zap"
 )
 
 /******************************************************************************/
-func (b *Builder) CreateTemplate() *Builder {
-	b.tasks = append(b.tasks, &CreateTemplate{})
+func (b *Builder) CreateTemplate(pexecutor *ctxt.Executor, subClusterType, scope string) *Builder {
+	b.tasks = append(b.tasks, &CreateTemplate{BaseTemplate: BaseTemplate{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope}}})
 	return b
 }
 
-func (b *Builder) ListTemplate() *Builder {
-	b.tasks = append(b.tasks, &ListTemplate{})
+func (b *Builder) ListTemplate(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &ListTemplate{
+		BaseTemplate: BaseTemplate{BaseTask: BaseTask{pexecutor: pexecutor}},
+	})
 	return b
 }
 
-func (b *Builder) DestroyTemplate() *Builder {
-	b.tasks = append(b.tasks, &DestroyTemplate{})
+func (b *Builder) DestroyTemplate(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyTemplate{
+		BaseTemplate: BaseTemplate{BaseTask: BaseTask{pexecutor: pexecutor}},
+	})
 	return b
 }
 
@@ -90,8 +94,10 @@ type BaseTemplate struct {
 }
 
 func (b *BaseTemplate) init(ctx context.Context) error {
-	b.clusterName = ctx.Value("clusterName").(string)
-	b.clusterType = ctx.Value("clusterType").(string)
+	if ctx != nil {
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
 
 	// Client initialization
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -114,15 +120,12 @@ func (b *BaseTemplate) init(ctx context.Context) error {
 }
 
 func (b *BaseTemplate) readResources() error {
+	if err := b.ResourceData.Reset(); err != nil {
+		return err
+	}
 
 	// TODO: Replace if necessary
-	// filters := []types.Filter{
-	// 	types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}},
-	// 	types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}},
-	// 	types.Filter{Name: aws.String("tag:Component"), Values: []string{c.subClusterType}},
-	// 	types.Filter{Name: aws.String("tag:Type"), Values: []string{"msk"}},
-	// 	types.Filter{Name: aws.String("tag:Scope"), Values: []string{"Scope"}},
-	// }
+	// filters := b.MakeEC2Filters()
 
 	resp, err := b.client.ListPolicies(context.TODO(), &iam.ListPoliciesInput{})
 	if err != nil {
@@ -157,7 +160,7 @@ func (c *CreateTemplate) Execute(ctx context.Context) error {
 
 	if clusterExistFlag == false {
 		// TODO: Add resource preparation
-
+		// Pattern01:
 		// tags := []types.Tag{
 		// 	{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
 		// 	{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
@@ -169,7 +172,22 @@ func (c *CreateTemplate) Execute(ctx context.Context) error {
 		// 	return err
 		// }
 
-		// TODO: Check cluster status until expected status
+		// *************************************************************
+		// Pattern02:
+		// tags := c.MakeEC2Tags()
+
+		// if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
+		// 	VpcId: vpcId,
+		// 	TagSpecifications: []types.TagSpecification{
+		// 		types.TagSpecification{
+		// 			ResourceType: types.ResourceTypeSecurityGroup,
+		// 			Tags:         *tags,
+		// 		},
+		// 	},
+		// }); err != nil {
+		// 	return err
+		// }
+
 	}
 
 	return nil

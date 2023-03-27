@@ -31,7 +31,7 @@ import (
 )
 
 /******************************************************************************/
-func (b *Builder) CreateSubnets(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool) *Builder {
+func (b *Builder) CreateSubnets(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
 	var scope string
 	if isPrivate == true {
 		scope = "private"
@@ -41,10 +41,8 @@ func (b *Builder) CreateSubnets(pexecutor *ctxt.Executor, subClusterType string,
 	b.tasks = append(b.tasks, &CreateSubnets{
 		BaseSubnets: BaseSubnets{
 			BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope},
-			// clusterInfo:    clusterInfo,
-			// isPrivate: isPrivate,
-
 		},
+		clusterInfo: clusterInfo,
 	})
 	return b
 }
@@ -141,9 +139,7 @@ type BaseSubnets struct {
 }
 
 func (b *BaseSubnets) init(ctx context.Context) error {
-	fmt.Printf("Context is <%#v> \n\n\n\n\n\n ", ctx)
 	if ctx != nil {
-		fmt.Printf("Reaching here ???? \n\n\n")
 		b.clusterName = ctx.Value("clusterName").(string)
 		b.clusterType = ctx.Value("clusterType").(string)
 	}
@@ -171,8 +167,13 @@ func (b *BaseSubnets) init(ctx context.Context) error {
 func (b *BaseSubnets) GetSubnets(numSubnets int) (*[]string, error) {
 	_data := b.ResourceData.GetData()
 	if _data == nil {
-		debug.PrintStack()
-		return nil, errors.New("No valid subnets found")
+		// If no actual number subnets are specified, it's okay to return empty list
+		if numSubnets == 0 {
+			return &[]string{}, nil
+		} else {
+			debug.PrintStack()
+			return nil, errors.New("No valid subnets found")
+		}
 	}
 
 	var subnets []string
@@ -184,6 +185,22 @@ func (b *BaseSubnets) GetSubnets(numSubnets int) (*[]string, error) {
 	}
 
 	return &subnets, nil
+}
+
+func (b *BaseSubnets) getUsedZones() (*[]string, error) {
+	_data := b.ResourceData.GetData()
+	if _data == nil {
+		// If no actual number subnets are specified, it's okay to return empty list
+		return &[]string{}, nil
+	}
+
+	var zones []string
+	for _, _entry := range _data {
+		_subnet := _entry.(types.Subnet)
+		zones = append(zones, *_subnet.AvailabilityZoneId)
+	}
+
+	return &zones, nil
 }
 
 func (b *BaseSubnets) readResources() error {
@@ -229,29 +246,81 @@ func (c *CreateSubnets) Execute(ctx context.Context) error {
 		return err
 	}
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	vpcId, err := c.GetVpcItem("VpcId")
 	if err != nil {
 		return err
 	}
 
-	if clusterExistFlag == false {
-		// TODO: Add resource preparation
+	cidrBlock, err := c.GetVpcItem("CidrBlock")
+	if err != nil {
+		return err
+	}
 
-		// tags := []types.Tag{
-		// 	{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
-		// 	{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
-		// 	{Key: aws.String("Type"), Value: aws.String("glue")},
-		// 	{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
-		// }
+	usedZones, err := c.getUsedZones()
+	if err != nil {
+		return err
+	}
 
-		// if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{}); err != nil {
-		// 	return err
-		// }
+	zones4subnet, err := c.getAvailableZones(usedZones)
+	if err != nil {
+		return err
+	}
 
-		// TODO: Check cluster status until expected status
+	for idx, zone := range *zones4subnet {
+		tags := c.MakeEC2Tags()
+
+		if _, err = c.client.CreateSubnet(context.TODO(), &ec2.CreateSubnetInput{
+			VpcId:            vpcId,
+			AvailabilityZone: zone.ZoneName,
+			CidrBlock:        aws.String(getNextCidr(*cidrBlock, len(*usedZones)+idx+1)),
+			TagSpecifications: []types.TagSpecification{
+				types.TagSpecification{
+					ResourceType: types.ResourceTypeSubnet,
+					Tags:         *tags,
+				},
+			},
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+func (c *CreateSubnets) getAvailableZones(usedSubnetList *[]string) (*[]types.AvailabilityZone, error) {
+	availableZones, err := c.client.DescribeAvailabilityZones(context.TODO(), &ec2.DescribeAvailabilityZonesInput{})
+	if err != nil {
+		return nil, err
+	}
+
+	var retZones []types.AvailabilityZone
+
+	for _, zone := range availableZones.AvailabilityZones {
+
+		// fmt.Printf("AZ: <%#v> vs <%s> \n\n\n\n\n", c.clusterInfo.excludedAZ, *zone.ZoneName)
+		if ListContainElement(c.clusterInfo.excludedAZ, *zone.ZoneName) == true {
+			continue
+		}
+		// fmt.Printf("not matched: <%#v> vs <%s> \n\n\n\n\n", c.clusterInfo.excludedAZ, *zone.ZoneName)
+
+		if len(c.clusterInfo.includedAZ) > 0 && ListContainElement(c.clusterInfo.includedAZ, *zone.ZoneName) == false {
+			continue
+		}
+
+		if ListContainElement(*usedSubnetList, *zone.ZoneId) == true {
+			continue
+		}
+
+		if c.clusterInfo.subnetsNum > 0 && len(retZones) >= c.clusterInfo.subnetsNum-len(*usedSubnetList) {
+			break
+		}
+
+		retZones = append(retZones, zone)
+
+	}
+
+	return &retZones, nil
+
 }
 
 // Rollback implements the Task interface
@@ -274,16 +343,30 @@ func (c *DestroySubnets) Execute(ctx context.Context) error {
 
 	fmt.Printf("***** DestroySubnet ****** \n\n\n")
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
-	if err != nil {
-		return err
-	}
+	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	if clusterExistFlag == true {
-		// TODO: Destroy the cluster
+	for _, subnet := range c.ResourceData.GetData() {
+		fmt.Printf("The subnets is <%#v> \n\n\n", subnet)
+
+		if _, err := c.client.DeleteSubnet(context.Background(), &ec2.DeleteSubnetInput{
+			SubnetId: subnet.(types.Subnet).SubnetId,
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil
+
+	// clusterExistFlag, err := c.ResourceData.ResourceExist()
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if clusterExistFlag == true {
+	// 	// TODO: Destroy the cluster
+	// }
+
+	// return nil
 }
 
 // Rollback implements the Task interface

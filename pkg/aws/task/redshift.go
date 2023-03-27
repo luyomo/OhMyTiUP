@@ -36,7 +36,7 @@ func (b *Builder) CreateRedshiftCluster(pexecutor *ctxt.Executor, subClusterType
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
 		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{5439}).Build()).
 		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateRedshiftCluster{
-			BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor, subCluster: subCluster, scope: "private"}, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
+			BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: "private"}, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
 			clusterInfo:         clusterInfo,
 		})
 
@@ -83,8 +83,8 @@ type BaseRedshiftCluster struct {
  *   (false, nil): Cluster does not exist
  *   (false, error): Failed to check
  */
-func (b *BaseRedshiftCluster) ClusterExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
-	if _, err := redshiftClient.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{ClusterIdentifier: aws.String(clusterName)}); err != nil {
+func (b *BaseRedshiftCluster) ClusterExist( /*redshiftClient *redshift.Client, clusterName string*/ ) (bool, error) {
+	if _, err := b.client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{ClusterIdentifier: aws.String(b.clusterName)}); err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
 			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
@@ -99,9 +99,9 @@ func (b *BaseRedshiftCluster) ClusterExist(redshiftClient *redshift.Client, clus
 	return true, nil
 }
 
-func (b *BaseRedshiftCluster) ClusterSubnetGroupNameExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
-	if _, err := redshiftClient.DescribeClusterSubnetGroups(context.TODO(), &redshift.DescribeClusterSubnetGroupsInput{
-		ClusterSubnetGroupName: aws.String(clusterName),
+func (b *BaseRedshiftCluster) ClusterSubnetGroupNameExist( /*redshiftClient *redshift.Client, clusterName string*/ ) (bool, error) {
+	if _, err := b.client.DescribeClusterSubnetGroups(context.TODO(), &redshift.DescribeClusterSubnetGroupsInput{
+		ClusterSubnetGroupName: aws.String(b.clusterName),
 	}); err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
@@ -117,9 +117,9 @@ func (b *BaseRedshiftCluster) ClusterSubnetGroupNameExist(redshiftClient *redshi
 	return true, nil
 }
 
-func (b *BaseRedshiftCluster) ClusterParameterGroupsExist(redshiftClient *redshift.Client, clusterName string) (bool, error) {
-	if _, err := redshiftClient.DescribeClusterParameterGroups(context.TODO(), &redshift.DescribeClusterParameterGroupsInput{
-		ParameterGroupName: aws.String(clusterName),
+func (b *BaseRedshiftCluster) ClusterParameterGroupsExist( /*redshiftClient *redshift.Client, clusterName string*/ ) (bool, error) {
+	if _, err := b.client.DescribeClusterParameterGroups(context.TODO(), &redshift.DescribeClusterParameterGroupsInput{
+		ParameterGroupName: aws.String(b.clusterName),
 	}); err != nil {
 
 		var ae smithy.APIError
@@ -224,23 +224,24 @@ type CreateRedshiftCluster struct {
 
 // Execute implements the Task interface
 func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
+	if err := c.init(ctx); err != nil {
 		return err
 	}
 
-	client := redshift.NewFromConfig(cfg)
+	// cfg, err := config.LoadDefaultConfig(context.TODO())
+	// if err != nil {
+	// 	return err
+	// }
+
+	// client := redshift.NewFromConfig(cfg)
 
 	tags := []types.Tag{
-		{Key: aws.String("Cluster"), Value: aws.String(clusterType)},
-		{Key: aws.String("Type"), Value: aws.String("redshift")},
-		{Key: aws.String("Name"), Value: aws.String(clusterName)},
+		{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
+		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},
+		{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
 	}
 
-	clusterSubnetGroupNameExistFlag, err := c.ClusterSubnetGroupNameExist(client, clusterName)
+	clusterSubnetGroupNameExistFlag, err := c.ClusterSubnetGroupNameExist( /*client, clusterName*/ )
 	if err != nil {
 		return err
 	}
@@ -249,29 +250,30 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The subnets for msk is <%#v> \n\n\n\n\n\n", clusterSubnets)
+
+	fmt.Printf("The subnets for redshift is <%#v> \n\n\n\n\n\n", clusterSubnets)
 
 	if clusterSubnetGroupNameExistFlag == false {
-		if _, err := client.CreateClusterSubnetGroup(context.TODO(), &redshift.CreateClusterSubnetGroupInput{
-			ClusterSubnetGroupName: aws.String(clusterName),
-			Description:            aws.String(clusterName),
+		if _, err := c.client.CreateClusterSubnetGroup(context.TODO(), &redshift.CreateClusterSubnetGroupInput{
+			ClusterSubnetGroupName: aws.String(c.clusterName),
+			Description:            aws.String(c.clusterName),
+			SubnetIds:              *clusterSubnets,
+			Tags:                   tags,
 			// SubnetIds:              c.clusterInfo.privateSubnets,
-			SubnetIds: *clusterSubnets,
-			Tags:      tags,
 		}); err != nil {
 			return err
 		}
 	}
 
-	clusterParameterGroupsExistFlag, err := c.ClusterParameterGroupsExist(client, clusterName)
+	clusterParameterGroupsExistFlag, err := c.ClusterParameterGroupsExist( /*client, clusterName*/ )
 	if err != nil {
 		return err
 	}
 
 	if clusterParameterGroupsExistFlag == false {
-		if _, err := client.CreateClusterParameterGroup(context.TODO(), &redshift.CreateClusterParameterGroupInput{
-			ParameterGroupName:   aws.String(clusterName),
-			Description:          aws.String(clusterName),
+		if _, err := c.client.CreateClusterParameterGroup(context.TODO(), &redshift.CreateClusterParameterGroupInput{
+			ParameterGroupName:   aws.String(c.clusterName),
+			Description:          aws.String(c.clusterName),
 			ParameterGroupFamily: aws.String("redshift-1.0"),
 			Tags:                 tags,
 		}); err != nil {
@@ -280,7 +282,7 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 	}
 
 	// Cluster
-	clusterExistFlag, err := c.ClusterExist(client, clusterName)
+	clusterExistFlag, err := c.ClusterExist( /*client, clusterName*/ )
 	if err != nil {
 		return err
 	}
@@ -291,18 +293,18 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if _, err := client.CreateCluster(context.TODO(), &redshift.CreateClusterInput{
-			ClusterIdentifier:         aws.String(clusterName),
+		if _, err := c.client.CreateCluster(context.TODO(), &redshift.CreateClusterInput{
+			ClusterIdentifier:         aws.String(c.clusterName),
 			MasterUserPassword:        aws.String(c.awsRedshiftTopoConfigs.Password),
 			MasterUsername:            aws.String(c.awsRedshiftTopoConfigs.AdminUser),
-			ClusterParameterGroupName: aws.String(clusterName),
+			ClusterParameterGroupName: aws.String(c.clusterName),
 			NodeType:                  aws.String(c.awsRedshiftTopoConfigs.InstanceType),
 			NumberOfNodes:             aws.Int32(1),
 			ClusterType:               aws.String(c.awsRedshiftTopoConfigs.ClusterType),
 			// VpcSecurityGroupIds:       []string{c.clusterInfo.privateSecurityGroupId},
 			VpcSecurityGroupIds:    []string{*securityGroup},
 			PubliclyAccessible:     aws.Bool(false),
-			ClusterSubnetGroupName: aws.String(clusterName),
+			ClusterSubnetGroupName: aws.String(c.clusterName),
 			Tags:                   tags,
 		}); err != nil {
 			return err
@@ -329,30 +331,34 @@ type DestroyRedshiftCluster struct {
 
 // Execute implements the Task interface
 func (c *DestroyRedshiftCluster) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
+	if err := c.init(ctx); err != nil {
 		return err
 	}
 
-	client := redshift.NewFromConfig(cfg)
+	// clusterName := ctx.Value("clusterName").(string)
 
-	clusterExistFlag, err := c.ClusterExist(client, clusterName)
+	// cfg, err := config.LoadDefaultConfig(context.TODO())
+	// if err != nil {
+	// 	return err
+	// }
+
+	// client := redshift.NewFromConfig(cfg)
+
+	clusterExistFlag, err := c.ClusterExist( /*client, clusterName*/ )
 	if err != nil {
 		return err
 	}
 
 	if clusterExistFlag == true {
-		if _, err := client.DeleteCluster(context.TODO(), &redshift.DeleteClusterInput{
-			ClusterIdentifier:        aws.String(clusterName),
+		if _, err := c.client.DeleteCluster(context.TODO(), &redshift.DeleteClusterInput{
+			ClusterIdentifier:        aws.String(c.clusterName),
 			SkipFinalClusterSnapshot: true,
 		}); err != nil {
 			return err
 		}
 
 		if err = WaitResourceUntilExpectState(30*time.Second, 5*time.Minute, func() (bool, error) {
-			clusterExist, err := c.ClusterExist(client, clusterName)
+			clusterExist, err := c.ClusterExist( /*client, clusterName*/ )
 			return !clusterExist, err
 		}); err != nil {
 			return err
@@ -360,29 +366,29 @@ func (c *DestroyRedshiftCluster) Execute(ctx context.Context) error {
 
 	}
 
-	clusterSubnetGroupNameExistFlag, err := c.ClusterSubnetGroupNameExist(client, clusterName)
+	clusterSubnetGroupNameExistFlag, err := c.ClusterSubnetGroupNameExist( /*client, clusterName*/ )
 	if err != nil {
 		return err
 	}
 
 	if clusterSubnetGroupNameExistFlag == true {
 
-		if _, err := client.DeleteClusterSubnetGroup(context.TODO(), &redshift.DeleteClusterSubnetGroupInput{
-			ClusterSubnetGroupName: aws.String(clusterName),
+		if _, err := c.client.DeleteClusterSubnetGroup(context.TODO(), &redshift.DeleteClusterSubnetGroupInput{
+			ClusterSubnetGroupName: aws.String(c.clusterName),
 		}); err != nil {
 			return err
 		}
 	}
 
 	// Cluster Parameter Group
-	clusterParameterGroupsExistFlag, err := c.ClusterParameterGroupsExist(client, clusterName)
+	clusterParameterGroupsExistFlag, err := c.ClusterParameterGroupsExist( /*client, clusterName*/ )
 	if err != nil {
 		return err
 	}
 
 	if clusterParameterGroupsExistFlag == true {
-		if _, err := client.DeleteClusterParameterGroup(context.TODO(), &redshift.DeleteClusterParameterGroupInput{
-			ParameterGroupName: aws.String(clusterName),
+		if _, err := c.client.DeleteClusterParameterGroup(context.TODO(), &redshift.DeleteClusterParameterGroupInput{
+			ParameterGroupName: aws.String(c.clusterName),
 		}); err != nil {
 			return err
 		}
