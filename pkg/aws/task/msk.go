@@ -47,7 +47,7 @@ func (b *Builder) CreateMSKCluster(pexecutor *ctxt.Executor, subClusterType stri
 
 func (b *Builder) ListMSKCluster(pexecutor *ctxt.Executor, mskInfos *MSKInfos) *Builder {
 	b.tasks = append(b.tasks, &ListMSKCluster{
-		BaseMSKCluster: BaseMSKCluster{BaseTask: BaseTask{pexecutor: pexecutor}, MSKInfos: mskInfos},
+		BaseMSKCluster: BaseMSKCluster{BaseTask: BaseTask{pexecutor: pexecutor, ResourceData: mskInfos}},
 	})
 	return b
 }
@@ -142,7 +142,7 @@ type BaseMSKCluster struct {
 	// pexecutor *ctxt.Executor
 	client *kafka.Client // Replace the example to specific service
 
-	MSKInfos          *MSKInfos
+	// MSKInfos          *MSKInfos
 	awsMSKTopoConfigs *spec.AwsMSKTopoConfigs
 }
 
@@ -488,7 +488,7 @@ func (c *ListMSKCluster) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("The cluste is <%#v> \n\n\n\n\n\n", c.MSKInfos)
+	fmt.Printf("The cluste is <%#v> \n\n\n\n\n\n", c.ResourceData.GetData())
 
 	return nil
 }

@@ -1639,6 +1639,45 @@ func (b *BaseTask) GetSubnetsInfo(numSubnets int) (*[]string, error) {
 	return listSubnets.GetSubnets(numSubnets)
 }
 
+// If the subnet is in the assoicate, return nothing
+// If there is no route table, return error
+// If there is route table, the subnet is not in the association. return the table id.
+func (b *BaseTask) GetRouteTable() (*ec2types.RouteTable, error) {
+	// Get the subnet for workstation
+
+	listRouteTable := &ListRouteTable{BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{
+		pexecutor:      b.pexecutor,
+		clusterName:    b.clusterName,
+		clusterType:    b.clusterType,
+		subClusterType: b.subClusterType,
+		scope:          b.scope,
+	}}}
+	if err := listRouteTable.Execute(nil); err != nil {
+		return nil, err
+	}
+
+	_data := listRouteTable.ResourceData.GetData()
+	if len(_data) == 0 {
+		return nil, errors.New("No route table found")
+	}
+	if len(_data) > 1 {
+		fmt.Printf("Info: name:%s, type: %s, clusterType:%s, scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
+		debug.PrintStack()
+		return nil, errors.New("Multiple route tables found")
+	}
+	_routeTable := (listRouteTable.ResourceData.GetData()[0]).(ec2types.RouteTable)
+	return &_routeTable, nil
+	// var retRouteTable *string
+	// for _, _entry := range listRouteTable.ResourceData.GetData() {
+	// 	_routeTable := _entry.(ec2types.RouteTable)
+	// 	retRouteTable = _routeTable.RouteTableId
+	// 	fmt.Printf("The route data is <%#v> \n\n\n\n", _routeTable.Associations)
+	// }
+
+	// return &retRouteTable, nil
+	// return listRouteTable.
+}
+
 func (b *BaseTask) GetSecurityGroup() (*string, error) {
 	listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,

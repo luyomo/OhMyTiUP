@@ -54,7 +54,7 @@ func (b *Builder) DeployRedshiftInstance(pexecutor *ctxt.Executor, awsWSConfigs 
 
 func (b *Builder) ListRedshiftCluster(pexecutor *ctxt.Executor, redshiftDBInfos *RedshiftDBInfos) *Builder {
 	b.tasks = append(b.tasks, &ListRedshiftCluster{
-		BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor}, RedshiftDBInfos: redshiftDBInfos},
+		BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor, ResourceData: redshiftDBInfos}},
 	})
 	return b
 }
@@ -72,8 +72,8 @@ type BaseRedshiftCluster struct {
 	BaseTask
 	// pexecutor *ctxt.Executor
 
-	client                 *redshift.Client // Replace the example to specific service
-	RedshiftDBInfos        *RedshiftDBInfos
+	client *redshift.Client // Replace the example to specific service
+	// RedshiftDBInfos        *RedshiftDBInfos
 	awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs
 }
 
@@ -164,18 +164,10 @@ func (b *BaseRedshiftCluster) init(ctx context.Context) error {
 
 // func (b *BaseRedshiftCluster) ReadRedshiftDBInfo(ctx context.Context) error {
 func (b *BaseRedshiftCluster) readResources() error {
-	// clusterName := ctx.Value("clusterName").(string)
-
-	// var redshiftDBInfos RedshiftDBInfos
-
-	// cfg, err := config.LoadDefaultConfig(context.TODO())
-	// if err != nil {
-	// 	return err
-	// }
-
-	// client := redshift.NewFromConfig(cfg)
-
-	// Cluster
+	if err := b.ResourceData.Reset(); err != nil {
+		return err
+	}
+	fmt.Printf("The cluster name in the base redshift: %s \n\n\n", b.clusterName)
 	describeClusters, err := b.client.DescribeClusters(context.TODO(), &redshift.DescribeClustersInput{
 		ClusterIdentifier: aws.String(b.clusterName),
 	})
@@ -193,6 +185,7 @@ func (b *BaseRedshiftCluster) readResources() error {
 
 	if describeClusters != nil {
 		for _, cluster := range describeClusters.Clusters {
+			fmt.Printf("------ 002. Get redshift data \n\n\n\n\n\n")
 			password := ""
 			if b.awsRedshiftTopoConfigs != nil {
 				password = b.awsRedshiftTopoConfigs.Password
@@ -208,12 +201,31 @@ func (b *BaseRedshiftCluster) readResources() error {
 			}
 
 			b.ResourceData.Append(_data)
-			// b.RedshiftDBInfos.Append(cluster)
-
 		}
 	}
 
 	return nil
+}
+
+func (d *BaseRedshiftCluster) GetRedshiftDBInfo() (*map[string]string, error) {
+	resourceExistFlag, err := d.ResourceData.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+	if resourceExistFlag == false {
+		return nil, errors.New("No db exists")
+	}
+
+	dbInfo := make(map[string]string)
+	for _, _row := range d.ResourceData.GetData() {
+		_entry := _row.(ws.RedshiftDBInfo)
+
+		dbInfo["DBHost"] = _entry.Host
+		dbInfo["DBPort"] = fmt.Sprintf("%d", _entry.Port)
+		dbInfo["DBUser"] = _entry.UserName
+		dbInfo["DBPassword"] = _entry.Password
+	}
+	return &dbInfo, nil
 }
 
 type CreateRedshiftCluster struct {
@@ -449,26 +461,6 @@ func (d *RedshiftDBInfos) ToPrintTable() *[][]string {
 	return &tableRedshift
 }
 
-func (d *RedshiftDBInfos) GetRedshiftDBInfo() (*map[string]string, error) {
-	if len((*d).Data) > 1 {
-		return nil, errors.New("Multiple redshift db exists")
-	}
-	if len((*d).Data) == 0 {
-		return nil, errors.New("No db exists")
-	}
-
-	dbInfo := make(map[string]string)
-	for _, _row := range (*d).Data {
-		_entry := _row.(ws.RedshiftDBInfo)
-
-		dbInfo["DBHost"] = _entry.Host
-		dbInfo["DBPort"] = fmt.Sprintf("%d", _entry.Port)
-		dbInfo["DBUser"] = _entry.UserName
-		dbInfo["DBPassword"] = _entry.Password
-	}
-	return &dbInfo, nil
-}
-
 type ListRedshiftCluster struct {
 	BaseRedshiftCluster
 }
@@ -515,9 +507,12 @@ func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
 	// }
 
 	tmpFile := "/tmp/redshift.dbinfo.yaml"
-	if err := c.RedshiftDBInfos.WriteIntoConfigFile(tmpFile); err != nil {
+	if err := c.ResourceData.WriteIntoConfigFile(tmpFile); err != nil {
 		return err
 	}
+	// if err := c.RedshiftDBInfos.WriteIntoConfigFile(tmpFile); err != nil {
+	// 	return err
+	// }
 
 	if err := (*c.wsExe).Transfer(ctx, tmpFile, tmpFile, false, 0); err != nil {
 		return err
@@ -531,7 +526,7 @@ func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	dbInfo, err := c.RedshiftDBInfos.GetRedshiftDBInfo()
+	dbInfo, err := c.GetRedshiftDBInfo()
 	if err != nil {
 		return err
 	}

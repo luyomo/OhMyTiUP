@@ -284,6 +284,36 @@ func (c *CreateSubnets) Execute(ctx context.Context) error {
 		}
 	}
 
+	if err := c.associateSubnetToRouteTable(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *CreateSubnets) associateSubnetToRouteTable() error {
+	if err := c.readResources(); err != nil {
+		return err
+	}
+
+	routeTable, err := c.GetRouteTable()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The return value is <%#v> \n\n\n", routeTable)
+	fmt.Printf("The associate is <%#v> \n\n\n", routeTable.Associations)
+
+	for _, _entry := range c.ResourceData.GetData() {
+		_subnet := _entry.(types.Subnet)
+		fmt.Printf("The subnet is <%s>  and <%s> \n\n\n", *_subnet.SubnetId)
+
+		if _, err = c.client.AssociateRouteTable(context.TODO(), &ec2.AssociateRouteTableInput{
+			RouteTableId: routeTable.RouteTableId,
+			SubnetId:     _subnet.SubnetId,
+		}); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -294,6 +324,9 @@ func (c *CreateSubnets) getAvailableZones(usedSubnetList *[]string) (*[]types.Av
 	}
 
 	var retZones []types.AvailabilityZone
+
+	fmt.Printf("The subnet num is <%d> \n\n\n", c.clusterInfo.subnetsNum)
+	fmt.Printf("The used subnets are <%#v> \n\n\n\n\n", *usedSubnetList)
 
 	for _, zone := range availableZones.AvailabilityZones {
 
