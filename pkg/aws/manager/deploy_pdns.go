@@ -164,8 +164,8 @@ func (m *Manager) PDNSDeploy(
 
 	t5 = task.NewBuilder().
 		CreateTransitGateway(&sexecutor).
-		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", "public").
+		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", "private").
 		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
 		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).

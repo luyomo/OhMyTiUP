@@ -31,68 +31,37 @@ import (
 )
 
 /******************************************************************************/
-func (b *Builder) CreateSubnets(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
-	var scope string
-	if isPrivate == true {
-		scope = "private"
-	} else {
-		scope = "public"
-	}
+func (b *Builder) CreateSubnets(pexecutor *ctxt.Executor, subClusterType string, network NetworkType, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateSubnets{
-		BaseSubnets: BaseSubnets{
-			BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope},
-		},
+		BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 		clusterInfo: clusterInfo,
 	})
+
+	// If it's the nat network, generate the private network as well.
+	if network == NetworkTypeNAT {
+		b.tasks = append(b.tasks, &CreateSubnets{
+			BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
+			clusterInfo: clusterInfo,
+		})
+	}
+
 	return b
 }
 
-func (b *Builder) DestroySubnets(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool) *Builder {
-	var scope string
-	if isPrivate == true {
-		scope = "private"
-	} else {
-		scope = "public"
-	}
-
+func (b *Builder) DestroySubnets(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
 	b.tasks = append(b.tasks, &DestroySubnets{
-		BaseSubnets: BaseSubnets{
-			BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope},
-		},
+		BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 	})
 	return b
 }
 
-func (b *Builder) ListSubnets(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool) *Builder {
-	var scope string
-	if isPrivate == true {
-		scope = "private"
-	} else {
-		scope = "public"
-	}
+func (b *Builder) ListSubnets(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
 
 	b.tasks = append(b.tasks, &ListSubnets{
-		BaseSubnets: BaseSubnets{
-			BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope},
-		},
+		BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 	})
 	return b
 }
-
-// func (b *Builder) CreateSubnet() *Builder {
-// 	b.tasks = append(b.tasks, &CreateSubnets{})
-// 	return b
-// }
-
-// func (b *Builder) ListSubnet() *Builder {
-// 	b.tasks = append(b.tasks, &ListSubnets{})
-// 	return b
-// }
-
-// func (b *Builder) DestroySubnet() *Builder {
-// 	b.tasks = append(b.tasks, &DestroySubnets{})
-// 	return b
-// }
 
 /******************************************************************************/
 
@@ -219,7 +188,7 @@ func (b *BaseSubnets) readResources() error {
 	}
 
 	if b.scope != "" {
-		filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{b.scope}})
+		filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
 	}
 
 	resp, err := b.client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{Filters: filters})
@@ -269,10 +238,16 @@ func (c *CreateSubnets) Execute(ctx context.Context) error {
 	for idx, zone := range *zones4subnet {
 		tags := c.MakeEC2Tags()
 
+		var _cidrBlock string
+		if c.scope == "nat" {
+			_cidrBlock = getNextCidr(*cidrBlock, 20+len(*usedZones)+idx+1)
+		} else {
+			_cidrBlock = getNextCidr(*cidrBlock, len(*usedZones)+idx+1)
+		}
 		if _, err = c.client.CreateSubnet(context.TODO(), &ec2.CreateSubnetInput{
 			VpcId:            vpcId,
 			AvailabilityZone: zone.ZoneName,
-			CidrBlock:        aws.String(getNextCidr(*cidrBlock, len(*usedZones)+idx+1)),
+			CidrBlock:        aws.String(_cidrBlock),
 			TagSpecifications: []types.TagSpecification{
 				types.TagSpecification{
 					ResourceType: types.ResourceTypeSubnet,
@@ -327,6 +302,12 @@ func (c *CreateSubnets) getAvailableZones(usedSubnetList *[]string) (*[]types.Av
 
 	fmt.Printf("The subnet num is <%d> \n\n\n", c.clusterInfo.subnetsNum)
 	fmt.Printf("The used subnets are <%#v> \n\n\n\n\n", *usedSubnetList)
+	var subnetsNum int
+	if c.scope == "nat" {
+		subnetsNum = 1
+	} else {
+		subnetsNum = c.clusterInfo.subnetsNum
+	}
 
 	for _, zone := range availableZones.AvailabilityZones {
 
@@ -344,7 +325,7 @@ func (c *CreateSubnets) getAvailableZones(usedSubnetList *[]string) (*[]types.Av
 			continue
 		}
 
-		if c.clusterInfo.subnetsNum > 0 && len(retZones) >= c.clusterInfo.subnetsNum-len(*usedSubnetList) {
+		if subnetsNum > 0 && len(retZones) >= subnetsNum-len(*usedSubnetList) {
 			break
 		}
 
@@ -389,17 +370,6 @@ func (c *DestroySubnets) Execute(ctx context.Context) error {
 	}
 
 	return nil
-
-	// clusterExistFlag, err := c.ResourceData.ResourceExist()
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterExistFlag == true {
-	// 	// TODO: Destroy the cluster
-	// }
-
-	// return nil
 }
 
 // Rollback implements the Task interface

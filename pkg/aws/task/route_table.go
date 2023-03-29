@@ -30,17 +30,23 @@ import (
 )
 
 /******************************************************************************/
-func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo) *Builder {
-	var scope string
-	if isPrivate == true {
-		scope = "private"
-	} else {
-		scope = "public"
+func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
+	// var scope string
+	// if isPrivate == true {
+	// 	scope = "private"
+	// } else {
+	// 	scope = "public"
+	// }
+	if network == NetworkTypeNAT {
+		b.tasks = append(b.tasks, &CreateRouteTable{
+			BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
+		})
+
 	}
 	b.tasks = append(b.tasks, &CreateRouteTable{
-		BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope}},
-		clusterInfo:    clusterInfo,
+		BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 	})
+
 	return b
 }
 
@@ -85,11 +91,25 @@ func (d *RouteTablesInfo) GetResourceArn() (*string, error) {
 		return nil, err
 	}
 	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
+		return nil, errors.New("No resource(route table) found ")
 	}
 
 	// return (d.Data[0]).(*types.Role).Arn, nil
 	return nil, nil
+}
+
+func (d *RouteTablesInfo) GetRouteTableId() (*string, error) {
+	// TODO: Implement
+	resourceExists, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+	if resourceExists == false {
+		return nil, errors.New("No resource(route table id) found ")
+	}
+
+	return (d.Data[0]).(*types.RouteTable).RouteTableId, nil
+
 }
 
 /******************************************************************************/
@@ -150,8 +170,6 @@ func (b *BaseRouteTable) readResources() error {
 /******************************************************************************/
 type CreateRouteTable struct {
 	BaseRouteTable
-
-	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -162,11 +180,13 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 
 	fmt.Printf("CreateRouteTable -> ClusterName: %s, ClusterType: %s, subClusterType: %s, scope: %s \n\n\n\n", c.clusterName, c.clusterType, c.subClusterType, c.scope)
 
+	// Check resource's existness
 	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
 		return err
 	}
 
+	// Skip the route table preparation if it exists
 	if clusterExistFlag == false {
 		tags := c.MakeEC2Tags()
 
@@ -187,12 +207,17 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 			return err
 		}
 
+		if err := c.readResources(); err != nil {
+			return err
+		}
+
 		// TODO: Check cluster status until expected status
 	}
 
-	// if c.subClusterType == "redshift" {
-	// 	return nil
-	// }
+	// Process as below:
+	// 01. Create the internet gateway if it does not exit.
+	// 02. Attach the internet gateway to VPC
+	// 03. Create route for the route table
 	fmt.Printf("ClusterName: %s, ClusterType: %s, subClusterType: %s, scope: %s \n\n\n\n", c.clusterName, c.clusterType, c.subClusterType, c.scope)
 	if c.scope == "public" {
 		fmt.Printf("------------------- \n\n\n\n\n")
@@ -209,6 +234,9 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 		}
 
 	}
+
+	// Process as below for nat:
+	// 01. Create internet gateway
 
 	return nil
 }
@@ -298,10 +326,10 @@ func (c *CreateRouteTable) CreateRoute() error {
 
 	var _routeTableId *string
 	// _routes := c.ResourceData.GetData()
-	for _, _entry := range c.ResourceData.GetData() {
+	for idx, _entry := range c.ResourceData.GetData() {
 		_routeTable := _entry.(types.RouteTable)
 		_routeTableId = _routeTable.RouteTableId
-		fmt.Printf("Route data: <%s> \n\n\n", *_routeTable.RouteTableId)
+		fmt.Printf("Route data: <%s> and <%d> \n\n\n", *_routeTable.RouteTableId, idx)
 		for _, _route := range _routeTable.Routes {
 			if _route.NetworkInterfaceId != nil && *_route.NetworkInterfaceId == *internetGatewayId {
 				return nil
@@ -334,7 +362,6 @@ func (c *CreateRouteTable) String() string {
 
 type DestroyRouteTable struct {
 	BaseRouteTable
-	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface

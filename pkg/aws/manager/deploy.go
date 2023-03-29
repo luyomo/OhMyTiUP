@@ -235,9 +235,9 @@ func (m *Manager) Deploy(
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
 				CreateVPC(&sexecutor, "tidb", &clusterInfo).
-				CreateRouteTable(&sexecutor, "tidb", false, &clusterInfo).
+				CreateRouteTable(&sexecutor, "tidb", "public").
 				CreateNetwork(&sexecutor, "tidb", false, &clusterInfo).
-				CreateSecurityGroup(&sexecutor, "tidb", false, &clusterInfo, []int{22}, []int{}).
+				CreateSecurityGroup(&sexecutor, "tidb", "public", []int{22}).
 				CreateInternetGateway(&sexecutor, "tidb", &clusterInfo).
 				//CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreatePDNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).

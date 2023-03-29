@@ -78,7 +78,7 @@ func (d *VPCs) GetResourceArn() (*string, error) {
 		return nil, err
 	}
 	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
+		return nil, errors.New("No resource(vpc) found")
 	}
 
 	// return (d.Data[0]).(*types.Role).Arn, nil

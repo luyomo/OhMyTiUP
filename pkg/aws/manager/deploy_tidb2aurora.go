@@ -221,9 +221,9 @@ func (m *Manager) TiDB2AuroraDeploy(
 			var clusterInfo task.ClusterInfo
 			t := task.NewBuilder().
 				CreateVPC(&sexecutor, "test", &clusterInfo).
-				CreateRouteTable(&sexecutor, "test", true, &clusterInfo).
+				CreateRouteTable(&sexecutor, "test", "private").
 				CreateNetwork(&sexecutor, "test", true, &clusterInfo).
-				CreateSecurityGroup(&sexecutor, "test", true, &clusterInfo, []int{22}, []int{}).
+				CreateSecurityGroup(&sexecutor, "test", "private", []int{22}).
 				CreateInternetGateway(&sexecutor, "test", &clusterInfo).
 				CreateDBSubnetGroup(&sexecutor, "test", &clusterInfo).
 				//				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).

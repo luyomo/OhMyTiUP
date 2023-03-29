@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
+	// "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -31,25 +31,99 @@ import (
 
 /******************************************************************************/
 
-func (b *Builder) CreateTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+// Before start, check the attachment whose value match some values
+// After start, wait the state to become available
+
+// Before destroy, check the attachment whose value match some values
+// After destroy, check the attachment whose value is same to before destroy
+
+type TransitGatewayAttachmentState_Process types.TransitGatewayAttachmentState
+
+func (p TransitGatewayAttachmentState_Process) isState(mode ReadResourceMode) bool {
+	switch mode {
+	case ReadResourceModeCommon:
+		return p.isOKState()
+	case ReadResourceModeBeforeCreate:
+		return p.isBeforeCreateState()
+	case ReadResourceModeAfterCreate:
+		return p.isAfterCreateState()
+	case ReadResourceModeBeforeDestroy:
+		return p.isBeforeDestroyState()
+	case ReadResourceModeAfterDestroy:
+		return p.isAfterDestroyState()
+	}
+	return true
+}
+
+func (p TransitGatewayAttachmentState_Process) isBeforeCreateState() bool {
+	return ListContainElement([]string{
+		string(types.TransitGatewayAttachmentStateInitiating),
+		string(types.TransitGatewayAttachmentStateInitiatingRequest),
+		string(types.TransitGatewayAttachmentStatePending),
+		string(types.TransitGatewayAttachmentStateAvailable),
+		string(types.TransitGatewayAttachmentStateModifying),
+		string(types.TransitGatewayAttachmentStateFailed),
+		string(types.TransitGatewayAttachmentStateFailing),
+	}, string(p))
+
+}
+
+func (p TransitGatewayAttachmentState_Process) isAfterCreateState() bool {
+	return ListContainElement([]string{
+		string(types.TransitGatewayAttachmentStateAvailable),
+	}, string(p))
+
+}
+
+func (p TransitGatewayAttachmentState_Process) isBeforeDestroyState() bool {
+	return ListContainElement([]string{
+		string(types.TransitGatewayAttachmentStateInitiating),
+		string(types.TransitGatewayAttachmentStateInitiatingRequest),
+		string(types.TransitGatewayAttachmentStatePending),
+		string(types.TransitGatewayAttachmentStateAvailable),
+		string(types.TransitGatewayAttachmentStateModifying),
+		string(types.TransitGatewayAttachmentStateFailed),
+		string(types.TransitGatewayAttachmentStateFailing),
+	}, string(p))
+
+}
+
+func (p TransitGatewayAttachmentState_Process) isAfterDestroyState() bool {
+	return ListContainElement([]string{
+		string(types.TransitGatewayAttachmentStateInitiating),
+		string(types.TransitGatewayAttachmentStateInitiatingRequest),
+		string(types.TransitGatewayAttachmentStatePending),
+		string(types.TransitGatewayAttachmentStateAvailable),
+		string(types.TransitGatewayAttachmentStateModifying),
+		string(types.TransitGatewayAttachmentStateFailed),
+		string(types.TransitGatewayAttachmentStateFailing),
+		string(types.TransitGatewayAttachmentStateDeleting),
+	}, string(p))
+}
+
+func (p TransitGatewayAttachmentState_Process) isOKState() bool {
+	return p.isBeforeCreateState()
+}
+
+/* **************************************************** */
+
+func (b *Builder) CreateTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
+	var scope NetworkType
+	// If the network type is nat, it is not included into transit gateway attachment.
+	if network == NetworkTypeNAT {
+		scope = NetworkTypePrivate
+	} else {
+		scope = network
+	}
 	b.tasks = append(b.tasks, &CreateTransitGatewayVpcAttachment{
-		BaseTransitGatewayVpcAttachment: BaseTransitGatewayVpcAttachment{
-			BaseTask: BaseTask{
-				pexecutor:      pexecutor,
-				subClusterType: subClusterType,
-			},
-		},
+		BaseTransitGatewayVpcAttachment: BaseTransitGatewayVpcAttachment{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope}},
 	})
 	return b
 }
 
 func (b *Builder) ListTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, tableTransitGatewayVpcAttachments *[][]string) *Builder {
 	b.tasks = append(b.tasks, &ListTransitGatewayVpcAttachment{
-		BaseTransitGatewayVpcAttachment: BaseTransitGatewayVpcAttachment{
-			BaseTask: BaseTask{
-				pexecutor: pexecutor,
-			},
-		},
+		BaseTransitGatewayVpcAttachment:   BaseTransitGatewayVpcAttachment{BaseTask: BaseTask{pexecutor: pexecutor}},
 		tableTransitGatewayVpcAttachments: tableTransitGatewayVpcAttachments,
 	})
 	return b
@@ -57,11 +131,7 @@ func (b *Builder) ListTransitGatewayVpcAttachment(pexecutor *ctxt.Executor, tabl
 
 func (b *Builder) DestroyTransitGatewayVpcAttachment(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyTransitGatewayVpcAttachment{
-		BaseTransitGatewayVpcAttachment: BaseTransitGatewayVpcAttachment{
-			BaseTask: BaseTask{
-				pexecutor: pexecutor,
-			},
-		},
+		BaseTransitGatewayVpcAttachment: BaseTransitGatewayVpcAttachment{BaseTask: BaseTask{pexecutor: pexecutor}},
 	})
 	return b
 }
@@ -107,7 +177,7 @@ func (d *TransitGatewayVpcAttachments) GetResourceArn() (*string, error) {
 		return nil, err
 	}
 	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
+		return nil, errors.New("No resource(TransitGatewayVpcAttachment) found")
 	}
 
 	// return (d.Data[0]).(*types.Role).Arn, nil
@@ -118,14 +188,14 @@ func (d *TransitGatewayVpcAttachments) GetResourceArn() (*string, error) {
 type BaseTransitGatewayVpcAttachment struct {
 	BaseTask
 
-	ResourceData ResourceData
+	// ResourceData ResourceData
 	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
 
 	// The below variables are initialized in the init() function
 	client *ec2.Client // Replace the example to specific service
 }
 
-func (b *BaseTransitGatewayVpcAttachment) init(ctx context.Context) error {
+func (b *BaseTransitGatewayVpcAttachment) init(ctx context.Context, mode ReadResourceMode) error {
 	if ctx != nil {
 		b.clusterName = ctx.Value("clusterName").(string)
 		b.clusterType = ctx.Value("clusterType").(string)
@@ -144,42 +214,33 @@ func (b *BaseTransitGatewayVpcAttachment) init(ctx context.Context) error {
 		b.ResourceData = &TransitGatewayVpcAttachments{}
 	}
 
-	if err := b.readResources(); err != nil {
+	if err := b.readResources(mode); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (b *BaseTransitGatewayVpcAttachment) readResources() error {
+func (b *BaseTransitGatewayVpcAttachment) readResources(mode ReadResourceMode) error {
+
 	if err := b.ResourceData.Reset(); err != nil {
 		return err
 	}
 
-	// TODO: Replace if necessary
-	var filters []types.Filter
-
-	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
-
-	// If the subClusterType is not specified, it is called from destroy to remove all the security group
-	if b.subClusterType != "" {
-		filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
-	}
-
-	if b.scope != "" {
-		filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{b.scope}})
-	}
+	filters := b.MakeEC2Filters()
 
 	resp, err := b.client.DescribeTransitGatewayAttachments(context.TODO(), &ec2.DescribeTransitGatewayAttachmentsInput{
-		Filters: filters,
+		Filters: *filters,
 	})
 	if err != nil {
 		return err
 	}
 
 	for _, transitGatewayAttachment := range resp.TransitGatewayAttachments {
-		b.ResourceData.Append(transitGatewayAttachment)
+		_state := TransitGatewayAttachmentState_Process(transitGatewayAttachment.State)
+		if _state.isState(mode) == true {
+			b.ResourceData.Append(transitGatewayAttachment)
+		}
 	}
 	return nil
 }
@@ -193,7 +254,7 @@ type CreateTransitGatewayVpcAttachment struct {
 
 // Execute implements the Task interface
 func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
-	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+	if err := c.init(ctx, ReadResourceModeAfterCreate); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}
 
@@ -233,8 +294,16 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 				},
 			},
 		}); err != nil {
+			fmt.Printf("Failed to create transit gateway vpc attachment. <%s>  \n\n\n\n\n\n\n", *vpcId)
 			return err
 		}
+
+		if err := c.waitUntilResouceAvailable(0, 0, 1, func() error {
+			return c.readResources(ReadResourceModeAfterCreate)
+		}); err != nil {
+			return err
+		}
+
 	}
 
 	return nil
@@ -257,7 +326,7 @@ type DestroyTransitGatewayVpcAttachment struct {
 
 // Execute implements the Task interface
 func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
-	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+	if err := c.init(ctx, ReadResourceModeBeforeDestroy); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}
 
@@ -271,6 +340,12 @@ func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error 
 		}); err != nil {
 			return err
 		}
+	}
+
+	if err := c.waitUntilResouceDestroy(0, 0, func() error {
+		return c.readResources(ReadResourceModeAfterDestroy)
+	}); err != nil {
+		return err
 	}
 
 	return nil
@@ -294,7 +369,7 @@ type ListTransitGatewayVpcAttachment struct {
 
 // Execute implements the Task interface
 func (c *ListTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
+	c.init(ctx, ReadResourceModeCommon) // ClusterName/ClusterType and client initialization
 
 	fmt.Printf("***** ListTransitGatewayVpcAttachment ****** \n\n\n")
 

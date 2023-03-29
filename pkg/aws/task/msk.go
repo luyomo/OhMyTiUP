@@ -36,7 +36,7 @@ func (b *Builder) CreateMSKCluster(pexecutor *ctxt.Executor, subClusterType stri
 	clusterInfo.subnetsNum = awsMSKTopoConfigs.SubnetsNum
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{9092}).Build()).
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, "nat", clusterInfo, []int{9092}).Build()).
 		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateMSKCluster{
 			BaseMSKCluster: BaseMSKCluster{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: "private"}, awsMSKTopoConfigs: awsMSKTopoConfigs},
 			clusterInfo:    clusterInfo,

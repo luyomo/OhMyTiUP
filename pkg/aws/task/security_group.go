@@ -30,24 +30,17 @@ import (
 )
 
 /******************************************************************************/
-func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo, openPortsPublic, openPortsPrivate []int) *Builder {
-	var scope string
-	var openPorts []int
-	if isPrivate == true {
-		scope = "private"
-		openPorts = openPortsPrivate
-	} else {
-		scope = "public"
-		openPorts = openPortsPublic
+func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, network NetworkType, openPorts []int) *Builder {
+
+	if network == NetworkTypeNAT {
+		b.tasks = append(b.tasks, &CreateSecurityGroup{
+			BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
+			openPorts:         openPorts,
+		})
 	}
-
 	b.tasks = append(b.tasks, &CreateSecurityGroup{
-		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope}},
-		clusterInfo:       clusterInfo,
+		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 		openPorts:         openPorts,
-		// openPortsPublic:   openPortsPublic,
-		// openPortsPrivate:  openPortsPrivate,
-
 	})
 	return b
 }
@@ -88,12 +81,12 @@ func (d *SecurityGroupsInfo) ToPrintTable() *[][]string {
 
 func (d *SecurityGroupsInfo) GetResourceArn() (*string, error) {
 	// TODO: Implement
-	roleExists, err := d.ResourceExist()
+	resourceExists, err := d.ResourceExist()
 	if err != nil {
 		return nil, err
 	}
-	if roleExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
+	if resourceExists == false {
+		return nil, errors.New("No resource(security group) found")
 	}
 
 	return (d.Data[0]).(types.SecurityGroup).GroupId, nil
@@ -143,20 +136,22 @@ func (b *BaseSecurityGroup) readResources() error {
 	if err := b.ResourceData.Reset(); err != nil {
 		return err
 	}
-	var filters []types.Filter
-	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
+	filters := b.MakeEC2Filters()
+	// var filters []types.Filter
+	// filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
+	// filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
 
-	// If the subClusterType is not specified, it is called from destroy to remove all the security group
-	if b.subClusterType != "" {
-		filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
-	}
+	// // If the subClusterType is not specified, it is called from destroy to remove all the security group
+	// if b.subClusterType != "" {
+	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
+	// }
 
-	if b.scope != "" {
-		filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{b.scope}})
-	}
+	// if b.scope != "" {
+	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
+	// }
+	fmt.Printf("------ security group: <%#v> \n\n\n\n", filters)
 
-	resp, err := b.client.DescribeSecurityGroups(context.TODO(), &ec2.DescribeSecurityGroupsInput{Filters: filters})
+	resp, err := b.client.DescribeSecurityGroups(context.TODO(), &ec2.DescribeSecurityGroupsInput{Filters: *filters})
 	if err != nil {
 		return err
 	}
@@ -172,8 +167,6 @@ func (b *BaseSecurityGroup) readResources() error {
 type CreateSecurityGroup struct {
 	BaseSecurityGroup
 
-	clusterInfo *ClusterInfo
-
 	openPorts []int
 	// openPortsPublic  []int
 	// openPortsPrivate []int
@@ -185,9 +178,9 @@ func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.readResources(); err != nil {
-		return err
-	}
+	// if err := c.readResources(); err != nil {
+	// 	return err
+	// }
 
 	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
@@ -195,41 +188,33 @@ func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		var tags []types.Tag
-		tags = append(tags, types.Tag{Key: aws.String("Name"), Value: aws.String(c.clusterName)})
-		tags = append(tags, types.Tag{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)})
+		tags := c.MakeEC2Tags()
 
-		// If the subClusterType is not specified, it is called from destroy to remove all the security group
-		if c.subClusterType != "" {
-			tags = append(tags, types.Tag{Key: aws.String("Type"), Value: aws.String(c.subClusterType)})
-		}
+		// var tags []types.Tag
+		// tags = append(tags, types.Tag{Key: aws.String("Name"), Value: aws.String(c.clusterName)})
+		// tags = append(tags, types.Tag{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)})
 
-		if c.scope != "" {
-			tags = append(tags, types.Tag{Key: aws.String("Scope"), Value: aws.String(c.scope)})
-		}
-
-		// Fetch the vpc id
-		// listVpc := &ListVPC{BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType}}}
-		// if err := listVpc.Execute(ctx); err != nil {
-		// 	return err
+		// // If the subClusterType is not specified, it is called from destroy to remove all the security group
+		// if c.subClusterType != "" {
+		// 	tags = append(tags, types.Tag{Key: aws.String("Type"), Value: aws.String(c.subClusterType)})
 		// }
 
-		// vpcId, err := listVpc.GetVpcID()
-		// if err != nil {
-		// 	return err
+		// if c.scope != "" {
+		// 	tags = append(tags, types.Tag{Key: aws.String("Scope"), Value: aws.String(string(c.scope))})
 		// }
+
 		vpcId, err := c.GetVpcItem("VpcId")
 		if err != nil {
 			return err
 		}
 
 		if _, err = c.client.CreateSecurityGroup(context.TODO(), &ec2.CreateSecurityGroupInput{
-			GroupName: aws.String(c.clusterName),
+			GroupName: aws.String(fmt.Sprintf("%s-%s", c.clusterName, c.scope)),
 			VpcId:     vpcId,
 			TagSpecifications: []types.TagSpecification{
 				types.TagSpecification{
 					ResourceType: types.ResourceTypeSecurityGroup,
-					Tags:         tags,
+					Tags:         *tags,
 				},
 			},
 			Description: aws.String(c.clusterName),
@@ -318,7 +303,6 @@ func (c *CreateSecurityGroup) String() string {
 
 type DestroySecurityGroup struct {
 	BaseSecurityGroup
-	clusterInfo *ClusterInfo
 
 	subClusterType string
 }

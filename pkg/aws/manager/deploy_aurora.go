@@ -147,8 +147,8 @@ func (m *Manager) AuroraDeploy(
 		t5 := task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
 			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora", task.NetworkTypePrivate).
 			CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs, &clusterInfo).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora"}).
 			CreateRouteTgw(&sexecutor, "aurora", []string{"workstation"}).

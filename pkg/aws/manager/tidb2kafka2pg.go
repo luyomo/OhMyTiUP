@@ -133,10 +133,10 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 
 	t5 = task.NewBuilder().
 		CreateTransitGateway(&sexecutor).
-		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "postgres").
+		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "kafka", task.NetworkTypePrivate).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "postgres", task.NetworkTypePrivate).
 		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "postgres"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "postgres"}).
 		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).

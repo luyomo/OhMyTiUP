@@ -126,10 +126,10 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 	parallelClusterTask := task.NewBuilder().ParallelStep("+ Generating cluster ... ...", false, envInitTasks...).Build()
 
 	var taskVpcAttachment []task.Task
-	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").Build())
-	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").Build())
-	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "mongo").Build())
-	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").Build())
+	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).Build())
+	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "kafka", task.NetworkTypePrivate).Build())
+	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "mongo", task.NetworkTypePrivate).Build())
+	taskVpcAttachment = append(taskVpcAttachment, task.NewBuilder().CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).Build())
 
 	var taskDeployment []task.Task
 	taskDeployment = append(taskDeployment, task.NewBuilder().DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).Build())

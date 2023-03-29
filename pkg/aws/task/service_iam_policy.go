@@ -69,7 +69,7 @@ func (d *ServiceIamPolicys) GetResourceArn() (*string, error) {
 		return nil, err
 	}
 	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
+		return nil, errors.New("No resource(service iam policy) found")
 	}
 
 	return (d.Data[0]).(*types.Policy).Arn, nil

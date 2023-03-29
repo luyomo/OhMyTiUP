@@ -146,8 +146,8 @@ func (m *Manager) PostgresDeploy(
 		t5 := task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
 			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "postgres").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "postgres", task.NetworkTypePrivate).
 			CreatePostgres(&sexecutor, base.AwsWSConfigs, base.AwsPostgresConfigs, &clusterInfo).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"postgres"}).
 			CreateRouteTgw(&sexecutor, "postgres", []string{"workstation"}).

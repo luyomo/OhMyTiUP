@@ -124,8 +124,8 @@ func (m *Manager) KafkaDeploy(
 
 	t5 = task.NewBuilder().
 		CreateTransitGateway(&sexecutor).
-		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "kafka").
+		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "kafka", task.NetworkTypePrivate).
 		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka"}).
 		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))

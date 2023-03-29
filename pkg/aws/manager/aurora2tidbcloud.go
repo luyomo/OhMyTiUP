@@ -157,9 +157,9 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	var t5 *task.StepDisplay
 	t5 = task.NewBuilder().
 		CreateTransitGateway(&sexecutor).
-		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
-		CreateTransitGatewayVpcAttachment(&sexecutor, "dm").
+		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "aurora", task.NetworkTypePrivate).
+		CreateTransitGatewayVpcAttachment(&sexecutor, "dm", task.NetworkTypePrivate).
 		CreateRouteTgw(&sexecutor, "workstation", []string{"aurora", "dm"}).
 		CreateRouteTgw(&sexecutor, "aurora", []string{"workstation", "dm"}).
 		CreateRouteTgw(&sexecutor, "dm", []string{"aurora", "workstation"}).

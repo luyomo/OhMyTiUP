@@ -29,6 +29,62 @@ import (
 	// "go.uber.org/zap"
 )
 
+type TransitGatewayState_Process types.TransitGatewayState
+
+func (p TransitGatewayState_Process) isState(mode ReadResourceMode) bool {
+	switch mode {
+	case ReadResourceModeCommon:
+		return p.isOKState()
+	case ReadResourceModeBeforeCreate:
+		return p.isBeforeCreateState()
+	case ReadResourceModeAfterCreate:
+		return p.isAfterCreateState()
+	case ReadResourceModeBeforeDestroy:
+		return p.isBeforeDestroyState()
+	case ReadResourceModeAfterDestroy:
+		return p.isAfterDestroyState()
+	}
+	return true
+}
+
+func (p TransitGatewayState_Process) isBeforeCreateState() bool {
+	return ListContainElement([]string{
+		string(types.TransitGatewayStatePending),
+		string(types.TransitGatewayStateAvailable),
+		string(types.TransitGatewayStateModifying),
+	}, string(p))
+
+}
+
+func (p TransitGatewayState_Process) isAfterCreateState() bool {
+	return ListContainElement([]string{
+		string(types.TransitGatewayStateAvailable),
+	}, string(p))
+
+}
+
+func (p TransitGatewayState_Process) isBeforeDestroyState() bool {
+	return ListContainElement([]string{
+		string(types.TransitGatewayStatePending),
+		string(types.TransitGatewayStateAvailable),
+		string(types.TransitGatewayStateModifying),
+	}, string(p))
+
+}
+
+func (p TransitGatewayState_Process) isAfterDestroyState() bool {
+	return ListContainElement([]string{
+		string(types.TransitGatewayStatePending),
+		string(types.TransitGatewayStateAvailable),
+		string(types.TransitGatewayStateModifying),
+		string(types.TransitGatewayStateDeleting),
+	}, string(p))
+}
+
+func (p TransitGatewayState_Process) isOKState() bool {
+	return p.isBeforeCreateState()
+}
+
 /******************************************************************************/
 type TransitGateway struct {
 	TransitGatewayId  string `json:"TransitGatewayId"`
@@ -96,7 +152,7 @@ func (d *TransitGatewaysInfo) GetResourceArn() (*string, error) {
 		return nil, err
 	}
 	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
+		return nil, errors.New("No resource(transit gateway) found")
 	}
 
 	// return (d.Data[0]).(*types.Role).Arn, nil
@@ -107,14 +163,13 @@ func (d *TransitGatewaysInfo) GetResourceArn() (*string, error) {
 type BaseTransitGateway struct {
 	BaseTask
 
-	ResourceData ResourceData
 	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
 
 	// The below variables are initialized in the init() function
 	client *ec2.Client // Replace the example to specific service
 }
 
-func (b *BaseTransitGateway) init(ctx context.Context) error {
+func (b *BaseTransitGateway) init(ctx context.Context, mode ReadResourceMode) error {
 	if ctx != nil {
 		b.clusterName = ctx.Value("clusterName").(string)
 		b.clusterType = ctx.Value("clusterType").(string)
@@ -133,21 +188,21 @@ func (b *BaseTransitGateway) init(ctx context.Context) error {
 		b.ResourceData = &TransitGatewaysInfo{}
 	}
 
-	if err := b.readResources(); err != nil {
+	if err := b.readResources(mode); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (b *BaseTransitGateway) readResources() error {
+func (b *BaseTransitGateway) readResources(mode ReadResourceMode) error {
 	if err := b.ResourceData.Reset(); err != nil {
 		return err
 	}
 
 	// TODO: Replace if necessary
 	filters := b.MakeEC2Filters()
-	fmt.Printf("Filters are: <%#v> \n\n\n\n\n", filters)
+	fmt.Printf("Filters are inside readResources: <%#v> \n\n\n\n\n", filters)
 
 	resp, err := b.client.DescribeTransitGateways(context.TODO(), &ec2.DescribeTransitGatewaysInput{
 		Filters: *filters,
@@ -157,7 +212,13 @@ func (b *BaseTransitGateway) readResources() error {
 	}
 
 	for _, transitGateway := range resp.TransitGateways {
-		b.ResourceData.Append(transitGateway)
+		fmt.Printf("The data state is <%s> \n\n\n\n\n\n", transitGateway.State)
+		_state := TransitGatewayState_Process(transitGateway.State)
+		if _state.isState(mode) == true {
+			fmt.Printf("The inserting the data is <%s> \n\n\n\n\n\n", transitGateway.State)
+			b.ResourceData.Append(transitGateway)
+		}
+
 	}
 	return nil
 }
@@ -187,7 +248,7 @@ type CreateTransitGateway struct {
 
 // Execute implements the Task interface
 func (c *CreateTransitGateway) Execute(ctx context.Context) error {
-	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+	if err := c.init(ctx, ReadResourceModeAfterCreate); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}
 
@@ -211,7 +272,11 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 			return err
 		}
 
-		// TODO: Check cluster status until expected status
+		if err := c.waitUntilResouceAvailable(0, 0, 1, func() error {
+			return c.readResources(ReadResourceModeAfterCreate)
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -234,7 +299,7 @@ type DestroyTransitGateway struct {
 
 // Execute implements the Task interface
 func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
+	c.init(ctx, ReadResourceModeBeforeDestroy) // ClusterName/ClusterType and client initialization
 
 	fmt.Printf("***** DestroyTransitGateway ****** \n\n\n")
 	_data := c.ResourceData.GetData()
@@ -246,6 +311,12 @@ func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
 			return err
 		}
 
+	}
+
+	if err := c.waitUntilResouceDestroy(0, 0, func() error {
+		return c.readResources(ReadResourceModeAfterDestroy)
+	}); err != nil {
+		return err
 	}
 
 	return nil
@@ -269,7 +340,7 @@ type ListTransitGateway struct {
 
 // Execute implements the Task interface
 func (c *ListTransitGateway) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
+	c.init(ctx, ReadResourceModeCommon) // ClusterName/ClusterType and client initialization
 
 	fmt.Printf("***** ListTransitGateway ****** \n\n\n")
 

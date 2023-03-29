@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	// "reflect"
 	"regexp"
 	"runtime/debug"
 	"sort"
@@ -54,6 +55,24 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	// "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+)
+
+type ReadResourceMode int
+
+const (
+	ReadResourceModeCommon        ReadResourceMode = 0
+	ReadResourceModeBeforeCreate  ReadResourceMode = 1
+	ReadResourceModeAfterCreate   ReadResourceMode = 2
+	ReadResourceModeBeforeDestroy ReadResourceMode = 3
+	ReadResourceModeAfterDestroy  ReadResourceMode = 4
+)
+
+type NetworkType string
+
+const (
+	NetworkTypeNAT     NetworkType = "nat"
+	NetworkTypePublic  NetworkType = "public"
+	NetworkTypePrivate NetworkType = "private"
 )
 
 type Vpc struct {
@@ -479,7 +498,7 @@ func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName,
 }
 
 func getRouteTable(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*RouteTable, error) {
-	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, subClusterType), false)
+	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Scope,Values=private\"", clusterName, clusterType, subClusterType), false)
 	if err != nil {
 		return nil, err
 	}
@@ -491,13 +510,36 @@ func getRouteTable(executor ctxt.Executor, ctx context.Context, clusterName, clu
 	}
 
 	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
-	if len(routeTables.RouteTables) == 0 {
-		return nil, errors.New("No route table found")
+	if len(routeTables.RouteTables) == 1 {
+		return &routeTables.RouteTables[0], nil
+
 	}
+
 	if len(routeTables.RouteTables) > 1 {
-		return nil, errors.New("Multiple route tables found")
+		return nil, errors.New("Multiple route tables found 01")
 	}
-	return &routeTables.RouteTables[0], nil
+
+	stdout, _, err = executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Scope,Values=public\"", clusterName, clusterType, subClusterType), false)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(stdout, &routeTables); err != nil {
+		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
+		return nil, err
+	}
+
+	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
+	if len(routeTables.RouteTables) == 1 {
+		return &routeTables.RouteTables[0], nil
+
+	}
+
+	if len(routeTables.RouteTables) > 1 {
+		return nil, errors.New("Multiple route tables found 01")
+	}
+
+	return nil, errors.New("No route table found")
 }
 
 func getRouteTableByVPC(executor ctxt.Executor, ctx context.Context, clusterName, vpcID string) (*RouteTable, error) {
@@ -517,7 +559,7 @@ func getRouteTableByVPC(executor ctxt.Executor, ctx context.Context, clusterName
 		return nil, errors.New("No route table found")
 	}
 	if len(routeTables.RouteTables) > 1 {
-		return nil, errors.New("Multiple route tables found")
+		return nil, errors.New("Multiple route tables found 02")
 	}
 	return &routeTables.RouteTables[0], nil
 }
@@ -1559,16 +1601,22 @@ type TiDBClusterDisplay struct {
 	Instances []TiDBInstanceInfo `json:"instances"`
 }
 
+type BaseTaskInterface interface {
+	readResources(mode ReadResourceMode) error
+}
+
 type BaseTask struct {
+	BaseTaskInterface
+
 	pexecutor *ctxt.Executor
 	wsExe     *ctxt.Executor
 
 	ResourceData ResourceData
 
-	clusterName    string // It's initialized from init() function
-	clusterType    string // It's initialized from init() function
-	subClusterType string // tidb/msk/workstation
-	scope          string // public/private
+	clusterName    string      // It's initialized from init() function
+	clusterType    string      // It's initialized from init() function
+	subClusterType string      // tidb/msk/workstation
+	scope          NetworkType // public/private
 
 	clusterInfo *ClusterInfo
 }
@@ -1598,7 +1646,7 @@ func (b *BaseTask) MakeEC2Tags() *[]ec2types.Tag {
 	}
 
 	if b.scope != "" {
-		tags = append(tags, ec2types.Tag{Key: aws.String("Scope"), Value: aws.String(b.scope)})
+		tags = append(tags, ec2types.Tag{Key: aws.String("Scope"), Value: aws.String(string(b.scope))})
 	}
 
 	return &tags
@@ -1616,7 +1664,7 @@ func (b *BaseTask) MakeEC2Filters() *[]ec2types.Filter {
 	}
 
 	if b.scope != "" {
-		filters = append(filters, ec2types.Filter{Name: aws.String("tag:Scope"), Values: []string{b.scope}})
+		filters = append(filters, ec2types.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
 	}
 
 	return &filters
@@ -1688,7 +1736,7 @@ func (b *BaseTask) GetSecurityGroup() (*string, error) {
 	if err := listSecurityGroup.Execute(nil); err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("---- GetSecurityGroup: cluster name: %s, cluster type: %s, subcluster type: %s, scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
 	return listSecurityGroup.ResourceData.GetResourceArn()
 }
 
@@ -1737,6 +1785,120 @@ func (b *BaseTask) getTiDBComponent(componentName string) (*[]TiDBInstanceInfo, 
 
 	return &tidbInstancesInfo, nil
 
+}
+
+func (b *BaseTask) waitUntilResouceDestroy(_interval, _timeout time.Duration, _readResource func() error) error {
+	if _interval == 0 {
+		_interval = 20 * time.Second
+	}
+
+	if _timeout == 0 {
+		_timeout = 60 * time.Minute
+	}
+
+	timeout := time.After(_timeout)
+	d := time.NewTicker(_interval)
+
+	for {
+		// Select statement
+		select {
+		case <-timeout:
+			return errors.New("Timed out")
+		case _ = <-d.C:
+			if err := _readResource(); err != nil {
+				return err
+			}
+			_data := b.ResourceData.GetData()
+			if _data == nil || len(b.ResourceData.GetData()) == 0 {
+				return nil
+			}
+
+			// resourceStateAsExpectFlag, err := _resourceStateCheck()
+			// if err != nil {
+			// 	return err
+			// }
+
+			// caller.readResource(ReadResourceModeAfterDestroy)
+
+			// ref := reflect.ValueOf(child)
+			// fmt.Printf("The data is <%#v> \n\n\n\n\n", ref)
+			// fmt.Printf("The type is <%s> \n\n\n\n\n", ref.Kind())
+			// if ref.Kind() == reflect.Struct {
+			// 	fmt.Printf("The Fields is <%d>  \n\n\n\n\n", ref.NumField())
+			// 	for i := 0; i < ref.NumField(); i++ {
+			// 		fieldValue := ref.Field(i)
+			// 		fmt.Printf("The method is <%#v> \n\n\n\n\n", fieldValue)
+			// 		if i == 0 {
+			// 			subref := reflect.ValueOf(fieldValue)
+			// 			method := subref.MethodByName("ReadResource")
+			// 			if method.IsValid() {
+			// 				fmt.Printf("********** Calling fhunction  <%#v> \n\n\n\n\n", fieldValue)
+			// 				inputs := make([]reflect.Value, 1)
+			// 				inputs[0] = reflect.ValueOf(ReadResourceModeAfterDestroy)
+			// 				method.Call(inputs)
+			// 			} else {
+			// 				return errors.New("0003 Failed to call the readResource function during destroy")
+			// 			}
+			// 		}
+			// 	}
+			// }
+
+			// // subref := reflect.ValueOf(ref.BaseTransitGatewayVpcAttachment)
+
+			// // method01 := ref.MethodByName("Rollback")
+			// // fmt.Printf("The method is <%#v> \n\\n\nn\n\n\n", method01)
+
+			// method := ref.MethodByName("")
+			// fmt.Printf("The method is <%#v> \n\n\n\n\n", method)
+			// if method.IsValid() {
+			// 	inputs := make([]reflect.Value, 1)
+			// 	inputs[0] = reflect.ValueOf(ReadResourceModeAfterDestroy)
+			// 	method.Call(inputs)
+			// } else {
+			// 	return errors.New("Failed to call the readResource function during destroy")
+			// }
+		}
+	}
+}
+
+func (b *BaseTask) waitUntilResouceAvailable(_interval, _timeout time.Duration, expectNum int, _readResource func() error) error {
+	if _interval == 0 {
+		_interval = 60 * time.Second
+	}
+
+	if _timeout == 0 {
+		_timeout = 60 * time.Minute
+	}
+
+	timeout := time.After(_timeout)
+	d := time.NewTicker(_interval)
+
+	for {
+		// Select statement
+		select {
+		case <-timeout:
+			return errors.New("Timed out")
+		case _ = <-d.C:
+			if err := _readResource(); err != nil {
+				return err
+			}
+			// ref := reflect.ValueOf(child)
+
+			// method := ref.MethodByName("readResource")
+			// if method.IsValid() {
+			// 	inputs := make([]reflect.Value, 1)
+			// 	inputs[0] = reflect.ValueOf(ReadResourceModeAfterCreate)
+			// 	method.Call(inputs)
+			// } else {
+			// 	return errors.New("Failed to call the readResource function during creation")
+			// }
+			fmt.Printf("Waiting the status: <%d> vs <%d> \n\n\n\n\n\n", len(b.ResourceData.GetData()), expectNum)
+			fmt.Printf("Inside the data is: <%#v> \n\n\n\n\n\n", b.ResourceData.GetData())
+			if len(b.ResourceData.GetData()) == expectNum {
+				return nil
+			}
+		}
+	}
 }
 
 func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceStateCheck func() (bool, error)) error {

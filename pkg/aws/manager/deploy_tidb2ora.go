@@ -160,8 +160,8 @@ func (m *Manager) TiDB2OraDeploy(
 		t2 := task.NewBuilder().
 			CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 			CreateTransitGateway(&sexecutor).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
 			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
@@ -196,9 +196,9 @@ func (m *Manager) TiDB2OraDeploy(
 	if cntEC2Nodes > 0 {
 		t5 = task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "oracle").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "oracle", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "tidb", []string{"oracle"}).
 			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
 			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).

@@ -30,8 +30,8 @@ import (
 )
 
 /******************************************************************************/
-func (b *Builder) CreateTemplate(pexecutor *ctxt.Executor, subClusterType, scope string) *Builder {
-	b.tasks = append(b.tasks, &CreateTemplate{BaseTemplate: BaseTemplate{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: scope}}})
+func (b *Builder) CreateTemplate(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
+	b.tasks = append(b.tasks, &CreateTemplate{BaseTemplate: BaseTemplate{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}}})
 	return b
 }
 

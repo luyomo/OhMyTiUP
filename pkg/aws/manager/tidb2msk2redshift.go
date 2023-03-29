@@ -88,12 +88,16 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 	redshiftTask := task.NewBuilder().
 		CreateRedshiftCluster(&m.localExe, "redshift", base.AwsRedshiftTopoConfigs, &redshiftClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing redshift servers"))
+		// if 1 == 0 {
 	mainTask = append(mainTask, redshiftTask)
+	// }
 
 	glueTask := task.NewBuilder().
 		CreateGlueSchemaRegistryCluster(&m.localExe).
 		BuildAsStep(fmt.Sprintf("  - Preparing glue schema registry ... ... "))
+		// if 1 == 0 {
 	mainTask = append(mainTask, glueTask)
+	// }
 
 	// Parallel task to create workstation, tidb, kafka resources and transit gateway.
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
@@ -104,19 +108,22 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 	task001 = append(task001, t1)
 
 	//Setup the kafka cluster
+	// if 1 == 0 {
 	t2 := task.NewBuilder().CreateMSKCluster(&m.localExe, "msk", base.AwsMSKTopoConfigs, &mskClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
 	task001 = append(task001, t2)
 
 	t3 := task.NewBuilder().CreateTiDBCluster(&m.localExe, "tidb", base.AwsTopoConfigs, &clusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 	task001 = append(task001, t3)
+	// }
 
-	t4 := task.NewBuilder().CreateTransitGateway(&m.localExe).BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
-	task001 = append(task001, t4)
+	// t4 := task.NewBuilder().CreateTransitGateway(&m.localExe).BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
+	// task001 = append(task001, t4)
 
 	// Parallel task to create tidb and kafka instances
 	var task002 []*task.StepDisplay // tasks which are used to initialize environment
 
+	// if 1 == 0 {
 	t23 := task.NewBuilder().
 		DeployTiDB(&m.localExe, "tidb", base.AwsWSConfigs, &workstationInfo).
 		DeployTiDBInstance(&m.localExe, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
@@ -138,6 +145,10 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 		CreateMSKConnectPlugin(&m.localExe, &m.wsExe, base.AwsMSKConnectPluginTopoConfigs).
 		BuildAsStep(fmt.Sprintf("  - Preparing msk connect plugin ... ... "))
 	task002 = append(task002, t26)
+	// }
+
+	// t4 := task.NewBuilder().CreateTransitGateway(&m.localExe).BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
+	// task001 = append(task001, t4)
 
 	// The es might be lag behind the tidb/kafka cluster
 	// Cluster generation -> transit gateway setup -> instance deployment
@@ -153,7 +164,9 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 
 	mainTask = append(mainTask, paraTask001)
 
-	mainBuilder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, mainTask...).Build()
+	mainBuilder := task.NewBuilder().
+		CreateTransitGateway(&m.localExe).
+		ParallelStep("+ Deploying all the sub components for kafka solution service", false, mainTask...).Build()
 
 	if err := mainBuilder.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {

@@ -34,7 +34,7 @@ func (b *Builder) CreateRedshiftCluster(pexecutor *ctxt.Executor, subClusterType
 	clusterInfo.cidr = awsRedshiftTopoConfigs.CIDR
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{5439}).Build()).
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, "private", clusterInfo, []int{5439}).Build()).
 		Step(fmt.Sprintf("%s : Creating Reshift ... ...", subClusterType), &CreateRedshiftCluster{
 			BaseRedshiftCluster: BaseRedshiftCluster{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: "private"}, awsRedshiftTopoConfigs: awsRedshiftTopoConfigs},
 			clusterInfo:         clusterInfo,

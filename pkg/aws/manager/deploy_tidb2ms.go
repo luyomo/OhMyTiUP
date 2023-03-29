@@ -184,11 +184,11 @@ func (m *Manager) TiDB2MSDeploy(
 		t5 = task.NewBuilder().
 			CreateDMSService(&sexecutor, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
 			CreateTransitGateway(&sexecutor).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "sqlserver").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora", task.NetworkTypePrivate).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "sqlserver", task.NetworkTypePrivate).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
 			CreateRouteTgw(&sexecutor, "tidb", []string{"aurora"}).
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
@@ -202,10 +202,10 @@ func (m *Manager) TiDB2MSDeploy(
 		t5 = task.NewBuilder().
 			CreateDMSService(&sexecutor, "dmsservice", base.AwsDMSConfigs, &dmsInfo).
 			CreateTransitGateway(&sexecutor).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "sqlserver").
-			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice").
+			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora", task.NetworkTypePrivate).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "sqlserver", task.NetworkTypePrivate).
+			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
 			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).

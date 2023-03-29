@@ -921,7 +921,7 @@ func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.
 	// clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
 	clusterInfo.enableNAT = "true" // The nat is mandatory for EKS node group. If the NAT wants to be disable, need to set the private endpoint to acces EKS control plane
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "private", clusterInfo, []int{22, 80, 3000}).Build()).
 		Step(fmt.Sprintf("%s : Creating EKS ... ...", subClusterType), &DeployEKS{
 			pexecutor:         pexecutor,
 			subClusterType:    subClusterType,
@@ -1063,36 +1063,49 @@ func (b *Builder) DestroyDMSSubnetGroup(pexecutor *ctxt.Executor, subClusterType
 	return b
 }
 
-func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType string, isPrivate bool, clusterInfo *ClusterInfo, openPortsPublic, openPortsPrivate []int) *Builder {
-	if isPrivate == true {
-		if clusterInfo.enableNAT == "true" {
-			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
-				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				// NAT creation should be after the network preparation, otherwise the nat subnet is taken as one of the private subnets.
-				// Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
-				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
-		} else {
-			b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				// Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-				Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
-				Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build())
-		}
+/*
+NAT: specification
+RouteTable
+ 01. private: One
+ 02. public:  One
+ 03. nat: Two(one: private/nat)
+*/
+func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType string, network NetworkType, clusterInfo *ClusterInfo, openPorts []int) *Builder {
+	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, network).Build()).
+		Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, network, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType, network).Build()).
+		Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network, openPorts).Build())
 
-	} else {
-		fmt.Printf(" Creating public basic resource \n\n\n\n ")
-		b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating route table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-			// Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-			Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
-			Step(fmt.Sprintf("%s : Creating security group ... ...", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, isPrivate, clusterInfo, openPortsPublic, openPortsPrivate).Build()).
-			Step(fmt.Sprintf("%s : Creating internet gateway ... ...", subClusterType), NewBuilder().CreateInternetGateway(pexecutor, subClusterType, clusterInfo).Build())
-	}
+	// if network == "nat" {
+	// 	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, network).Build()).
+	// 		// NAT creation should be after the network preparation, otherwise the nat subnet is taken as one of the private subnets.
+	// 		// Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, network, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network, openPortsPublic, openPortsPrivate).Build())
+	// } else if network == "private" {
+	// 	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, network).Build()).
+	// 		// Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, network, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network, openPortsPublic, openPortsPrivate).Build())
+	// } else if network == "public" {
+	// 	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating route table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, network).Build()).
+	// 		// Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, network, clusterInfo).Build()).
+	// 		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating security group ... ...", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network, openPortsPublic, openPortsPrivate).Build()).
+	// 		Step(fmt.Sprintf("%s : Creating internet gateway ... ...", subClusterType), NewBuilder().CreateInternetGateway(pexecutor, subClusterType, clusterInfo).Build())
+
+	// } else {
+	// 	fmt.Printf(fmt.Sprintf("Unsupported network type", network))
+	// }
 
 	return b
 }
@@ -1101,7 +1114,7 @@ func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterT
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, false, clusterInfo, []int{22, 80, 3000}, []int{}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "public", clusterInfo, []int{22, 80, 3000}).Build()).
 		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo, wsExe, gOpt).Build())
 
 	return b
@@ -1175,7 +1188,7 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 
 	//
 	// 49191: thanos query port
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
 		Step(fmt.Sprintf("%s : Creating TiDB Resource ... ...", subClusterType), NewBuilder().Parallel(false, parallelTasks...).Build())
 
 	return b
@@ -1189,7 +1202,7 @@ func (b *Builder) CreateDMCluster(pexecutor *ctxt.Executor, subClusterType strin
 	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 8261, 8262, 8291, 8249, 9090, 3000, 9093, 9094}).Build()).
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 8261, 8262, 8291, 8249, 9090, 3000, 9093, 9094}).Build()).
 		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType),
 			NewBuilder().CreateDMMasterNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DM Nodes ... ...", subClusterType),
@@ -1206,7 +1219,7 @@ func (b *Builder) CreateKafkaCluster(pexecutor *ctxt.Executor, subClusterType st
 	clusterInfo.enableNAT = topo.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 9092, 2181, 8081, 8082, 8083}).Build()).
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 9092, 2181, 8081, 8082, 8083}).Build()).
 		Step(fmt.Sprintf("%s : Creating Zookeeper Nodes ... ...", subClusterType),
 			NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &topo.Zookeeper, &topo.General, clusterInfo, "zookeeper").Build()).
 		Step(fmt.Sprintf("%s : Creating brokers Nodes ... ...", subClusterType),
@@ -1242,7 +1255,7 @@ func (b *Builder) CreateMongoCluster(pexecutor *ctxt.Executor, subClusterType st
 	}
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-		NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 27017, 27027, 27037}).Build()).
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 27017, 27027, 27037}).Build()).
 		Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().Parallel(false, envInitTasks...).Build())
 
 	return b
@@ -1297,7 +1310,7 @@ func (b *Builder) CreateSqlServer(pexecutor *ctxt.Executor, subClusterType strin
 	clusterInfo.instanceType = awsMSConfigs.InstanceType
 	clusterInfo.imageId = awsMSConfigs.ImageId
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 1433}).Build()).
 		Step(fmt.Sprintf("%s : Creating DB Subnet group ... ...", subClusterType), NewBuilder().CreateDBSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DB Param Group ... ...", subClusterType), NewBuilder().CreateDBParameterGroup(pexecutor, subClusterType, awsMSConfigs.DBParameterFamilyGroup, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating MS ... ...", subClusterType), NewBuilder().CreateMS(pexecutor, subClusterType, awsMSConfigs, clusterInfo).Build())
@@ -1319,7 +1332,7 @@ func (b *Builder) CreateDMSService(pexecutor *ctxt.Executor, subClusterType stri
 	}
 	clusterInfo.cidr = awsDMSConfigs.CIDR
 	clusterInfo.instanceType = awsDMSConfigs.InstanceType
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, true, clusterInfo, []int{}, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180}).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Subnet Group ... ...", subClusterType), NewBuilder().CreateDMSSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Instance ... ...", subClusterType), NewBuilder().CreateDMSInstance(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Source Endpoint ... ...", subClusterType), NewBuilder().CreateDMSSourceEndpoint(pexecutor, subClusterType, clusterInfo).Build()).
