@@ -45,7 +45,7 @@ import (
 	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
-	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	nlbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
 	// "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -104,7 +104,6 @@ type ClusterInfo struct {
 	pcxTidb2Aurora         string
 	excludedAZ             []string
 	includedAZ             []string
-	enableNAT              string
 	subnetsNum             int
 }
 
@@ -909,7 +908,7 @@ func ExistsELBResource(executor ctxt.Executor, ctx context.Context, clusterType,
 	return false
 }
 
-func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*elbtypes.TargetGroup, error) {
+func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*nlbtypes.TargetGroup, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
@@ -953,7 +952,7 @@ func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, cl
 }
 
 // func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*LoadBalancer, error) {
-func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*elbtypes.LoadBalancer, error) {
+func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*nlbtypes.LoadBalancer, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
@@ -1652,6 +1651,23 @@ func (b *BaseTask) MakeEC2Tags() *[]ec2types.Tag {
 	return &tags
 }
 
+func (b *BaseTask) MakeNLBTags() *[]nlbtypes.Tag {
+	var tags []nlbtypes.Tag
+	tags = append(tags, nlbtypes.Tag{Key: aws.String("Name"), Value: aws.String(b.clusterName)})
+	tags = append(tags, nlbtypes.Tag{Key: aws.String("Cluster"), Value: aws.String(b.clusterType)})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		tags = append(tags, nlbtypes.Tag{Key: aws.String("Type"), Value: aws.String(b.subClusterType)})
+	}
+
+	if b.scope != "" {
+		tags = append(tags, nlbtypes.Tag{Key: aws.String("Scope"), Value: aws.String(string(b.scope))})
+	}
+
+	return &tags
+}
+
 func (b *BaseTask) MakeEC2Filters() *[]ec2types.Filter {
 	var filters []ec2types.Filter
 
@@ -1765,6 +1781,36 @@ func (b *BaseTask) GetTransitGatewayID() (*string, error) {
 	}
 
 	return listTransitGateway.GetTransitGatewayID()
+}
+
+func (b *BaseTask) GetNLBArn() (*string, error) {
+	listNLB := &ListNLB{BaseNLB: BaseNLB{BaseTask: BaseTask{
+		pexecutor:      b.pexecutor,
+		clusterName:    b.clusterName,
+		clusterType:    b.clusterType,
+		subClusterType: b.subClusterType,
+		scope:          b.scope,
+	}}}
+	if err := listNLB.Execute(nil); err != nil {
+		return nil, err
+	}
+
+	return listNLB.ResourceData.GetResourceArn()
+}
+
+func (b *BaseTask) GetTargetGroupArn() (*string, error) {
+	listTargetGroup := &ListTargetGroup{BaseTargetGroup: BaseTargetGroup{BaseTask: BaseTask{
+		pexecutor:      b.pexecutor,
+		clusterName:    b.clusterName,
+		clusterType:    b.clusterType,
+		subClusterType: b.subClusterType,
+		scope:          b.scope,
+	}}}
+	if err := listTargetGroup.Execute(nil); err != nil {
+		return nil, err
+	}
+
+	return listTargetGroup.ResourceData.GetResourceArn()
 }
 
 /*

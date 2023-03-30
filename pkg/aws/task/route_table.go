@@ -31,12 +31,7 @@ import (
 
 /******************************************************************************/
 func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
-	// var scope string
-	// if isPrivate == true {
-	// 	scope = "private"
-	// } else {
-	// 	scope = "public"
-	// }
+
 	if network == NetworkTypeNAT {
 		b.tasks = append(b.tasks, &CreateRouteTable{
 			BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
@@ -219,7 +214,7 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 	// 02. Attach the internet gateway to VPC
 	// 03. Create route for the route table
 	fmt.Printf("ClusterName: %s, ClusterType: %s, subClusterType: %s, scope: %s \n\n\n\n", c.clusterName, c.clusterType, c.subClusterType, c.scope)
-	if c.scope == "public" {
+	if c.scope == NetworkTypePublic {
 		fmt.Printf("------------------- \n\n\n\n\n")
 		if err := c.CreateInternetGateway(); err != nil {
 			return err
@@ -237,6 +232,19 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 
 	// Process as below for nat:
 	// 01. Create internet gateway
+	if c.scope == NetworkTypeNAT {
+		if err := c.CreateInternetGateway(); err != nil {
+			return err
+		}
+
+		if err := c.AttachGW2VPC(); err != nil {
+			return err
+		}
+
+		// if err := c.CreateRoute(); err != nil {
+		// 	return err
+		// }
+	}
 
 	return nil
 }
@@ -325,7 +333,7 @@ func (c *CreateRouteTable) CreateRoute() error {
 	fmt.Printf("The internet gateway is <%s> \n\n\n", internetGatewayId)
 
 	var _routeTableId *string
-	// _routes := c.ResourceData.GetData()
+
 	for idx, _entry := range c.ResourceData.GetData() {
 		_routeTable := _entry.(types.RouteTable)
 		_routeTableId = _routeTable.RouteTableId

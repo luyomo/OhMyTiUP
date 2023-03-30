@@ -158,8 +158,7 @@ type (
 		TiDBVersion  string   `yaml:"tidb_version"`
 		ExcludedAZ   []string `yaml:"excluded_az,omitempty"`
 		IncludedAZ   []string `yaml:"included_az,omitempty"`
-		SubnetsNum   int      `yaml:"subnet_num,omitempty"`
-		EnableNAT    string   `yaml:"enable_nat" default:"true"`
+		SubnetsNum   int      `yaml:"subnet_num,omitempty" default: 3`
 		NetworkType  string   `yaml:"network_type" default:"private"`    // private/public/nat
 		EnableThanos string   `yaml:"enable_thanos", default:"disabled"` // enabled/disabled
 	}

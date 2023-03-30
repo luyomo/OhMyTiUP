@@ -78,7 +78,7 @@ func (d *Templates) GetResourceArn() (*string, error) {
 		return nil, errors.New("No resource found - TODO: replace name")
 	}
 
-	// return (d.Data[0]).(*types.Role).Arn, nil
+	// return (d.Data[0]).(types.Role).Arn, nil
 	return nil, nil
 }
 
@@ -86,7 +86,6 @@ func (d *Templates) GetResourceArn() (*string, error) {
 type BaseTemplate struct {
 	BaseTask
 
-	ResourceData ResourceData
 	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
 
 	// The below variables are initialized in the init() function
@@ -124,6 +123,8 @@ func (b *BaseTemplate) readResources() error {
 		return err
 	}
 
+	// Pattern01: List
+
 	// TODO: Replace if necessary
 	// filters := b.MakeEC2Filters()
 
@@ -133,10 +134,28 @@ func (b *BaseTemplate) readResources() error {
 	}
 
 	for _, policy := range resp.Policies {
-		if *policy.PolicyName == b.clusterName {
-			b.ResourceData.Append(&policy)
-		}
+		b.ResourceData.Append(policy)
 	}
+
+	// Pattern02: Descibe using filters
+
+	// Pattern03: Describe
+	// resp, err := b.client.DescribeLoadBalancers(context.TODO(), &nlb.DescribeLoadBalancersInput{Names: []string{c.clusterName}})
+	// if err != nil {
+	// 	var ae smithy.APIError
+	// 	if errors.As(err, &ae) {
+	// 		fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+	// 		if ae.ErrorCode() == "LoadBalancerNotFound" {
+	// 			return nil, nil
+	// 		}
+	// 	}
+
+	// 	return nil, err
+	// }
+
+	// for _, loadBalancer := range resp.LoadBalancers {
+	// 	b.ResourceData.Append(loadBalancer)
+	// }
 	return nil
 }
 
@@ -221,6 +240,16 @@ func (c *DestroyTemplate) Execute(ctx context.Context) error {
 
 	if clusterExistFlag == true {
 		// TODO: Destroy the cluster
+		// _id, err := c.ResourceData.GetResourceArn()
+		// if err != nil {
+		// 	return err
+		// }
+		// if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
+		// 	RouteTableId: _id,
+		// }); err != nil {
+		// 	return err
+		// }
+
 	}
 
 	return nil

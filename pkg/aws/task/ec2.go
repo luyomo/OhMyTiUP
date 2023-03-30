@@ -775,6 +775,19 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	// ********** TODO: Replace below login by common function --------------------
 
 	/***************************************************************************************************************
+	 * 05.before Get NLB
+	 ***************************************************************************************************************/
+	// nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	// if err != nil {
+	// 	return err
+	// }
+
+	targetGroup, err := getTargetGroup(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	if err != nil {
+		return err
+	}
+
+	/***************************************************************************************************************
 	 * 05. Auto scaling generation
 	 ***************************************************************************************************************/
 	if len(describeAutoScalingGroups.AutoScalingGroups) == 0 {
@@ -807,6 +820,10 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 			createAutoScalingGroupInput.MaxSize = aws.Int32(int32(c.awsTopoConfigs.Count))
 			createAutoScalingGroupInput.MinSize = aws.Int32(int32(c.awsTopoConfigs.Count))
 			createAutoScalingGroupInput.DesiredCapacity = aws.Int32(int32(c.awsTopoConfigs.Count))
+		}
+
+		if targetGroup != nil {
+			createAutoScalingGroupInput.TargetGroupARNs = []string{*targetGroup.TargetGroupArn}
 		}
 
 		if _, err := clientASC.CreateAutoScalingGroup(context.TODO(), createAutoScalingGroupInput); err != nil {

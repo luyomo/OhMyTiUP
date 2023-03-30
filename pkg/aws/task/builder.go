@@ -27,8 +27,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/proxy"
-
-	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	// elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 // Builder is used to build TiUP task
@@ -919,7 +918,7 @@ func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.
 	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
 	clusterInfo.subnetsNum = awsESConfigs.General.SubnetsNum
 	// clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
-	clusterInfo.enableNAT = "true" // The nat is mandatory for EKS node group. If the NAT wants to be disable, need to set the private endpoint to acces EKS control plane
+	// clusterInfo.enableNAT = "true" // The nat is mandatory for EKS node group. If the NAT wants to be disable, need to set the private endpoint to acces EKS control plane
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "private", clusterInfo, []int{22, 80, 3000}).Build()).
 		Step(fmt.Sprintf("%s : Creating EKS ... ...", subClusterType), &DeployEKS{
@@ -939,7 +938,7 @@ func (b *Builder) CreateK8SESCluster(pexecutor *ctxt.Executor, awsWSConfigs *spe
 	clusterInfo.excludedAZ = awsESConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
 	clusterInfo.subnetsNum = awsESConfigs.General.SubnetsNum
-	clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
+	// clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating ES on EKS ... ...", subClusterType), &DeployK8SES{
 		pexecutor:         pexecutor,
@@ -1141,18 +1140,25 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	clusterInfo.excludedAZ = awsTopoConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.subnetsNum = awsTopoConfigs.General.SubnetsNum
-	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
+	// clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
 	var parallelTasks []Task
 
 	t1 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.PD, &awsTopoConfigs.General, clusterInfo, "pd").Build()
 	parallelTasks = append(parallelTasks, t1)
 
-	t2 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.TiDB, &awsTopoConfigs.General, clusterInfo, "tidb").
-		Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build()).Build()
+	// network := NetworkType(awsTopoConfigs.General.NetworkType)
+	t2 := NewBuilder().
+		CreateElasticAddress(pexecutor, "tidb", NetworkType(awsTopoConfigs.General.NetworkType)).
+		CreateNLB(pexecutor, subClusterType).
+		CreateTargetGroup(pexecutor, subClusterType).
+		CreateNLBListener(pexecutor, subClusterType).
+		WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.TiDB, &awsTopoConfigs.General, clusterInfo, "tidb").
+		// Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType, clusterInfo).Build()).
+		// Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
+
+		// Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build()).
+		Build()
 
 	parallelTasks = append(parallelTasks, t2)
 
@@ -1188,7 +1194,7 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 
 	//
 	// 49191: thanos query port
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkType(awsTopoConfigs.General.NetworkType), clusterInfo, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
 		Step(fmt.Sprintf("%s : Creating TiDB Resource ... ...", subClusterType), NewBuilder().Parallel(false, parallelTasks...).Build())
 
 	return b
@@ -1199,7 +1205,7 @@ func (b *Builder) CreateDMCluster(pexecutor *ctxt.Executor, subClusterType strin
 	clusterInfo.excludedAZ = awsTopoConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.subnetsNum = awsTopoConfigs.General.SubnetsNum
-	clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
+	// clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
 		NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 8261, 8262, 8291, 8249, 9090, 3000, 9093, 9094}).Build()).
@@ -1216,7 +1222,7 @@ func (b *Builder) CreateKafkaCluster(pexecutor *ctxt.Executor, subClusterType st
 	clusterInfo.excludedAZ = topo.General.ExcludedAZ
 	clusterInfo.includedAZ = topo.General.IncludedAZ
 	clusterInfo.subnetsNum = topo.General.SubnetsNum
-	clusterInfo.enableNAT = topo.General.EnableNAT
+	// clusterInfo.enableNAT = topo.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
 		NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 9092, 2181, 8081, 8082, 8083}).Build()).
@@ -1239,7 +1245,7 @@ func (b *Builder) CreateMongoCluster(pexecutor *ctxt.Executor, subClusterType st
 	clusterInfo.excludedAZ = topo.General.ExcludedAZ
 	clusterInfo.includedAZ = topo.General.IncludedAZ
 	clusterInfo.subnetsNum = topo.General.SubnetsNum
-	clusterInfo.enableNAT = topo.General.EnableNAT
+	// clusterInfo.enableNAT = topo.General.EnableNAT
 
 	var envInitTasks []Task
 
@@ -1275,7 +1281,8 @@ func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType 
 
 func (b *Builder) DestroyEC2Nodes(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 
-	b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor, subClusterType).Build()).
+	// b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor, subClusterType).Build()).
+	b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor).Build()).
 		Step(fmt.Sprintf("%s : Destroying Target Group ... ...", subClusterType), NewBuilder().DestroyTargetGroup(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScalingGroup(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Launch Templates ... ...", subClusterType), NewBuilder().DestroyLaunchTemplate(pexecutor, subClusterType).Build()).
@@ -1433,24 +1440,6 @@ func (b *Builder) DeployDrainConfig(pexecutor *ctxt.Executor, awsOracleConfigs *
 	return b
 }
 
-func (b *Builder) ListNLB(pexecutor *ctxt.Executor, subClusterType string, nlb *elbtypes.LoadBalancer) *Builder {
-	b.tasks = append(b.tasks, &ListNLB{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		nlb:            nlb,
-	})
-	return b
-}
-
-func (b *Builder) CreateTargetGroup(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateTargetGroup{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-	})
-	return b
-}
-
 func (b *Builder) RegisterTarget(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &RegisterTarget{
 		pexecutor:      pexecutor,
@@ -1460,46 +1449,13 @@ func (b *Builder) RegisterTarget(pexecutor *ctxt.Executor, subClusterType string
 	return b
 }
 
-func (b *Builder) CreateNLB(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateNLB{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-	})
-	return b
-}
-
-func (b *Builder) CreateNLBListener(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateNLBListener{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-	})
-	return b
-}
-
 func (b *Builder) CreateTiDBNLB(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType, clusterInfo).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build())
+		// Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Creating Load Balancer ... ...", subClusterType), NewBuilder().CreateNLB(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType).Build())
 
-	return b
-}
-
-func (b *Builder) DestroyNLB(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyNLB{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
-	return b
-}
-
-func (b *Builder) DestroyTargetGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyTargetGroup{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
 	return b
 }
 
