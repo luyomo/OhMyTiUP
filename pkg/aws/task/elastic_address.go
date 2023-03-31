@@ -30,24 +30,18 @@ import (
 )
 
 /******************************************************************************/
-func (b *Builder) CreateElasticAddress(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
-	if network == NetworkTypeNAT {
-		b.tasks = append(b.tasks, &CreateElasticAddress{BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}}})
-	}
+func (b *Builder) CreateElasticAddress(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateElasticAddress{BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypeNAT}}})
 	return b
 }
 
 func (b *Builder) ListElasticAddress(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &ListElasticAddress{
-		BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{pexecutor: pexecutor}},
-	})
+	b.tasks = append(b.tasks, &ListElasticAddress{BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{pexecutor: pexecutor}}})
 	return b
 }
 
 func (b *Builder) DestroyElasticAddress(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &DestroyElasticAddress{
-		BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{pexecutor: pexecutor}},
-	})
+	b.tasks = append(b.tasks, &DestroyElasticAddress{BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{pexecutor: pexecutor}}})
 	return b
 }
 
@@ -80,7 +74,7 @@ func (d *ElasticAddresss) GetResourceArn() (*string, error) {
 		return nil, errors.New("No resource(elastic address) found")
 	}
 
-	return (d.Data[0]).(*types.Address).AllocationId, nil
+	return (d.Data[0]).(types.Address).AllocationId, nil
 }
 
 /******************************************************************************/
@@ -156,9 +150,6 @@ func (c *CreateElasticAddress) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		// TODO: Add resource preparation
-		// *************************************************************
-
 		tags := c.MakeEC2Tags()
 
 		if _, err = c.client.AllocateAddress(context.TODO(), &ec2.AllocateAddressInput{

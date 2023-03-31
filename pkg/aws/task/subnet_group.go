@@ -37,13 +37,13 @@ func (b *Builder) CreateSubnets(pexecutor *ctxt.Executor, subClusterType string,
 		clusterInfo: clusterInfo,
 	})
 
-	// If it's the nat network, generate the private network as well.
-	if network == NetworkTypeNAT {
-		b.tasks = append(b.tasks, &CreateSubnets{
-			BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
-			clusterInfo: clusterInfo,
-		})
-	}
+	// // If it's the nat network, generate the private network as well.
+	// if network == NetworkTypeNAT {
+	// 	b.tasks = append(b.tasks, &CreateSubnets{
+	// 		BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
+	// 		clusterInfo: clusterInfo,
+	// 	})
+	// }
 
 	return b
 }
@@ -177,21 +177,23 @@ func (b *BaseSubnets) readResources() error {
 		return err
 	}
 
-	var filters []types.Filter
-	fmt.Printf("Name: %s, Cluster: %s, Type: %s, Scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
-	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
+	filters := b.MakeEC2Filters()
+	// var filters []types.Filter
+	// fmt.Printf("Name: %s, Cluster: %s, Type: %s, Scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
+	// filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
+	// filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
 
-	// If the subClusterType is not specified, it is called from destroy to remove all the security group
-	if b.subClusterType != "" {
-		filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
-	}
+	// // If the subClusterType is not specified, it is called from destroy to remove all the security group
+	// if b.subClusterType != "" {
+	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
+	// }
 
-	if b.scope != "" {
-		filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
-	}
+	// if b.scope != "" {
+	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
+	// }
+	fmt.Printf("The filters are : <%#v> \n\n\n\n\n\n", filters)
 
-	resp, err := b.client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{Filters: filters})
+	resp, err := b.client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{Filters: *filters})
 	if err != nil {
 		return err
 	}
@@ -238,12 +240,15 @@ func (c *CreateSubnets) Execute(ctx context.Context) error {
 	for idx, zone := range *zones4subnet {
 		tags := c.MakeEC2Tags()
 
+		// If the NAT network is specified, specify the cidr from 20
+		// while 01 is started from general case.
 		var _cidrBlock string
-		if c.scope == "nat" {
+		if c.scope == NetworkTypeNAT {
 			_cidrBlock = getNextCidr(*cidrBlock, 20+len(*usedZones)+idx+1)
 		} else {
 			_cidrBlock = getNextCidr(*cidrBlock, len(*usedZones)+idx+1)
 		}
+
 		if _, err = c.client.CreateSubnet(context.TODO(), &ec2.CreateSubnetInput{
 			VpcId:            vpcId,
 			AvailabilityZone: zone.ZoneName,

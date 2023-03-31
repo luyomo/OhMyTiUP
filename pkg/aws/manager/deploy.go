@@ -238,7 +238,7 @@ func (m *Manager) Deploy(
 				CreateRouteTable(&sexecutor, "tidb", "public").
 				CreateNetwork(&sexecutor, "tidb", false, &clusterInfo).
 				CreateSecurityGroup(&sexecutor, "tidb", "public", []int{22}).
-				CreateInternetGateway(&sexecutor, "tidb", &clusterInfo).
+				CreateInternetGateway(&sexecutor, "tidb").
 				//CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreatePDNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiDBNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).

@@ -33,7 +33,7 @@ import (
 /******************************************************************************/
 func (b *Builder) CreateMskConnect(wsExe *ctxt.Executor, createMskConnectInput *CreateMskConnectInput /* redshiftDBInfo *ws.RedshiftDBInfo, mskEndpoints *string, glueSchemaRegistry, topicName, tableName string*/) *Builder {
 	b.tasks = append(b.tasks, &CreateMskConnect{
-		BaseMskConnect:        BaseMskConnect{BaseTask: BaseTask{wsExe: wsExe}},
+		BaseMskConnect:        BaseMskConnect{BaseTask: BaseTask{wsExe: wsExe, subClusterType: "msk", scope: NetworkTypePrivate}},
 		createMskConnectInput: createMskConnectInput,
 		// mskEndpoints:       mskEndpoints,
 		// redshiftDBInfo:     redshiftDBInfo,
@@ -197,27 +197,37 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 		fmt.Printf("The role arn : <%s>\n\n\n\n ", *roleArn)
 
 		// Get security group
-		listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: c.pexecutor}}}
-		if err := listSecurityGroup.Execute(ctx); err != nil {
-			return err
-		}
+		// listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: c.pexecutor}}}
+		// if err := listSecurityGroup.Execute(ctx); err != nil {
+		// 	return err
+		// }
 
-		securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+		// securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+		// if err != nil {
+		// 	return err
+		// }
+
+		securityGroupID, err := c.GetSecurityGroup()
 		if err != nil {
 			return err
 		}
 		fmt.Printf("The security group is : <%s> \n\n\n", *securityGroupID)
 
 		// Get subnet group
-		listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: "msk"}}}
-		if err := listSubnets.Execute(ctx); err != nil {
-			return err
-		}
+		// listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: "msk"}}}
+		// if err := listSubnets.Execute(ctx); err != nil {
+		// 	return err
+		// }
 
-		subnets, err := listSubnets.GetSubnets(3)
+		// subnets, err := listSubnets.GetSubnets(3)
+		// if err != nil {
+		// 	return err
+		// }
+		subnets, err := c.GetSubnetsInfo(3)
 		if err != nil {
 			return err
 		}
+
 		fmt.Printf("The subnet is : <%s> \n\n\n", subnets)
 
 		connectConfiguration["connector.class"] = "io.confluent.connect.aws.redshift.RedshiftSinkConnector"

@@ -64,7 +64,7 @@ func (m *Manager) DestroyTiDB2AuroraCluster(name string, gOpt operator.Options, 
 		// DestroyVpcPeering(&sexecutor).
 		DestroyNetwork(&sexecutor, "test").
 		DestroyRouteTable(&sexecutor, "test").
-		DestroyInternetGateway(&sexecutor, "test").
+		DestroyInternetGateway(&sexecutor).
 		DestroyVPC(&sexecutor, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 

@@ -32,12 +32,12 @@ import (
 /******************************************************************************/
 func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
 
-	if network == NetworkTypeNAT {
-		b.tasks = append(b.tasks, &CreateRouteTable{
-			BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
-		})
+	// if network == NetworkTypeNAT {
+	// 	b.tasks = append(b.tasks, &CreateRouteTable{
+	// 		BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
+	// 	})
 
-	}
+	// }
 	b.tasks = append(b.tasks, &CreateRouteTable{
 		BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 	})
@@ -89,8 +89,8 @@ func (d *RouteTablesInfo) GetResourceArn() (*string, error) {
 		return nil, errors.New("No resource(route table) found ")
 	}
 
-	// return (d.Data[0]).(*types.Role).Arn, nil
-	return nil, nil
+	return (d.Data[0]).(types.RouteTable).RouteTableId, nil
+
 }
 
 func (d *RouteTablesInfo) GetRouteTableId() (*string, error) {
@@ -224,7 +224,7 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if err := c.CreateRoute(); err != nil {
+		if err := c.CreateInternetGatewayRoute(); err != nil {
 			return err
 		}
 
@@ -240,6 +240,8 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 		if err := c.AttachGW2VPC(); err != nil {
 			return err
 		}
+
+		// Create NAT
 
 		// if err := c.CreateRoute(); err != nil {
 		// 	return err
@@ -274,41 +276,43 @@ func (c *CreateRouteTable) CreateInternetGateway() error {
 	return nil
 }
 
-func (c *CreateRouteTable) getInternetGatewayId() (*string, *string, error) {
-	filters := c.MakeEC2Filters()
-	resp, err := c.client.DescribeInternetGateways(context.TODO(), &ec2.DescribeInternetGatewaysInput{Filters: *filters})
-	if err != nil {
-		return nil, nil, err
-	}
-	fmt.Printf("The internete gateway is <%#v> \n\n\n\n", resp)
-	if len(resp.InternetGateways) > 1 {
-		return nil, nil, errors.New("Multiple internet gateways")
-	}
-	if len(resp.InternetGateways) == 0 {
-		return nil, nil, errors.New("No internet gateways found")
-	}
+// func (c *CreateRouteTable) getInternetGatewayId() (*string, *string, error) {
+// 	filters := c.MakeEC2Filters()
+// 	resp, err := c.client.DescribeInternetGateways(context.TODO(), &ec2.DescribeInternetGatewaysInput{Filters: *filters})
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	fmt.Printf("The internete gateway is <%#v> \n\n\n\n", resp)
+// 	if len(resp.InternetGateways) > 1 {
+// 		return nil, nil, errors.New("Multiple internet gateways")
+// 	}
+// 	if len(resp.InternetGateways) == 0 {
+// 		return nil, nil, errors.New("No internet gateways found")
+// 	}
 
-	internetGatewayId := *resp.InternetGateways[0].InternetGatewayId
+// 	internetGatewayId := *resp.InternetGateways[0].InternetGatewayId
 
-	if len(resp.InternetGateways[0].Attachments) == 0 {
-		return &internetGatewayId, nil, nil
-	}
+// 	if len(resp.InternetGateways[0].Attachments) == 0 {
+// 		return &internetGatewayId, nil, nil
+// 	}
 
-	attachedVpc := *resp.InternetGateways[0].Attachments[0].VpcId
+// 	attachedVpc := *resp.InternetGateways[0].Attachments[0].VpcId
 
-	return &internetGatewayId, &attachedVpc, nil
+// 	return &internetGatewayId, &attachedVpc, nil
 
-}
+// }
 
 func (c *CreateRouteTable) AttachGW2VPC() error {
-	internetGatewayId, attachedVpc, err := c.getInternetGatewayId()
+	internetGatewayId, hasAttached, err := c.GetInternetGatewayId()
 	if err != nil {
 		return err
 	}
 
-	if attachedVpc != nil {
+	if hasAttached == true {
 		return nil
 	}
+
+	fmt.Printf("--------------- AttachGW2VPC ------- \n\n\n\n\n\n")
 
 	vpcId, err := c.GetVpcItem("VpcId")
 	if err != nil {
@@ -324,31 +328,26 @@ func (c *CreateRouteTable) AttachGW2VPC() error {
 
 	return nil
 }
-func (c *CreateRouteTable) CreateRoute() error {
-	internetGatewayId, _, err := c.getInternetGatewayId()
+
+func (c *CreateRouteTable) CreateInternetGatewayRoute() error {
+	internetGatewayId, _, err := c.GetInternetGatewayId()
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("The internet gateway is <%s> \n\n\n", internetGatewayId)
+	routeTable, err := c.GetRouteTable()
+	if err != nil {
+		return err
+	}
 
-	var _routeTableId *string
-
-	for idx, _entry := range c.ResourceData.GetData() {
-		_routeTable := _entry.(types.RouteTable)
-		_routeTableId = _routeTable.RouteTableId
-		fmt.Printf("Route data: <%s> and <%d> \n\n\n", *_routeTable.RouteTableId, idx)
-		for _, _route := range _routeTable.Routes {
-			if _route.NetworkInterfaceId != nil && *_route.NetworkInterfaceId == *internetGatewayId {
-				return nil
-			}
-			fmt.Printf("Route : <%s> and <%s> \n\n\n", *_route.DestinationCidrBlock, _route.NetworkInterfaceId)
+	for _, route := range routeTable.Routes {
+		if route.NetworkInterfaceId != nil && *route.NetworkInterfaceId == *internetGatewayId {
+			return nil
 		}
-
 	}
 
 	if _, err := c.client.CreateRoute(context.TODO(), &ec2.CreateRouteInput{
-		RouteTableId:         _routeTableId,
+		RouteTableId:         routeTable.RouteTableId,
 		DestinationCidrBlock: aws.String("0.0.0.0/0"),
 		GatewayId:            internetGatewayId,
 	}); err != nil {
@@ -357,6 +356,38 @@ func (c *CreateRouteTable) CreateRoute() error {
 
 	return nil
 }
+
+// func (c *CreateRouteTable) CreateRoute() error {
+// 	internetGatewayId, _, err := c.getInternetGatewayId()
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	var _routeTableId *string
+
+// 	for idx, _entry := range c.ResourceData.GetData() {
+// 		_routeTable := _entry.(types.RouteTable)
+// 		_routeTableId = _routeTable.RouteTableId
+// 		fmt.Printf("Route data: <%s> and <%d> \n\n\n", *_routeTable.RouteTableId, idx)
+// 		for _, _route := range _routeTable.Routes {
+// 			if _route.NetworkInterfaceId != nil && *_route.NetworkInterfaceId == *internetGatewayId {
+// 				return nil
+// 			}
+// 			fmt.Printf("Route : <%s> and <%s> \n\n\n", *_route.DestinationCidrBlock, _route.NetworkInterfaceId)
+// 		}
+
+// 	}
+
+// 	if _, err := c.client.CreateRoute(context.TODO(), &ec2.CreateRouteInput{
+// 		RouteTableId:         _routeTableId,
+// 		DestinationCidrBlock: aws.String("0.0.0.0/0"),
+// 		GatewayId:            internetGatewayId,
+// 	}); err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }
 
 // Rollback implements the Task interface
 func (c *CreateRouteTable) Rollback(ctx context.Context) error {

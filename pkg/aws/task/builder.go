@@ -670,14 +670,14 @@ func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType str
 	return b
 }
 
-func (b *Builder) CreateInternetGateway(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &CreateInternetGateway{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-	})
-	return b
-}
+// func (b *Builder) CreateInternetGateway(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+// 	b.tasks = append(b.tasks, &CreateInternetGateway{
+// 		pexecutor:      pexecutor,
+// 		subClusterType: subClusterType,
+// 		clusterInfo:    clusterInfo,
+// 	})
+// 	return b
+// }
 
 func (b *Builder) AcceptVPCPeering(pexecutor *ctxt.Executor, listComponent []string) *Builder {
 	b.tasks = append(b.tasks, &AcceptVPCPeering{
@@ -767,13 +767,13 @@ func (b *Builder) DestroyNetwork(pexecutor *ctxt.Executor, subClusterType string
 	return b
 }
 
-func (b *Builder) DestroyInternetGateway(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyInternetGateway{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
-	return b
-}
+// func (b *Builder) DestroyInternetGateway(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+// 	b.tasks = append(b.tasks, &DestroyInternetGateway{
+// 		pexecutor:      pexecutor,
+// 		subClusterType: subClusterType,
+// 	})
+// 	return b
+// }
 
 func (b *Builder) CreateDBSubnetGroup(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateDBSubnetGroup{
@@ -1062,6 +1062,21 @@ func (b *Builder) DestroyDMSSubnetGroup(pexecutor *ctxt.Executor, subClusterType
 	return b
 }
 
+func (b *Builder) CreateNAT(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
+
+	// Create NAT:
+	// 1. Create route table
+	// 2. Create subnet
+	// 3. Create internet gateway
+	// 4. Create NAT Gateway
+	// 5. Create route from private subnets
+	b.CreateRouteTable(pexecutor, subClusterType, NetworkTypeNAT).
+		CreateSubnets(pexecutor, subClusterType, NetworkTypeNAT, clusterInfo).
+		CreateElasticAddress(pexecutor, subClusterType).
+		CreateNATGateway(pexecutor, subClusterType) // Including adding route from private to natgateway
+	return b
+}
+
 /*
 NAT: specification
 RouteTable
@@ -1070,12 +1085,29 @@ RouteTable
  03. nat: Two(one: private/nat)
 */
 func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType string, network NetworkType, clusterInfo *ClusterInfo, openPorts []int) *Builder {
+	_network := network
+	if network == NetworkTypeNAT {
+		_network = NetworkTypePrivate
+	}
+
+	// ------ Comment out for test ------
+	// It's common for all the cases.
+	// 1. Network is public, deploy public network
+	// 2. Network is private deploy private network
+	// 3. Network is nat, deploy the private network
 	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
 		// Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, network).Build()).
-		Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, network, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType, network).Build()).
-		Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network, openPorts).Build())
+		Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, _network).Build()).
+		Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, _network, clusterInfo).Build()).
+		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType, _network).Build()).
+		Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, _network, openPorts).Build())
+	// Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network).Build())
+	// ----------------------------------
+
+	// 4. Network is nat, deploy nat for the VPC
+	if network == NetworkTypeNAT {
+		b.Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType, clusterInfo).Build())
+	}
 
 	// if network == "nat" {
 	// 	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
@@ -1119,13 +1151,13 @@ func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterT
 	return b
 }
 
-func (b *Builder) CreateNAT(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &CreateNAT{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
-	return b
-}
+// func (b *Builder) CreateNAT(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+// 	b.tasks = append(b.tasks, &CreateNAT{
+// 		pexecutor:      pexecutor,
+// 		subClusterType: subClusterType,
+// 	})
+// 	return b
+// }
 
 func (b *Builder) DestroyNAT(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyNAT{
@@ -1149,15 +1181,11 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 
 	// network := NetworkType(awsTopoConfigs.General.NetworkType)
 	t2 := NewBuilder().
-		CreateElasticAddress(pexecutor, "tidb", NetworkType(awsTopoConfigs.General.NetworkType)).
+		// CreateElasticAddress(pexecutor, "tidb", NetworkType(awsTopoConfigs.General.NetworkType)).
 		CreateNLB(pexecutor, subClusterType).
 		CreateTargetGroup(pexecutor, subClusterType).
 		CreateNLBListener(pexecutor, subClusterType).
 		WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.TiDB, &awsTopoConfigs.General, clusterInfo, "tidb").
-		// Step(fmt.Sprintf("%s : Creating Target Group ... ...", subClusterType), NewBuilder().CreateTargetGroup(pexecutor, subClusterType, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Registering Target  ... ...", subClusterType), NewBuilder().RegisterTarget(pexecutor, subClusterType, clusterInfo).Build()).
-
-		// Step(fmt.Sprintf("%s : Creating Load Balancer Listener ... ...", subClusterType), NewBuilder().CreateNLBListener(pexecutor, subClusterType, clusterInfo).Build()).
 		Build()
 
 	parallelTasks = append(parallelTasks, t2)
@@ -1269,7 +1297,7 @@ func (b *Builder) CreateMongoCluster(pexecutor *ctxt.Executor, subClusterType st
 
 func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 
-	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor, subClusterType).Build()).
+	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor).Build()).
 		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroySecurityGroup(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying nat ... ...", subClusterType), NewBuilder().DestroyNAT(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying network ... ...", subClusterType), NewBuilder().DestroyNetwork(pexecutor, subClusterType).Build()).

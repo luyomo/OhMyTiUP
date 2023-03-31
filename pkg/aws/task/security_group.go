@@ -32,12 +32,12 @@ import (
 /******************************************************************************/
 func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, network NetworkType, openPorts []int) *Builder {
 
-	if network == NetworkTypeNAT {
-		b.tasks = append(b.tasks, &CreateSecurityGroup{
-			BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
-			openPorts:         openPorts,
-		})
-	}
+	// if network == NetworkTypeNAT {
+	// 	b.tasks = append(b.tasks, &CreateSecurityGroup{
+	// 		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
+	// 		openPorts:         openPorts,
+	// 	})
+	// }
 	b.tasks = append(b.tasks, &CreateSecurityGroup{
 		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 		openPorts:         openPorts,

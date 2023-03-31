@@ -184,23 +184,6 @@ func (c *CreateNLB) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		// TODO: Add resource preparation
-		// Pattern01:
-		// tags := []types.Tag{
-		// 	{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
-		// 	{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
-		// 	{Key: aws.String("Type"), Value: aws.String("glue")},
-		// 	{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
-		// }
-
-		// if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{}); err != nil {
-		// 	return err
-		// }
-
-		// *************************************************************
-		// Pattern02:
-		// tags := c.MakeEC2Tags()
-
 		clusterSubnets, err := c.GetSubnetsInfo(0)
 		if err != nil {
 			return err

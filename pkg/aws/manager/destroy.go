@@ -59,7 +59,7 @@ func (m *Manager) DestroyCluster(name string, gOpt operator.Options, destroyOpt 
 		// DestroyVpcPeering(&sexecutor).
 		DestroyNetwork(&sexecutor, "test").
 		DestroyRouteTable(&sexecutor, "test").
-		DestroyInternetGateway(&sexecutor, "test").
+		DestroyInternetGateway(&sexecutor).
 		DestroyVPC(&sexecutor, "test").
 		BuildAsStep(fmt.Sprintf("  - Destroying cluster %s ", name))
 

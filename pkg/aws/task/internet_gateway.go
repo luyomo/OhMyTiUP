@@ -15,77 +15,204 @@ package task
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
+
+	// "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	// "github.com/aws/smithy-go"
+	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	"go.uber.org/zap"
+	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+	// "go.uber.org/zap"
 )
 
-// Mkdir is used to create directory on the target host
+/******************************************************************************/
+func (b *Builder) CreateInternetGateway(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &CreateInternetGateway{BaseInternetGateway: BaseInternetGateway{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}}})
+	return b
+}
+
+func (b *Builder) ListInternetGateway(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &ListInternetGateway{BaseInternetGateway: BaseInternetGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
+	return b
+}
+
+func (b *Builder) DestroyInternetGateway(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyInternetGateway{BaseInternetGateway: BaseInternetGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
+	return b
+}
+
+/******************************************************************************/
+
+type InternetGatewaysInfo struct {
+	BaseResourceInfo
+}
+
+func (d *InternetGatewaysInfo) ToPrintTable() *[][]string {
+	tableInternetGateway := [][]string{{"Cluster Name"}}
+	for _, _row := range d.Data {
+		// _entry := _row.(InternetGateway)
+		// tableInternetGateway = append(tableInternetGateway, []string{
+		// 	// *_entry.PolicyName,
+		// })
+
+		log.Infof("%#v", _row)
+	}
+	return &tableInternetGateway
+}
+
+func (d *InternetGatewaysInfo) GetResourceArn() (*string, error) {
+	// TODO: Implement
+	resourceExists, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+	if resourceExists == false {
+		return nil, errors.New("No resource found(internet gateway)")
+	}
+
+	return (d.Data[0]).(types.InternetGateway).InternetGatewayId, nil
+}
+
+/******************************************************************************/
+type BaseInternetGateway struct {
+	BaseTask
+
+	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
+
+	// The below variables are initialized in the init() function
+	client *ec2.Client // Replace the example to specific service
+}
+
+func (b *BaseInternetGateway) init(ctx context.Context) error {
+	if ctx != nil {
+		b.clusterName = ctx.Value("clusterName").(string)
+		b.clusterType = ctx.Value("clusterType").(string)
+	}
+
+	// Client initialization
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	b.client = ec2.NewFromConfig(cfg) // Replace the example to specific service
+
+	// Resource data initialization
+	if b.ResourceData == nil {
+		b.ResourceData = &InternetGatewaysInfo{}
+	}
+
+	if err := b.readResources(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *BaseInternetGateway) readResources() error {
+	if err := b.ResourceData.Reset(); err != nil {
+		return err
+	}
+
+	filters := b.MakeEC2Filters()
+
+	resp, err := b.client.DescribeInternetGateways(context.TODO(), &ec2.DescribeInternetGatewaysInput{Filters: *filters})
+	if err != nil {
+		return err
+	}
+
+	for _, internetGateway := range resp.InternetGateways {
+		b.ResourceData.Append(internetGateway)
+	}
+
+	return nil
+}
+
+func (b *BaseInternetGateway) isAttachedToVPC() (bool, error) {
+	// TODO: Implement
+	resourceExists, err := b.ResourceData.ResourceExist()
+	if err != nil {
+		return false, err
+	}
+	if resourceExists == false {
+		return false, errors.New("No resource found(internet gateway): Status check")
+	}
+
+	_data := b.ResourceData.GetData()
+	fmt.Printf("isAttachedToVPC 03: %#v \n\n\n\n\n\n", len(_data[0].(types.InternetGateway).Attachments))
+
+	if len(_data[0].(types.InternetGateway).Attachments) > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+/******************************************************************************/
 type CreateInternetGateway struct {
-	pexecutor      *ctxt.Executor
-	subClusterType string
-	clusterInfo    *ClusterInfo
+	BaseInternetGateway
 }
 
 // Execute implements the Task interface
 func (c *CreateInternetGateway) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	/* ***** 01. Resource check ******************************************* */
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
+	}
 
-	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Clustere\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\"", clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
 		return err
 	}
 
-	var internetGateways InternetGateways
-	if err = json.Unmarshal(stdout, &internetGateways); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
-		return nil
+	/* ***** 02. Create internet gateway if it does not exist ************ */
+	if clusterExistFlag == false {
+		tags := c.MakeEC2Tags()
+
+		if _, err = c.client.CreateInternetGateway(context.TODO(), &ec2.CreateInternetGatewayInput{
+			TagSpecifications: []types.TagSpecification{
+				types.TagSpecification{
+					ResourceType: types.ResourceTypeSecurityGroup,
+					Tags:         *tags,
+				},
+			},
+		}); err != nil {
+			return err
+		}
+		c.readResources()
 	}
 
-	if len(internetGateways.InternetGateways) > 0 {
-		zap.L().Info("Internetgateways existed", zap.String("Internetgateway", internetGateways.String()))
-		return nil
-	}
-
-	command = fmt.Sprintf("aws ec2 create-internet-gateway --tag-specifications \"ResourceType=internet-gateway,Tags=[{Key=Name,Value=%s},{Key=Cluster,Value=%s},{Key=Type,Value=%s}]\"", clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
-	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
-		return nil
-	}
-	var newInternetGateway NewInternetGateway
-	if err = json.Unmarshal(stdout, &newInternetGateway); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("new internet gateway", string(stdout)))
-		return nil
-	}
-
-	// Fetch the vpc id
-	listVpc := &ListVPC{BaseVPC: BaseVPC{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType}}}
-	if err := listVpc.Execute(ctx); err != nil {
-		return err
-	}
-
-	vpcId, err := listVpc.GetVpcID()
+	/* ***** 03. Check the internet gateway status. Return if it is attached to vpc  ************ */
+	isAttached, err := c.isAttachedToVPC()
 	if err != nil {
 		return err
 	}
 
-	zap.L().Debug("New Internet gateway", zap.String("newInternetGateway", newInternetGateway.String()))
-	//	fmt.Printf("The stdout from the internet gateway preparation: %#v \n\n\n", newInternetGateway)
-	command = fmt.Sprintf("aws ec2 attach-internet-gateway --internet-gateway-id %s --vpc-id %s", newInternetGateway.InternetGateway.InternetGatewayId, *vpcId)
-	zap.L().Debug("Command", zap.String("create-internet-gateway", command))
-	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
+	if isAttached == true {
 		return nil
 	}
+	fmt.Printf("---------- Coming here for attache the internet gateway <%#v> \n\n\n\n\n\n", isAttached)
 
-	command = fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block 0.0.0.0/0 --gateway-id %s", c.clusterInfo.publicRouteTableId, newInternetGateway.InternetGateway.InternetGatewayId)
-	zap.L().Debug("Command", zap.String("create-route", command))
-	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
+	/* ***** 04. Attach the internet gateway if it has not been attached any vpc  ************ */
+	vpcId, err := c.GetVpcItem("VpcId")
+	if err != nil {
+		return err
+	}
+
+	internetGatewayId, err := c.ResourceData.GetResourceArn()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.AttachInternetGateway(context.TODO(), &ec2.AttachInternetGatewayInput{
+		InternetGatewayId: internetGatewayId,
+		VpcId:             vpcId,
+	})
+
 	if err != nil {
 		return err
 	}
@@ -100,51 +227,37 @@ func (c *CreateInternetGateway) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateInternetGateway) String() string {
-	return fmt.Sprintf("Echo: Creating internet gateway ")
+	return fmt.Sprintf("Echo: Create InternetGateway ... ...  ")
 }
 
-/******************************************************************************/
-
-// Mkdir is used to create directory on the target host
 type DestroyInternetGateway struct {
-	pexecutor      *ctxt.Executor
-	subClusterType string
+	BaseInternetGateway
+	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
-	command := fmt.Sprintf("aws ec2 describe-internet-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" ", clusterName, clusterType, c.subClusterType)
-	zap.L().Debug("Command", zap.String("describe-internet-gateways", command))
-	stdout, stderr, err := (*c.pexecutor).Execute(ctx, command, false)
+	c.init(ctx) // ClusterName/ClusterType and client initialization
+
+	fmt.Printf("***** DestroyInternetGateway ****** \n\n\n")
+
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
-		fmt.Printf("The error in the DestroyInternetGateway describe-internet-gateways <%s> \n\n\n", string(stderr))
 		return err
 	}
 
-	var internetGateways InternetGateways
-	if err = json.Unmarshal(stdout, &internetGateways); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("subnets", string(stdout)))
-		return err
-	}
+	if clusterExistFlag == true {
+		// TODO: Destroy the cluster
+		// _id, err := c.ResourceData.GetResourceArn()
+		// if err != nil {
+		// 	return err
+		// }
+		// if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
+		// 	RouteTableId: _id,
+		// }); err != nil {
+		// 	return err
+		// }
 
-	for _, internetGateway := range internetGateways.InternetGateways {
-		for _, attachment := range internetGateway.Attachments {
-			command = fmt.Sprintf("aws ec2 detach-internet-gateway --internet-gateway-id %s --vpc-id %s", internetGateway.InternetGatewayId, attachment.VpcId)
-			zap.L().Debug("Command", zap.String("detach-internet-gateway", command))
-			_, _, err := (*c.pexecutor).Execute(ctx, command, false)
-			if err != nil {
-				return err
-			}
-		}
-
-		command = fmt.Sprintf("aws ec2 delete-internet-gateway --internet-gateway-id %s", internetGateway.InternetGatewayId)
-		zap.L().Debug("Command", zap.String("delete-internet-gateway", command))
-		stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -157,5 +270,28 @@ func (c *DestroyInternetGateway) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *DestroyInternetGateway) String() string {
-	return fmt.Sprintf("Echo: Destroying internet gateway")
+	return fmt.Sprintf("Echo: Destroying InternetGateway")
+}
+
+type ListInternetGateway struct {
+	BaseInternetGateway
+}
+
+// Execute implements the Task interface
+func (c *ListInternetGateway) Execute(ctx context.Context) error {
+	c.init(ctx) // ClusterName/ClusterType and client initialization
+
+	fmt.Printf("***** ListInternetGateway ****** \n\n\n")
+
+	return nil
+}
+
+// Rollback implements the Task interface
+func (c *ListInternetGateway) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *ListInternetGateway) String() string {
+	return fmt.Sprintf("Echo: List  ")
 }

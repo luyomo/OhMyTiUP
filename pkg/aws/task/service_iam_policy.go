@@ -154,11 +154,7 @@ func (c *CreateServiceIamPolicy) Execute(ctx context.Context) error {
 			{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
 		}
 
-		if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{
-			PolicyName: aws.String(c.clusterName),
-			Tags:       tags,
-			Path:       aws.String("/kafkaconnect/"),
-			PolicyDocument: aws.String(`{
+		policy := `{
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -167,7 +163,6 @@ func (c *CreateServiceIamPolicy) Execute(ctx context.Context) error {
             "Action": [
                 "glue:ListSchemaVersions",
                 "glue:GetRegistry",
-                "glue:GetSchemaVersion",
                 "glue:QuerySchemaVersionMetadata",
                 "glue:GetSchemaVersionsDiff",
                 "glue:ListSchemas",
@@ -177,18 +172,32 @@ func (c *CreateServiceIamPolicy) Execute(ctx context.Context) error {
                 "glue:GetSchemaByDefinition"
             ],
             "Resource": [
-                "arn:aws:glue:*:729581434105:schema/*",
-                "arn:aws:glue:*:729581434105:registry/*"
+                "arn:aws:glue:*:%s:schema/*",
+                "arn:aws:glue:*:%s:registry/*"
             ]
         },
         {
             "Sid": "VisualEditor1",
             "Effect": "Allow",
-            "Action": "glue:ListRegistries",
+            "Action": [
+                "glue:GetSchemaVersion",
+                "glue:ListRegistries"
+            ],
             "Resource": "*"
         }
     ]
-}`),
+}`
+
+		_, accountID, err := GetCallerUser(ctx)
+		if err != nil {
+			return err
+		}
+
+		if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{
+			PolicyName:     aws.String(c.clusterName),
+			Tags:           tags,
+			Path:           aws.String("/kafkaconnect/"),
+			PolicyDocument: aws.String(fmt.Sprintf(policy, accountID, accountID)),
 		}); err != nil {
 			return err
 		}

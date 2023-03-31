@@ -1730,16 +1730,8 @@ func (b *BaseTask) GetRouteTable() (*ec2types.RouteTable, error) {
 		return nil, errors.New("Multiple route tables found")
 	}
 	_routeTable := (listRouteTable.ResourceData.GetData()[0]).(ec2types.RouteTable)
-	return &_routeTable, nil
-	// var retRouteTable *string
-	// for _, _entry := range listRouteTable.ResourceData.GetData() {
-	// 	_routeTable := _entry.(ec2types.RouteTable)
-	// 	retRouteTable = _routeTable.RouteTableId
-	// 	fmt.Printf("The route data is <%#v> \n\n\n\n", _routeTable.Associations)
-	// }
 
-	// return &retRouteTable, nil
-	// return listRouteTable.
+	return &_routeTable, nil
 }
 
 func (b *BaseTask) GetSecurityGroup() (*string, error) {
@@ -1752,7 +1744,7 @@ func (b *BaseTask) GetSecurityGroup() (*string, error) {
 	if err := listSecurityGroup.Execute(nil); err != nil {
 		return nil, err
 	}
-	fmt.Printf("---- GetSecurityGroup: cluster name: %s, cluster type: %s, subcluster type: %s, scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
+
 	return listSecurityGroup.ResourceData.GetResourceArn()
 }
 
@@ -1812,6 +1804,48 @@ func (b *BaseTask) GetTargetGroupArn() (*string, error) {
 
 	return listTargetGroup.ResourceData.GetResourceArn()
 }
+
+func (b *BaseTask) GetElasticAddress() (*string, error) {
+	listElasticAddress := &ListElasticAddress{BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{
+		pexecutor:      b.pexecutor,
+		clusterName:    b.clusterName,
+		clusterType:    b.clusterType,
+		subClusterType: b.subClusterType,
+		scope:          b.scope,
+	}}}
+	if err := listElasticAddress.Execute(nil); err != nil {
+		return nil, err
+	}
+
+	return listElasticAddress.ResourceData.GetResourceArn()
+}
+
+func (b *BaseTask) GetInternetGatewayId() (*string, bool, error) {
+	listInternetGateway := &ListInternetGateway{BaseInternetGateway: BaseInternetGateway{BaseTask: BaseTask{
+		pexecutor:      b.pexecutor,
+		clusterName:    b.clusterName,
+		clusterType:    b.clusterType,
+		subClusterType: b.subClusterType,
+		scope:          b.scope,
+	}}}
+	if err := listInternetGateway.Execute(nil); err != nil {
+		return nil, false, err
+	}
+
+	internetGatewayId, err := listInternetGateway.ResourceData.GetResourceArn()
+	if err != nil {
+		return nil, false, err
+	}
+
+	isAttached, err := listInternetGateway.isAttachedToVPC()
+	if err != nil {
+		return nil, false, err
+	}
+
+	return internetGatewayId, isAttached, nil
+}
+
+// The route of the internet gateway is shared by public net and nat's internetegatewy
 
 /*
 componentName: alertmanager/cdc/grafana/pd/prometheus/tidb/tikv

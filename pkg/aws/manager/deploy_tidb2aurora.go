@@ -224,7 +224,7 @@ func (m *Manager) TiDB2AuroraDeploy(
 				CreateRouteTable(&sexecutor, "test", "private").
 				CreateNetwork(&sexecutor, "test", true, &clusterInfo).
 				CreateSecurityGroup(&sexecutor, "test", "private", []int{22}).
-				CreateInternetGateway(&sexecutor, "test", &clusterInfo).
+				CreateInternetGateway(&sexecutor, "test").
 				CreateDBSubnetGroup(&sexecutor, "test", &clusterInfo).
 				//				CreateWorkstation(globalOptions.User, inst.GetHost(), name, clusterType, "test", base.AwsTopoConfigs, &clusterInfo).
 				CreatePDNodes(&sexecutor, "test", base.AwsTopoConfigs, &clusterInfo).
