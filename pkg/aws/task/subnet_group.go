@@ -245,6 +245,8 @@ func (c *CreateSubnets) Execute(ctx context.Context) error {
 		var _cidrBlock string
 		if c.scope == NetworkTypeNAT {
 			_cidrBlock = getNextCidr(*cidrBlock, 20+len(*usedZones)+idx+1)
+		} else if c.scope == NetworkTypePublic {
+			_cidrBlock = getNextCidr(*cidrBlock, 30+len(*usedZones)+idx+1)
 		} else {
 			_cidrBlock = getNextCidr(*cidrBlock, len(*usedZones)+idx+1)
 		}

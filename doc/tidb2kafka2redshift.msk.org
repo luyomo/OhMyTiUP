@@ -1,39 +1,101 @@
-* Script
-** DONE TiDB Cluster
-** DONE Redshift
-** DONE TiCDC node with glue version
-** DONE MSK
-** DONE Connector with S3 plugin
-** DONE Glue schema registry
-   + Make zip file
-     - Compile the aws avro file
-     - Download
-   + Upload the zip file to S3
-   + Create cutom plugin from S3
-*** Process
-    | component   | Directory                                            |
-    |-------------+------------------------------------------------------|
-    | avro aws    | /tmp/aws-msk-example-plugin/aws-glue-schema-registry |
-    | plugin name | /tmp/aws-msk-example-plugin/example                  |
-
-
-    + aws avro compile and move it upload directory
-    + Download and move it to directory
-      
-** TODO Sink connector preparation
-* DONE 
-** DONE Create MSK
-** DONE Start glue ticdc
-** DONE Create changefeed to sink the data to MSK
-** DONE Prepare zip to upload to S3
+* Architecture
+    [[https://www.51yomo.net/static/doc/tidb2msk2redshift/tidb2msk2redshift_001.png]]
+* Environment Setup
+  + workstation
+  + Redshift    - target database
+  + AWS MSK     - message queue
+  + AWS MSK connect
+  #+BEGIN_SRC
+OhMyTiUP$ more /tmp/tidb2msk2redshift.yaml
+ workstation:
+   cidr: 172.82.0.0/16
+   imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+   keyname: public key in the aws                  # Public key for workstation instance deployment
+   keyfile: private key                            # Private key to access the workstation
+   instance_type: c5.2xlarge
+   volumeSize: 100                                 # disk size in the workstation
+   username: admin
+ msk:
+   cidr: 172.83.0.0/16                             # The cidr for the VPC
+   instance_type: kafka.t3.small                   # Default instance type
+   excluded_az:                                  # The AZ to be excluded for the subnets
+     - us-east-1e
+ msk_connect_plugin:
+   name: redshift-sink
+   url: https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-aws-redshift/versions/1.2.2/confluentinc-kafka-connect-aws-redshift-1.2.2.zip
+   s3bucket: ossinsight-data
+   s3folder: kafka/plugin
+ aws_topo_configs:
+   general:
+     # debian os
+     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+     keyname: public key in the aws                  # Public key for workstation instance deployment
+     keyfile: private key                            # Private key to access the workstation
+     cidr: 182.83.0.0/16                           # The cidr for the VPC
+     instance_type: m5.2xlarge                     # Default instance type
+     tidb_version: v7.0.0                          # TiDB version
+     excluded_az:                                  # The AZ to be excluded for the subnets
+       - us-east-1e
+     network_type: nat
+   pd:
+     instance_type: t2.small                       # Instance type for PD component
+     count: 1                                      # Number of PD node to be deployed
+   tidb:
+     instance_type: t2.small                       # Instance type of tidb
+     count: 1                                      # Number of TiDB node to be deployed
+   tikv:
+     -
+       instance_type: t2.small                     # Instance type of TiKV
+       count: 1                                    # Number of TiKV nodes to be deployed
+       volumeSize: 50                              # Storage size for TiKV nodes (GB)
+       volumeType: io2                             # Storage type ex. gp2(default), gp3, io2
+       iops: 3000                                  # Storage IOPS(Only for gp3, io2)
+   ticdc:
+     instance_type: t2.small                       # Instance type of ticdc
+     count: 1                                      # Number of TiDB node to be deployed
+ redshift:
+   cidr: 172.90.0.0/16
+   instance_type: dc2.large
+   admin_user: awsadmin
+   password: 1234Abcd
+   cluster_type: single-node
+  #+END_SRC
+** Deploy aws resource with command
    #+BEGIN_SRC
-   workstation$ wget https://d1i4a15mxbxib1.cloudfront.net/api/plugins/confluentinc/kafka-connect-aws-redshift/versions/1.2.2/confluentinc-kafka-connect-aws-redshift-1.2.2.zip
-   workstation$ unzip confluentinc-kafka-connect-aws-redshift-1.2.2.zip
-   workstation$ mkdir msk-sink-redshift/redshift-sink
-   workstation$ cp confluentinc-kafka-connect-aws-redshift-1.2.2/lib/* ~/msk-sink-redshift/redshift-sink/
-   workstation$ zip -r msk-sink-redshift-plugin.zip msk-sink-redshift/*
+OhMyTiUP$ ./bin/aws tidb2msk2redshift deploy tidb2redshift /tmp/tidb2msk2redshift.yaml
+... ...
+OhMyTiUP$ ./bin/aws tidb2msk2redshift list tidb2redshift
+... ...
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Preivate IP    Public IP     Image ID
+--------------  -----------------  -----    -----------          -------------  -----------    ---------     --------
+pd              tidb               running  i-0ed20c1de7a41151e  t2.small       182.83.1.148                 ami-07d02ee1eeb0c996c
+ticdc           tidb               running  i-0c8e3e99e492026e5  t2.small       182.83.4.91                  ami-07d02ee1eeb0c996c
+tidb            tidb               running  i-003f9b93336df948b  t2.small       182.83.4.114                 ami-07d02ee1eeb0c996c
+tikv            tidb               running  i-0de3062547a73c2e7  t2.small       182.83.1.254                 ami-07d02ee1eeb0c996c
+workstation     workstation        running  i-01efe1dea86af4605  c5.2xlarge     172.82.31.111  34.239.94.86  ami-07d02ee1eeb0c996c
+
+Resource Type:      REDSHIFT
+Endpoint                                                     Port  DB Name  Master User  State      Node Type
+--------                                                     ----  -------  -----------  -----      ---------
+tidb2redshift.clm8j1rapquw.us-east-1.redshift.amazonaws.com  5439  dev      awsadmin     Available  dc2.large
+
+Resource Type:      MSK
+Cluster Name   State   Cluster Type  Kafka Version  Number of Broker Nodes  Endpoints
+------------   -----   ------------  -------------  ----------------------  ---------
+tidb2redshift  ACTIVE  PROVISIONED   3.3.2          3                       172.83.5.82 , 172.83.4.22 , 172.83.3.153
+
    #+END_SRC
-** DONE Create MSK connector
+
+* Issues
+** Every time the connect needs to be updated, the connector has to been recreated. It takes time to complete one minor change.
+Because of this reason, it's not convient to test all the data mapping migration from TiDB cloud to redshift database. 
+   https://repost.aws/questions/QUi4UW_uFpTdSeDYXR7MKr2w/is-there-a-way-to-update-connector-configuration-using-msk-connect-api
+** Issued on the tiup
+   https://github.com/pingcap/tiup/issues/2155
+
+* Key point
+** Sink connector configuration
    #+BEGIN_SRC
 connector.class=io.confluent.connect.aws.redshift.RedshiftSinkConnector
 tasks.max=1
@@ -66,7 +128,6 @@ value.converter.avroRecordType=GENERIC_RECORD
 value.converter.registry.name=tidb2es
    #+END_SRC
 
-* Memo
 ** Need to add the below environments to cdc-8300.service
    #+BEGIN_SRC
 [Unit]

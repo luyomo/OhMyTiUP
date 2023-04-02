@@ -1073,7 +1073,8 @@ func (b *Builder) CreateNAT(pexecutor *ctxt.Executor, subClusterType string, clu
 	b.CreateRouteTable(pexecutor, subClusterType, NetworkTypeNAT).
 		CreateSubnets(pexecutor, subClusterType, NetworkTypeNAT, clusterInfo).
 		CreateElasticAddress(pexecutor, subClusterType).
-		CreateNATGateway(pexecutor, subClusterType) // Including adding route from private to natgateway
+		CreateNATGateway(pexecutor, subClusterType)
+	// Including adding route from private to natgateway
 	return b
 }
 
@@ -1095,48 +1096,38 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 	// 1. Network is public, deploy public network
 	// 2. Network is private deploy private network
 	// 3. Network is nat, deploy the private network
-	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
-		// Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, _network).Build()).
-		Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, _network, clusterInfo).Build()).
-		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType, _network).Build()).
-		Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, _network, openPorts).Build())
+	// b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
+	// 	Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, _network).Build()).
+	// 	Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, _network, clusterInfo).Build()).
+	// 	Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType, _network).Build()).
+	// 	Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, _network, openPorts).Build())
 	// Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network).Build())
+
+	// 01. Create all the private subnets
+	// _network := NetworkTypePrivate
+
+	b.CreateVPC(pexecutor, subClusterType, clusterInfo).
+		CreateRouteTable(pexecutor, subClusterType, _network).
+		CreateSubnets(pexecutor, subClusterType, _network, clusterInfo).
+		CreateTransitGatewayVpcAttachment(pexecutor, subClusterType, _network).
+		CreateSecurityGroup(pexecutor, subClusterType, _network, openPorts)
+
+	// Public subnets
+	// 01. create subnets
+	// 02. create internetgatwway and attach it to vpc
+	// if network == NetworkTypePublic {
+	// 	b.CreateRouteTable(pexecutor, subClusterType, network).
+	// 		CreateSubnets(pexecutor, subClusterType, network, clusterInfo).
+	// 		CreateInternetGateway(pexecutor, subClusterType)
+
+	// }
+
 	// ----------------------------------
 
 	// 4. Network is nat, deploy nat for the VPC
 	if network == NetworkTypeNAT {
-		b.Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType, clusterInfo).Build())
+		b.CreateNAT(pexecutor, subClusterType, clusterInfo)
 	}
-
-	// if network == "nat" {
-	// 	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating NAT Resource ... ...", subClusterType), NewBuilder().CreateNAT(pexecutor, subClusterType).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, network).Build()).
-	// 		// NAT creation should be after the network preparation, otherwise the nat subnet is taken as one of the private subnets.
-	// 		// Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, network, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network, openPortsPublic, openPortsPrivate).Build())
-	// } else if network == "private" {
-	// 	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, network).Build()).
-	// 		// Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, network, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network, openPortsPublic, openPortsPrivate).Build())
-	// } else if network == "public" {
-	// 	b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating route table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, network).Build()).
-	// 		// Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateNetwork(pexecutor, subClusterType, isPrivate, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating network ... ...", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, network, clusterInfo).Build()).
-	// 		Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating security group ... ...", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network, openPortsPublic, openPortsPrivate).Build()).
-	// 		Step(fmt.Sprintf("%s : Creating internet gateway ... ...", subClusterType), NewBuilder().CreateInternetGateway(pexecutor, subClusterType, clusterInfo).Build())
-
-	// } else {
-	// 	fmt.Printf(fmt.Sprintf("Unsupported network type", network))
-	// }
 
 	return b
 }

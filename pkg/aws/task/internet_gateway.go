@@ -143,7 +143,6 @@ func (b *BaseInternetGateway) isAttachedToVPC() (bool, error) {
 	}
 
 	_data := b.ResourceData.GetData()
-	fmt.Printf("isAttachedToVPC 03: %#v \n\n\n\n\n\n", len(_data[0].(types.InternetGateway).Attachments))
 
 	if len(_data[0].(types.InternetGateway).Attachments) > 0 {
 		return true, nil
@@ -241,23 +240,26 @@ func (c *DestroyInternetGateway) Execute(ctx context.Context) error {
 
 	fmt.Printf("***** DestroyInternetGateway ****** \n\n\n")
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
-	if err != nil {
-		return err
-	}
+	internetGateways := c.ResourceData.GetData()
 
-	if clusterExistFlag == true {
-		// TODO: Destroy the cluster
-		// _id, err := c.ResourceData.GetResourceArn()
-		// if err != nil {
-		// 	return err
-		// }
-		// if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
-		// 	RouteTableId: _id,
-		// }); err != nil {
-		// 	return err
-		// }
+	for _, _entry := range internetGateways {
+		internetGateway := _entry.(types.InternetGateway)
 
+		for _, attachment := range internetGateway.Attachments {
+			if _, err := c.client.DetachInternetGateway(context.TODO(), &ec2.DetachInternetGatewayInput{
+				InternetGatewayId: internetGateway.InternetGatewayId,
+				VpcId:             attachment.VpcId,
+			}); err != nil {
+				return err
+
+			}
+		}
+
+		if _, err := c.client.DeleteInternetGateway(context.TODO(), &ec2.DeleteInternetGatewayInput{
+			InternetGatewayId: internetGateway.InternetGatewayId,
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -214,14 +214,17 @@ func (m *Manager) DestroyTiDB2Msk2RedshiftCluster(name, clusterType string, gOpt
 	t5 := task.NewBuilder().DestroyMSKCluster(&m.localExe, "msk").BuildAsStep("  - Destroying MSK cluster")
 	destroyTasks = append(destroyTasks, t5)
 
-	t3 := task.NewBuilder().DestroyNAT(&m.localExe, "msk").DestroyEC2Nodes(&m.localExe, "kafka").BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
+	t3 := task.NewBuilder().DestroyNATGateway(&m.localExe, "msk").DestroyEC2Nodes(&m.localExe, "kafka").BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
 	destroyTasks = append(destroyTasks, t3)
 
-	t4 := task.NewBuilder().DestroyNAT(&m.localExe, "tidb").DestroyEC2Nodes(&m.localExe, "tidb").BuildAsStep(fmt.Sprintf("  - Destroying  tidb cluster %s ", name))
+	t4 := task.NewBuilder().DestroyNATGateway(&m.localExe, "tidb").DestroyEC2Nodes(&m.localExe, "tidb").BuildAsStep(fmt.Sprintf("  - Destroying  tidb cluster %s ", name))
 	destroyTasks = append(destroyTasks, t4)
 
 	t6 := task.NewBuilder().DestroyGlueSchemaRegistry(&m.localExe).BuildAsStep(fmt.Sprintf("  - Destroying glue schema registry %s ", name))
 	destroyTasks = append(destroyTasks, t6)
+
+	t7 := task.NewBuilder().DestroyEC2Nodes(&m.localExe, "workstation").BuildAsStep(fmt.Sprintf("  - Removing workstation"))
+	destroyTasks = append(destroyTasks, t7)
 
 	builder := task.NewBuilder().ParallelStep("+ Destroying all the componets", false, destroyTasks...)
 
@@ -237,9 +240,7 @@ func (m *Manager) DestroyTiDB2Msk2RedshiftCluster(name, clusterType string, gOpt
 		return err
 	}
 
-	t10 := task.NewBuilder().DestroyEC2Nodes(&m.localExe, "workstation").BuildAsStep(fmt.Sprintf("  - Removing workstation"))
-
-	t10.Execute(ctxt.New(tailctx, 1))
+	// t10.Execute(ctxt.New(tailctx, 1))
 
 	return nil
 }
@@ -401,12 +402,6 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 	if err != nil {
 		return err
 	}
-	// var redshiftDBInfos []ws.RedshiftDBInfo
-	// err := m.workstation.ParseYamlConfig("/opt/redshift.dbinfo.yaml", &redshiftDBInfos)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("The config is <%#v> \n\n\n", redshiftDBInfos)
 
 	// Get AWS MSK data
 	var mskDBInfos task.MSKInfos
@@ -440,8 +435,8 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 			MskEndpoints:       mskEndpoints,
 			GlueSchemaRegistry: "tidb2redshift",
 			Region:             *region,
-			TopicName:          "test_test02",
-			TableName:          "test02"}).
+			TopicName:          "test_test01",
+			TableName:          "test01"}).
 		Build()
 	if err := t2.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
@@ -451,273 +446,6 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 		return err
 	}
 
-	// BuildAsStep(fmt.Sprintf("  - Creating perf tables"))
-
-	// perfTasks = append(perfTasks, t1)
-
-	// // builder := task.NewBuilder().ParallelStep("+ Destroying all the componets", false, perfTasks...)
-
-	// t := builder.Build()
-
-	// if err := t1.Execute(context.Background()); err != nil {
-	// 	if errorx.Cast(err) != nil {
-	// 		// FIXME: Map possible task errors and give suggestions.
-	// 		return err
-	// 	}
-	// 	return err
-	// }
-
 	return nil
 
-	// mapFile, err := ioutil.ReadFile("embed/templates/config/tidb2kafka2redshift/ColumnMapping.yml")
-	// if err != nil {
-	// 	return err
-	// }
-
-	// var mapTiDB2PG MapTiDB2PG
-	// err = yaml.Unmarshal(mapFile, &mapTiDB2PG)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// /* ********** ********** 002. Prepare columns defintion to be executed into TiDB and redshift ********** ********** */
-	// var arrTiDBTblDataDef []string // Array to keep tidb column definition. ex: ["pk_col BIGINT PRIMARY KEY AUTO_RANDOM", ... , "tidb_timestamp timestamp default current_timestamp"]
-	// var arrPGTblDataDef []string   // Array to keep redshift column definition. ex: ["pk_col bigint PRIMARY KEY", ... ... "tidb_timestamp timestamp", "pg_timestamp timestamp default current_timestamp"]
-	// var arrCols []string           // Array to keep all column names. ex: ["t_bool"]
-	// var arrData []string           // Array to keep data to be inserted. ex: ["true"]
-	// var pgPreQueries []string      // Array of queries to be executed in PG. ex: ["create type t_enum_test ..."]
-
-	// /* 002.01 Prepare primary key column definition */
-	// arrTiDBTblDataDef = append(arrTiDBTblDataDef, "pk_col BIGINT PRIMARY KEY AUTO_RANDOM")
-	// arrPGTblDataDef = append(arrPGTblDataDef, "pk_col bigint PRIMARY KEY")
-
-	// /* 002.02 Prepare column definition body */
-	// for _, _dataType := range perfOpt.DataTypeDtr {
-	// 	for _, _mapItem := range mapTiDB2PG.TiDB2PG {
-	// 		if _dataType == _mapItem.TiDB.DataType {
-	// 			arrTiDBTblDataDef = append(arrTiDBTblDataDef, _mapItem.TiDB.Def)
-	// 			arrPGTblDataDef = append(arrPGTblDataDef, _mapItem.PG.Def)
-	// 			arrCols = append(arrCols, strings.Split(_mapItem.TiDB.Def, " ")[0])
-	// 			arrData = append(arrData, strings.Replace(strings.Replace(_mapItem.Value, "<<<<", "'", 1), ">>>>", "'", 1))
-	// 			pgPreQueries = append(pgPreQueries, _mapItem.PG.Queries...)
-	// 		}
-	// 	}
-	// }
-
-	// /* 002.03 Prepare tail columns for both TiDB and redshift tables.*/
-	// arrTiDBTblDataDef = append(arrTiDBTblDataDef, "tidb_timestamp timestamp default current_timestamp")
-	// arrPGTblDataDef = append(arrPGTblDataDef, "tidb_timestamp timestamp")
-	// arrPGTblDataDef = append(arrPGTblDataDef, "pg_timestamp timestamp default current_timestamp")
-
-	// /* ********** ********** 003. Prepare execution context **********/
-	// ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	// ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	// var timer awsutils.ExecutionTimer
-	// timer.Initialize([]string{"Step", "Duration(s)"})
-
-	// if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
-	// 	return err
-	// }
-
-	// /* ********** ********** 004 Prepare insert query to /opt/kafka/query.sql **********/
-	// strInsQuery := fmt.Sprintf("insert into test.test01(%s) values(%s)", strings.Join(arrCols, ","), strings.Join(arrData, ","))
-	// if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("echo \\\"%s\\\" > /tmp/query.sql", strInsQuery), true); err != nil {
-	// 	return err
-	// }
-
-	// if _, _, err := m.wsExe.Execute(ctx, "mv /tmp/query.sql /opt/kafka/", true); err != nil {
-	// 	return err
-	// }
-
-	// if _, _, err := m.wsExe.Execute(ctx, "chmod 777 /opt/kafka/query.sql", true); err != nil {
-	// 	return err
-	// }
-
-	// /* ********** ********** 005 Prepare redshift objects  **********/
-	// // 005.01 Reset test database if exists
-
-	// stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf(`/opt/scripts/run_redshift_query dev "%s"`, fmt.Sprintf("select count(*) from pg_database where datname = '%s'", "test")), false, 1*time.Hour)
-	// if err != nil {
-	// 	return err
-	// }
-	// cntTable := strings.ReplaceAll(strings.ReplaceAll(string(stdout), " ", ""), "\n", "")
-
-	// if cntTable > "0" {
-	// 	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query dev '%s'", "drop database test"), false, 1*time.Hour); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query dev '%s'", "create database test"), false, 1*time.Hour); err != nil {
-	// 	return err
-	// }
-	// timer.Take("01. Redshift DB creation")
-
-	// // 005.02 Create redshift objects for test. Like enum
-	// for _, query := range pgPreQueries {
-	// 	_, stderr, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query test '%s'", query), false, 1*time.Hour)
-	// 	if err != nil {
-	// 		logger.OutputDebugLog(string(stderr))
-	// 		return err
-	// 	}
-	// }
-
-	// // 005. 03 Create test table
-	// commands := []string{
-	// 	fmt.Sprintf("create table test01(%s)", strings.Join(arrPGTblDataDef, ",")),
-	// }
-
-	// for _, command := range commands {
-	// 	_, stderr, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_redshift_query test '%s'", command), false, 1*time.Hour)
-	// 	if err != nil {
-	// 		logger.OutputDebugLog(string(stderr))
-	// 		return err
-	// 	}
-	// }
-	// timer.Take("02. Table Creation in the Redshift")
-
-	// /* ********** ********** 006 Prepare redshift objects  **********/
-	// // 006.01 Reset test01 test table
-	// commands = []string{
-	// 	"drop table if exists test01",
-	// 	fmt.Sprintf("create table test01(%s)", strings.Join(arrTiDBTblDataDef, ",")),
-	// }
-
-	// for _, command := range commands {
-	// 	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query test '%s'", command), false, 1*time.Hour); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// timer.Take("03. Table creation in the TiDB")
-
-	// /* ********** ********** 007 Prepare kafka related objects  **********/
-
-	// // 007.02 Script create topic for multiple partition in advanced.
-	// if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %s %d", "test_test01", perfOpt.Partitions), false, 1*time.Hour); err != nil {
-	// 	return err
-	// }
-
-	// timer.Take("04. Create kafka topic in advanced for multiple parations per table - /opt/kafka/source.toml")
-
-	// /* ********** ********** 008 Extract server info(ticdc/broker/schema registry/ connector)   **********/
-	// var listTasks []*task.StepDisplay // tasks which are used to initialize environment
-	// var tableECs [][]string
-	// t1 := task.NewBuilder().ListEC(&m.localExe, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
-	// listTasks = append(listTasks, t1)
-
-	// builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
-
-	// t := builder.Build()
-
-	// if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
-	// 	return err
-	// }
-
-	// var cdcIP, schemaRegistryIP, brokerIP, connectorIP string
-	// for _, row := range tableECs {
-	// 	if row[0] == "ticdc" {
-	// 		cdcIP = row[5]
-	// 	}
-	// 	if row[0] == "broker" {
-	// 		brokerIP = row[5]
-	// 	}
-	// 	if row[0] == "schemaRegistry" {
-	// 		schemaRegistryIP = row[5]
-	// 	}
-	// 	if row[0] == "connector" {
-	// 		connectorIP = row[5]
-	// 	}
-	// }
-	// timer.Take("05. Get required info - pd/broker/schemaRegistry/connector")
-
-	// stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:8300 2>/dev/null", cdcIP), false)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// /* ********** ********** 009 Prepare TiCDC source changefeed   **********/
-	// // 008.01 TiCDC source config file
-	// if err = m.wsExe.TransferTemplate(ctx, "templates/config/ticdc.source.toml.tpl", "/opt/kafka/source.toml", "0644", []string{}, true, 0); err != nil {
-	// 	return err
-	// }
-
-	// // 008.02 Extract changefeed status
-	// type ChangeFeed struct {
-	// 	Id string `json:"id"`
-	// 	// Summary ChangeFeedSummary `json:"summary"`
-	// 	Summary struct {
-	// 		State      string `json:"state"`
-	// 		Tso        int    `json:"tso"`
-	// 		Checkpoint string `json:"checkpoint"`
-	// 		Error      string `json:"error"`
-	// 	} `json:"summary"`
-	// }
-	// var changeFeeds []ChangeFeed
-
-	// if err = yaml.Unmarshal(stdout, &changeFeeds); err != nil {
-	// 	return err
-	// }
-
-	// changeFeedHasExisted := false
-	// for _, changeFeed := range changeFeeds {
-	// 	if changeFeed.Id == "kafka-avro" {
-	// 		changeFeedHasExisted = true
-	// 	}
-	// }
-
-	// // 009.03 Create changefeed if it does not exists
-	// if changeFeedHasExisted == false {
-	// 	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed create --server http://%s:8300 --changefeed-id='%s' --sink-uri='kafka://%s:9092/%s?protocol=avro' --schema-registry=http://%s:8081 --config %s", cdcIP, "kafka-avro", brokerIP, "topic-name", schemaRegistryIP, "/opt/kafka/source.toml"), false); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// timer.Take("06. Create if not exists changefeed of TiCDC")
-
-	// // 009.04 Fetch TiDB connection infro from /opt/db-info.yml
-	// if err = m.wsExe.Transfer(ctx, "/opt/redshift.dbinfo.yaml", "/tmp/redshift.dbinfo.yaml", true, 1024); err != nil {
-	// 	return err
-	// }
-
-	// yfile, err := ioutil.ReadFile("/tmp/redshift.dbinfo.yaml")
-	// if err != nil {
-	// 	return err
-	// }
-
-	// var redshiftDBInfos []task.RedshiftDBInfo
-	// err = yaml.Unmarshal(yfile, &redshiftDBInfos)
-	// if err != nil {
-	// 	return err
-	// }
-	// redshiftConfig := make(map[string]string)
-
-	// if len(redshiftDBInfos) == 1 {
-	// 	redshiftConfig["RedshiftHost"] = redshiftDBInfos[0].Host
-	// 	redshiftConfig["RedshiftPort"] = fmt.Sprintf("%d", redshiftDBInfos[0].Port)
-	// 	redshiftConfig["RedshiftUser"] = redshiftDBInfos[0].UserName
-	// 	redshiftConfig["RedshiftPassword"] = redshiftDBInfos[0].Password
-	// } else {
-	// 	errors.New("Failed to get the redshift db info")
-	// }
-
-	// redshiftConfig["SINKName"] = clusterName
-	// redshiftConfig["KafkaBroker"] = fmt.Sprintf("%s:9092", brokerIP)
-	// redshiftConfig["TopicName"] = "test_test01"
-	// redshiftConfig["RedshiftDBName"] = "test"
-	// redshiftConfig["TableName"] = "test01"
-
-	// if err = m.wsExe.TransferTemplate(ctx, "templates/config/kafka.redshift.sink.json.tpl", "/opt/kafka/kafka.redshift.sink.json", "0644", redshiftConfig, true, 0); err != nil {
-	// 	return err
-	// }
-
-	// if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/kafka.redshift.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
-	// 	return err
-	// }
-	// timer.Take("07. Create the kafka sink to redshift")
-
-	// timer.Print()
-
-	// return nil
 }

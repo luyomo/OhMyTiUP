@@ -177,8 +177,8 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		ImageId:      aws.String(c.awsWSConfigs.ImageId),
 		InstanceType: types.InstanceType(c.awsWSConfigs.InstanceType),
 		KeyName:      aws.String(c.awsWSConfigs.KeyName),
-		// SubnetId:         aws.String(c.clusterInfo.publicSubnet),
-		// SecurityGroupIds: []string{c.clusterInfo.publicSecurityGroupId},
+		// SubnetId:         aws.String((*subnets)[0]),
+		// SecurityGroupIds: []string{*securityGroupID},
 		NetworkInterfaces: []types.InstanceNetworkInterfaceSpecification{
 			{
 				AssociatePublicIpAddress: aws.Bool(true),
@@ -186,6 +186,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 				DeviceIndex:              aws.Int32(0),
 				SubnetId:                 aws.String((*subnets)[0]),
 				Groups:                   []string{*securityGroupID},
+				InterfaceType:            aws.String("interface"),
 				// Groups:                   []string{c.clusterInfo.publicSecurityGroupId},
 				// SubnetId:                 aws.String(c.clusterInfo.publicSubnet),
 			},
