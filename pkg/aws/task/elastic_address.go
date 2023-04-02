@@ -40,8 +40,8 @@ func (b *Builder) ListElasticAddress(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
-func (b *Builder) DestroyElasticAddress(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &DestroyElasticAddress{BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{pexecutor: pexecutor}}})
+func (b *Builder) DestroyElasticAddress(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+	b.tasks = append(b.tasks, &DestroyElasticAddress{BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}}})
 	return b
 }
 

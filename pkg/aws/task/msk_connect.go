@@ -15,6 +15,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -30,16 +31,77 @@ import (
 	// "go.uber.org/zap"
 )
 
+type ConnectorState_Process types.ConnectorState
+
+func (p ConnectorState_Process) isState(mode ReadResourceMode) bool {
+	switch mode {
+	case ReadResourceModeCommon:
+		return p.isOKState()
+	case ReadResourceModeBeforeCreate:
+		return p.isBeforeCreateState()
+	case ReadResourceModeAfterCreate:
+		return p.isAfterCreateState()
+	case ReadResourceModeBeforeDestroy:
+		return p.isBeforeDestroyState()
+	case ReadResourceModeAfterDestroy:
+		return p.isAfterDestroyState()
+	}
+	return true
+}
+
+func (p ConnectorState_Process) isBeforeCreateState() bool {
+	return ListContainElement([]string{
+		string(types.ConnectorStateRunning),
+		string(types.ConnectorStateCreating),
+		string(types.ConnectorStateUpdating),
+		string(types.ConnectorStateFailed),
+	}, string(p))
+
+}
+
+func (p ConnectorState_Process) isAfterCreateState() bool {
+	return ListContainElement([]string{
+		string(types.ConnectorStateRunning),
+		string(types.ConnectorStateFailed),
+	}, string(p))
+
+}
+
+func (p ConnectorState_Process) isBeforeDestroyState() bool {
+	return ListContainElement([]string{
+		string(types.ConnectorStateRunning),
+		string(types.ConnectorStateCreating),
+		string(types.ConnectorStateUpdating),
+		string(types.ConnectorStateFailed),
+	}, string(p))
+
+}
+
+func (p ConnectorState_Process) isAfterDestroyState() bool {
+	return ListContainElement([]string{
+		string(types.ConnectorStateRunning),
+		string(types.ConnectorStateCreating),
+		string(types.ConnectorStateUpdating),
+		string(types.ConnectorStateFailed),
+	}, string(p))
+}
+
+func (p ConnectorState_Process) isOKState() bool {
+	return p.isBeforeCreateState()
+}
+
 /******************************************************************************/
-func (b *Builder) CreateMskConnect(wsExe *ctxt.Executor, createMskConnectInput *CreateMskConnectInput /* redshiftDBInfo *ws.RedshiftDBInfo, mskEndpoints *string, glueSchemaRegistry, topicName, tableName string*/) *Builder {
+func (b *Builder) CreateMskConnect(wsExe *ctxt.Executor, createMskConnectInput *CreateMskConnectInput) *Builder {
 	b.tasks = append(b.tasks, &CreateMskConnect{
 		BaseMskConnect:        BaseMskConnect{BaseTask: BaseTask{wsExe: wsExe, subClusterType: "msk", scope: NetworkTypePrivate}},
 		createMskConnectInput: createMskConnectInput,
-		// mskEndpoints:       mskEndpoints,
-		// redshiftDBInfo:     redshiftDBInfo,
-		// glueSchemaRegistry: glueSchemaRegistry,
-		// topicName:          topicName,
-		// tableName:          tableName,
+	})
+	return b
+}
+
+func (b *Builder) DestroyMskConnect(wsExe *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyMskConnect{
+		BaseMskConnect: BaseMskConnect{BaseTask: BaseTask{wsExe: wsExe}},
 	})
 	return b
 }
@@ -54,10 +116,22 @@ type MskConnectInfos struct {
 	BaseResourceInfo
 }
 
-func (d *MskConnectInfos) Append( /*cluster *types.Cluster*/ ) {
-	(*d).Data = append((*d).Data, MskConnectInfo{
-		ClusterName: "MskConnect",
-	})
+// func (d *MskConnectInfos) Append( /*cluster *types.Cluster*/ ) {
+// 	(*d).Data = append((*d).Data, MskConnectInfo{
+// 		ClusterName: "MskConnect",
+// 	})
+// }
+
+func (d *MskConnectInfos) GetResourceArn() (*string, error) {
+	resourceExists, err := d.ResourceExist()
+	if err != nil {
+		return nil, err
+	}
+	if resourceExists == false {
+		return nil, errors.New("No resource(msk connect) found")
+	}
+
+	return (d.Data[0]).(types.ConnectorSummary).ConnectorArn, nil
 }
 
 func (d *MskConnectInfos) ToPrintTable() *[][]string {
@@ -83,7 +157,7 @@ type BaseMskConnect struct {
 	subClusterType string // It's set from initializtion from caller
 }
 
-func (b *BaseMskConnect) init(ctx context.Context) error {
+func (b *BaseMskConnect) init(ctx context.Context, mode ReadResourceMode) error {
 	b.clusterName = ctx.Value("clusterName").(string)
 	b.clusterType = ctx.Value("clusterType").(string)
 
@@ -95,6 +169,14 @@ func (b *BaseMskConnect) init(ctx context.Context) error {
 	log.Infof(fmt.Sprintf("config: %#v", cfg))
 
 	b.client = kafkaconnect.NewFromConfig(cfg) // Replace the example to specific service
+
+	if b.ResourceData == nil {
+		b.ResourceData = &MskConnectInfos{}
+	}
+
+	if err := b.readResources(mode); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -109,7 +191,19 @@ func (b *BaseMskConnect) ClusterExist(checkAvailableState bool) (bool, error) {
 	return false, nil
 }
 
-func (b *BaseMskConnect) ReadMskConnectInfo(ctx context.Context) error {
+func (b *BaseMskConnect) readResources(mode ReadResourceMode) error {
+	clusters, err := b.client.ListConnectors(context.TODO(), &kafkaconnect.ListConnectorsInput{})
+	if err != nil {
+		return err
+	}
+	for _, connector := range clusters.Connectors {
+		if *connector.ConnectorName == b.clusterName {
+			_state := ConnectorState_Process(connector.ConnectorState)
+			if _state.isState(mode) == true {
+				b.ResourceData.Append(connector)
+			}
+		}
+	}
 	return nil
 }
 
@@ -129,17 +223,11 @@ type CreateMskConnect struct {
 	clusterInfo *ClusterInfo
 
 	createMskConnectInput *CreateMskConnectInput
-
-	// redshiftDBInfo     *ws.RedshiftDBInfo
-	// mskEndpoints       *string
-	// glueSchemaRegistry string
-	// topicName          string
-	// tableName          string
 }
 
 // Execute implements the Task interface
 func (c *CreateMskConnect) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
+	c.init(ctx, ReadResourceModeAfterCreate) // ClusterName/ClusterType and client initialization
 
 	fmt.Printf("***** CreateMskConnectCluster ****** \n\n\n")
 
@@ -196,33 +284,12 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 		}
 		fmt.Printf("The role arn : <%s>\n\n\n\n ", *roleArn)
 
-		// Get security group
-		// listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: c.pexecutor}}}
-		// if err := listSecurityGroup.Execute(ctx); err != nil {
-		// 	return err
-		// }
-
-		// securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
-		// if err != nil {
-		// 	return err
-		// }
-
 		securityGroupID, err := c.GetSecurityGroup()
 		if err != nil {
 			return err
 		}
 		fmt.Printf("The security group is : <%s> \n\n\n", *securityGroupID)
 
-		// Get subnet group
-		// listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: "msk"}}}
-		// if err := listSubnets.Execute(ctx); err != nil {
-		// 	return err
-		// }
-
-		// subnets, err := listSubnets.GetSubnets(3)
-		// if err != nil {
-		// 	return err
-		// }
 		subnets, err := c.GetSubnetsInfo(3)
 		if err != nil {
 			return err
@@ -333,17 +400,26 @@ type DestroyMskConnect struct {
 
 // Execute implements the Task interface
 func (c *DestroyMskConnect) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
+	c.init(ctx, ReadResourceModeBeforeDestroy) // ClusterName/ClusterType and client initialization
 
 	fmt.Printf("***** DestroyMskConnectCluster ****** \n\n\n")
 
-	clusterExistFlag, err := c.ClusterExist(false)
+	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
 		return err
 	}
 
 	if clusterExistFlag == true {
-		// Destroy the cluster
+		_id, err := c.ResourceData.GetResourceArn()
+		if err != nil {
+			return err
+		}
+		_, err = c.client.DeleteConnector(context.TODO(), &kafkaconnect.DeleteConnectorInput{
+			ConnectorArn: _id,
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -365,13 +441,13 @@ type ListMskConnect struct {
 
 // Execute implements the Task interface
 func (c *ListMskConnect) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
+	c.init(ctx, ReadResourceModeCommon) // ClusterName/ClusterType and client initialization
 
 	fmt.Printf("***** ListMskConnectCluster ****** \n\n\n")
 
-	if err := c.ReadMskConnectInfo(ctx); err != nil {
-		return err
-	}
+	// if err := c.ReadMskConnectInfo(ctx); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

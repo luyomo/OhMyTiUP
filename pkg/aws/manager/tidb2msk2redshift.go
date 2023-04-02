@@ -214,10 +214,18 @@ func (m *Manager) DestroyTiDB2Msk2RedshiftCluster(name, clusterType string, gOpt
 	t5 := task.NewBuilder().DestroyMSKCluster(&m.localExe, "msk").BuildAsStep("  - Destroying MSK cluster")
 	destroyTasks = append(destroyTasks, t5)
 
-	t3 := task.NewBuilder().DestroyNATGateway(&m.localExe, "msk").DestroyEC2Nodes(&m.localExe, "kafka").BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
+	t3 := task.NewBuilder().
+		// DestroyNATGateway(&m.localExe, "msk").
+		// DestroyElasticAddress(&m.localExe, "msk").
+		DestroyMskConnect(&m.localExe).
+		DestroyEC2Nodes(&m.localExe, "msk").
+		BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
 	destroyTasks = append(destroyTasks, t3)
 
-	t4 := task.NewBuilder().DestroyNATGateway(&m.localExe, "tidb").DestroyEC2Nodes(&m.localExe, "tidb").BuildAsStep(fmt.Sprintf("  - Destroying  tidb cluster %s ", name))
+	t4 := task.NewBuilder().DestroyNATGateway(&m.localExe, "tidb").
+		DestroyElasticAddress(&m.localExe, "tidb").
+		DestroyEC2Nodes(&m.localExe, "tidb").
+		BuildAsStep(fmt.Sprintf("  - Destroying  tidb cluster %s ", name))
 	destroyTasks = append(destroyTasks, t4)
 
 	t6 := task.NewBuilder().DestroyGlueSchemaRegistry(&m.localExe).BuildAsStep(fmt.Sprintf("  - Destroying glue schema registry %s ", name))

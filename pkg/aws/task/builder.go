@@ -1091,38 +1091,11 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 		_network = NetworkTypePrivate
 	}
 
-	// ------ Comment out for test ------
-	// It's common for all the cases.
-	// 1. Network is public, deploy public network
-	// 2. Network is private deploy private network
-	// 3. Network is nat, deploy the private network
-	// b.Step(fmt.Sprintf("%s : Creating VPC ... ...", subClusterType), NewBuilder().CreateVPC(pexecutor, subClusterType, clusterInfo).Build()).
-	// 	Step(fmt.Sprintf("%s : Creating Route Table ... ...", subClusterType), NewBuilder().CreateRouteTable(pexecutor, subClusterType, _network).Build()).
-	// 	Step(fmt.Sprintf("%s : Creating Network ... ... ", subClusterType), NewBuilder().CreateSubnets(pexecutor, subClusterType, _network, clusterInfo).Build()).
-	// 	Step(fmt.Sprintf("%s : Attaching VPC ... ... ", subClusterType), NewBuilder().CreateTransitGatewayVpcAttachment(pexecutor, subClusterType, _network).Build()).
-	// 	Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, _network, openPorts).Build())
-	// Step(fmt.Sprintf("%s : Creating Security Group ... ... ", subClusterType), NewBuilder().CreateSecurityGroup(pexecutor, subClusterType, network).Build())
-
-	// 01. Create all the private subnets
-	// _network := NetworkTypePrivate
-
 	b.CreateVPC(pexecutor, subClusterType, clusterInfo).
 		CreateRouteTable(pexecutor, subClusterType, _network).
 		CreateSubnets(pexecutor, subClusterType, _network, clusterInfo).
 		CreateTransitGatewayVpcAttachment(pexecutor, subClusterType, _network).
 		CreateSecurityGroup(pexecutor, subClusterType, _network, openPorts)
-
-	// Public subnets
-	// 01. create subnets
-	// 02. create internetgatwway and attach it to vpc
-	// if network == NetworkTypePublic {
-	// 	b.CreateRouteTable(pexecutor, subClusterType, network).
-	// 		CreateSubnets(pexecutor, subClusterType, network, clusterInfo).
-	// 		CreateInternetGateway(pexecutor, subClusterType)
-
-	// }
-
-	// ----------------------------------
 
 	// 4. Network is nat, deploy nat for the VPC
 	if network == NetworkTypeNAT {
@@ -1151,10 +1124,8 @@ func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterT
 // }
 
 func (b *Builder) DestroyNAT(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyNAT{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
+	b.tasks = append(b.tasks, &DestroyNAT{pexecutor: pexecutor, subClusterType: subClusterType})
+
 	return b
 }
 

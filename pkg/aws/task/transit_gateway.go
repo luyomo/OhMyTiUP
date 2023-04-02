@@ -18,15 +18,11 @@ import (
 	"errors"
 	"fmt"
 
-	// "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	// "github.com/aws/smithy-go"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	// "go.uber.org/zap"
 )
 
 type TransitGatewayState_Process types.TransitGatewayState
@@ -212,13 +208,10 @@ func (b *BaseTransitGateway) readResources(mode ReadResourceMode) error {
 	}
 
 	for _, transitGateway := range resp.TransitGateways {
-		fmt.Printf("The data state is <%s> \n\n\n\n\n\n", transitGateway.State)
 		_state := TransitGatewayState_Process(transitGateway.State)
 		if _state.isState(mode) == true {
-			fmt.Printf("The inserting the data is <%s> \n\n\n\n\n\n", transitGateway.State)
 			b.ResourceData.Append(transitGateway)
 		}
-
 	}
 	return nil
 }

@@ -111,13 +111,15 @@ func (d *MSKInfos) GetFirstEndpoint() (*string, error) {
 }
 
 func (d *MSKInfos) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	_, err := d.ResourceExist()
+	resourceExists, err := d.ResourceExist()
 	if err != nil {
 		return nil, err
 	}
+	if resourceExists == false {
+		return nil, errors.New("No resource(security group) found")
+	}
 
-	return nil, nil
+	return (d.Data[0]).(types.Cluster).ClusterArn, nil
 }
 
 func (d *MSKInfos) ToPrintTable() *[][]string {
@@ -244,12 +246,6 @@ func (b *BaseMSKCluster) getConfigurationArn( /*kafkaClient *kafka.Client, clust
 }
 
 func (b *BaseMSKCluster) readResources() error {
-	// cfg, err := config.LoadDefaultConfig(context.TODO())
-	// if err != nil {
-	// 	return err
-	// }
-
-	// client := kafka.NewFromConfig(cfg)
 
 	clusters, err := b.client.ListClustersV2(context.TODO(), &kafka.ListClustersV2Input{ClusterNameFilter: aws.String(b.clusterName)})
 	if err != nil {
