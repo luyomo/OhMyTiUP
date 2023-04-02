@@ -127,7 +127,7 @@ value.converter.schemaAutoRegistrationEnabled=true
 value.converter.avroRecordType=GENERIC_RECORD
 value.converter.registry.name=tidb2es
    #+END_SRC
-
+** confluent bigquery sink need commercial licence
 ** Need to add the below environments to cdc-8300.service
    #+BEGIN_SRC
 [Unit]
