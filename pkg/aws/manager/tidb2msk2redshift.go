@@ -40,11 +40,11 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 	opt TiDB2Kafka2PgDeployOptions,
 	gOpt operator.Options,
 ) error {
-	// 1. Preparation phase
+	// 01. Preparation phase
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	// Get the topo file and parse it
+	// 02. Get the topo file and parse it
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
 
@@ -52,12 +52,13 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 		return err
 	}
 
-	// Setup the ssh type
+	// 03. Setup the ssh type
 	base := topo.BaseTopo()
 	if sshType := gOpt.SSHType; sshType != "" {
 		base.GlobalOptions.SSHType = sshType
 	}
 
+	// 04. Confirm the topo config
 	if err := m.confirmTiDBTopology(name, topo); err != nil {
 		return err
 	}
@@ -297,7 +298,7 @@ func (m *Manager) ListTiDB2Msk2RedshiftCluster(clusterName, clusterType string, 
 	listTasks = append(listTasks, t6)
 
 	// 007. EC2
-	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Preivate IP", "Public IP", "Image ID"}}
+	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Private IP", "Public IP", "Image ID"}}
 	t7 := task.NewBuilder().ListEC(&m.localExe, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t7)
 

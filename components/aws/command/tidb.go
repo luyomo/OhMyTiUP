@@ -30,6 +30,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	TiDBCluster = "ohmytiup-tidb"
+)
+
 func newTiDBCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tidb <sub_command>",
@@ -71,7 +75,7 @@ func newTiDBDeploy() *cobra.Command {
 				teleTopology = string(data)
 			}
 
-			return cm.TiDBDeploy(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.TiDBDeploy(clusterName, TiDBCluster, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 
@@ -98,7 +102,7 @@ func newListTiDBCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.ListTiDBCluster(clusterName, opt)
+			return cm.ListTiDBCluster(clusterName, TiDBCluster, opt)
 		},
 	}
 
@@ -137,7 +141,7 @@ You can retain some nodes and roles data when destroy cluster, eg:
 				}
 			}
 
-			return cm.DestroyTiDBCluster(clusterName, gOpt, destroyOpt, skipConfirm)
+			return cm.DestroyTiDBCluster(clusterName, TiDBCluster, gOpt, destroyOpt, skipConfirm)
 		},
 	}
 
@@ -174,7 +178,7 @@ func newTiDBScale() *cobra.Command {
 			fmt.Printf("The command here is %v \n", teleCommand)
 			fmt.Printf("The cluster name is <%s> \n", clusterName)
 
-			return cm.TiDBScale(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.TiDBScale(clusterName, TiDBCluster, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 
@@ -231,7 +235,7 @@ func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBMeasureLatencyPrepareCluster(clusterName, opt, gOpt)
+			return cm.TiDBMeasureLatencyPrepareCluster(clusterName, TiDBCluster, opt, gOpt)
 		},
 	}
 
@@ -269,7 +273,7 @@ func newTiDBLatencyMeasurementRunCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBMeasureLatencyRunCluster(clusterName, opt, gOpt)
+			return cm.TiDBMeasureLatencyRunCluster(clusterName, TiDBCluster, opt, gOpt)
 		},
 	}
 
@@ -321,7 +325,7 @@ func newInstallThanos() *cobra.Command {
 			opt.AccessKey = (*_crentials).AccessKeyID
 			opt.SecretKey = (*_crentials).SecretAccessKey
 
-			return cm.InstallThanos(clusterName, opt, gOpt)
+			return cm.InstallThanos(clusterName, TiDBCluster, opt, gOpt)
 		},
 	}
 
@@ -349,7 +353,7 @@ func newTiDBLatencyMeasurementCleanupCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBMeasureLatencyCleanupCluster(clusterName, gOpt)
+			return cm.TiDBMeasureLatencyCleanupCluster(clusterName, TiDBCluster, gOpt)
 		},
 	}
 
@@ -390,7 +394,7 @@ func newTiDBPerfRecursivePrepareCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBRecursivePrepareCluster(clusterName, opt, gOpt)
+			return cm.TiDBRecursivePrepareCluster(clusterName, TiDBCluster, opt, gOpt)
 		},
 	}
 
@@ -426,7 +430,7 @@ func newTiDBPerfRecursiveRunCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBRecursiveRunCluster(clusterName, numUsers, numPayments, gOpt)
+			return cm.TiDBRecursiveRunCluster(clusterName, TiDBCluster, numUsers, numPayments, gOpt)
 		},
 	}
 
@@ -452,7 +456,7 @@ func newTiDBPerfRecursiveCleanupCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBPerfRecursiveCleanupCluster(clusterName, gOpt)
+			return cm.TiDBPerfRecursiveCleanupCluster(clusterName, TiDBCluster, gOpt)
 		},
 	}
 

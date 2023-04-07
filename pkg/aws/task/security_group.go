@@ -32,12 +32,6 @@ import (
 /******************************************************************************/
 func (b *Builder) CreateSecurityGroup(pexecutor *ctxt.Executor, subClusterType string, network NetworkType, openPorts []int) *Builder {
 
-	// if network == NetworkTypeNAT {
-	// 	b.tasks = append(b.tasks, &CreateSecurityGroup{
-	// 		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
-	// 		openPorts:         openPorts,
-	// 	})
-	// }
 	b.tasks = append(b.tasks, &CreateSecurityGroup{
 		BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 		openPorts:         openPorts,
@@ -137,19 +131,6 @@ func (b *BaseSecurityGroup) readResources() error {
 		return err
 	}
 	filters := b.MakeEC2Filters()
-	// var filters []types.Filter
-	// filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
-	// filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
-
-	// // If the subClusterType is not specified, it is called from destroy to remove all the security group
-	// if b.subClusterType != "" {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
-	// }
-
-	// if b.scope != "" {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
-	// }
-	fmt.Printf("------ security group: <%#v> \n\n\n\n", filters)
 
 	resp, err := b.client.DescribeSecurityGroups(context.TODO(), &ec2.DescribeSecurityGroupsInput{Filters: *filters})
 	if err != nil {

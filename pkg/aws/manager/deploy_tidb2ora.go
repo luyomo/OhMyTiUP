@@ -274,7 +274,7 @@ func (m *Manager) ListTiDB2OraCluster(clusterName string, opt DeployOptions) err
 	listTasks = append(listTasks, t6)
 
 	// 007. EC2
-	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Preivate IP", "Public IP", "Image ID"}}
+	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Private IP", "Public IP", "Image ID"}}
 	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t7)
 

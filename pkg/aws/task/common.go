@@ -1616,6 +1616,7 @@ type BaseTask struct {
 	clusterType    string      // It's initialized from init() function
 	subClusterType string      // tidb/msk/workstation
 	scope          NetworkType // public/private
+	component      string      // tidb/tikv/pd
 
 	clusterInfo *ClusterInfo
 }
@@ -1646,6 +1647,10 @@ func (b *BaseTask) MakeEC2Tags() *[]ec2types.Tag {
 
 	if b.scope != "" {
 		tags = append(tags, ec2types.Tag{Key: aws.String("Scope"), Value: aws.String(string(b.scope))})
+	}
+
+	if b.component != "" {
+		tags = append(tags, ec2types.Tag{Key: aws.String("Component"), Value: aws.String(b.component)})
 	}
 
 	return &tags
@@ -1681,6 +1686,10 @@ func (b *BaseTask) MakeEC2Filters() *[]ec2types.Filter {
 
 	if b.scope != "" {
 		filters = append(filters, ec2types.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
+	}
+
+	if b.component != "" {
+		filters = append(filters, ec2types.Filter{Name: aws.String("tag:Component"), Values: []string{b.component}})
 	}
 
 	return &filters

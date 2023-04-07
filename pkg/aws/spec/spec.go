@@ -182,7 +182,7 @@ type (
 		Labels          []struct {
 			Name  string `yaml:"Name,omitempty"`
 			Value string `yaml:"Value,omitempty"`
-		}
+		} `yaml:"labels"`
 	}
 
 	AuroraConfig struct {

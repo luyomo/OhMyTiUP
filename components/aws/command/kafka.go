@@ -171,7 +171,7 @@ func newKafkaScale() *cobra.Command {
 			// fmt.Printf("The command here is %v \n", teleCommand)
 			// fmt.Printf("The cluster name is <%s> \n", clusterName)
 
-			return cm.TiDBScale(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.TiDBScale(clusterName, "toremove", topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 

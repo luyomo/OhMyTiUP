@@ -38,7 +38,7 @@ import (
 )
 
 func (m *Manager) TiDBCloudDeploy(
-	name string,
+	name, clusterType string,
 	topoFile string,
 	opt DeployOptions,
 	afterDeploy func(b *task.Builder, newPart spec.Topology),
@@ -94,7 +94,7 @@ func (m *Manager) TiDBCloudDeploy(
 }
 
 // DestroyCluster destroy the cluster.
-func (m *Manager) DestroyTiDBCloudCluster(projectID uint64, name string) error {
+func (m *Manager) DestroyTiDBCloudCluster(projectID uint64, name, clusterType string) error {
 	err := m.findClusterToRun(projectID, name, "delete", tidbcloudapi.DeleteClusterByID)
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (m *Manager) DestroyTiDBCloudCluster(projectID uint64, name string) error {
 	return nil
 }
 
-func (m *Manager) ResumeTiDBCloudCluster(projectID uint64, name string) error {
+func (m *Manager) ResumeTiDBCloudCluster(projectID uint64, name, clusterType string) error {
 	err := m.findClusterToRun(projectID, name, "resume", tidbcloudapi.ResumeClusterByID)
 	if err != nil {
 		return err
@@ -111,66 +111,12 @@ func (m *Manager) ResumeTiDBCloudCluster(projectID uint64, name string) error {
 }
 
 // DestroyCluster destroy the cluster.
-func (m *Manager) PauseTiDBCloudCluster(projectID uint64, name string) error {
+func (m *Manager) PauseTiDBCloudCluster(projectID uint64, name, clusterType string) error {
 	err := m.findClusterToRun(projectID, name, "pause", tidbcloudapi.PauseClusterByID)
 	if err != nil {
 		return err
 	}
 	return nil
-
-	// if err := task.InitClientInstance(); err != nil {
-	// 	return err
-	// }
-
-	// var cluster *tidbcloudapi.Cluster
-
-	// // 01. Check whether the project id is valid.
-	// isValid, err := tidbcloudapi.IsValidProjectID(projectID)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if isValid == true {
-	// 	//02 Get the TiDB cluster info from project id and name
-	// 	cluster, err = tidbcloudapi.GetClusterByName(projectID, name)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// if cluster == nil {
-	// 	// If no cluster found, try to find the cluster using cluster name without project id
-	// 	cluster, err = tidbcloudapi.GetClusterByName(0, name)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	if cluster != nil {
-	// 		// Ask user for confirmation. List the cluster infomation
-	// 		m.ListTiDBCloudCluster(0, name, "ALL")
-
-	// 		ret, _ := tui.PromptForConfirmYes("Do you want to pause the above cluster?")
-	// 		if ret == false {
-	// 			return nil
-	// 		}
-
-	// 	} else {
-	// 		// No cluster name found, exit
-	// 		tui.Prompt(fmt.Sprintf("No cluster <%s> found in the organization/project"))
-	// 		return nil
-	// 	}
-
-	// }
-
-	// projectID = cluster.ProjectID
-	// clusterID := cluster.ID
-
-	// ret, _ := tui.PromptForConfirmYes(fmt.Sprintf("Are you sure to pause the cluster: (%d:%s) ?", projectID, name))
-	// if ret == true {
-	// 	tidbcloudapi.PauseClusterByName(projectID, clusterID)
-	// }
-
-	// return nil
 }
 
 // Cluster represents a clsuter
@@ -213,7 +159,7 @@ func (m *Manager) ListTiDBCloudCluster(projectID uint64, clusterName, status str
 
 // Scale a cluster.
 func (m *Manager) TiDBCloudScale(
-	name string,
+	name, clusterType string,
 	topoFile string,
 	opt DeployOptions,
 	afterDeploy func(b *task.Builder, newPart spec.Topology),
@@ -278,7 +224,7 @@ func (m *Manager) TiDBCloudScale(
 	if err != nil {
 		return err
 	}
-	clusterType := "ohmytiup-tidbcloud"
+	// clusterType := "ohmytiup-tidbcloud"
 
 	var workstationInfo, clusterInfo task.ClusterInfo
 

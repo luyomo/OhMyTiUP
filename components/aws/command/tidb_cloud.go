@@ -29,6 +29,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	TiDBCLOUD = "ohmytiup-tidbcloud"
+)
+
 func newTiDBCloudCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tidb-cloud <sub_command>",
@@ -70,7 +74,7 @@ func newTiDBCloudDeploy() *cobra.Command {
 				teleTopology = string(data)
 			}
 
-			return cm.TiDBCloudDeploy(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.TiDBCloudDeploy(clusterName, TiDBCLOUD, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 
@@ -123,7 +127,7 @@ func newDestroyTiDBCloudCmd() *cobra.Command {
 
 			clusterName := args[1]
 
-			return cm.DestroyTiDBCloudCluster(projectID, clusterName)
+			return cm.DestroyTiDBCloudCluster(projectID, clusterName, TiDBCLOUD)
 		},
 	}
 
@@ -149,7 +153,7 @@ func newPauseTiDBCloudCmd() *cobra.Command {
 
 			clusterName := args[1]
 
-			return cm.PauseTiDBCloudCluster(projectID, clusterName)
+			return cm.PauseTiDBCloudCluster(projectID, clusterName, TiDBCLOUD)
 		},
 	}
 
@@ -175,7 +179,7 @@ func newResumeTiDBCloudCmd() *cobra.Command {
 
 			clusterName := args[1]
 
-			return cm.ResumeTiDBCloudCluster(projectID, clusterName)
+			return cm.ResumeTiDBCloudCluster(projectID, clusterName, TiDBCLOUD)
 		},
 	}
 
@@ -208,7 +212,7 @@ func newTiDBCloudScale() *cobra.Command {
 			fmt.Printf("The command here is %v \n", teleCommand)
 			fmt.Printf("The cluster name is <%s> \n", clusterName)
 
-			return cm.TiDBScale(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.TiDBScale(clusterName, TiDBCLOUD, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 

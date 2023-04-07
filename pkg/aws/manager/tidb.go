@@ -64,14 +64,14 @@ type TiDBDeployOptions struct {
 
 // Deploy a cluster.
 func (m *Manager) TiDBDeploy(
-	name string,
+	name, clusterType string,
 	topoFile string,
 	opt DeployOptions,
 	afterDeploy func(b *task.Builder, newPart spec.Topology),
 	skipConfirm bool,
 	gOpt operator.Options,
 ) error {
-	// 1. Preparation phase
+	// 01. Preparation phase
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
@@ -91,36 +91,50 @@ func (m *Manager) TiDBDeploy(
 			WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
 	}
 
+	// 02. Get the topo file and parse it
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
 
-	if err := spec.ParseTopologyYaml(topoFile, topo); err != nil {
-		return err
-	}
-
+	// 03. Setup the ssh type
 	base := topo.BaseTopo()
-
 	if sshType := gOpt.SSHType; sshType != "" {
 		base.GlobalOptions.SSHType = sshType
 	}
 
-	var (
-		sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-		sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	)
-	if gOpt.SSHType != executor.SSHTypeNone {
-		var err error
-		if sshConnProps, err = tui.ReadIdentityFileOrPassword(opt.IdentityFile, opt.UsePassword); err != nil {
-			return err
-		}
-		if len(gOpt.SSHProxyHost) != 0 {
-			if sshProxyProps, err = tui.ReadIdentityFileOrPassword(gOpt.SSHProxyIdentity, gOpt.SSHProxyUsePassword); err != nil {
-				return err
-			}
-		}
+	// 04. Confirm the topo config
+	if err := spec.ParseTopologyYaml(topoFile, topo); err != nil {
+		return err
 	}
+	// base := topo.BaseTopo()
 
-	if err := m.fillHostArch(sshConnProps, sshProxyProps, topo, &gOpt, opt.User); err != nil {
+	// if sshType := gOpt.SSHType; sshType != "" {
+	// 	base.GlobalOptions.SSHType = sshType
+	// }
+
+	// var (
+	// 	sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
+	// 	sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
+	// )
+	// if gOpt.SSHType != executor.SSHTypeNone {
+	// 	var err error
+	// 	if sshConnProps, err = tui.ReadIdentityFileOrPassword(opt.IdentityFile, opt.UsePassword); err != nil {
+	// 		return err
+	// 	}
+	// 	if len(gOpt.SSHProxyHost) != 0 {
+	// 		if sshProxyProps, err = tui.ReadIdentityFileOrPassword(gOpt.SSHProxyIdentity, gOpt.SSHProxyUsePassword); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
+
+	// if err := m.fillHostArch(sshConnProps, sshProxyProps, topo, &gOpt, opt.User); err != nil {
+	// 	return err
+	// }
+
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	if err := m.makeExeContext(ctx, nil, &gOpt, false, false); err != nil {
 		return err
 	}
 
@@ -130,40 +144,44 @@ func (m *Manager) TiDBDeploy(
 		}
 	}
 
-	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
+	// var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-	globalOptions := base.GlobalOptions
+	// globalOptions := base.GlobalOptions
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
-	clusterType := "ohmytiup-tidb"
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
+	// clusterType := "ohmytiup-tidb"
 
 	var workstationInfo, clusterInfo task.ClusterInfo
 
-	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
-			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
-		envInitTasks = append(envInitTasks, t1)
-	}
+	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
-	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
-	if cntEC2Nodes > 0 {
-		t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-		envInitTasks = append(envInitTasks, t2)
-	}
+	t1 := task.NewBuilder().
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
+	task001 = append(task001, t1)
 
-	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks...)
+	t2 := task.NewBuilder().CreateTiDBCluster(&m.localExe, "tidb", base.AwsTopoConfigs, &clusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
+	task001 = append(task001, t2)
 
-	t := builder.Build()
+	paraTask001 := task.NewBuilder().
+		CreateTransitGateway(&m.localExe).
+		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
+		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb"}).
+		RunCommonWS(&m.wsExe, &[]string{"git"}).
+		BuildAsStep("Parallel Main step")
 
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
-	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
-	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
+	// Combine the Redshift deployment and other resources
+
+	// mainTask = append(mainTask, paraTask001)
+
+	// mainBuilder := task.NewBuilder().
+	// 	CreateTransitGateway(&m.localExe).
+	// 	ParallelStep("+ Deploying all the sub components for kafka solution service", false, mainTask...).Build()
+
+	if err := /* mainBuilder */ paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
@@ -171,32 +189,61 @@ func (m *Manager) TiDBDeploy(
 		return err
 	}
 
-	if cntEC2Nodes > 0 {
-		var t5 *task.StepDisplay
-		t5 = task.NewBuilder().
-			CreateTransitGateway(&sexecutor).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
-			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
-			BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
+	// if base.AwsWSConfigs.InstanceType != "" {
+	// 	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+	// 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
+	// 	envInitTasks = append(envInitTasks, t1)
+	// }
 
-		tailctx := context.WithValue(context.Background(), "clusterName", name)
-		tailctx = context.WithValue(tailctx, "clusterType", clusterType)
-		builder = task.NewBuilder().
-			ParallelStep("+ Deploying tidb solution service ... ...", false, t5)
-		t = builder.Build()
-		timer.Take("Preparation")
+	// cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
+	// if cntEC2Nodes > 0 {
+	// 	t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
+	// 		BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
+	// 	envInitTasks = append(envInitTasks, t2)
+	// }
 
-		if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
-			if errorx.Cast(err) != nil {
-				// FIXME: Map possible task errors and give suggestions.
-				return err
-			}
-			return err
-		}
-	}
+	// builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks...)
+
+	// t := builder.Build()
+
+	// // ctx := context.WithValue(context.Background(), "clusterName", name)
+	// // ctx = context.WithValue(ctx, "clusterType", clusterType)
+	// // ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
+	// // ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
+	// if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
+	// 	if errorx.Cast(err) != nil {
+	// 		// FIXME: Map possible task errors and give suggestions.
+	// 		return err
+	// 	}
+	// 	return err
+	// }
+
+	// if cntEC2Nodes > 0 {
+	// 	var t5 *task.StepDisplay
+	// 	t5 = task.NewBuilder().
+	// 		CreateTransitGateway(&sexecutor).
+	// 		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
+	// 		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
+	// 		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
+	// 		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+	// 		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+	// 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
+
+	// 	tailctx := context.WithValue(context.Background(), "clusterName", name)
+	// 	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
+	// 	builder = task.NewBuilder().
+	// 		ParallelStep("+ Deploying tidb solution service ... ...", false, t5)
+	// 	t = builder.Build()
+	// 	timer.Take("Preparation")
+
+	// 	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
+	// 		if errorx.Cast(err) != nil {
+	// 			// FIXME: Map possible task errors and give suggestions.
+	// 			return err
+	// 		}
+	// 		return err
+	// 	}
+	// }
 
 	timer.Take("Execution")
 
@@ -208,7 +255,7 @@ func (m *Manager) TiDBDeploy(
 }
 
 // DestroyCluster destroy the cluster.
-func (m *Manager) DestroyTiDBCluster(name string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
+func (m *Manager) DestroyTiDBCluster(name, clusterType string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
 	_, err := m.meta(name)
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
 		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
@@ -217,7 +264,7 @@ func (m *Manager) DestroyTiDBCluster(name string, gOpt operator.Options, destroy
 		return err
 	}
 
-	clusterType := "ohmytiup-tidb"
+	// clusterType := "ohmytiup-tidb"
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
@@ -283,12 +330,12 @@ func (m *Manager) DestroyTiDBCluster(name string, gOpt operator.Options, destroy
 
 // Cluster represents a clsuter
 // ListCluster list the clusters.
-func (m *Manager) ListTiDBCluster(clusterName string, opt DeployOptions) error {
+func (m *Manager) ListTiDBCluster(clusterName, clusterType string, opt DeployOptions) error {
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
@@ -326,7 +373,7 @@ func (m *Manager) ListTiDBCluster(clusterName string, opt DeployOptions) error {
 	listTasks = append(listTasks, t6)
 
 	// 007. EC2
-	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Preivate IP", "Public IP", "Image ID"}}
+	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Private IP", "Public IP", "Image ID"}}
 	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t7)
 
@@ -345,7 +392,7 @@ func (m *Manager) ListTiDBCluster(clusterName string, opt DeployOptions) error {
 	}
 
 	titleFont := color.New(color.FgRed, color.Bold)
-	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint("ohmytiup-tidb"))
+	fmt.Printf("Cluster  Type:      %s\n", titleFont.Sprint(clusterType))
 	fmt.Printf("Cluster Name :      %s\n\n", titleFont.Sprint(clusterName))
 
 	cyan := color.New(color.FgCyan, color.Bold)
@@ -374,7 +421,7 @@ func (m *Manager) ListTiDBCluster(clusterName string, opt DeployOptions) error {
 
 // Scale a cluster.
 func (m *Manager) TiDBScale(
-	name string,
+	name, clusterType string,
 	topoFile string,
 	opt DeployOptions,
 	afterDeploy func(b *task.Builder, newPart spec.Topology),
@@ -439,7 +486,7 @@ func (m *Manager) TiDBScale(
 	if err != nil {
 		return err
 	}
-	clusterType := "ohmytiup-tidb"
+	// clusterType := "ohmytiup-tidb"
 
 	var workstationInfo, clusterInfo task.ClusterInfo
 
@@ -500,10 +547,10 @@ func (m *Manager) TiDBScale(
 }
 
 // ------------- Latency measurement
-func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
-	clusterType := "ohmytiup-tidb"
+func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	// clusterType := "ohmytiup-tidb"
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	// 01. Get the workstation executor
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
@@ -619,8 +666,8 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName string, opt opera
 
 }
 
-func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
-	clusterType := "ohmytiup-tidb"
+func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	// clusterType := "ohmytiup-tidb"
 	ctx, cancel := context.WithCancel(context.Background())
 
 	ctx = context.WithValue(ctx, "clusterName", clusterName)
@@ -679,7 +726,7 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName string, opt operator.
 	return nil
 }
 
-func (m *Manager) TiDBMeasureLatencyCleanupCluster(clusterName string, gOpt operator.Options) error {
+func (m *Manager) TiDBMeasureLatencyCleanupCluster(clusterName, clusterType string, gOpt operator.Options) error {
 	fmt.Printf("Running in the clean phase ")
 	fmt.Printf("Remove the database")
 	return nil
@@ -687,10 +734,10 @@ func (m *Manager) TiDBMeasureLatencyCleanupCluster(clusterName string, gOpt oper
 }
 
 // ------------- recursive query performance on TiFlash
-func (m *Manager) TiDBRecursivePrepareCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
-	clusterType := "ohmytiup-tidb"
+func (m *Manager) TiDBRecursivePrepareCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	// clusterType := "ohmytiup-tidb"
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	// 01. Get the workstation executor
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
@@ -796,10 +843,10 @@ func (m *Manager) TiDBRecursivePrepareCluster(clusterName string, opt operator.L
 	return nil
 }
 
-func (m *Manager) TiDBRecursiveRunCluster(clusterName string, numUsers, numPayments string, gOpt operator.Options) error {
-	clusterType := "ohmytiup-tidb"
+func (m *Manager) TiDBRecursiveRunCluster(clusterName, clusterType string, numUsers, numPayments string, gOpt operator.Options) error {
+	// clusterType := "ohmytiup-tidb"
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-tidb")
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	// 01. Get the workstation executor
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
@@ -862,7 +909,7 @@ func (m *Manager) TiDBRecursiveRunCluster(clusterName string, numUsers, numPayme
 	return nil
 }
 
-func (m *Manager) TiDBPerfRecursiveCleanupCluster(clusterName string, gOpt operator.Options) error {
+func (m *Manager) TiDBPerfRecursiveCleanupCluster(clusterName, clusterType string, gOpt operator.Options) error {
 	fmt.Printf("Running in the clean phase ")
 	fmt.Printf("Remove the database")
 	return nil
@@ -870,12 +917,12 @@ func (m *Manager) TiDBPerfRecursiveCleanupCluster(clusterName string, gOpt opera
 }
 
 func (m *Manager) InstallThanos(
-	clusterName string,
+	clusterName, clusterType string,
 	opt operator.ThanosS3Config,
 	gOpt operator.Options,
 ) error {
 
-	clusterType := "ohmytiup-tidb"
+	// clusterType := "ohmytiup-tidb"
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
