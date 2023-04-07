@@ -43,6 +43,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	astypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	nlbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -1656,6 +1657,27 @@ func (b *BaseTask) MakeEC2Tags() *[]ec2types.Tag {
 	return &tags
 }
 
+func (b *BaseTask) MakeASTags() *[]astypes.Tag {
+	var tags []astypes.Tag
+	tags = append(tags, astypes.Tag{Key: aws.String("Name"), Value: aws.String(b.clusterName)})
+	tags = append(tags, astypes.Tag{Key: aws.String("Cluster"), Value: aws.String(b.clusterType)})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		tags = append(tags, astypes.Tag{Key: aws.String("Type"), Value: aws.String(b.subClusterType)})
+	}
+
+	if b.scope != "" {
+		tags = append(tags, astypes.Tag{Key: aws.String("Scope"), Value: aws.String(string(b.scope))})
+	}
+
+	if b.component != "" {
+		tags = append(tags, astypes.Tag{Key: aws.String("Component"), Value: aws.String(b.component)})
+	}
+
+	return &tags
+}
+
 func (b *BaseTask) MakeNLBTags() *[]nlbtypes.Tag {
 	var tags []nlbtypes.Tag
 	tags = append(tags, nlbtypes.Tag{Key: aws.String("Name"), Value: aws.String(b.clusterName)})
@@ -1695,9 +1717,31 @@ func (b *BaseTask) MakeEC2Filters() *[]ec2types.Filter {
 	return &filters
 }
 
+func (b *BaseTask) MakeASFilters() *[]astypes.Filter {
+	var filters []astypes.Filter
+
+	filters = append(filters, astypes.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
+	filters = append(filters, astypes.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
+
+	// If the subClusterType is not specified, it is called from destroy to remove all the security group
+	if b.subClusterType != "" {
+		filters = append(filters, astypes.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
+	}
+
+	if b.scope != "" {
+		filters = append(filters, astypes.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
+	}
+
+	if b.component != "" {
+		filters = append(filters, astypes.Filter{Name: aws.String("tag:Component"), Values: []string{b.component}})
+	}
+
+	return &filters
+}
+
 func (b *BaseTask) GetSubnetsInfo(numSubnets int) (*[]string, error) {
 	// Get the subnet for workstation
-	fmt.Printf("Info: name:%s, type: %s, clusterType:%s, scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
+	// fmt.Printf("Info: name:%s, type: %s, clusterType:%s, scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
 	listSubnets := &ListSubnets{BaseSubnets: BaseSubnets{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,
 		clusterName:    b.clusterName,

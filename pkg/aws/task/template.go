@@ -138,6 +138,20 @@ func (b *BaseTemplate) readResources() error {
 	}
 
 	// Pattern02: Descibe using filters
+	// filters := b.MakeEC2Filters()
+
+	// for _, label := range b.awsTopoConfigs.Labels {
+	// 	*filters = append(*filters, types.Filter{Name: aws.String("tag:label:" + label.Name), Values: []string{label.Value}})
+	// }
+
+	// resp, err := b.client.DescribeLaunchTemplates(context.TODO(), &ec2.DescribeLaunchTemplatesInput{Filters: *filters})
+	// if err != nil {
+	// 	return err
+	// }
+
+	// for _, launchTemplate := range resp.LaunchTemplates {
+	// 	b.ResourceData.Append(launchTemplate)
+	// }
 
 	// Pattern03: Describe
 	// resp, err := b.client.DescribeLoadBalancers(context.TODO(), &nlb.DescribeLoadBalancersInput{Names: []string{c.clusterName}})

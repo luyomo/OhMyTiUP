@@ -243,10 +243,8 @@ func (c *CreateLaunchTemplate) Execute(ctx context.Context) error {
 
 func (c *CreateLaunchTemplate) makeTemplateName() string {
 
-	fmt.Printf("----- makeTemplateName: ******** \n\n\n\n\n\n")
 	var arrLabel []string
 	for _, _entry := range c.awsTopoConfigs.Labels {
-		fmt.Printf("-------- makeTemplateName: %#v \n\n\n\n\n\n", c.awsTopoConfigs)
 		arrLabel = append(arrLabel, fmt.Sprintf("%s-%s", _entry.Name, _entry.Value))
 	}
 	if len(arrLabel) > 0 {
