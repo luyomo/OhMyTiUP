@@ -31,6 +31,62 @@ import (
 	// "go.uber.org/zap"
 )
 
+// type TransitGatewayState_Process types.TransitGatewayState
+
+// func (p TransitGatewayState_Process) isState(mode ReadResourceMode) bool {
+// 	switch mode {
+// 	case ReadResourceModeCommon:
+// 		return p.isOKState()
+// 	case ReadResourceModeBeforeCreate:
+// 		return p.isBeforeCreateState()
+// 	case ReadResourceModeAfterCreate:
+// 		return p.isAfterCreateState()
+// 	case ReadResourceModeBeforeDestroy:
+// 		return p.isBeforeDestroyState()
+// 	case ReadResourceModeAfterDestroy:
+// 		return p.isAfterDestroyState()
+// 	}
+// 	return true
+// }
+
+// func (p TransitGatewayState_Process) isBeforeCreateState() bool {
+// 	return ListContainElement([]string{
+// 		string(types.TransitGatewayStatePending),
+// 		string(types.TransitGatewayStateAvailable),
+// 		string(types.TransitGatewayStateModifying),
+// 	}, string(p))
+
+// }
+
+// func (p TransitGatewayState_Process) isAfterCreateState() bool {
+// 	return ListContainElement([]string{
+// 		string(types.TransitGatewayStateAvailable),
+// 	}, string(p))
+
+// }
+
+// func (p TransitGatewayState_Process) isBeforeDestroyState() bool {
+// 	return ListContainElement([]string{
+// 		string(types.TransitGatewayStatePending),
+// 		string(types.TransitGatewayStateAvailable),
+// 		string(types.TransitGatewayStateModifying),
+// 	}, string(p))
+
+// }
+
+// func (p TransitGatewayState_Process) isAfterDestroyState() bool {
+// 	return ListContainElement([]string{
+// 		string(types.TransitGatewayStatePending),
+// 		string(types.TransitGatewayStateAvailable),
+// 		string(types.TransitGatewayStateModifying),
+// 		string(types.TransitGatewayStateDeleting),
+// 	}, string(p))
+// }
+
+// func (p TransitGatewayState_Process) isOKState() bool {
+// 	return p.isBeforeCreateState()
+// }
+
 /******************************************************************************/
 func (b *Builder) CreateAutoScaling(pexecutor *ctxt.Executor, subClusterType, component string, network NetworkType, ec2Node *spec.AwsNodeModal, awsGeneralConfig *spec.AwsTopoConfigsGeneral) *Builder {
 	if ec2Node.InstanceType != "" {
@@ -56,6 +112,14 @@ func (b *Builder) DestroyAutoScaling(pexecutor *ctxt.Executor) *Builder {
 	})
 	return b
 }
+
+// func (b *Builder) DestroyAutoScalingGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+// 	b.tasks = append(b.tasks, &DestroyAutoScalingGroup{
+// 		pexecutor:      pexecutor,
+// 		subClusterType: subClusterType,
+// 	})
+// 	return b
+// }
 
 /******************************************************************************/
 
@@ -134,8 +198,10 @@ func (b *BaseAutoScaling) readResources() error {
 	}
 
 	filters := b.MakeASFilters()
-	for _, label := range b.awsTopoConfigs.Labels {
-		*filters = append(*filters, types.Filter{Name: aws.String("tag:label:" + label.Name), Values: []string{label.Value}})
+	if b.awsTopoConfigs != nil && b.awsTopoConfigs.Labels != nil {
+		for _, label := range b.awsTopoConfigs.Labels {
+			*filters = append(*filters, types.Filter{Name: aws.String("tag:label:" + label.Name), Values: []string{label.Value}})
+		}
 	}
 
 	resp, err := b.client.DescribeAutoScalingGroups(context.TODO(), &autoscaling.DescribeAutoScalingGroupsInput{Filters: *filters})
@@ -253,25 +319,21 @@ type DestroyAutoScaling struct {
 func (c *DestroyAutoScaling) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroyAutoScaling ****** \n\n\n")
+	for _, _entry := range c.ResourceData.GetData() {
+		autoScalingGroup := _entry.(types.AutoScalingGroup)
+		if _, err := c.client.DeleteAutoScalingGroup(context.TODO(), &autoscaling.DeleteAutoScalingGroupInput{
+			AutoScalingGroupName: autoScalingGroup.AutoScalingGroupName,
+			ForceDelete:          aws.Bool(true),
+		}); err != nil {
+			return err
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
-	if err != nil {
-		return err
+		}
 	}
 
-	if clusterExistFlag == true {
-		// TODO: Destroy the cluster
-		// _id, err := c.ResourceData.GetResourceArn()
-		// if err != nil {
-		// 	return err
-		// }
-		// if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
-		// 	RouteTableId: _id,
-		// }); err != nil {
-		// 	return err
-		// }
-
+	if err := c.waitUntilResouceDestroy(0, 0, func() error {
+		return c.readResources()
+	}); err != nil {
+		return err
 	}
 
 	return nil

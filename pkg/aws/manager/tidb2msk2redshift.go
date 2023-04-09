@@ -29,6 +29,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 
 	perrs "github.com/pingcap/errors"
 )
@@ -77,7 +78,7 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := m.makeExeContext(ctx, nil, &gOpt, false, false); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -198,7 +199,7 @@ func (m *Manager) DestroyTiDB2Msk2RedshiftCluster(name, clusterType string, gOpt
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	if err := m.makeExeContext(ctx, nil, &gOpt, false, false); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -263,7 +264,7 @@ func (m *Manager) ListTiDB2Msk2RedshiftCluster(clusterName, clusterType string, 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := m.makeExeContext(ctx, nil, nil, false, false); err != nil {
+	if err := m.makeExeContext(ctx, nil, nil, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -402,7 +403,7 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.INC_AWS_ENV); err != nil {
 		return err
 	}
 

@@ -38,7 +38,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
-	"github.com/luyomo/OhMyTiUP/pkg/workstation"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 	perrs "github.com/pingcap/errors"
 )
 
@@ -58,8 +58,15 @@ type Manager struct {
 	bindVersion spec.BindVersion
 	wsExe       ctxt.Executor
 	localExe    ctxt.Executor
-	workstation *workstation.Workstation
+	workstation *ws.Workstation
 }
+
+type INC_WS_FLAG bool
+
+const (
+	INC_WS INC_WS_FLAG = true
+	EXC_WS INC_WS_FLAG = false
+)
 
 // NewManager create a Manager.
 func NewManager(sysName string, specManager *spec.SpecManager, bindVersion spec.BindVersion) *Manager {
@@ -456,7 +463,7 @@ type ConfigData struct {
 	IdentityFile string `yaml:"identity-file"`
 }
 
-func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt *operator.Options, includeWS, awsCliFlag bool) error {
+func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt *operator.Options, includeWS INC_WS_FLAG, awsCliFlag ws.INC_AWS_ENV_FLAG) error {
 	// var configData ConfigData
 	// var user string
 	// var keyFile string
@@ -470,11 +477,11 @@ func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt 
 		return err
 	}
 
-	if includeWS == false {
+	if includeWS != INC_WS {
 		return nil
 	}
 
-	m.workstation, err = workstation.NewAWSWorkstation(&m.localExe, clusterName, clusterType, (*gOpt).SSHUser, (*gOpt).IdentityFile, true)
+	m.workstation, err = ws.NewAWSWorkstation(&m.localExe, clusterName, clusterType, (*gOpt).SSHUser, (*gOpt).IdentityFile, awsCliFlag)
 	if err != nil {
 		return err
 	}

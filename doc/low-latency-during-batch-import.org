@@ -9,13 +9,13 @@
 ** Cluster deployment
   Use the below config to generate TiDB Cluster with TiKV nodes labels. Three TiKV nodes are group together as batch nodes. And the remaining three are grouped as online nodes. 
   #+BEGIN_SRC
-OhMyTiUP$ more /tmp/aws-nodes-tidb.yaml
+OhMyTiUP$ more aws-nodes-isolation.yaml 
  workstation:
    imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
-   keyname: key name                               # Public key for workstation instance deployment
-   keyfile: /home/pi/.ssh/local-pricate-key.pem    # Private key to access the workstation
+   keyname: jay-us-east-01                         # Public key for workstation instance deployment
+   keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
    volumeSize: 100                                 # disk size in the workstation
-   enable_monitoring: enabled                      # enable the moniroting on the workstation
+   enable_monitoring: disabled                     # enable the moniroting on the workstation
    instance_type: c5.2xlarge
    cidr: 172.81.0.0/16
  aws_topo_configs:
@@ -25,7 +25,7 @@ OhMyTiUP$ more /tmp/aws-nodes-tidb.yaml
      keyname: jay-us-east-01                       # Public key to access the EC2 instance
      keyfile: /home/pi/.ssh/jay-us-east-01.pem
      cidr: 172.83.0.0/16
-     tidb_version: v6.1.0
+     tidb_version: v7.0.0
      excluded_az:                                  # The AZ to be excluded for the subnets
        - us-east-1e
    pd:
@@ -35,23 +35,28 @@ OhMyTiUP$ more /tmp/aws-nodes-tidb.yaml
      instance_type: c5.2xlarge
      count: 2
    tikv:
-     labels:
-     - name: db_type
-       values:
-       - value: online
-         machine_type: standard
-       - value: batch
-         machine_type: standard
-     machine_types:
+     -
+       instance_type: c5.2xlarge
+       count: 3
+       volumeSize: 300
+       volumeType: gp3
+       iops: 3000
+       labels:
        -
-         name: standard
-         modal_value:
-           instance_type: c5.2xlarge
-           count: 3
-           volumeSize: 300
-           volumeType: gp3
-           iops: 3000
-OhMyTiUP$ ./bin/aws tidb deploy placementruletest /tmp/aws-nodes-tidb.yaml
+         Name: db_type
+         Value: online
+     - 
+       instance_type: c5.xlarge
+       count: 3
+       volumeSize: 100
+       volumeType: gp3
+       iops: 2000
+       labels:
+       -
+         Name: db_type
+         Value: batch
+
+OhMyTiUP$ ./bin/aws tidb deploy placementruletest /tmp/aws-nodes-isolation.yaml
   #+END_SRC
   [[./png/placementrule/placementrule.01.png]]
   [[./png/placementrule/placementrule.02.png]]
@@ -94,14 +99,14 @@ OhMyTiUP$ ./bin/aws tidb list placementruletest
 ** Scenario: Common TiDB Cluster without resource isolation
 *** Preparation
 #+BEGIN_SRC
-OhMyTiUP$ ./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-num-tables 10  --tikv-mode simple --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+OhMyTiUP$ ./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-num-tables 10  --tikv-mode simple
         
 #+END_SRC
 [[./png/placementrule/placementrule.07.png]]   
 *** Run test
 #+BEGIN_SRC
 
-OhMyTiUP$./bin/aws tidb perf resource-isolation run placementruletest --sysbench-num-tables 10 --batch-size x,50000 --repeats 10 --sysbench-plugin-name tidb_oltp_insert_simple --ssh-user admin --identity-file /home/pi/.ssh/jay-us-east-01.pem
+OhMyTiUP$ ./bin/aws tidb perf resource-isolation run placementruletest --sysbench-num-tables 50 --batch-size x,50000 --repeats 10 --sysbench-plugin-name tidb_oltp_insert_simple
 #+END_SRC
 [[./png/placementrule/placementrule.08.png]]
 
@@ -112,6 +117,31 @@ As the result from the above example, because of the heavy batch impact, the lat
 OhMyTiUP$./bin/aws tidb measure-latency prepare placementruletest --sysbench-execution-time 40 --sysbench-num-tables 10  --tikv-mode partition --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
     #+END_SRC
 [[./png/placementrule/placementrule.09.png]]
+Batch size  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  
+----------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  
+0           0      598849  598849   598849  998.08      598849   998.08       2.49             4.01             47.51            5.67                      2399321.09
+50000       0      484470  484470   484470  807.44      484470   807.44       1.79             4.95             229560.02        5.77                      2399422.45
+0           0      684562  684562   684562  1140.93     684562   1140.93      1.64             3.50             412.08           5.28                      2399303.23
+50000       0      605884  605884   605884  1009.80     605884   1009.80      1.62             3.96             210.17           6.43                      2399242.41
+0           0      744333  744333   744333  1240.55     744333   1240.55      1.60             3.22             67.49            4.82                      2399210.24
+50000       0      636935  636935   636935  1061.55     636935   1061.55      1.62             3.77             209.71           5.88                      2399224.99
+0           0      749426  749426   749426  1249.04     749426   1249.04      1.63             3.20             399.06           4.82                      2399169.24
+50000       0      649537  649537   649537  1082.56     649537   1082.56      1.60             3.69             212.48           5.88                      2399212.06
+0           0      713366  713366   713366  1188.94     713366   1188.94      1.63             3.36             208.28           5.00                      2399238.12
+50000       0      671999  671999   671999  1119.99     671999   1119.99      1.62             3.57             130.07           5.67                      2399166.20
+0           0      606692  606692   606692  1011.15     606692   1011.15      2.45             3.95             377.64           5.47                      2399343.18
+50000       0      569454  569454   569454  949.08      569454   949.08       2.57             4.21             213.39           6.32                      2399261.03
+0           0      735795  735795   735795  1226.32     735795   1226.32      1.61             3.26             210.79           5.00                      2399247.23
+50000       0      580762  580762   580762  967.93      580762   967.93       2.49             4.13             209.11           6.32                      2399290.80
+0           0      606412  606412   606412  1010.68     606412   1010.68      2.47             3.96             162.23           5.47                      2399374.54
+50000       0      592036  592036   592036  986.72      592036   986.72       2.52             4.05             169.32           5.99                      2399271.29
+0           0      676746  676746   676746  1127.90     676746   1127.90      1.65             3.55             62.46            5.37                      2399263.67
+50000       0      576960  576960   576960  961.59      576960   961.59       1.67             4.16             210.74           6.67                      2399283.28
+0           0      603172  603172   603172  1005.28     603172   1005.28      2.56             3.98             221.27           5.67                      2399351.05
+50000       0      610684  610684   610684  1017.80     610684   1017.80      1.62             3.93             214.56           6.43                      2399250.07
+
+If the workload is not high enough, the batch does not have much impact on the online process, while the batch has the impact on the online process while the online process has high workload.
+
 ** Run test against cluster with batch/online isolated
    
     #+BEGIN_SRC

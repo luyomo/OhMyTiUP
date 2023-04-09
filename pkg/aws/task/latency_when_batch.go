@@ -35,27 +35,27 @@ type MetricsOfLatencyWhenBatch struct {
 
 type RunOntimeBatchInsert struct {
 	pexecutor *ctxt.Executor
-	gOpt      *operator.Options
-	opt       *operator.LatencyWhenBatchOptions
+	// gOpt      *operator.Options
+	opt *operator.LatencyWhenBatchOptions
 }
 
 // Execute implements the Task interface
 func (c *RunOntimeBatchInsert) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	// clusterName := ctx.Value("clusterName").(string)
+	// clusterType := ctx.Value("clusterType").(string)
 
-	// 1. Get all the workstation nodes
-	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, (*(c.gOpt)).SSHUser, (*(c.gOpt)).IdentityFile)
-	if err != nil {
-		return err
-	}
+	// // 1. Get all the workstation nodes
+	// workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, (*(c.gOpt)).SSHUser, (*(c.gOpt)).IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
 	ticker := time.NewTicker(time.Duration((*c.opt).TransInterval) * time.Millisecond)
 
 	for {
 		select {
 		case <-ticker.C:
-			_, _, err := (*workstation).Execute(context.Background(), fmt.Sprintf(`/opt/scripts/ontime_batch_insert.sh latencytest ontime01 ontime %d`, (*(c.opt)).BatchSize), false, 5*time.Hour)
+			_, _, err := (*c.pexecutor).Execute(context.Background(), fmt.Sprintf(`/opt/scripts/ontime_batch_insert.sh latencytest ontime01 ontime %d`, (*(c.opt)).BatchSize), false, 5*time.Hour)
 
 			if err != nil {
 				return err
@@ -82,7 +82,6 @@ func (c *RunOntimeBatchInsert) String() string {
 // ------ ----- ----- RunSysbench
 type RunSysbench struct {
 	pexecutor          *ctxt.Executor
-	gOpt               *operator.Options
 	opt                *operator.LatencyWhenBatchOptions
 	sysbenchConfigFile string
 
@@ -92,16 +91,18 @@ type RunSysbench struct {
 
 // Execute implements the Task interface
 func (c *RunSysbench) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	// clusterName := ctx.Value("clusterName").(string)
+	// clusterType := ctx.Value("clusterType").(string)
 	// 1. Get all the workstation nodes
-	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, (*(c.gOpt)).SSHUser, (*(c.gOpt)).IdentityFile)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Staring to run the sysbench *****\n\n\n")
+	// workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, (*(c.gOpt)).SSHUser, (*(c.gOpt)).IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Printf("Staring to run the sysbench *****\n\n\n")
 
-	stdout, _, err := (*workstation).Execute(context.Background(), fmt.Sprintf(`sysbench --config-file=%s %s --tables=%d --table-size=%d run`, c.sysbenchConfigFile, (*c.opt).SysbenchPluginName, (*c.opt).SysbenchNumTables, (*c.opt).SysbenchNumRows), false, 5*time.Hour)
+	fmt.Printf("executor: %#v \n\n\n\n\n\n", *c.pexecutor)
+	fmt.Printf("option: %#v \n\n\n\n\n\n", c.opt)
+	stdout, _, err := (*c.pexecutor).Execute(context.Background(), fmt.Sprintf(`sysbench --config-file=%s %s --tables=%d --table-size=%d run`, c.sysbenchConfigFile, (*c.opt).SysbenchPluginName, (*c.opt).SysbenchNumTables, (*c.opt).SysbenchNumRows), false, 5*time.Hour)
 
 	if err != nil {
 		return err

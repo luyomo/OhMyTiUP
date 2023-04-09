@@ -58,6 +58,13 @@ type Workstation struct {
 	executor *ctxt.Executor
 }
 
+type INC_AWS_ENV_FLAG bool
+
+const (
+	INC_AWS_ENV INC_AWS_ENV_FLAG = true
+	EXC_AWS_ENV INC_AWS_ENV_FLAG = false
+)
+
 // Input:
 //
 //	     localExe
@@ -77,7 +84,7 @@ type ConfigData struct {
 	IdentityFile string `yaml:"identity-file"`
 }
 
-func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, identityFile string, awsCliFlag bool) (*Workstation, error) {
+func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, identityFile string, awsCliFlag INC_AWS_ENV_FLAG) (*Workstation, error) {
 	var configData ConfigData
 	// var user string
 	// var keyFile string
@@ -108,7 +115,7 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 	}
 
 	var envs []string
-	if awsCliFlag == true {
+	if awsCliFlag == INC_AWS_ENV {
 		cfg, err := config.LoadDefaultConfig(context.TODO())
 		if err != nil {
 			return nil, err
@@ -170,44 +177,6 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 	}
 
 	return &Workstation{executor: &_executor}, nil
-}
-
-func (w *Workstation) getAWSWorkstation(executor *ctxt.Executor, ctx context.Context) error {
-	fmt.Printf("Starting to get AWS workstation \n\n\n")
-	// clusterName := ctx.Value("clusterName").(string)
-	// clusterType := ctx.Value("clusterType").(string)
-
-	// command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=16\"", clusterName, clusterType, "workstation")
-	// zap.L().Debug("Command", zap.String("describe-instance", command))
-	// stdout, _, err := executor.Execute(ctx, command, false)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// var reservations Reservations
-	// if err = json.Unmarshal(stdout, &reservations); err != nil {
-	// 	zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-	// 	return nil, err
-	// }
-
-	// var theInstance EC2
-	// cntInstance := 0
-	// for _, reservation := range reservations.Reservations {
-	// 	for _, instance := range reservation.Instances {
-	// 		cntInstance++
-	// 		theInstance = instance
-	// 	}
-	// }
-
-	// if cntInstance > 1 {
-	// 	return nil, errors.New("Multiple workstation nodes")
-	// }
-	// if cntInstance == 0 {
-	// 	return nil, errors.New("No workstation node")
-	// }
-
-	// return &theInstance, nil
-	return nil
 }
 
 // Execute implements the Task interface

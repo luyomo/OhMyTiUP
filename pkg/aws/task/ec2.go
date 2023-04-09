@@ -292,63 +292,63 @@ func (c *DestroyAutoScalingGroup) String() string {
 	return fmt.Sprintf("Echo: Destroying auto scaling")
 }
 
-type DestroyLaunchTemplate struct {
-	pexecutor      *ctxt.Executor
-	subClusterType string
-}
+// type DestroyLaunchTemplate struct {
+// 	pexecutor      *ctxt.Executor
+// 	subClusterType string
+// }
 
-// Execute implements the Task interface
-func (c *DestroyLaunchTemplate) Execute(ctx context.Context) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return err
-	}
-	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+// // Execute implements the Task interface
+// func (c *DestroyLaunchTemplate) Execute(ctx context.Context) error {
+// 	cfg, err := config.LoadDefaultConfig(context.TODO())
+// 	if err != nil {
+// 		return err
+// 	}
+// 	clusterName := ctx.Value("clusterName").(string)
+// 	clusterType := ctx.Value("clusterType").(string)
 
-	client := ec2.NewFromConfig(cfg)
+// 	client := ec2.NewFromConfig(cfg)
 
-	var filters []types.Filter
-	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
+// 	var filters []types.Filter
+// 	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
+// 	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
 
-	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{Filters: filters}
+// 	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{Filters: filters}
 
-	describeLaunchTemplates, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput)
-	if err != nil {
-		return err
-	}
+// 	describeLaunchTemplates, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	for _, launchTemplate := range describeLaunchTemplates.LaunchTemplates {
-		deleteLaunchTemplateInput := &ec2.DeleteLaunchTemplateInput{LaunchTemplateId: launchTemplate.LaunchTemplateId}
-		_, err := client.DeleteLaunchTemplate(context.TODO(), deleteLaunchTemplateInput)
-		if err != nil {
-			var ae smithy.APIError
-			if errors.As(err, &ae) {
-				fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-				if ae.ErrorCode() != "InvalidLaunchTemplateId.NotFound" {
-					return nil
-				}
-			} else {
-				return err
-			}
-			return err
-		}
+// 	for _, launchTemplate := range describeLaunchTemplates.LaunchTemplates {
+// 		deleteLaunchTemplateInput := &ec2.DeleteLaunchTemplateInput{LaunchTemplateId: launchTemplate.LaunchTemplateId}
+// 		_, err := client.DeleteLaunchTemplate(context.TODO(), deleteLaunchTemplateInput)
+// 		if err != nil {
+// 			var ae smithy.APIError
+// 			if errors.As(err, &ae) {
+// 				fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+// 				if ae.ErrorCode() != "InvalidLaunchTemplateId.NotFound" {
+// 					return nil
+// 				}
+// 			} else {
+// 				return err
+// 			}
+// 			return err
+// 		}
 
-	}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-// Rollback implements the Task interface
-func (c *DestroyLaunchTemplate) Rollback(ctx context.Context) error {
-	return ErrUnsupportedRollback
-}
+// // Rollback implements the Task interface
+// func (c *DestroyLaunchTemplate) Rollback(ctx context.Context) error {
+// 	return ErrUnsupportedRollback
+// }
 
-// String implements the fmt.Stringer interface
-func (c *DestroyLaunchTemplate) String() string {
-	return fmt.Sprintf("Echo: Destroying launch template")
-}
+// // String implements the fmt.Stringer interface
+// func (c *DestroyLaunchTemplate) String() string {
+// 	return fmt.Sprintf("Echo: Destroying launch template")
+// }
 
 type DestroyEC struct {
 	pexecutor      *ctxt.Executor

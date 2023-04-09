@@ -81,7 +81,7 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := m.makeExeContext(ctx, nil, &gOpt, false, false); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -175,7 +175,7 @@ func (m *Manager) DestroyTiDB2Kafka2RedshiftCluster(name, clusterType string, gO
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	if err := m.makeExeContext(ctx, nil, &gOpt, false, false); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -225,7 +225,7 @@ func (m *Manager) ListTiDB2Kafka2RedshiftCluster(clusterName, clusterType string
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := m.makeExeContext(ctx, nil, nil, false, false); err != nil {
+	if err := m.makeExeContext(ctx, nil, nil, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -394,7 +394,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.INC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -607,7 +607,7 @@ func (m *Manager) PerfTiDB2Kafka2Redshift(clusterName, clusterType string, perfO
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.INC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -717,7 +717,7 @@ func (m *Manager) PerfCleanTiDB2Kafka2Redshift(clusterName, clusterType string, 
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := m.makeExeContext(ctx, nil, &gOpt, true, true); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.INC_AWS_ENV); err != nil {
 		return err
 	}
 

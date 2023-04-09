@@ -614,30 +614,35 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 	ctx = context.WithValue(ctx, "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
+	err := m.makeExeContext(ctx, nil, &gOpt, false, false)
+	if err != nil {
+		return err
+	}
+
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
 	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
 
 	var sysbenchResult [][]string
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 	if opt.SysbenchTargetInstance == "TiDBCloud" {
-		t1 := task.NewBuilder().RunSysbench(&sexecutor, "/opt/tidbcloud-sysbench.toml", &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running sysbench against TiDB Cloud"))
+		t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/tidbcloud-sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running sysbench against TiDB Cloud"))
 		envInitTasks = append(envInitTasks, t1)
 	} else {
 
-		t1 := task.NewBuilder().RunSysbench(&sexecutor, "/opt/aurora-sysbench.toml", &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running sysbench against Aurora"))
+		t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/aurora-sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running sysbench against Aurora"))
 		envInitTasks = append(envInitTasks, t1)
 	}
 
@@ -684,7 +689,7 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 		ctx = context.WithValue(ctx, "clusterName", clusterName)
 		ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-		stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
+		stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
 		if err != nil {
 			return err
 		}
@@ -717,7 +722,7 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 			time.Sleep(10 * time.Second)
 			hasSynced = true
 
-			stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
+			stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
 			if err != nil {
 				return err
 			}
@@ -745,7 +750,7 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 		// fmt.Printf("The syncd flag is <%#v>\n", hasSynced)
 
 		cyan := color.New(color.FgCyan, color.Bold)
-		stdout, _, err = (*workstation).Execute(ctx, "/home/admin/.tiup/bin/sync_diff_inspector --config=/opt/dm-sync-diff-check.toml ", false)
+		stdout, _, err = m.wsExe.Execute(ctx, "/home/admin/.tiup/bin/sync_diff_inspector --config=/opt/dm-sync-diff-check.toml ", false)
 		if err != nil {
 			fmt.Printf("Data comparison:      %s\n", cyan.Sprint("Different"))
 			fmt.Printf("Data comparison:      %s\n", "Please check the log /tmp/output/sync_diff.log")
@@ -764,23 +769,32 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 func (m *Manager) Aurora2TiDBCloudRunTiDBCloudCluster(clusterName string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
 	clusterType := "ohmytiup-aurora2tidbcloud"
 	ctx, cancel := context.WithCancel(context.Background())
+
 	ctx = context.WithValue(ctx, "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	err := m.makeExeContext(ctx, nil, &gOpt, false, false)
+	if err != nil {
+		return err
+	}
+
+	// ctx = context.WithValue(ctx, "clusterName", clusterName)
+	// ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
 	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
 
 	var sysbenchResult [][]string
 
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-	t1 := task.NewBuilder().RunSysbench(&sexecutor, "/opt/tidbcloud-sysbench.toml", &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+	t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/tidbcloud-sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
 	envInitTasks = append(envInitTasks, t1)
 
 	builder := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running sysbench against Aurora "), false, envInitTasks...)

@@ -644,14 +644,21 @@ func (b *Builder) CreateAlertManagerNodes(pexecutor *ctxt.Executor, subClusterTy
 }
 
 func (b *Builder) WrapCreateEC2Nodes(pexecutor *ctxt.Executor, subClusterType string, ec2Node *spec.AwsNodeModal, awsGeneralConfig *spec.AwsTopoConfigsGeneral, clusterInfo *ClusterInfo, componentName string) *Builder {
-	b.tasks = append(b.tasks, &CreateEC2Nodes{
-		pexecutor:         pexecutor,
-		awsTopoConfigs:    ec2Node,
-		awsGeneralConfigs: awsGeneralConfig,
-		subClusterType:    subClusterType,
-		clusterInfo:       clusterInfo,
-		componentName:     componentName,
-	})
+	// b.tasks = append(b.tasks, &CreateEC2Nodes{
+	// 	pexecutor:         pexecutor,
+	// 	awsTopoConfigs:    ec2Node,
+	// 	awsGeneralConfigs: awsGeneralConfig,
+	// 	subClusterType:    subClusterType,
+	// 	clusterInfo:       clusterInfo,
+	// 	componentName:     componentName,
+	// })
+
+	b.CreateLaunchTemplate(pexecutor, subClusterType, componentName, NetworkTypePrivate, ec2Node, awsGeneralConfig).
+		CreateAutoScaling(pexecutor, subClusterType, componentName, NetworkTypePrivate, ec2Node, awsGeneralConfig)
+	// 02. Create load balancer
+	// 03. target group
+	// 04. auto scaling
+
 	return b
 }
 
@@ -723,22 +730,6 @@ func (b *Builder) CreateRouteTgw(pexecutor *ctxt.Executor, subClusterType string
 		pexecutor:       pexecutor,
 		subClusterType:  subClusterType,
 		subClusterTypes: subClusterTypes,
-	})
-	return b
-}
-
-func (b *Builder) DestroyAutoScalingGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyAutoScalingGroup{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-	})
-	return b
-}
-
-func (b *Builder) DestroyLaunchTemplate(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyLaunchTemplate{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
 	})
 	return b
 }
@@ -1152,9 +1143,15 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 
 	parallelTasks = append(parallelTasks, t2)
 
-	for _, tikvGroup := range awsTopoConfigs.TiKV {
-		t3 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &tikvGroup, &awsTopoConfigs.General, clusterInfo, "tikv").Build()
-		parallelTasks = append(parallelTasks, t3)
+	// ---------- The tikvGroup is the variable that will be assigned the value from array. The variable will be kept the same pointer and
+	// all the instance will use the last value.
+
+	// for _, tikvGroup := range awsTopoConfigs.TiKV {
+	// 	parallelTasks = append(parallelTasks, NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &tikvGroup, &awsTopoConfigs.General, clusterInfo, "tikv").Build())
+	// }
+	for idx, _ := range awsTopoConfigs.TiKV {
+		tikvGroup := awsTopoConfigs.TiKV[idx]
+		parallelTasks = append(parallelTasks, NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &tikvGroup, &awsTopoConfigs.General, clusterInfo, "tikv").Build())
 	}
 
 	t4 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.TiFlash, &awsTopoConfigs.General, clusterInfo, "tiflash").Build()
@@ -1274,8 +1271,9 @@ func (b *Builder) DestroyEC2Nodes(pexecutor *ctxt.Executor, subClusterType strin
 	// b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor, subClusterType).Build()).
 	b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor).Build()).
 		Step(fmt.Sprintf("%s : Destroying Target Group ... ...", subClusterType), NewBuilder().DestroyTargetGroup(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScalingGroup(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying Launch Templates ... ...", subClusterType), NewBuilder().DestroyLaunchTemplate(pexecutor, subClusterType).Build()).
+		// Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScalingGroup(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScaling(pexecutor).Build()).
+		Step(fmt.Sprintf("%s : Destroying Launch Templates ... ...", subClusterType), NewBuilder().DestroyLaunchTemplate(pexecutor).Build()).
 		Step(fmt.Sprintf("%s : Destroying EC2 nodes ... ...", subClusterType), NewBuilder().DestroyEC(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 
@@ -1580,16 +1578,14 @@ func (b *Builder) ListVpcPeering(pexecutor *ctxt.Executor, subClusterTypes []str
 func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options) *Builder {
 	b.tasks = append(b.tasks, &RunOntimeBatchInsert{
 		pexecutor: pexecutor,
-		gOpt:      gOpt,
 		opt:       opt,
 	})
 	return b
 }
 
-func (b *Builder) RunSysbench(pexecutor *ctxt.Executor, sysbenchConfigFile string, sysbenchResult *[][]string, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, cancelCtx *context.CancelFunc) *Builder {
+func (b *Builder) RunSysbench(pexecutor *ctxt.Executor, sysbenchConfigFile string, sysbenchResult *[][]string, opt *operator.LatencyWhenBatchOptions, cancelCtx *context.CancelFunc) *Builder {
 	b.tasks = append(b.tasks, &RunSysbench{
 		pexecutor:          pexecutor,
-		gOpt:               gOpt,
 		opt:                opt,
 		sysbenchConfigFile: sysbenchConfigFile,
 		sysbenchResult:     sysbenchResult,

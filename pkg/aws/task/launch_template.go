@@ -33,7 +33,8 @@ import (
 /******************************************************************************/
 func (b *Builder) CreateLaunchTemplate(pexecutor *ctxt.Executor, subClusterType, component string, network NetworkType, ec2Node *spec.AwsNodeModal, awsGeneralConfig *spec.AwsTopoConfigsGeneral) *Builder {
 	if ec2Node.InstanceType != "" {
-		b.tasks = append(b.tasks, &CreateLaunchTemplate{BaseLaunchTemplate: BaseLaunchTemplate{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, component: component, scope: network}, awsTopoConfigs: ec2Node,
+		b.tasks = append(b.tasks, &CreateLaunchTemplate{BaseLaunchTemplate: BaseLaunchTemplate{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, component: component, scope: network},
+			awsTopoConfigs:    ec2Node,
 			awsGeneralConfigs: awsGeneralConfig},
 		})
 	}
@@ -55,9 +56,9 @@ func (b *Builder) ListLaunchTemplate(pexecutor *ctxt.Executor) *Builder {
 // 	return b
 // }
 
-func (b *Builder) DestroyLaunchTemplate(pexecutor *ctxt.Executor, subClusterType string) *Builder {
+func (b *Builder) DestroyLaunchTemplate(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyLaunchTemplate{
-		BaseLaunchTemplate: BaseLaunchTemplate{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}},
+		BaseLaunchTemplate: BaseLaunchTemplate{BaseTask: BaseTask{pexecutor: pexecutor}},
 	})
 	return b
 }
@@ -140,8 +141,10 @@ func (b *BaseLaunchTemplate) readResources() error {
 
 	filters := b.MakeEC2Filters()
 
-	for _, label := range b.awsTopoConfigs.Labels {
-		*filters = append(*filters, types.Filter{Name: aws.String("tag:label:" + label.Name), Values: []string{label.Value}})
+	if b.awsTopoConfigs != nil && b.awsTopoConfigs.Labels != nil {
+		for _, label := range b.awsTopoConfigs.Labels {
+			*filters = append(*filters, types.Filter{Name: aws.String("tag:label:" + label.Name), Values: []string{label.Value}})
+		}
 	}
 
 	resp, err := b.client.DescribeLaunchTemplates(context.TODO(), &ec2.DescribeLaunchTemplatesInput{Filters: *filters})
@@ -273,33 +276,21 @@ type DestroyLaunchTemplate struct {
 func (c *DestroyLaunchTemplate) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroyLaunchTemplate ****** \n\n\n")
-
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
-	if err != nil {
-		return err
-	}
-
-	if clusterExistFlag == true {
-		_id, err := c.ResourceData.GetResourceArn()
-		if err != nil {
-			return err
-		}
-
-		if _, err := c.client.DeleteLaunchTemplate(context.TODO(), &ec2.DeleteLaunchTemplateInput{LaunchTemplateId: _id}); err != nil {
+	for _, _entry := range c.ResourceData.GetData() {
+		launchTemplate := _entry.(types.LaunchTemplate)
+		if _, err := c.client.DeleteLaunchTemplate(context.TODO(), &ec2.DeleteLaunchTemplateInput{LaunchTemplateId: launchTemplate.LaunchTemplateId}); err != nil {
 			return err
 
 		}
-
-		// TODO: Destroy the cluster
-
-		// if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
-		// 	RouteTableId: _id,
-		// }); err != nil {
-		// 	return err
-		// }
-
 	}
+
+	// TODO: Destroy the cluster
+
+	// if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
+	// 	RouteTableId: _id,
+	// }); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

@@ -37,6 +37,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -105,36 +106,11 @@ func (m *Manager) TiDBDeploy(
 	if err := spec.ParseTopologyYaml(topoFile, topo); err != nil {
 		return err
 	}
-	// base := topo.BaseTopo()
-
-	// if sshType := gOpt.SSHType; sshType != "" {
-	// 	base.GlobalOptions.SSHType = sshType
-	// }
-
-	// var (
-	// 	sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	// 	sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	// )
-	// if gOpt.SSHType != executor.SSHTypeNone {
-	// 	var err error
-	// 	if sshConnProps, err = tui.ReadIdentityFileOrPassword(opt.IdentityFile, opt.UsePassword); err != nil {
-	// 		return err
-	// 	}
-	// 	if len(gOpt.SSHProxyHost) != 0 {
-	// 		if sshProxyProps, err = tui.ReadIdentityFileOrPassword(gOpt.SSHProxyIdentity, gOpt.SSHProxyUsePassword); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
-
-	// if err := m.fillHostArch(sshConnProps, sshProxyProps, topo, &gOpt, opt.User); err != nil {
-	// 	return err
-	// }
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	if err := m.makeExeContext(ctx, nil, &gOpt, false, false); err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 
@@ -143,16 +119,6 @@ func (m *Manager) TiDBDeploy(
 			return err
 		}
 	}
-
-	// var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
-
-	// globalOptions := base.GlobalOptions
-
-	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	// if err != nil {
-	// 	return err
-	// }
-	// clusterType := "ohmytiup-tidb"
 
 	var workstationInfo, clusterInfo task.ClusterInfo
 
@@ -171,79 +137,17 @@ func (m *Manager) TiDBDeploy(
 		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb"}).
 		RunCommonWS(&m.wsExe, &[]string{"git"}).
+		DeployTiDB(&m.wsExe, "tidb", base.AwsWSConfigs, &workstationInfo).
+		DeployTiDBInstance(&m.wsExe, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
 		BuildAsStep("Parallel Main step")
 
-	// Combine the Redshift deployment and other resources
-
-	// mainTask = append(mainTask, paraTask001)
-
-	// mainBuilder := task.NewBuilder().
-	// 	CreateTransitGateway(&m.localExe).
-	// 	ParallelStep("+ Deploying all the sub components for kafka solution service", false, mainTask...).Build()
-
-	if err := /* mainBuilder */ paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
+	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
 		}
 		return err
 	}
-
-	// if base.AwsWSConfigs.InstanceType != "" {
-	// 	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
-	// 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
-	// 	envInitTasks = append(envInitTasks, t1)
-	// }
-
-	// cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
-	// if cntEC2Nodes > 0 {
-	// 	t2 := task.NewBuilder().CreateTiDBCluster(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
-	// 		BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
-	// 	envInitTasks = append(envInitTasks, t2)
-	// }
-
-	// builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb solution service", false, envInitTasks...)
-
-	// t := builder.Build()
-
-	// // ctx := context.WithValue(context.Background(), "clusterName", name)
-	// // ctx = context.WithValue(ctx, "clusterType", clusterType)
-	// // ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
-	// // ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
-	// if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
-	// 	if errorx.Cast(err) != nil {
-	// 		// FIXME: Map possible task errors and give suggestions.
-	// 		return err
-	// 	}
-	// 	return err
-	// }
-
-	// if cntEC2Nodes > 0 {
-	// 	var t5 *task.StepDisplay
-	// 	t5 = task.NewBuilder().
-	// 		CreateTransitGateway(&sexecutor).
-	// 		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
-	// 		CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
-	// 		CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
-	// 		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-	// 		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
-	// 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
-
-	// 	tailctx := context.WithValue(context.Background(), "clusterName", name)
-	// 	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
-	// 	builder = task.NewBuilder().
-	// 		ParallelStep("+ Deploying tidb solution service ... ...", false, t5)
-	// 	t = builder.Build()
-	// 	timer.Take("Preparation")
-
-	// 	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
-	// 		if errorx.Cast(err) != nil {
-	// 			// FIXME: Map possible task errors and give suggestions.
-	// 			return err
-	// 		}
-	// 		return err
-	// 	}
-	// }
 
 	timer.Take("Execution")
 
@@ -548,27 +452,25 @@ func (m *Manager) TiDBScale(
 
 // ------------- Latency measurement
 func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
-	// clusterType := "ohmytiup-tidb"
+	// 01. Setup the execution environment
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.INC_AWS_ENV); err != nil {
 		return err
 	}
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
+	// 02. Install the required package
+	// if _, _, err := m.wsExe.Execute(ctx, "apt-get install -y zip sysbench", true); err != nil {
+	// 	return err
+	// }
+	if err := m.workstation.InstallPackages(&[]string{"zip", "sysbench"}); err != nil {
 		return err
 	}
 
-	// 01. Install the required package
-	if _, _, err := (*workstation).Execute(ctx, "apt-get install -y zip sysbench", true); err != nil {
-		return err
-	}
-
-	// 02. Create the postgres objects(Database and tables)
+	// 03. Create the necessary tidb resources
+	//     + database
+	//     + placement policy
 	var queries []string
 
 	if opt.TiKVMode == "partition" {
@@ -592,17 +494,17 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	}
 
 	for _, query := range queries {
-		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", query), false, 1*time.Hour); err != nil {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", query), false, 1*time.Hour); err != nil {
 			return err
 		}
 	}
 
 	// Create ontime table
-	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_from_file %s '%s'", "latencytest", "/opt/tidb/sql/ontime_tidb.ddl"), false, 1*time.Hour); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_from_file %s '%s'", "latencytest", "/opt/tidb/sql/ontime_tidb.ddl"), false, 1*time.Hour); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "latencytest", "create table ontime01 like ontime;"), false, 1*time.Hour); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "latencytest", "create table ontime01 like ontime;"), false, 1*time.Hour); err != nil {
 		return err
 	}
 
@@ -610,54 +512,65 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 
 	// - Data preparation
 	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh"} {
-		if err = task.TransferToWorkstation(workstation, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
+		if err := task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
 		}
 	}
 
 	// Download the data for ontime data population
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s 2022 01 2022 01 1>/dev/null", "latencytest", "ontime01"), false, 1*time.Hour); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s 2022 01 2022 01 1>/dev/null", "latencytest", "ontime01"), false, 1*time.Hour); err != nil {
 		return err
 	}
 
-	// Fetch the TiDB connection info
-	dbConnInfo, err := task.ReadTiDBConntionInfo(workstation, "tidb-db-info.yml")
+	// 04. Fetch the TiDB connection info
+	dbConnInfo, err := task.ReadTiDBConntionInfo(&m.wsExe, "tidb-db-info.yml")
 	if err != nil {
 		return err
 	}
 
-	type TplSysbenchParam struct {
-		TiDBHost       string
-		TiDBPort       int
-		TiDBUser       string
-		TiDBPassword   string
-		TiDBDBName     string
-		ExecutionTime  int64
-		Thread         int
-		ReportInterval int
-	}
+	var tplSysbenchParam map[string]interface{}
+	tplSysbenchParam["TiDBHost"] = (*dbConnInfo).DBHost
+	tplSysbenchParam["TiDBPort"] = (*dbConnInfo).DBPort
+	tplSysbenchParam["TiDBUser"] = (*dbConnInfo).DBUser
+	tplSysbenchParam["TiDBPassword"] = (*dbConnInfo).DBPassword
+	tplSysbenchParam["TiDBDBName "] = opt.SysbenchDBName
+	tplSysbenchParam["ExecutionTime"] = opt.SysbenchExecutionTime
+	tplSysbenchParam["Thread"] = opt.SysbenchThread
+	tplSysbenchParam["ReportInterval"] = opt.SysbenchReportInterval
 
-	tplSysbenchParam := TplSysbenchParam{
-		TiDBHost:       (*dbConnInfo).DBHost,
-		TiDBPort:       (*dbConnInfo).DBPort,
-		TiDBUser:       (*dbConnInfo).DBUser,
-		TiDBPassword:   (*dbConnInfo).DBPassword,
-		TiDBDBName:     opt.SysbenchDBName,
-		ExecutionTime:  opt.SysbenchExecutionTime,
-		Thread:         opt.SysbenchThread,
-		ReportInterval: opt.SysbenchReportInterval,
-	}
+	// type TplSysbenchParam struct {
+	// 	TiDBHost       string
+	// 	TiDBPort       int
+	// 	TiDBUser       string
+	// 	TiDBPassword   string
+	// 	TiDBDBName     string
+	// 	ExecutionTime  int64
+	// 	Thread         int
+	// 	ReportInterval int
+	// }
 
-	if err = task.TransferToWorkstation(workstation, "templates/config/sysbench.toml.tpl", "/opt/sysbench.toml", "0644", tplSysbenchParam); err != nil {
+	// tplSysbenchParam := TplSysbenchParam{
+	// 	TiDBHost:       (*dbConnInfo).DBHost,
+	// 	TiDBPort:       (*dbConnInfo).DBPort,
+	// 	TiDBUser:       (*dbConnInfo).DBUser,
+	// 	TiDBPassword:   (*dbConnInfo).DBPassword,
+	// 	TiDBDBName:     opt.SysbenchDBName,
+	// 	ExecutionTime:  opt.SysbenchExecutionTime,
+	// 	Thread:         opt.SysbenchThread,
+	// 	ReportInterval: opt.SysbenchReportInterval,
+	// }
+
+	// 05. Setup the sysbench
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/sysbench.toml.tpl", "/opt/sysbench.toml", "0644", tplSysbenchParam); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
+	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
 		return err
 	}
 
 	for _, file := range []string{"tidb_common.lua", "tidb_oltp_insert.lua", "tidb_oltp_point_select.lua", "tidb_oltp_read_write.lua", "tidb_oltp_insert_simple.lua", "tidb_oltp_point_select_simple.lua", "tidb_oltp_read_write_simple.lua"} {
-		if err = task.TransferToWorkstation(workstation, fmt.Sprintf("templates/scripts/sysbench/%s", file), fmt.Sprintf("/usr/share/sysbench/%s", file), "0644", []string{}); err != nil {
+		if err = task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/sysbench/%s", file), fmt.Sprintf("/usr/share/sysbench/%s", file), "0644", []string{}); err != nil {
 			return err
 		}
 	}
@@ -667,16 +580,12 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 }
 
 func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
-	// clusterType := "ohmytiup-tidb"
 	ctx, cancel := context.WithCancel(context.Background())
 
 	ctx = context.WithValue(ctx, "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	fmt.Printf("The options is <%#v>", opt)
-
-	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV)
 	if err != nil {
 		return err
 	}
@@ -691,7 +600,7 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 
 			var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-			t1 := task.NewBuilder().RunSysbench(&sexecutor, "/opt/sysbench.toml", &sysbenchResult, &opt, &gOpt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+			t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
 			envInitTasks = append(envInitTasks, t1)
 
 			if batchSize != "x" {
@@ -700,7 +609,7 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 					return err
 				}
 
-				t2 := task.NewBuilder().RunOntimeBatchInsert(&sexecutor, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+				t2 := task.NewBuilder().RunOntimeBatchInsert(&m.wsExe, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
 				envInitTasks = append(envInitTasks, t2)
 			} else {
 				opt.BatchSize = 0
@@ -735,23 +644,30 @@ func (m *Manager) TiDBMeasureLatencyCleanupCluster(clusterName, clusterType stri
 
 // ------------- recursive query performance on TiFlash
 func (m *Manager) TiDBRecursivePrepareCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
-	// clusterType := "ohmytiup-tidb"
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
-	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.INC_AWS_ENV); err != nil {
 		return err
 	}
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// // clusterType := "ohmytiup-tidb"
+	// ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	// ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	// // 01. Get the workstation executor
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
+
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
 	for _, file := range []string{"generateUsers.sh", "generatePayment.sh", "generatePayment2CSV.sh"} {
-		if err = task.TransferToWorkstation(workstation, fmt.Sprintf("templates/scripts/recursive-on-tiflash/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
+		if err := task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/recursive-on-tiflash/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
 		}
 	}
@@ -764,19 +680,19 @@ func (m *Manager) TiDBRecursivePrepareCluster(clusterName, clusterType string, o
 	}
 
 	for _, command := range queries {
-		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", command), false, 1*time.Hour); err != nil {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", command), false, 1*time.Hour); err != nil {
 			return err
 		}
 	}
 
-	dbConnInfo, err := task.ReadTiDBConntionInfo(workstation, "tidb-db-info.yml")
+	dbConnInfo, err := task.ReadTiDBConntionInfo(&m.wsExe, "tidb-db-info.yml")
 	if err != nil {
 		return err
 	}
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string
-	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	t1 := task.NewBuilder().ListEC(&m.localExe, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t1)
 
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
@@ -816,27 +732,27 @@ func (m *Manager) TiDBRecursivePrepareCluster(clusterName, clusterType string, o
 		PDIP:         pdIP,
 	}
 
-	if err = task.TransferToWorkstation(workstation, "templates/scripts/recursive-on-tiflash/tidb-lightning.toml.tpl", "/opt/tidb-lightning.toml", "0644", tplLightningParam); err != nil {
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/scripts/recursive-on-tiflash/tidb-lightning.toml.tpl", "/opt/tidb-lightning.toml", "0644", tplLightningParam); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("wget -P /tmp https://download.pingcap.org/tidb-community-toolkit-%s-linux-amd64.tar.gz", "v6.2.0"), false, 1*time.Hour); err != nil {
+	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("wget -P /tmp https://download.pingcap.org/tidb-community-toolkit-%s-linux-amd64.tar.gz", "v6.2.0"), false, 1*time.Hour); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("tar -xf /tmp/tidb-community-toolkit-%s-linux-amd64.tar.gz -C /tmp", "v6.2.0"), false, 1*time.Hour); err != nil {
+	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("tar -xf /tmp/tidb-community-toolkit-%s-linux-amd64.tar.gz -C /tmp", "v6.2.0"), false, 1*time.Hour); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, "mkdir -p /tmp/recursive-data", false, 1*time.Hour); err != nil {
+	if _, _, err = m.wsExe.Execute(ctx, "mkdir -p /tmp/recursive-data", false, 1*time.Hour); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, "mkdir -p /opt/bin", true, 1*time.Hour); err != nil {
+	if _, _, err = m.wsExe.Execute(ctx, "mkdir -p /opt/bin", true, 1*time.Hour); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("tar -xf /tmp/tidb-community-toolkit-%s-linux-amd64/tidb-lightning-v6.2.0-linux-amd64.tar.gz -C /opt/bin", "v6.2.0"), true, 1*time.Hour); err != nil {
+	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("tar -xf /tmp/tidb-community-toolkit-%s-linux-amd64/tidb-lightning-v6.2.0-linux-amd64.tar.gz -C /opt/bin", "v6.2.0"), true, 1*time.Hour); err != nil {
 		return err
 	}
 
