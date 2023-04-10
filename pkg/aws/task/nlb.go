@@ -90,18 +90,10 @@ func (d *NLBs) ToPrintTable() *[][]string {
 	return &tableNLB
 }
 
-func (d *NLBs) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(NLB) found")
-	}
-
-	return (d.Data[0]).(types.LoadBalancer).LoadBalancerArn, nil
-
+func (d *NLBs) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.LoadBalancer).LoadBalancerArn, nil
+	})
 }
 
 /******************************************************************************/
@@ -224,16 +216,12 @@ func (c *DestroyNLB) Execute(ctx context.Context) error {
 
 	fmt.Printf("***** DestroyNLB ****** \n\n\n")
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	_id, err := c.ResourceData.GetResourceArn(ContinueIfNotExists)
 	if err != nil {
 		return err
 	}
 
-	if clusterExistFlag == true {
-		_id, err := c.ResourceData.GetResourceArn()
-		if err != nil {
-			return err
-		}
+	if _id != nil {
 
 		if _, err = c.client.DeleteLoadBalancer(context.TODO(), &nlb.DeleteLoadBalancerInput{
 			LoadBalancerArn: _id,

@@ -15,7 +15,6 @@ package task
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -122,16 +121,10 @@ type MskConnectInfos struct {
 // 	})
 // }
 
-func (d *MskConnectInfos) GetResourceArn() (*string, error) {
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(msk connect) found")
-	}
-
-	return (d.Data[0]).(types.ConnectorSummary).ConnectorArn, nil
+func (d *MskConnectInfos) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.ConnectorSummary).ConnectorArn, nil
+	})
 }
 
 func (d *MskConnectInfos) ToPrintTable() *[][]string {
@@ -278,13 +271,13 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 		if err := listServiceIamRole.Execute(ctx); err != nil {
 			return err
 		}
-		roleArn, err := listServiceIamRole.ResourceData.GetResourceArn()
+		roleArn, err := listServiceIamRole.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("The role arn : <%s>\n\n\n\n ", *roleArn)
 
-		securityGroupID, err := c.GetSecurityGroup()
+		securityGroupID, err := c.GetSecurityGroup(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}
@@ -404,16 +397,12 @@ func (c *DestroyMskConnect) Execute(ctx context.Context) error {
 
 	fmt.Printf("***** DestroyMskConnectCluster ****** \n\n\n")
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	_id, err := c.ResourceData.GetResourceArn(ContinueIfNotExists)
 	if err != nil {
 		return err
 	}
 
-	if clusterExistFlag == true {
-		_id, err := c.ResourceData.GetResourceArn()
-		if err != nil {
-			return err
-		}
+	if _id != nil {
 		_, err = c.client.DeleteConnector(context.TODO(), &kafkaconnect.DeleteConnectorInput{
 			ConnectorArn: _id,
 		})

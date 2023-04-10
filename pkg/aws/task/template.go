@@ -15,7 +15,7 @@ package task
 
 import (
 	"context"
-	"errors"
+	// "errors"
 	"fmt"
 
 	// "github.com/aws/aws-sdk-go-v2/aws"
@@ -68,18 +68,11 @@ func (d *Templates) ToPrintTable() *[][]string {
 	return &tableTemplate
 }
 
-func (d *Templates) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
-	}
-
-	// return (d.Data[0]).(types.Role).Arn, nil
-	return nil, nil
+func (d *Templates) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		// return _data.(types.ConnectorSummary).ConnectorArn, nil
+		return nil, nil
+	})
 }
 
 /******************************************************************************/

@@ -64,14 +64,18 @@ func (d *InternetGatewaysInfo) ToPrintTable() *[][]string {
 	return &tableInternetGateway
 }
 
-func (d *InternetGatewaysInfo) GetResourceArn() (*string, error) {
+func (d *InternetGatewaysInfo) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
 	// TODO: Implement
 	resourceExists, err := d.ResourceExist()
 	if err != nil {
 		return nil, err
 	}
 	if resourceExists == false {
-		return nil, errors.New("No resource found(internet gateway)")
+		if throwErr == ThrowErrorIfNotExists {
+			return nil, errors.New("No resource found(internet gateway)")
+		} else {
+			return nil, nil
+		}
 	}
 
 	return (d.Data[0]).(types.InternetGateway).InternetGatewayId, nil
@@ -202,7 +206,7 @@ func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 		return err
 	}
 
-	internetGatewayId, err := c.ResourceData.GetResourceArn()
+	internetGatewayId, err := c.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}

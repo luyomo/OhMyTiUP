@@ -110,13 +110,17 @@ func (d *MSKInfos) GetFirstEndpoint() (*string, error) {
 	return &strEndpoints, nil
 }
 
-func (d *MSKInfos) GetResourceArn() (*string, error) {
+func (d *MSKInfos) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
 	resourceExists, err := d.ResourceExist()
 	if err != nil {
 		return nil, err
 	}
 	if resourceExists == false {
-		return nil, errors.New("No resource(security group) found")
+		if throwErr == ThrowErrorIfNotExists {
+			return nil, errors.New("No resource(security group) found")
+		} else {
+			return nil, nil
+		}
 	}
 
 	return (d.Data[0]).(types.Cluster).ClusterArn, nil
@@ -355,13 +359,13 @@ zookeeper.session.timeout.ms=18000`),
 	}
 	fmt.Printf("The subnets for msk is <%#v> \n\n\n\n\n\n", clusterSubnets)
 
-	securityGroup, err := c.GetSecurityGroup()
+	securityGroup, err := c.GetSecurityGroup(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}
 
 	if clusterExist == false {
-		configuratinArn, err := c.getConfigurationArn( /*client, clusterName*/ )
+		configuratinArn, err := c.getConfigurationArn()
 		if err != nil {
 			return err
 		}

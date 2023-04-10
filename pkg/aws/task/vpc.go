@@ -71,18 +71,10 @@ func (d *VPCs) ToPrintTable() *[][]string {
 	return &tableVPC
 }
 
-func (d *VPCs) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(vpc) found")
-	}
-
-	// return (d.Data[0]).(*types.Role).Arn, nil
-	return nil, nil
+func (d *VPCs) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.Vpc).VpcId, nil
+	})
 }
 
 /******************************************************************************/

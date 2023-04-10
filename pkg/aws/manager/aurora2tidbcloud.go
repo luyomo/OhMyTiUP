@@ -556,23 +556,38 @@ func (m *Manager) Aurora2TiDBCloudPrepareCluster(clusterName string, opt operato
 		ReportInterval int
 	}
 
-	// Set sysbench file for TiDB Cloud
-	// Fetch the TiDB connection info
-	dbConnInfo, err := task.ReadTiDBConntionInfo(workstation, "tidbcloud-info.yml")
+	dbConnInfo, err := m.workstation.GetTiDBDBInfo()
 	if err != nil {
 		return err
 	}
 
-	tplSysbenchParam := TplSysbenchParam{
-		TiDBHost:       (*dbConnInfo).DBHost,
-		TiDBPort:       (*dbConnInfo).DBPort,
-		TiDBUser:       (*dbConnInfo).DBUser,
-		TiDBPassword:   (*dbConnInfo).DBPassword,
-		TiDBDBName:     opt.SysbenchDBName,
-		ExecutionTime:  opt.SysbenchExecutionTime,
-		Thread:         opt.SysbenchThread,
-		ReportInterval: opt.SysbenchReportInterval,
-	}
+	tplSysbenchParam := make(map[string]string)
+	tplSysbenchParam["TiDBHost"] = (*dbConnInfo).DBHost
+	tplSysbenchParam["TiDBPort"] = strconv.FormatInt(int64((*dbConnInfo).DBPort), 10) // fmt.Sprintf("%s", (*dbConnInfo).DBPort)
+	tplSysbenchParam["TiDBUser"] = (*dbConnInfo).DBUser
+	tplSysbenchParam["TiDBPassword"] = (*dbConnInfo).DBPassword
+	tplSysbenchParam["TiDBDBName"] = opt.SysbenchDBName
+	tplSysbenchParam["ExecutionTime"] = strconv.FormatInt(int64(opt.SysbenchExecutionTime), 10)
+	tplSysbenchParam["Thread"] = strconv.Itoa(opt.SysbenchThread)
+	tplSysbenchParam["ReportInterval"] = strconv.Itoa(opt.SysbenchReportInterval)
+
+	// Set sysbench file for TiDB Cloud
+	// Fetch the TiDB connection info
+	// dbConnInfo, err := task.ReadTiDBConntionInfo(workstation, "tidbcloud-info.yml")
+	// if err != nil {
+	// 	return err
+	// }
+
+	// tplSysbenchParam := TplSysbenchParam{
+	// 	TiDBHost:       (*dbConnInfo).DBHost,
+	// 	TiDBPort:       (*dbConnInfo).DBPort,
+	// 	TiDBUser:       (*dbConnInfo).DBUser,
+	// 	TiDBPassword:   (*dbConnInfo).DBPassword,
+	// 	TiDBDBName:     opt.SysbenchDBName,
+	// 	ExecutionTime:  opt.SysbenchExecutionTime,
+	// 	Thread:         opt.SysbenchThread,
+	// 	ReportInterval: opt.SysbenchReportInterval,
+	// }
 
 	if err = task.TransferToWorkstation(workstation, "templates/config/sysbench.toml.tpl", "/opt/tidbcloud-sysbench.toml", "0644", tplSysbenchParam); err != nil {
 		return err
@@ -580,15 +595,15 @@ func (m *Manager) Aurora2TiDBCloudPrepareCluster(clusterName string, opt operato
 
 	// Set the sysbench file for aurora
 	// Fetch the TiDB connection info
-	dbConnInfo, err = task.ReadTiDBConntionInfo(workstation, "db-info.yml")
-	if err != nil {
-		return err
-	}
+	// dbConnInfo, err = task.ReadTiDBConntionInfo(workstation, "db-info.yml")
+	// if err != nil {
+	// 	return err
+	// }
 
-	tplSysbenchParam.TiDBHost = (*dbConnInfo).DBHost
-	tplSysbenchParam.TiDBPort = (*dbConnInfo).DBPort
-	tplSysbenchParam.TiDBUser = (*dbConnInfo).DBUser
-	tplSysbenchParam.TiDBPassword = (*dbConnInfo).DBPassword
+	// tplSysbenchParam.TiDBHost = (*dbConnInfo).DBHost
+	// tplSysbenchParam.TiDBPort = (*dbConnInfo).DBPort
+	// tplSysbenchParam.TiDBUser = (*dbConnInfo).DBUser
+	// tplSysbenchParam.TiDBPassword = (*dbConnInfo).DBPassword
 
 	if err = task.TransferToWorkstation(workstation, "templates/config/sysbench.toml.tpl", "/opt/aurora-sysbench.toml", "0644", tplSysbenchParam); err != nil {
 		return err

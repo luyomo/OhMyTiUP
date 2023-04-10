@@ -15,7 +15,6 @@ package task
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	// "github.com/aws/aws-sdk-go-v2/aws"
@@ -170,18 +169,10 @@ func (d *TransitGatewayVpcAttachments) ToPrintTable() *[][]string {
 	return &tableTransitGatewayVpcAttachment
 }
 
-func (d *TransitGatewayVpcAttachments) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(TransitGatewayVpcAttachment) found")
-	}
-
-	// return (d.Data[0]).(*types.Role).Arn, nil
-	return nil, nil
+func (d *TransitGatewayVpcAttachments) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.TransitGatewayVpcAttachment).TransitGatewayAttachmentId, nil
+	})
 }
 
 /******************************************************************************/

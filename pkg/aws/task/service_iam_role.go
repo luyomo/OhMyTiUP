@@ -15,7 +15,6 @@ package task
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -64,16 +63,10 @@ func (d *ServiceIamRoles) ToPrintTable() *[][]string {
 	return &tableServiceIamRole
 }
 
-func (d *ServiceIamRoles) GetResourceArn() (*string, error) {
-	roleExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if roleExists == false {
-		return nil, errors.New("No role found")
-	}
-
-	return (d.Data[0]).(*types.Role).Arn, nil
+func (d *ServiceIamRoles) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.Role).Arn, nil
+	})
 }
 
 /******************************************************************************/
@@ -121,7 +114,7 @@ func (b *BaseServiceIamRole) readResources() error {
 
 	for _, role := range resp.Roles {
 		if *role.RoleName == b.clusterName {
-			b.ResourceData.Append(&role)
+			b.ResourceData.Append(role)
 		}
 	}
 	return nil
@@ -199,7 +192,7 @@ func (c *CreateServiceIamRole) attachPoliciesToRole(ctx context.Context) error {
 	if err := listServiceIamPolicy.Execute(ctx); err != nil {
 		return err
 	}
-	policyArn, err := listServiceIamPolicy.ResourceData.GetResourceArn()
+	policyArn, err := listServiceIamPolicy.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}

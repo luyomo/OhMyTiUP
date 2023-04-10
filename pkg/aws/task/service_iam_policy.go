@@ -15,7 +15,6 @@ package task
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -62,17 +61,10 @@ func (d *ServiceIamPolicys) ToPrintTable() *[][]string {
 	return &tableExample
 }
 
-func (d *ServiceIamPolicys) GetResourceArn() (*string, error) {
-
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(service iam policy) found")
-	}
-
-	return (d.Data[0]).(*types.Policy).Arn, nil
+func (d *ServiceIamPolicys) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.Policy).Arn, nil
+	})
 }
 
 /******************************************************************************/
@@ -122,7 +114,7 @@ func (b *BaseServiceIamPolicy) readResources() error {
 		fmt.Printf("<%s> vs <%s> \n\n\n\n\n", *policy.PolicyName, b.clusterName)
 		if *policy.PolicyName == b.clusterName {
 			fmt.Printf("Coming here to set the calue <%s> \n\n\n\n", *policy.PolicyName)
-			b.ResourceData.Append(&policy)
+			b.ResourceData.Append(policy)
 		}
 	}
 	return nil

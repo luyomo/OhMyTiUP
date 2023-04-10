@@ -523,42 +523,24 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	}
 
 	// 04. Fetch the TiDB connection info
-	dbConnInfo, err := task.ReadTiDBConntionInfo(&m.wsExe, "tidb-db-info.yml")
+	// dbConnInfo, err := task.ReadTiDBConntionInfo(&m.wsExe, "tidb-db-info.yml")
+	// if err != nil {
+	// 	return err
+	// }
+	dbConnInfo, err := m.workstation.GetTiDBDBInfo()
 	if err != nil {
 		return err
 	}
 
-	var tplSysbenchParam map[string]interface{}
+	tplSysbenchParam := make(map[string]string)
 	tplSysbenchParam["TiDBHost"] = (*dbConnInfo).DBHost
-	tplSysbenchParam["TiDBPort"] = (*dbConnInfo).DBPort
+	tplSysbenchParam["TiDBPort"] = strconv.FormatInt(int64((*dbConnInfo).DBPort), 10) // fmt.Sprintf("%s", (*dbConnInfo).DBPort)
 	tplSysbenchParam["TiDBUser"] = (*dbConnInfo).DBUser
 	tplSysbenchParam["TiDBPassword"] = (*dbConnInfo).DBPassword
-	tplSysbenchParam["TiDBDBName "] = opt.SysbenchDBName
-	tplSysbenchParam["ExecutionTime"] = opt.SysbenchExecutionTime
-	tplSysbenchParam["Thread"] = opt.SysbenchThread
-	tplSysbenchParam["ReportInterval"] = opt.SysbenchReportInterval
-
-	// type TplSysbenchParam struct {
-	// 	TiDBHost       string
-	// 	TiDBPort       int
-	// 	TiDBUser       string
-	// 	TiDBPassword   string
-	// 	TiDBDBName     string
-	// 	ExecutionTime  int64
-	// 	Thread         int
-	// 	ReportInterval int
-	// }
-
-	// tplSysbenchParam := TplSysbenchParam{
-	// 	TiDBHost:       (*dbConnInfo).DBHost,
-	// 	TiDBPort:       (*dbConnInfo).DBPort,
-	// 	TiDBUser:       (*dbConnInfo).DBUser,
-	// 	TiDBPassword:   (*dbConnInfo).DBPassword,
-	// 	TiDBDBName:     opt.SysbenchDBName,
-	// 	ExecutionTime:  opt.SysbenchExecutionTime,
-	// 	Thread:         opt.SysbenchThread,
-	// 	ReportInterval: opt.SysbenchReportInterval,
-	// }
+	tplSysbenchParam["TiDBDBName"] = opt.SysbenchDBName
+	tplSysbenchParam["ExecutionTime"] = strconv.FormatInt(int64(opt.SysbenchExecutionTime), 10)
+	tplSysbenchParam["Thread"] = strconv.Itoa(opt.SysbenchThread)
+	tplSysbenchParam["ReportInterval"] = strconv.Itoa(opt.SysbenchReportInterval)
 
 	// 05. Setup the sysbench
 	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/sysbench.toml.tpl", "/opt/sysbench.toml", "0644", tplSysbenchParam); err != nil {
@@ -685,10 +667,14 @@ func (m *Manager) TiDBRecursivePrepareCluster(clusterName, clusterType string, o
 		}
 	}
 
-	dbConnInfo, err := task.ReadTiDBConntionInfo(&m.wsExe, "tidb-db-info.yml")
+	dbConnInfo, err := m.workstation.GetTiDBDBInfo()
 	if err != nil {
 		return err
 	}
+	// dbConnInfo, err := task.ReadTiDBConntionInfo(&m.wsExe, "tidb-db-info.yml")
+	// if err != nil {
+	// 	return err
+	// }
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string

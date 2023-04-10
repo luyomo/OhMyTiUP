@@ -140,14 +140,19 @@ func (d *AutoScalings) ToPrintTable() *[][]string {
 	return &tableAutoScaling
 }
 
-func (d *AutoScalings) GetResourceArn() (*string, error) {
+func (d *AutoScalings) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
 	// TODO: Implement
 	resourceExists, err := d.ResourceExist()
 	if err != nil {
 		return nil, err
 	}
+
 	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
+		if throwErr == ThrowErrorIfNotExists {
+			return nil, errors.New("No resource found - TODO: replace name")
+		} else {
+			return nil, nil
+		}
 	}
 
 	return (d.Data[0]).(types.AutoScalingGroup).AutoScalingGroupARN, nil
@@ -271,7 +276,7 @@ func (c *CreateAutoScaling) Execute(ctx context.Context) error {
 			createAutoScalingGroupInput.DesiredCapacity = aws.Int32(int32(c.awsTopoConfigs.Count))
 		}
 
-		targetGroupArn, err := c.GetTargetGroupArn()
+		targetGroupArn, err := c.GetTargetGroupArn(ContinueIfNotExists)
 		if err != nil {
 			return err
 		}

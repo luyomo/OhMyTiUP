@@ -15,7 +15,6 @@ package task
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -121,18 +120,10 @@ func (d *NATGateways) ToPrintTable() *[][]string {
 	return &tableNATGateway
 }
 
-func (d *NATGateways) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(Nat Gateway) found")
-	}
-
-	return (d.Data[0]).(types.NatGateway).NatGatewayId, nil
-
+func (d *NATGateways) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.NatGateway).NatGatewayId, nil
+	})
 }
 
 /******************************************************************************/
@@ -216,7 +207,7 @@ func (c *CreateNATGateway) Execute(ctx context.Context) error {
 			return err
 		}
 
-		elasticAddress, err := c.GetElasticAddress()
+		elasticAddress, err := c.GetElasticAddress(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}
@@ -256,7 +247,7 @@ func (c *CreateNATGateway) Execute(ctx context.Context) error {
 
 func (c *CreateNATGateway) addRouteFromPrivate2NAT() error {
 
-	natGatewayId, err := c.ResourceData.GetResourceArn()
+	natGatewayId, err := c.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}
@@ -286,7 +277,7 @@ func (c *CreateNATGateway) addRouteFromPrivate2NAT() error {
 		}
 	}
 
-	routeTableId, err := listRouteTable.ResourceData.GetResourceArn()
+	routeTableId, err := listRouteTable.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}
@@ -304,7 +295,7 @@ func (c *CreateNATGateway) addRouteFromPrivate2NAT() error {
 }
 
 func (c *CreateNATGateway) CreateInternetGatewayRoute() error {
-	internetGatewayId, _, err := c.GetInternetGatewayId()
+	internetGatewayId, _, err := c.GetInternetGatewayId(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}
@@ -352,17 +343,19 @@ func (c *DestroyNATGateway) Execute(ctx context.Context) error {
 
 	fmt.Printf("***** DestroyNATGateway ****** \n\n\n")
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	// clusterExistFlag, err := c.ResourceData.ResourceExist()
+	// if err != nil {
+	// 	return err
+	// }
+	// fmt.Printf("Starting to destoy<%#v> \n\n\n\n\n\n", clusterExistFlag)
+
+	_id, err := c.ResourceData.GetResourceArn(ContinueIfNotExists)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Starting to destoy<%#v> \n\n\n\n\n\n", clusterExistFlag)
 
-	if clusterExistFlag == true {
-		_id, err := c.ResourceData.GetResourceArn()
-		if err != nil {
-			return err
-		}
+	if _id != nil {
+
 		fmt.Printf("Starting to destoy <%s> \n\n\n\n\n\n", *_id)
 		if _, err = c.client.DeleteNatGateway(context.TODO(), &ec2.DeleteNatGatewayInput{
 			NatGatewayId: _id,

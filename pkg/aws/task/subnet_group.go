@@ -82,12 +82,12 @@ func (d *SubnetsInfo) ToPrintTable() *[][]string {
 	return &tableSubnet
 }
 
-func (d *SubnetsInfo) GetResourceArn() (*string, error) {
+func (d *SubnetsInfo) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
 	// TODO: Implement
-	_, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
+	// _, err := d.ResourceExist()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return nil, nil
 }

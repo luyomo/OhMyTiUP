@@ -240,13 +240,6 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// cfg, err := config.LoadDefaultConfig(context.TODO())
-	// if err != nil {
-	// 	return err
-	// }
-
-	// client := redshift.NewFromConfig(cfg)
-
 	tags := []types.Tag{
 		{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
 		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},
@@ -300,7 +293,7 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		securityGroup, err := c.GetSecurityGroup()
+		securityGroup, err := c.GetSecurityGroup(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}
@@ -435,14 +428,10 @@ type RedshiftDBInfos struct {
 // 	})
 // }
 
-func (d *RedshiftDBInfos) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	_, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, nil
+func (d *RedshiftDBInfos) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return nil, nil
+	})
 }
 
 func (d *RedshiftDBInfos) ToPrintTable() *[][]string {

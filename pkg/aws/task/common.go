@@ -76,6 +76,13 @@ const (
 	NetworkTypePrivate NetworkType = "private"
 )
 
+type ThrowErrorFlag bool
+
+const (
+	ThrowErrorIfNotExists ThrowErrorFlag = true
+	ContinueIfNotExists   ThrowErrorFlag = false
+)
+
 type Vpc struct {
 	CidrBlock string `json:"CidrBlock"`
 	State     string `json:"State"`
@@ -1061,27 +1068,27 @@ type DBConnectInfo struct {
 	DBPassword string `yaml:"Password"`
 }
 
-func ReadTiDBConntionInfo(workstation *ctxt.Executor, fileName string) (*DBConnectInfo, error) {
+// func ReadTiDBConntionInfo(workstation *ctxt.Executor, fileName string) (*DBConnectInfo, error) {
 
-	// 02. Get the TiDB connection info
-	// if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/tidb-db-info.yml"), "/tmp/tidb-db-info.yml", true, 1024); err != nil {
-	if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/%s", fileName), fmt.Sprintf("/tmp/%s", fileName), true, 1024); err != nil {
-		return nil, err
-	}
+// 	// 02. Get the TiDB connection info
+// 	// if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/tidb-db-info.yml"), "/tmp/tidb-db-info.yml", true, 1024); err != nil {
+// 	if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/%s", fileName), fmt.Sprintf("/tmp/%s", fileName), true, 1024); err != nil {
+// 		return nil, err
+// 	}
 
-	dbConnectInfo := DBConnectInfo{}
+// 	dbConnectInfo := DBConnectInfo{}
 
-	yfile, err := ioutil.ReadFile(fmt.Sprintf("/tmp/%s", fileName))
-	if err != nil {
-		return nil, err
-	}
+// 	yfile, err := ioutil.ReadFile(fmt.Sprintf("/tmp/%s", fileName))
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	if err = yaml.Unmarshal(yfile, &dbConnectInfo); err != nil {
-		return nil, err
-	}
+// 	if err = yaml.Unmarshal(yfile, &dbConnectInfo); err != nil {
+// 		return nil, err
+// 	}
 
-	return &dbConnectInfo, nil
-}
+// 	return &dbConnectInfo, nil
+// }
 
 func ReadDBConntionInfo(workstation *ctxt.Executor, fileName string, connInfo interface{}) error {
 	if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/%s", fileName), fmt.Sprintf("/tmp/%s", fileName), true, 1024); err != nil {
@@ -1517,7 +1524,7 @@ type ResourceData interface {
 	Append(interface{})
 	ResourceExist() (bool, error)
 	ToPrintTable() *[][]string
-	GetResourceArn() (*string, error)
+	GetResourceArn(ThrowErrorFlag) (*string, error)
 	GetData() []interface{}
 
 	WriteIntoConfigFile(_fileName string) error
@@ -1569,6 +1576,22 @@ func (b *BaseResourceInfo) ResourceExist() (bool, error) {
 		return false, errors.New(fmt.Sprintf("Multiple resources found: <%#v>", b.Data))
 	}
 	return true, nil
+}
+
+func (b *BaseResourceInfo) GetResourceArn(throwErr ThrowErrorFlag, returnValue func(interface{}) (*string, error)) (*string, error) {
+	if len(b.Data) == 0 {
+		if throwErr == ThrowErrorIfNotExists {
+			debug.PrintStack()
+			return nil, errors.New("No resource found")
+		}
+		return nil, nil
+	}
+	if len(b.Data) > 1 {
+		debug.PrintStack()
+		return nil, errors.New(fmt.Sprintf("Multiple resources found: <%#v>", b.Data))
+	}
+
+	return returnValue(b.Data[0])
 }
 
 type TiDBInstanceInfo struct {
@@ -1787,7 +1810,7 @@ func (b *BaseTask) GetRouteTable() (*ec2types.RouteTable, error) {
 	return &_routeTable, nil
 }
 
-func (b *BaseTask) GetSecurityGroup() (*string, error) {
+func (b *BaseTask) GetSecurityGroup(throwErr ThrowErrorFlag) (*string, error) {
 	listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,
 		clusterName:    b.clusterName,
@@ -1798,7 +1821,7 @@ func (b *BaseTask) GetSecurityGroup() (*string, error) {
 		return nil, err
 	}
 
-	return listSecurityGroup.ResourceData.GetResourceArn()
+	return listSecurityGroup.ResourceData.GetResourceArn(throwErr)
 }
 
 func (b *BaseTask) GetVpcItem(itemType string) (*string, error) {
@@ -1828,7 +1851,7 @@ func (b *BaseTask) GetTransitGatewayID() (*string, error) {
 	return listTransitGateway.GetTransitGatewayID()
 }
 
-func (b *BaseTask) GetNLBArn() (*string, error) {
+func (b *BaseTask) GetNLBArn(throwErr ThrowErrorFlag) (*string, error) {
 	listNLB := &ListNLB{BaseNLB: BaseNLB{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,
 		clusterName:    b.clusterName,
@@ -1840,10 +1863,10 @@ func (b *BaseTask) GetNLBArn() (*string, error) {
 		return nil, err
 	}
 
-	return listNLB.ResourceData.GetResourceArn()
+	return listNLB.ResourceData.GetResourceArn(throwErr)
 }
 
-func (b *BaseTask) GetTargetGroupArn() (*string, error) {
+func (b *BaseTask) GetTargetGroupArn(throwErr ThrowErrorFlag) (*string, error) {
 	listTargetGroup := &ListTargetGroup{BaseTargetGroup: BaseTargetGroup{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,
 		clusterName:    b.clusterName,
@@ -1855,10 +1878,10 @@ func (b *BaseTask) GetTargetGroupArn() (*string, error) {
 		return nil, err
 	}
 
-	return listTargetGroup.ResourceData.GetResourceArn()
+	return listTargetGroup.ResourceData.GetResourceArn(throwErr)
 }
 
-func (b *BaseTask) GetElasticAddress() (*string, error) {
+func (b *BaseTask) GetElasticAddress(throwErr ThrowErrorFlag) (*string, error) {
 	listElasticAddress := &ListElasticAddress{BaseElasticAddress: BaseElasticAddress{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,
 		clusterName:    b.clusterName,
@@ -1870,10 +1893,10 @@ func (b *BaseTask) GetElasticAddress() (*string, error) {
 		return nil, err
 	}
 
-	return listElasticAddress.ResourceData.GetResourceArn()
+	return listElasticAddress.ResourceData.GetResourceArn(throwErr)
 }
 
-func (b *BaseTask) GetInternetGatewayId() (*string, bool, error) {
+func (b *BaseTask) GetInternetGatewayId(throwErr ThrowErrorFlag) (*string, bool, error) {
 	listInternetGateway := &ListInternetGateway{BaseInternetGateway: BaseInternetGateway{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,
 		clusterName:    b.clusterName,
@@ -1885,7 +1908,7 @@ func (b *BaseTask) GetInternetGatewayId() (*string, bool, error) {
 		return nil, false, err
 	}
 
-	internetGatewayId, err := listInternetGateway.ResourceData.GetResourceArn()
+	internetGatewayId, err := listInternetGateway.ResourceData.GetResourceArn(throwErr)
 	if err != nil {
 		return nil, false, err
 	}

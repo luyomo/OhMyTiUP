@@ -15,7 +15,6 @@ package task
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -73,17 +72,10 @@ func (d *SecurityGroupsInfo) ToPrintTable() *[][]string {
 	return &tableSecurityGroup
 }
 
-func (d *SecurityGroupsInfo) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(security group) found")
-	}
-
-	return (d.Data[0]).(types.SecurityGroup).GroupId, nil
+func (d *SecurityGroupsInfo) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.SecurityGroup).GroupId, nil
+	})
 }
 
 /******************************************************************************/
@@ -216,7 +208,7 @@ func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
 }
 
 func (c *CreateSecurityGroup) addOpenPorts() error {
-	securityGroupID, err := c.ResourceData.GetResourceArn()
+	securityGroupID, err := c.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}

@@ -141,18 +141,10 @@ func (d *TransitGatewaysInfo) ToPrintTable() *[][]string {
 	return &tableTransitGateway
 }
 
-func (d *TransitGatewaysInfo) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(transit gateway) found")
-	}
-
-	// return (d.Data[0]).(*types.Role).Arn, nil
-	return nil, nil
+func (d *TransitGatewaysInfo) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.TransitGateway).TransitGatewayArn, nil
+	})
 }
 
 /******************************************************************************/

@@ -160,7 +160,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		return err
 	}
 
-	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}
@@ -768,7 +768,7 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 		return err
 	}
 
-	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}
@@ -850,7 +850,7 @@ func (c *CreateEC2Nodes) CreateLaunchTemplate(ctx context.Context, client *ec2.C
 		return err
 	}
 
-	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn()
+	securityGroupID, err := listSecurityGroup.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}

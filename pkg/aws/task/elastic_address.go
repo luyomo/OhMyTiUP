@@ -64,14 +64,18 @@ func (d *ElasticAddresss) ToPrintTable() *[][]string {
 	return &tableElasticAddress
 }
 
-func (d *ElasticAddresss) GetResourceArn() (*string, error) {
+func (d *ElasticAddresss) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
 	// TODO: Implement
 	resourceExists, err := d.ResourceExist()
 	if err != nil {
 		return nil, err
 	}
 	if resourceExists == false {
-		return nil, errors.New("No resource(elastic address) found")
+		if throwErr == ThrowErrorIfNotExists {
+			return nil, errors.New("No resource(elastic address) found")
+		} else {
+			return nil, nil
+		}
 	}
 
 	return (d.Data[0]).(types.Address).AllocationId, nil
@@ -187,17 +191,12 @@ type DestroyElasticAddress struct {
 func (c *DestroyElasticAddress) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	_id, err := c.ResourceData.GetResourceArn(ContinueIfNotExists)
 	if err != nil {
 		return err
 	}
 
-	if clusterExistFlag == true {
-		// TODO: Destroy the cluster
-		_id, err := c.ResourceData.GetResourceArn()
-		if err != nil {
-			return err
-		}
+	if _id != nil {
 		if _, err = c.client.ReleaseAddress(context.TODO(), &ec2.ReleaseAddressInput{
 			AllocationId: _id,
 		}); err != nil {

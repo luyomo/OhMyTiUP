@@ -78,17 +78,10 @@ func (d *NLBListeners) ToPrintTable() *[][]string {
 	return &tableNLBListener
 }
 
-func (d *NLBListeners) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
-	}
-
-	return (d.Data[0]).(*types.Listener).ListenerArn, nil
+func (d *NLBListeners) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.Listener).ListenerArn, nil
+	})
 }
 
 /******************************************************************************/
@@ -132,9 +125,13 @@ func (b *BaseNLBListener) readResources() error {
 		return err
 	}
 
-	nlbArn, err := b.GetNLBArn()
+	nlbArn, err := b.GetNLBArn(ContinueIfNotExists)
 	if err != nil {
 		return err
+	}
+
+	if nlbArn == nil {
+		return nil
 	}
 
 	resp, err := b.client.DescribeListeners(context.TODO(), &nlb.DescribeListenersInput{LoadBalancerArn: nlbArn})
@@ -173,29 +170,13 @@ func (c *CreateNLBListener) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		// TODO: Add resource preparation
-		// Pattern01:
-		// tags := []types.Tag{
-		// 	{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
-		// 	{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
-		// 	{Key: aws.String("Type"), Value: aws.String("glue")},
-		// 	{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
-		// }
 
-		// if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{}); err != nil {
-		// 	return err
-		// }
-
-		// *************************************************************
-		// Pattern02:
-		// tags := c.MakeEC2Tags()
-
-		nlbArn, err := c.GetNLBArn()
+		nlbArn, err := c.GetNLBArn(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}
 
-		targetGroupArn, err := c.GetTargetGroupArn()
+		targetGroupArn, err := c.GetTargetGroupArn(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}

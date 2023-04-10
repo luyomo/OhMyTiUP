@@ -32,12 +32,6 @@ import (
 /******************************************************************************/
 func (b *Builder) CreateRouteTable(pexecutor *ctxt.Executor, subClusterType string, network NetworkType) *Builder {
 
-	// if network == NetworkTypeNAT {
-	// 	b.tasks = append(b.tasks, &CreateRouteTable{
-	// 		BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}},
-	// 	})
-
-	// }
 	b.tasks = append(b.tasks, &CreateRouteTable{
 		BaseRouteTable: BaseRouteTable{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: network}},
 	})
@@ -79,18 +73,10 @@ func (d *RouteTablesInfo) ToPrintTable() *[][]string {
 	return &tableRouteTable
 }
 
-func (d *RouteTablesInfo) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(route table) found ")
-	}
-
-	return (d.Data[0]).(types.RouteTable).RouteTableId, nil
-
+func (d *RouteTablesInfo) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.RouteTable).RouteTableId, nil
+	})
 }
 
 func (d *RouteTablesInfo) GetRouteTableId() (*string, error) {
@@ -303,7 +289,7 @@ func (c *CreateRouteTable) CreateInternetGateway() error {
 // }
 
 func (c *CreateRouteTable) AttachGW2VPC() error {
-	internetGatewayId, hasAttached, err := c.GetInternetGatewayId()
+	internetGatewayId, hasAttached, err := c.GetInternetGatewayId(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}
@@ -330,7 +316,7 @@ func (c *CreateRouteTable) AttachGW2VPC() error {
 }
 
 func (c *CreateRouteTable) CreateInternetGatewayRoute() error {
-	internetGatewayId, _, err := c.GetInternetGatewayId()
+	internetGatewayId, _, err := c.GetInternetGatewayId(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}

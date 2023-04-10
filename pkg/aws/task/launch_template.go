@@ -82,17 +82,10 @@ func (d *LaunchTemplates) ToPrintTable() *[][]string {
 	return &tableLaunchTemplate
 }
 
-func (d *LaunchTemplates) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource found - TODO: replace name")
-	}
-
-	return (d.Data[0]).(types.LaunchTemplate).LaunchTemplateId, nil
+func (d *LaunchTemplates) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.LaunchTemplate).LaunchTemplateId, nil
+	})
 }
 
 /******************************************************************************/
@@ -178,7 +171,15 @@ func (c *CreateLaunchTemplate) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		securityGroupID, err := c.GetSecurityGroup()
+
+		// securityGroupID, err := c.GetSecurityGroup(ContinueIfNotExists)
+		// if err != nil {
+		// 	return err
+		// }
+
+		// if securityGroupID != nil {
+
+		securityGroupID, err := c.GetSecurityGroup(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}
@@ -283,14 +284,6 @@ func (c *DestroyLaunchTemplate) Execute(ctx context.Context) error {
 
 		}
 	}
-
-	// TODO: Destroy the cluster
-
-	// if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
-	// 	RouteTableId: _id,
-	// }); err != nil {
-	// 	return err
-	// }
 
 	return nil
 }

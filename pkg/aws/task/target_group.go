@@ -81,18 +81,10 @@ func (d *TargetGroups) ToPrintTable() *[][]string {
 	return &tableTargetGroup
 }
 
-func (d *TargetGroups) GetResourceArn() (*string, error) {
-	// TODO: Implement
-	resourceExists, err := d.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-	if resourceExists == false {
-		return nil, errors.New("No resource(Target Group) found")
-	}
-
-	return (d.Data[0]).(types.TargetGroup).TargetGroupArn, nil
-
+func (d *TargetGroups) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
+	return d.BaseResourceInfo.GetResourceArn(throwErr, func(_data interface{}) (*string, error) {
+		return _data.(types.TargetGroup).TargetGroupArn, nil
+	})
 }
 
 /******************************************************************************/
@@ -216,19 +208,14 @@ type DestroyTargetGroup struct {
 func (c *DestroyTargetGroup) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroyTargetGroup ****** \n\n\n")
-
-	clusterExistFlag, err := c.ResourceData.ResourceExist()
+	_id, err := c.ResourceData.GetResourceArn(ContinueIfNotExists)
 	if err != nil {
 		return err
 	}
 
-	if clusterExistFlag == true {
+	if _id != nil {
 		// TODO: Destroy the cluster
-		_id, err := c.ResourceData.GetResourceArn()
-		if err != nil {
-			return err
-		}
+
 		if _, err = c.client.DeleteTargetGroup(context.TODO(), &nlb.DeleteTargetGroupInput{
 			TargetGroupArn: _id,
 		}); err != nil {

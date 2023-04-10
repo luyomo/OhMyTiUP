@@ -84,6 +84,13 @@ type ConfigData struct {
 	IdentityFile string `yaml:"identity-file"`
 }
 
+type DBConnectInfo struct {
+	DBHost     string `yaml:"Host"`
+	DBPort     int    `yaml:"Port"`
+	DBUser     string `yaml:"User"`
+	DBPassword string `yaml:"Password"`
+}
+
 func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, identityFile string, awsCliFlag INC_AWS_ENV_FLAG) (*Workstation, error) {
 	var configData ConfigData
 	// var user string
@@ -218,6 +225,17 @@ func (w *Workstation) GetRedshiftDBInfo() (*RedshiftDBInfo, error) {
 	}
 
 	return &(redshiftDBInfos[0]), nil
+}
+
+func (w *Workstation) GetTiDBDBInfo() (*DBConnectInfo, error) {
+	var dbConnectInfo DBConnectInfo
+
+	err := w.ParseYamlConfig("/opt/tidb-db-info.yml", &dbConnectInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dbConnectInfo, nil
 }
 
 func (c *Workstation) ParseYamlConfig(yamlFile string, config interface{}) error {
