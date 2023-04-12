@@ -139,8 +139,6 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
 	}
 
-	fmt.Printf("User: <%s>, Identity file: <%s> \n\n\n", user, identityFile)
-
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
@@ -152,6 +150,7 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
 	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{"workstation"}})
+	filters = append(filters, types.Filter{Name: aws.String("instance-state-name"), Values: []string{"running"}})
 
 	describeInstances, err := client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{
 		Filters: filters,
@@ -175,8 +174,6 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 	if len(describeInstances.Reservations[0].Instances) == 0 {
 		return nil, errors.New("No workstation found.")
 	}
-
-	fmt.Printf("workstation is: <%#v> \n\n\n\n\n\n", *describeInstances.Reservations[0].Instances[0].PublicIpAddress)
 
 	_executor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: *describeInstances.Reservations[0].Instances[0].PublicIpAddress, User: user, KeyFile: identityFile}, envs)
 	if err != nil {

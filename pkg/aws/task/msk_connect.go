@@ -25,7 +25,6 @@ import (
 	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 
-	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 	// "go.uber.org/zap"
 )
@@ -159,8 +158,6 @@ func (b *BaseMskConnect) init(ctx context.Context, mode ReadResourceMode) error 
 		return err
 	}
 
-	log.Infof(fmt.Sprintf("config: %#v", cfg))
-
 	b.client = kafkaconnect.NewFromConfig(cfg) // Replace the example to specific service
 
 	if b.ResourceData == nil {
@@ -222,16 +219,11 @@ type CreateMskConnect struct {
 func (c *CreateMskConnect) Execute(ctx context.Context) error {
 	c.init(ctx, ReadResourceModeAfterCreate) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** CreateMskConnectCluster ****** \n\n\n")
-
 	clusterExistFlag, err := c.ClusterExist(false)
 	if err != nil {
 		return err
 	}
 	if clusterExistFlag == false {
-		fmt.Printf("****** Starting to create the cluster ***** \n\n\n\n\n\n")
-		// TODO: Create the cluster
-
 		// 1. Get redshift endpoint(yaml file)
 		// 2. AWS MSK endpoint
 		// 3. topic name to fetch
@@ -244,7 +236,6 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 		// 1. Get subnets
 		// 2. Get security group
 		// 3. Get custom plugin arn
-		// var mskConnectPluginInfos MSKConnectPluginInfos
 		listMSKConnectPlugin := &ListMSKConnectPlugin{BaseMSKConnectPlugin: BaseMSKConnectPlugin{pexecutor: c.pexecutor, clusterName: c.clusterName}}
 		if err := listMSKConnectPlugin.Execute(ctx); err != nil {
 			return err
@@ -253,7 +244,6 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The connect plugin: <%#v>\n\n\n\n ", *pluginArn)
 
 		// 4. Execution role
 		// 5. worker configuration arn
@@ -265,7 +255,6 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The worker configuration : <%#v>\n\n\n\n ", *workerConfigurationArn)
 
 		listServiceIamRole := &ListServiceIamRole{BaseServiceIamRole: BaseServiceIamRole{BaseTask: BaseTask{pexecutor: c.pexecutor, clusterName: c.clusterName}}}
 		if err := listServiceIamRole.Execute(ctx); err != nil {
@@ -275,20 +264,16 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The role arn : <%s>\n\n\n\n ", *roleArn)
 
 		securityGroupID, err := c.GetSecurityGroup(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The security group is : <%s> \n\n\n", *securityGroupID)
 
 		subnets, err := c.GetSubnetsInfo(3)
 		if err != nil {
 			return err
 		}
-
-		fmt.Printf("The subnet is : <%s> \n\n\n", subnets)
 
 		connectConfiguration["connector.class"] = "io.confluent.connect.aws.redshift.RedshiftSinkConnector"
 		connectConfiguration["tasks.max"] = "1"
@@ -395,8 +380,6 @@ type DestroyMskConnect struct {
 func (c *DestroyMskConnect) Execute(ctx context.Context) error {
 	c.init(ctx, ReadResourceModeBeforeDestroy) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroyMskConnectCluster ****** \n\n\n")
-
 	_id, err := c.ResourceData.GetResourceArn(ContinueIfNotExists)
 	if err != nil {
 		return err
@@ -431,12 +414,6 @@ type ListMskConnect struct {
 // Execute implements the Task interface
 func (c *ListMskConnect) Execute(ctx context.Context) error {
 	c.init(ctx, ReadResourceModeCommon) // ClusterName/ClusterType and client initialization
-
-	fmt.Printf("***** ListMskConnectCluster ****** \n\n\n")
-
-	// if err := c.ReadMskConnectInfo(ctx); err != nil {
-	// 	return err
-	// }
 
 	return nil
 }

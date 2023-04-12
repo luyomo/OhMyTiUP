@@ -56,9 +56,9 @@ func (b *Builder) ListLaunchTemplate(pexecutor *ctxt.Executor) *Builder {
 // 	return b
 // }
 
-func (b *Builder) DestroyLaunchTemplate(pexecutor *ctxt.Executor) *Builder {
+func (b *Builder) DestroyLaunchTemplate(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyLaunchTemplate{
-		BaseLaunchTemplate: BaseLaunchTemplate{BaseTask: BaseTask{pexecutor: pexecutor}},
+		BaseLaunchTemplate: BaseLaunchTemplate{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}},
 	})
 	return b
 }
@@ -171,13 +171,6 @@ func (c *CreateLaunchTemplate) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-
-		// securityGroupID, err := c.GetSecurityGroup(ContinueIfNotExists)
-		// if err != nil {
-		// 	return err
-		// }
-
-		// if securityGroupID != nil {
 
 		securityGroupID, err := c.GetSecurityGroup(ThrowErrorIfNotExists)
 		if err != nil {

@@ -178,20 +178,6 @@ func (b *BaseSubnets) readResources() error {
 	}
 
 	filters := b.MakeEC2Filters()
-	// var filters []types.Filter
-	// fmt.Printf("Name: %s, Cluster: %s, Type: %s, Scope: %s \n\n\n\n\n", b.clusterName, b.clusterType, b.subClusterType, b.scope)
-	// filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
-	// filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{b.clusterType}})
-
-	// // If the subClusterType is not specified, it is called from destroy to remove all the security group
-	// if b.subClusterType != "" {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
-	// }
-
-	// if b.scope != "" {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{string(b.scope)}})
-	// }
-	fmt.Printf("The filters are : <%#v> \n\n\n\n\n\n", filters)
 
 	resp, err := b.client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{Filters: *filters})
 	if err != nil {
@@ -281,12 +267,9 @@ func (c *CreateSubnets) associateSubnetToRouteTable() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The return value is <%#v> \n\n\n", routeTable)
-	fmt.Printf("The associate is <%#v> \n\n\n", routeTable.Associations)
 
 	for _, _entry := range c.ResourceData.GetData() {
 		_subnet := _entry.(types.Subnet)
-		fmt.Printf("The subnet is <%s>  and <%s> \n\n\n", *_subnet.SubnetId)
 
 		if _, err = c.client.AssociateRouteTable(context.TODO(), &ec2.AssociateRouteTableInput{
 			RouteTableId: routeTable.RouteTableId,
@@ -307,8 +290,6 @@ func (c *CreateSubnets) getAvailableZones(usedSubnetList *[]string) (*[]types.Av
 
 	var retZones []types.AvailabilityZone
 
-	fmt.Printf("The subnet num is <%d> \n\n\n", c.clusterInfo.subnetsNum)
-	fmt.Printf("The used subnets are <%#v> \n\n\n\n\n", *usedSubnetList)
 	var subnetsNum int
 	if c.scope == "nat" {
 		subnetsNum = 1
@@ -362,13 +343,7 @@ type DestroySubnets struct {
 func (c *DestroySubnets) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroySubnet ****** \n\n\n")
-
-	c.init(ctx) // ClusterName/ClusterType and client initialization
-
 	for _, subnet := range c.ResourceData.GetData() {
-		fmt.Printf("The subnets is <%#v> \n\n\n", subnet)
-
 		if _, err := c.client.DeleteSubnet(context.Background(), &ec2.DeleteSubnetInput{
 			SubnetId: subnet.(types.Subnet).SubnetId,
 		}); err != nil {
@@ -395,9 +370,9 @@ type ListSubnets struct {
 
 // Execute implements the Task interface
 func (c *ListSubnets) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
-
-	fmt.Printf("***** ListSubnets ****** \n\n\n")
+    if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+        return err
+    }
 
 	return nil
 }

@@ -54,9 +54,6 @@ func (c *List) Execute(ctx context.Context, clusterName, clusterType string) err
 
 	stdout, stderr, err := local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpcs --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Name,Values=%s\"", clusterName, clusterType), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return err
 	}
 
@@ -87,9 +84,6 @@ func (c *List) Execute(ctx context.Context, clusterName, clusterType string) err
 	// Get the route table
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
@@ -115,9 +109,6 @@ func (c *List) Execute(ctx context.Context, clusterName, clusterType string) err
 
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-subnets --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 	//fmt.Printf("The stdout from the local is <%s> \n\n\n", string(stdout))
@@ -144,15 +135,11 @@ func (c *List) Execute(ctx context.Context, clusterName, clusterType string) err
 
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-security-groups --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 
 	var securityGroups SecurityGroups
 	if err = json.Unmarshal(stdout, &securityGroups); err != nil {
-		fmt.Printf("*** *** The error here is %#v \n\n", err)
 		return nil
 	}
 
@@ -173,9 +160,6 @@ func (c *List) Execute(ctx context.Context, clusterName, clusterType string) err
 
 	stdout, stderr, err = local.Execute(ctx, fmt.Sprintf("aws ec2 describe-vpc-peering-connections --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=status-code,Values=failed,expired,provisioning,active,rejected\"", clusterName), false)
 	if err != nil {
-		fmt.Printf("The error here is <%#v> \n\n", err)
-		fmt.Printf("----------\n\n")
-		fmt.Printf("The error here is <%s> \n\n", string(stderr))
 		return nil
 	}
 

@@ -247,10 +247,8 @@ type DestroyVPC struct {
 func (c *DestroyVPC) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroyVPC ****** \n\n\n")
 
 	for _, vpc := range c.ResourceData.GetData() {
-		fmt.Printf("The subnets is <%#v> \n\n\n", vpc)
 
 		if _, err := c.client.DeleteVpc(context.Background(), &ec2.DeleteVpcInput{
 			VpcId: vpc.(types.Vpc).VpcId,
@@ -258,15 +256,6 @@ func (c *DestroyVPC) Execute(ctx context.Context) error {
 			return err
 		}
 	}
-
-	// clusterExistFlag, err := c.ResourceData.ResourceExist()
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterExistFlag == true {
-	// 	// TODO: Destroy the cluster
-	// }
 
 	return nil
 }
@@ -289,9 +278,9 @@ type ListVPC struct {
 
 // Execute implements the Task interface
 func (c *ListVPC) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
-
-	fmt.Printf("***** ListVPC ****** \n\n\n")
+    if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+        return err
+    }
 
 	return nil
 }

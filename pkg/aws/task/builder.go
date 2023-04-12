@@ -1271,9 +1271,8 @@ func (b *Builder) DestroyEC2Nodes(pexecutor *ctxt.Executor, subClusterType strin
 	// b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor, subClusterType).Build()).
 	b.Step(fmt.Sprintf("%s : Destroying Load balancers ... ...", subClusterType), NewBuilder().DestroyNLB(pexecutor).Build()).
 		Step(fmt.Sprintf("%s : Destroying Target Group ... ...", subClusterType), NewBuilder().DestroyTargetGroup(pexecutor, subClusterType).Build()).
-		// Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScalingGroup(pexecutor, subClusterType).Build()).
-		Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScaling(pexecutor).Build()).
-		Step(fmt.Sprintf("%s : Destroying Launch Templates ... ...", subClusterType), NewBuilder().DestroyLaunchTemplate(pexecutor).Build()).
+		Step(fmt.Sprintf("%s : Destroying Auto scaling group ... ...", subClusterType), NewBuilder().DestroyAutoScaling(pexecutor, subClusterType).Build()).
+		Step(fmt.Sprintf("%s : Destroying Launch Templates ... ...", subClusterType), NewBuilder().DestroyLaunchTemplate(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying EC2 nodes ... ...", subClusterType), NewBuilder().DestroyEC(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying Basic resources ... ...", subClusterType), NewBuilder().DestroyBasicResource(pexecutor, subClusterType).Build())
 

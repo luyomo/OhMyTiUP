@@ -106,9 +106,9 @@ func (b *Builder) ListAutoScaling(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
-func (b *Builder) DestroyAutoScaling(pexecutor *ctxt.Executor) *Builder {
+func (b *Builder) DestroyAutoScaling(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyAutoScaling{
-		BaseAutoScaling: BaseAutoScaling{BaseTask: BaseTask{pexecutor: pexecutor}},
+		BaseAutoScaling: BaseAutoScaling{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}},
 	})
 	return b
 }

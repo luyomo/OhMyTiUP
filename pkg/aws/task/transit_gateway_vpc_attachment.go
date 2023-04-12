@@ -285,7 +285,6 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 				},
 			},
 		}); err != nil {
-			fmt.Printf("Failed to create transit gateway vpc attachment. <%s>  \n\n\n\n\n\n\n", *vpcId)
 			return err
 		}
 
@@ -320,8 +319,6 @@ func (c *DestroyTransitGatewayVpcAttachment) Execute(ctx context.Context) error 
 	if err := c.init(ctx, ReadResourceModeBeforeDestroy); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}
-
-	fmt.Printf("***** DestroyTransitGatewayVpcAttachment ****** \n\n\n")
 
 	_data := c.ResourceData.GetData()
 	for _, attachment := range _data {
@@ -361,8 +358,6 @@ type ListTransitGatewayVpcAttachment struct {
 // Execute implements the Task interface
 func (c *ListTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 	c.init(ctx, ReadResourceModeCommon) // ClusterName/ClusterType and client initialization
-
-	fmt.Printf("***** ListTransitGatewayVpcAttachment ****** \n\n\n")
 
 	return nil
 }

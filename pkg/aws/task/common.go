@@ -2048,8 +2048,6 @@ func (b *BaseTask) waitUntilResouceAvailable(_interval, _timeout time.Duration, 
 			// } else {
 			// 	return errors.New("Failed to call the readResource function during creation")
 			// }
-			fmt.Printf("Waiting the status: <%d> vs <%d> \n\n\n\n\n\n", len(b.ResourceData.GetData()), expectNum)
-			fmt.Printf("Inside the data is: <%#v> \n\n\n\n\n\n", b.ResourceData.GetData())
 			if len(b.ResourceData.GetData()) == expectNum {
 				return nil
 			}

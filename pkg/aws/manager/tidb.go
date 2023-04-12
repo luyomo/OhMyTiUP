@@ -633,21 +633,6 @@ func (m *Manager) TiDBRecursivePrepareCluster(clusterName, clusterType string, o
 		return err
 	}
 
-	// // clusterType := "ohmytiup-tidb"
-	// ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-	// ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	// // 01. Get the workstation executor
-	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	// if err != nil {
-	// 	return err
-	// }
-
-	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	// if err != nil {
-	// 	return err
-	// }
-
 	for _, file := range []string{"generateUsers.sh", "generatePayment.sh", "generatePayment2CSV.sh"} {
 		if err := task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/recursive-on-tiflash/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
@@ -671,10 +656,6 @@ func (m *Manager) TiDBRecursivePrepareCluster(clusterName, clusterType string, o
 	if err != nil {
 		return err
 	}
-	// dbConnInfo, err := task.ReadTiDBConntionInfo(&m.wsExe, "tidb-db-info.yml")
-	// if err != nil {
-	// 	return err
-	// }
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string

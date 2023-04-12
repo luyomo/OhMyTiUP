@@ -132,7 +132,7 @@ func (b *BaseTargetGroup) readResources() error {
 	if err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) {
-			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			// fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
 			if ae.ErrorCode() == "TargetGroupNotFound" {
 				return nil
 			}
@@ -242,9 +242,9 @@ type ListTargetGroup struct {
 
 // Execute implements the Task interface
 func (c *ListTargetGroup) Execute(ctx context.Context) error {
-	c.init(ctx) // ClusterName/ClusterType and client initialization
-
-	fmt.Printf("***** ListTargetGroup ****** \n\n\n")
+    if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+        return err
+    }
 
 	return nil
 }

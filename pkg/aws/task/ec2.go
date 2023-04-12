@@ -152,8 +152,6 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		return errors.New("No subnet for workstation")
 	}
 
-	fmt.Printf("subnet for workstation: <%#v> \n\n\n\n\n", subnets)
-
 	// Get the security group for workstation
 	listSecurityGroup := &ListSecurityGroup{BaseSecurityGroup: BaseSecurityGroup{BaseTask: BaseTask{pexecutor: c.pexecutor, subClusterType: c.subClusterType, scope: "public"}}}
 	if err := listSecurityGroup.Execute(ctx); err != nil {

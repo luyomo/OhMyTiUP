@@ -190,7 +190,6 @@ func (b *BaseTransitGateway) readResources(mode ReadResourceMode) error {
 
 	// TODO: Replace if necessary
 	filters := b.MakeEC2Filters()
-	fmt.Printf("Filters are inside readResources: <%#v> \n\n\n\n\n", filters)
 
 	resp, err := b.client.DescribeTransitGateways(context.TODO(), &ec2.DescribeTransitGatewaysInput{
 		Filters: *filters,
@@ -286,7 +285,6 @@ type DestroyTransitGateway struct {
 func (c *DestroyTransitGateway) Execute(ctx context.Context) error {
 	c.init(ctx, ReadResourceModeBeforeDestroy) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroyTransitGateway ****** \n\n\n")
 	_data := c.ResourceData.GetData()
 	for _, transitGateway := range _data {
 		_entry := transitGateway.(types.TransitGateway)
@@ -326,9 +324,6 @@ type ListTransitGateway struct {
 // Execute implements the Task interface
 func (c *ListTransitGateway) Execute(ctx context.Context) error {
 	c.init(ctx, ReadResourceModeCommon) // ClusterName/ClusterType and client initialization
-
-	fmt.Printf("***** ListTransitGateway ****** \n\n\n")
-
 	return nil
 }
 

@@ -91,17 +91,6 @@ type RunSysbench struct {
 
 // Execute implements the Task interface
 func (c *RunSysbench) Execute(ctx context.Context) error {
-	// clusterName := ctx.Value("clusterName").(string)
-	// clusterType := ctx.Value("clusterType").(string)
-	// 1. Get all the workstation nodes
-	// workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, (*(c.gOpt)).SSHUser, (*(c.gOpt)).IdentityFile)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("Staring to run the sysbench *****\n\n\n")
-
-	fmt.Printf("executor: %#v \n\n\n\n\n\n", *c.pexecutor)
-	fmt.Printf("option: %#v \n\n\n\n\n\n", c.opt)
 	stdout, _, err := (*c.pexecutor).Execute(context.Background(), fmt.Sprintf(`sysbench --config-file=%s %s --tables=%d --table-size=%d run`, c.sysbenchConfigFile, (*c.opt).SysbenchPluginName, (*c.opt).SysbenchNumTables, (*c.opt).SysbenchNumRows), false, 5*time.Hour)
 
 	if err != nil {
@@ -160,5 +149,5 @@ func (c *RunSysbench) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *RunSysbench) String() string {
-	return fmt.Sprintf("Echo: Running batch insert")
+	return fmt.Sprintf("Echo: Running tpcc")
 }

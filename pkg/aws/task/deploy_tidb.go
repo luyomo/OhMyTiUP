@@ -69,8 +69,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	fmt.Printf("--------------------- Starting to deploy tidb \n\n\n\n\n")
-
 	wsInfo, err := GetWorkstation(*c.pexecutor, ctx)
 	if err != nil {
 		return err
@@ -182,9 +180,9 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 			tplData.Monitor = append(tplData.Monitor, workstation.PrivateIpAddress)
 		}
 
-		if len(tplData.AlertManager) == 0 {
-			tplData.AlertManager = append(tplData.AlertManager, workstation.PrivateIpAddress)
-		}
+		// if len(tplData.AlertManager) == 0 {
+		// 	tplData.AlertManager = append(tplData.AlertManager, workstation.PrivateIpAddress)
+		// }
 	}
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplData.String()))
 
@@ -266,7 +264,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		}
 
 		if err = _remoteNode.TransferTemplate(ctx, "templates/scripts/fdisk.sh.tpl", "/opt/scripts/fdisk.sh", "0755", nil, true, 20); err != nil {
-			fmt.Printf("Error: %#v \n\n\n", err)
 			return err
 		}
 

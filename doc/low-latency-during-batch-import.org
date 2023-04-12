@@ -114,7 +114,7 @@ As the result from the above example, because of the heavy batch impact, the lat
 ** Scenario: Common TiDB Cluster without resource isolation
 *** Preparation
     #+BEGIN_SRC
-OhMyTiUP$./bin/aws tidb measure-latency prepare placementruletest --sysbench-execution-time 40 --sysbench-num-tables 10  --tikv-mode partition --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
+OhMyTiUP$./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-execution-time 40 --sysbench-num-tables 10  --tikv-mode partition
     #+END_SRC
 [[./png/placementrule/placementrule.09.png]]
 Batch size  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  
@@ -140,12 +140,23 @@ Batch size  reads  writes  queries  events  events/sec  queries  queries/sec  la
 0           0      603172  603172   603172  1005.28     603172   1005.28      2.56             3.98             221.27           5.67                      2399351.05
 50000       0      610684  610684   610684  1017.80     610684   1017.80      1.62             3.93             214.56           6.43                      2399250.07
 
+Batch size  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  
+----------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  
+0           0      476846  476846   476846  794.74      476846   794.74       2.22             5.03             65.15            7.17                      2399397.72
+50000       0      445502  445502   445502  742.49      445502   742.49       2.22             5.39             605.22           7.84                      2399346.88
+
+
 If the workload is not high enough, the batch does not have much impact on the online process, while the batch has the impact on the online process while the online process has high workload.
 
 ** Run test against cluster with batch/online isolated
-   
+
+*** Preparation
     #+BEGIN_SRC
-./bin/aws tidb measure-latency run placementruletest --repeats 2 --trans-interval 200 --batch-size x,50000 --ssh-user admin --identity-file /home/pi/.ssh/private-key.pem
+OhMyTiUP$./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-num-tables 50  --tikv-mode partition
+    #+END_SRC
+*** Run
+    #+BEGIN_SRC
+./bin/aws tidb measure-latency run placementruletest --repeats 2 --trans-interval 200 --batch-size x,50000
     #+END_SRC
 [[./png/placementrule/placementrule.10.png]]
 The sysbench is not impacted by the batch too much. In other words, from the result the resources between batch and online application are isolated from each other.

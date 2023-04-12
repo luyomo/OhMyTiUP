@@ -8,6 +8,36 @@
 ** TiDB Setup and user preparation
    Follow the below procedure to create the TiDB Cluster in the AWS. If you do not want to create the cluster by yourself, please use [[https://www.tidbcloud.com/][TiDB Cloud]] as the source data.
 *** TiDB Cluster setup
+    #+BEGIN_SRC
+ workstation:
+   imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+   keyname: jay-us-east-01                         # Public key for workstation instance deployment
+   keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+   volumeSize: 100                                 # disk size in the workstation
+   enable_monitoring: enabled                      # enable the moniroting on the workstation
+   instance_type: c5.2xlarge
+   cidr: 172.81.0.0/16
+ aws_topo_configs:
+   general:
+     # debian os
+     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+     keyname: jay-us-east-01                       # Public key to access the EC2 instance
+     keyfile: /home/pi/.ssh/jay-us-east-01.pem
+     cidr: 172.83.0.0/16
+     tidb_version: v7.0.0
+     excluded_az:                                  # The AZ to be excluded for the subnets
+       - us-east-1e
+   pd:
+     instance_type: t2.small
+     count: 1
+   tidb:
+     instance_type: t2.small
+     count: 1
+   tikv:
+     -
+       instance_type: t2.small
+       count: 1
+    #+END_SRC
     #+attr_html: :width 800px
     [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-001.png]]
     #+attr_html: :width 800px

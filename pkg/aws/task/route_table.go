@@ -246,7 +246,6 @@ func (c *CreateRouteTable) CreateInternetGateway() error {
 	}
 
 	tags := c.MakeEC2Tags()
-	fmt.Printf("The response is <%#v> \n\n\n\n\n", resp.InternetGateways)
 	if len(resp.InternetGateways) == 0 {
 		if _, err := c.client.CreateInternetGateway(context.TODO(), &ec2.CreateInternetGatewayInput{
 			TagSpecifications: []types.TagSpecification{
@@ -262,32 +261,6 @@ func (c *CreateRouteTable) CreateInternetGateway() error {
 	return nil
 }
 
-// func (c *CreateRouteTable) getInternetGatewayId() (*string, *string, error) {
-// 	filters := c.MakeEC2Filters()
-// 	resp, err := c.client.DescribeInternetGateways(context.TODO(), &ec2.DescribeInternetGatewaysInput{Filters: *filters})
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-// 	fmt.Printf("The internete gateway is <%#v> \n\n\n\n", resp)
-// 	if len(resp.InternetGateways) > 1 {
-// 		return nil, nil, errors.New("Multiple internet gateways")
-// 	}
-// 	if len(resp.InternetGateways) == 0 {
-// 		return nil, nil, errors.New("No internet gateways found")
-// 	}
-
-// 	internetGatewayId := *resp.InternetGateways[0].InternetGatewayId
-
-// 	if len(resp.InternetGateways[0].Attachments) == 0 {
-// 		return &internetGatewayId, nil, nil
-// 	}
-
-// 	attachedVpc := *resp.InternetGateways[0].Attachments[0].VpcId
-
-// 	return &internetGatewayId, &attachedVpc, nil
-
-// }
-
 func (c *CreateRouteTable) AttachGW2VPC() error {
 	internetGatewayId, hasAttached, err := c.GetInternetGatewayId(ThrowErrorIfNotExists)
 	if err != nil {
@@ -297,8 +270,6 @@ func (c *CreateRouteTable) AttachGW2VPC() error {
 	if hasAttached == true {
 		return nil
 	}
-
-	fmt.Printf("--------------- AttachGW2VPC ------- \n\n\n\n\n\n")
 
 	vpcId, err := c.GetVpcItem("VpcId")
 	if err != nil {
@@ -342,38 +313,6 @@ func (c *CreateRouteTable) CreateInternetGatewayRoute() error {
 
 	return nil
 }
-
-// func (c *CreateRouteTable) CreateRoute() error {
-// 	internetGatewayId, _, err := c.getInternetGatewayId()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	var _routeTableId *string
-
-// 	for idx, _entry := range c.ResourceData.GetData() {
-// 		_routeTable := _entry.(types.RouteTable)
-// 		_routeTableId = _routeTable.RouteTableId
-// 		fmt.Printf("Route data: <%s> and <%d> \n\n\n", *_routeTable.RouteTableId, idx)
-// 		for _, _route := range _routeTable.Routes {
-// 			if _route.NetworkInterfaceId != nil && *_route.NetworkInterfaceId == *internetGatewayId {
-// 				return nil
-// 			}
-// 			fmt.Printf("Route : <%s> and <%s> \n\n\n", *_route.DestinationCidrBlock, _route.NetworkInterfaceId)
-// 		}
-
-// 	}
-
-// 	if _, err := c.client.CreateRoute(context.TODO(), &ec2.CreateRouteInput{
-// 		RouteTableId:         _routeTableId,
-// 		DestinationCidrBlock: aws.String("0.0.0.0/0"),
-// 		GatewayId:            internetGatewayId,
-// 	}); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
 
 // Rollback implements the Task interface
 func (c *CreateRouteTable) Rollback(ctx context.Context) error {

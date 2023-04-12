@@ -253,14 +253,6 @@ func (c *CreateSecurityGroup) addOpenPorts() error {
 		// return err
 	}
 
-	// if _, err = c.client.AuthorizeSecurityGroupIngress(context.TODO(), &ec2.AuthorizeSecurityGroupIngressInput{
-	// 	CidrIp:     aws.String("0.0.0.0/0"),
-	// 	GroupId:    securityGroupID,
-	// 	IpProtocol: aws.String("tcp"),
-	// }); err != nil {
-	// 	return err
-	// }
-
 	return nil
 }
 
@@ -282,12 +274,9 @@ type DestroySecurityGroup struct {
 
 // Execute implements the Task interface
 func (c *DestroySecurityGroup) Execute(ctx context.Context) error {
-	fmt.Printf("***** DestroySecurityGroup ****** \n\n\n")
-
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
 	for _, securityGroup := range c.ResourceData.GetData() {
-		fmt.Printf("The security group is <%#v> \n\n\n", securityGroup)
 
 		if _, err := c.client.DeleteSecurityGroup(context.Background(), &ec2.DeleteSecurityGroupInput{
 			GroupId: securityGroup.(types.SecurityGroup).GroupId,
@@ -295,16 +284,6 @@ func (c *DestroySecurityGroup) Execute(ctx context.Context) error {
 			return err
 		}
 	}
-	return nil
-	// clusterExistFlag, err := c.ResourceData.ResourceExist()
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterExistFlag == true {
-	// 	// TODO: Destroy the cluster
-	// }
-
 	return nil
 }
 
@@ -327,9 +306,6 @@ type ListSecurityGroup struct {
 // Execute implements the Task interface
 func (c *ListSecurityGroup) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
-
-	fmt.Printf("***** ListSecurityGroup ****** \n\n\n")
-
 	return nil
 }
 

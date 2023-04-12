@@ -1,5 +1,6 @@
 * Architecture
-    [[https://www.51yomo.net/static/doc/tidb2msk2redshift/tidb2msk2redshift_001.png]]
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/tidb2msk2redshift/tidb2msk2redshift_001.png]]
 * Environment Setup
   + workstation
   + Redshift    - target database

@@ -402,11 +402,9 @@ func SearchInternetGateway(client *ec2.Client, filters []types.Filter) (*string,
 
 	result, err := client.DescribeInternetGateways(context.TODO(), input)
 	if err != nil {
-		//		fmt.Printf("The error is <%#v> \n\n\n", err)
 		return nil, nil, nil, err
 	}
 
-	//	fmt.Printf("The result from the internet gateway creation <%#v> \n\n\n", result)
 	if len((*result).InternetGateways) > 1 {
 		return nil, nil, nil, errors.New("More than required route table")
 	}
@@ -415,17 +413,11 @@ func SearchInternetGateway(client *ec2.Client, filters []types.Filter) (*string,
 		return nil, nil, nil, nil
 	}
 
-	//	fmt.Printf("The attached vpc info is <%#v> \n\n\n", (*result).InternetGateways[0].Attachments)
-
 	if len((*result).InternetGateways[0].Attachments) > 0 {
 		return (*result).InternetGateways[0].InternetGatewayId, &(((*result).InternetGateways[0].Attachments[0]).State), (*result).InternetGateways[0].Attachments[0].VpcId, nil
 	} else {
 		return (*result).InternetGateways[0].InternetGatewayId, nil, nil, nil
 	}
-
-	// fmt.Printf("The number of the subnets is <%d> \n\n\n", len((*result).Subnets))
-	// fmt.Printf("The error is <%#v> \n\n\n", result)
-
 }
 
 func SearchAddresses(client *ec2.Client, filters []types.Filter) (*string, error) {
@@ -435,11 +427,9 @@ func SearchAddresses(client *ec2.Client, filters []types.Filter) (*string, error
 
 	result, err := client.DescribeAddresses(context.TODO(), input)
 	if err != nil {
-		//		fmt.Printf("The error is <%#v> \n\n\n", err)
 		return nil, err
 	}
 
-	//	fmt.Printf("The result from the internet gateway creation <%#v> \n\n\n", result)
 	if len((*result).Addresses) > 1 {
 		return nil, errors.New("More than required route table")
 	}
@@ -448,7 +438,6 @@ func SearchAddresses(client *ec2.Client, filters []types.Filter) (*string, error
 		return nil, nil
 	}
 
-	//	fmt.Printf("The addresses is <%#v> \n\n\n", result)
 	return (*result).Addresses[0].AllocationId, nil
 }
 
