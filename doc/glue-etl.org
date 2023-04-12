@@ -1,0 +1,130 @@
+#+OPTIONS: \n:t
+
+* Architecture
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/glue-overview.png]]
+  The glue is used as ETL to extract data from TiDB and save the data into S3. Transformation logic is be able to be used in the Glue.
+* Setup
+** TiDB Setup and user preparation
+   Follow the below procedure to create the TiDB Cluster in the AWS. If you do not want to create the cluster by yourself, please use [[https://www.tidbcloud.com/][TiDB Cloud]] as the source data.
+*** TiDB Cluster setup
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-001.png]]
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-002.png]]
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-003.png]]
+*** User account and table preparation
+    The user is prepared to connect from glue job to TiDB cluster. 
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-004.png]]
+** Add all port entry to security
+*** Security group entry addition
+   Without the entry in the security group to allow all ports ingress, the job will fail as the below error
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-005.png]]
+*** Error without proper security
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-006.png]]
+** Setup IAM Policy and role
+*** Role setup
+   The role is used to allow the glue job to access the elastic IP and S3 access.
+   #+BEGIN_SRC
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeInstances",
+        "ec2:AttachNetworkInterface"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+    #+END_SRC
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-007.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-008.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-009.png]]
+*** Common error
+**** Without glue permission
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-010.png]]
+**** Without elastic network interface permission
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-011.png]]
+**** Without elastic network interface tag permission
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-012.png]]
+** Add S3 gateway endpoint
+   The S3 gateway endpoint is used to data output. Without the endpoint in the private subnet, the job will fail as below error.
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-013.png]]
+*** Without S3 access
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-014.png]]
+** Add glue connection
+   Use direct JDBC connection to access TiDB cluster for data extraction.
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-015.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-016.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-017.png]]
+            
+** Add Job
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-018.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-019.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-020.png]]
+*** Scripts
+   #+BEGIN_SRC
+args = getResolvedOptions(sys.argv, ["JOB_NAME"])
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args["JOB_NAME"], args)
+
+# Script generated for node Data Catalog table
+DataCatalogtable_node1 = directJDBCSource(
+    glueContext,
+    connectionName="gluettl-from-tidb",
+    connectionType="mysql",
+    database="test",
+    table="test.glueetl_table",
+    redshiftTmpDir="",
+    transformation_ctx="DataCatalogtable_node1",
+)
+
+# Script generated for node S3 bucket
+S3bucket_node3 = glueContext.write_dynamic_frame.from_options(
+    frame=DataCatalogtable_node1,
+    connection_type="s3",
+    format="csv",
+    format_options={
+        "withHeader": False,
+    },
+    connection_options={"path": "s3://ossinsight-data/glue/", "partitionKeys": []},
+    transformation_ctx="S3bucket_node3",
+)
+
+job.commit()
+   #+END_SRC
+** Job run and confirmation
+   The job does nothing but export the data from TiDB to S3 without any transformation. If the user has the requirement of transformation, please refer to glue for reference.
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-021.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-022.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-glueetl-s3/tidb-glue-s3-023.png]]

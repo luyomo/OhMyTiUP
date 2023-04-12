@@ -14,6 +14,9 @@
   + [[./doc/tidb2kafka2redshift.msk.org][TiDB to Redshift(MSK/Glue)]] - Data replication from TiDB to redshift through TiCDC, MSK(confluent redshift) and Glue schema registry
   + [[./doc/mongo2kafka2TiDB.org][Mongo to TiDB]] - Data replication from MongoDB to TiDB through kafka(debezium mongo source and customized jdbc sink)
   + [[./doc/aurora2tidbcloud.org][Aurora to TiDBCloud]] - Data replication from Aurora to TiDB through DM
-
+    
+** Integration
+  + [[./doc/glue-etl.org][TiDB data transfer to S3 with Glue ETL]] - Use Glue ETL to transfer the data from TiDB to AWS S3. 
+    
 ** Others
   + [[./doc/count_performance.org][Count performance tuning]] - Performance tuning for table count
