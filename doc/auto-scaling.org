@@ -1,0 +1,3 @@
+* Architecture
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/auto-scaling/auto-scaling-001.png]]
