@@ -239,12 +239,35 @@ type (
 		PubliclyAccessibleFlag bool   `yaml:"public_accessible_flag" default:"false"`
 	}
 
-	TiDBCloudConnInfo struct {
-		Host      string   `yaml:"host"`
-		Port      int      `yaml:"port" default: 4000`
-		User      string   `yaml:"user"`
-		Password  string   `yaml:"password"`
-		Databases []string `yaml:"databases"`
+	TiDBCloudComponentSpec struct {
+		NodeQuantity   int32  `yaml:"node_quantity" default: 0`
+		NodeSize       string `yaml:"node_size" default: "2C8G"`
+		StorageSizeGib int32  `yaml:"storage_size_gib" default :0 `
+	}
+
+	TiDBCloudComponent struct {
+		TiDB    TiDBCloudComponentSpec `yaml:"tidb"`
+		TiKV    TiDBCloudComponentSpec `yaml:"tikv"`
+		TiFlash TiDBCloudComponentSpec `yaml:"tiflash"`
+	}
+
+	TiDBCloudIPAccessList struct {
+		CIDR        string `yaml:"cidr"`
+		Description string `yaml:"description"`
+	}
+
+	TiDBCloudConfigs struct {
+		Host               string                `yaml:"host"`
+		Port               int32                 `yaml:"port" default: 4000`
+		User               string                `yaml:"user"`
+		Password           string                `yaml:"password"`
+		Databases          []string              `yaml:"databases"`
+		TiDBCloudProjectID string                `yaml:"tidbcloud_project_id"`
+		CloudProvider      string                `yaml:"cloud_provider"`
+		ClusterType        string                `yaml:"cluster_type"`
+		Region             string                `yaml:"region"`
+		Components         TiDBCloudComponent    `yaml:"components"`
+		IPAccessList       TiDBCloudIPAccessList `yaml:"ip_access_list"`
 	}
 
 	AwsMSConfigs struct {
@@ -323,7 +346,7 @@ type (
 		AwsMSConfigs                   AwsMSConfigs                   `yaml:"sqlserver,omitempty"`
 		AwsDMSConfigs                  AwsDMSConfigs                  `yaml:"dms,omitempty"`
 		AwsCloudFormationConfigs       AwsCloudFormationConfigs       `yaml:"aws_cloud_formation_configs"`
-		TiDBCloudConnInfo              TiDBCloudConnInfo              `yaml:"tidb_cloud,omitempty"`
+		TiDBCloudConfigs               TiDBCloudConfigs               `yaml:"tidb_cloud,omitempty"`
 		TiDBCloud                      TiDBCloud                      `yaml:"aws_tidbcloud,omitempty"`
 		DrainerReplicate               DrainerReplicate               `yaml:"drainer_replicate,omitempty"`
 		TiDBServers                    []*TiDBSpec                    `yaml:"tidb_servers"`
@@ -360,7 +383,7 @@ type BaseTopo struct {
 	AwsMSConfigs                   *AwsMSConfigs
 	AwsDMSConfigs                  *AwsDMSConfigs
 	AwsCloudFormationConfigs       *AwsCloudFormationConfigs
-	TiDBCloudConnInfo              *TiDBCloudConnInfo
+	TiDBCloudConfigs               *TiDBCloudConfigs
 	TiDBCloud                      *TiDBCloud
 	DrainerReplicate               *DrainerReplicate
 	MasterList                     []string
@@ -445,7 +468,7 @@ func (s *Specification) NewPart() Topology {
 		AwsMSConfigs:                   s.AwsMSConfigs,
 		AwsDMSConfigs:                  s.AwsDMSConfigs,
 		AwsCloudFormationConfigs:       s.AwsCloudFormationConfigs,
-		TiDBCloudConnInfo:              s.TiDBCloudConnInfo,
+		TiDBCloudConfigs:               s.TiDBCloudConfigs,
 		TiDBCloud:                      s.TiDBCloud,
 		DrainerReplicate:               s.DrainerReplicate,
 	}
@@ -498,7 +521,7 @@ func (s *Specification) BaseTopo() *BaseTopo {
 		AwsMSConfigs:                   &s.AwsMSConfigs,
 		AwsDMSConfigs:                  &s.AwsDMSConfigs,
 		AwsCloudFormationConfigs:       &s.AwsCloudFormationConfigs,
-		TiDBCloudConnInfo:              &s.TiDBCloudConnInfo,
+		TiDBCloudConfigs:               &s.TiDBCloudConfigs,
 		TiDBCloud:                      &s.TiDBCloud,
 		DrainerReplicate:               &s.DrainerReplicate,
 		MasterList:                     s.GetPDList(),
@@ -716,7 +739,7 @@ func (s *Specification) Merge(that Topology) Topology {
 		AwsMSConfigs:                   s.AwsMSConfigs,
 		AwsDMSConfigs:                  s.AwsDMSConfigs,
 		AwsCloudFormationConfigs:       s.AwsCloudFormationConfigs,
-		TiDBCloudConnInfo:              s.TiDBCloudConnInfo,
+		TiDBCloudConfigs:               s.TiDBCloudConfigs,
 		TiDBCloud:                      s.TiDBCloud,
 		DrainerReplicate:               s.DrainerReplicate,
 		TiDBServers:                    append(s.TiDBServers, spec.TiDBServers...),
@@ -768,7 +791,7 @@ var (
 	awsMSConfigsTypeName             = reflect.TypeOf(AwsMSConfigs{}).Name()
 	awsDMSConfigsTypeName            = reflect.TypeOf(AwsDMSConfigs{}).Name()
 	awsCloudFormationConfigsTypeName = reflect.TypeOf(AwsCloudFormationConfigs{}).Name()
-	tidbCloudConnInfo                = reflect.TypeOf(TiDBCloudConnInfo{}).Name()
+	tidbCloudConfigs                 = reflect.TypeOf(TiDBCloudConfigs{}).Name()
 	tidbCloud                        = reflect.TypeOf(TiDBCloud{}).Name()
 	drainerReplicate                 = reflect.TypeOf(DrainerReplicate{}).Name()
 )
@@ -776,7 +799,7 @@ var (
 // Skip global/monitored options
 func isSkipField(field reflect.Value) bool {
 	tp := field.Type().Name()
-	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsRedshiftConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConnInfo || tp == drainerReplicate || tp == tidbCloud || tp == awsMongoTopoConfigsTypeName || tp == awsESTopoConfigsTypeName || tp == awsMSKConfigsTypeName || tp == awsMSKConnectPluginTopoConfigs
+	return tp == globalOptionTypeName || tp == monitorOptionTypeName || tp == serverConfigsTypeName || tp == awsTopoConfigsTypeName || tp == awsKafkaTopoConfigsTypeName || tp == awsAuroraConfigsTypeName || tp == awsPostgresConfigsTypeName || tp == awsOracleConfigsTypeName || tp == awsRedshiftConfigsTypeName || tp == awsMSConfigsTypeName || tp == awsDMSConfigsTypeName || tp == awsWSConfigsTypeName || tp == awsCloudFormationConfigsTypeName || tp == tidbCloudConfigs || tp == drainerReplicate || tp == tidbCloud || tp == awsMongoTopoConfigsTypeName || tp == awsESTopoConfigsTypeName || tp == awsMSKConfigsTypeName || tp == awsMSKConnectPluginTopoConfigs
 }
 
 func setDefaultDir(parent, role, port string, field reflect.Value) {

@@ -73,7 +73,7 @@ func (m *Manager) TiDBCloudDeploy(
 	m.confirmTiDBCloudTopology(name, base.TiDBCloud)
 
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
-	t1 := task.NewBuilder().CreateTiDBCloud(base.TiDBCloud).
+	t1 := task.NewBuilder().CreateTiDBCloud(base.TiDBCloudConfigs).
 		BuildAsStep(fmt.Sprintf("  - Preparing TiDB Cloud"))
 	envInitTasks = append(envInitTasks, t1)
 

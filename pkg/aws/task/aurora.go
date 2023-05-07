@@ -64,40 +64,19 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 	templateBody := string(content)
 
 	var parameters []types.Parameter
-	parameters = append(parameters, types.Parameter{
-		ParameterKey:   aws.String("Username"),
-		ParameterValue: aws.String(c.awsAuroraConfigs.DBUserName),
-	})
-
-	parameters = append(parameters, types.Parameter{
-		ParameterKey:   aws.String("PubliclyAccessibleFlag"),
-		ParameterValue: aws.String(strconv.FormatBool(c.awsAuroraConfigs.PubliclyAccessibleFlag)),
-	})
-
-	parameters = append(parameters, types.Parameter{
-		ParameterKey:   aws.String("Password"),
-		ParameterValue: aws.String(c.awsAuroraConfigs.DBPassword),
-	})
-
+	parameters = append(parameters, types.Parameter{ParameterKey: aws.String("Username"), ParameterValue: aws.String(c.awsAuroraConfigs.DBUserName)})
+	parameters = append(parameters, types.Parameter{ParameterKey: aws.String("PubliclyAccessibleFlag"), ParameterValue: aws.String(strconv.FormatBool(c.awsAuroraConfigs.PubliclyAccessibleFlag))})
+	parameters = append(parameters, types.Parameter{ParameterKey: aws.String("Password"), ParameterValue: aws.String(c.awsAuroraConfigs.DBPassword)})
 	if c.awsAuroraConfigs.CIDR != "" {
-		parameters = append(parameters, types.Parameter{
-			ParameterKey:   aws.String("VpcCidr"),
-			ParameterValue: aws.String(c.awsAuroraConfigs.CIDR),
-		})
+		parameters = append(parameters, types.Parameter{ParameterKey: aws.String("VpcCidr"), ParameterValue: aws.String(c.awsAuroraConfigs.CIDR)})
 	}
 
 	if c.awsAuroraConfigs.DBParameterFamilyGroup != "" {
-		parameters = append(parameters, types.Parameter{
-			ParameterKey:   aws.String("AuroraFamily"),
-			ParameterValue: aws.String(c.awsAuroraConfigs.DBParameterFamilyGroup),
-		})
+		parameters = append(parameters, types.Parameter{ParameterKey: aws.String("AuroraFamily"), ParameterValue: aws.String(c.awsAuroraConfigs.DBParameterFamilyGroup)})
 	}
 
 	if c.awsAuroraConfigs.Engine != "" {
-		parameters = append(parameters, types.Parameter{
-			ParameterKey:   aws.String("Engine"),
-			ParameterValue: aws.String(c.awsAuroraConfigs.Engine),
-		})
+		parameters = append(parameters, types.Parameter{ParameterKey: aws.String("Engine"), ParameterValue: aws.String(c.awsAuroraConfigs.Engine)})
 	}
 
 	if c.awsAuroraConfigs.EngineVersion != "" {
@@ -126,6 +105,10 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 			{
 				Key:   aws.String("Type"),
 				Value: aws.String("aurora"),
+			},
+			{
+				Key:   aws.String("Scope"),
+				Value: aws.String("private"),
 			},
 			{
 				Key:   aws.String("Name"),

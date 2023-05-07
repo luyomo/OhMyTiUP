@@ -71,8 +71,6 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 		return err
 	}
 
-	// globalOptions := base.GlobalOptions
-
 	// -- redshift ----------------------------------------------------------->
 	// -- workstation cluster   | --> routes --> | --> TiDB instance deployment
 	// -- tidb cluster          |                | --> kafka insance deployment
@@ -88,6 +86,7 @@ func (m *Manager) TiDB2Kafka2RedshiftDeploy(
 	var workstationInfo, clusterInfo, kafkaClusterInfo, redshiftClusterInfo task.ClusterInfo
 
 	var mainTask []*task.StepDisplay // tasks which are used to initialize environment
+
 	// Task: Redshift deployment.
 	redshiftTask := task.NewBuilder().
 		CreateRedshiftCluster(&m.localExe, "redshift", base.AwsRedshiftTopoConfigs, &redshiftClusterInfo).

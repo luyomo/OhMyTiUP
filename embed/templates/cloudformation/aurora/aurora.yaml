@@ -67,6 +67,8 @@ Resources:
           Value: ohmytiup-tidb2aurora
         - Key: Type
           Value: aurora
+        - Key: Scope
+          Value: private
         - Key: Name
           Value: !Sub '${AWS::StackName}'
   auroraMySQLSubnet02:
@@ -83,6 +85,8 @@ Resources:
           Value: ohmytiup-tidb2aurora
         - Key: Type
           Value: aurora
+        - Key: Scope
+          Value: private
         - Key: Name
           Value: !Sub '${AWS::StackName}'
   auroraMySQLRT:
@@ -95,6 +99,8 @@ Resources:
           Value: ohmytiup-tidb2aurora
         - Key: Type
           Value: aurora
+        - Key: Scope
+          Value: private
         - Key: Name
           Value: !Sub '${AWS::StackName}'
   auroraMySQLSubnetRouteTableAssociation01:

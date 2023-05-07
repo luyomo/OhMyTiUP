@@ -55,7 +55,7 @@ Parameters:
     Type: String
     Default: 8.0.mysql_aurora.3.02.0
     AllowedValues:
-      - 5.7.mysql_aurora.2.10.1
+      - 5.7.mysql_aurora.2.11.2
       - 8.0.29
       - 8.0.mysql_aurora.3.02.0
   Password:

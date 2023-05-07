@@ -459,22 +459,22 @@ func (m *Manager) fillHostArch(s, p *tui.SSHConnectionProps, topo spec.Topology,
 }
 
 type ConfigData struct {
-	User         string `yaml:"user"`
-	IdentityFile string `yaml:"identity-file"`
+	User                string `yaml:"user"`
+	IdentityFile        string `yaml:"identity-file"`
+	TiDBCloudPrivateKey string `yaml:"tidbcloud-private-key"`
+	TiDBCloudPublicKey  string `yaml:"tidbcloud-public-key"`
 }
 
 func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt *operator.Options, includeWS INC_WS_FLAG, awsCliFlag ws.INC_AWS_ENV_FLAG) error {
-	// var configData ConfigData
-	// var user string
-	// var keyFile string
-
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
 	var err error
-	m.localExe, err = executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
+	if m.localExe == nil {
+		m.localExe, err = executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+		if err != nil {
+			return err
+		}
 	}
 
 	if includeWS != INC_WS {
@@ -491,68 +491,6 @@ func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt 
 		return err
 	}
 	m.wsExe = *pWsExe
-
-	// return nil
-
-	// // Lookup ssh user and private file
-	// // 1. Command line
-	// // 2. Config file
-	// // 3. ~/.ohmytiup/config
-	// if gOpt != nil && (*gOpt).SSHUser != "" && (*gOpt).IdentityFile != "" {
-	// 	user = (*gOpt).SSHUser
-	// 	keyFile = (*gOpt).IdentityFile
-	// } else {
-	// 	configFile := fmt.Sprintf("/home/%s/.OhMyTiUP/config.yaml", utils.CurrentUser())
-
-	// 	if _, err := os.Stat(configFile); err == nil {
-	// 		data, err := ioutil.ReadFile(configFile)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		err = yaml.Unmarshal(data, &configData)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		user = configData.User
-	// 		keyFile = configData.IdentityFile
-	// 	}
-
-	// }
-
-	// // Setup the local exec
-
-	// if includeWS == false {
-	// 	return nil
-	// }
-
-	// var envs []string
-
-	// if awsCliFlag == true {
-	// 	cfg, err := config.LoadDefaultConfig(context.TODO())
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	envs = append(envs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", cfg.Region))
-
-	// 	crentials, err := cfg.Credentials.Retrieve(context.TODO())
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", crentials.AccessKeyID))
-	// 	envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
-	// }
-
-	// workstation, err := task.GetWorkstation(m.localExe, ctx)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// m.wsExe, err = executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: workstation.PublicIpAddress, User: user, KeyFile: keyFile}, envs)
-	// if err != nil {
-	// 	return err
-	// }
 
 	return nil
 }

@@ -704,13 +704,14 @@ func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, aw
 	return b
 }
 
-func (b *Builder) DeployDM(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, tidbCloudConnInfo *spec.TiDBCloudConnInfo, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DeployDM(pexecutor *ctxt.Executor, workstation *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, tidbCloudConfigs *spec.TiDBCloudConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployDM{
-		pexecutor:         pexecutor,
-		awsWSConfigs:      awsWSConfigs,
-		tidbCloudConnInfo: tidbCloudConnInfo,
-		subClusterType:    subClusterType,
-		clusterInfo:       clusterInfo,
+		pexecutor:        pexecutor,
+		workstation:      workstation,
+		awsWSConfigs:     awsWSConfigs,
+		tidbCloudConfigs: tidbCloudConfigs,
+		subClusterType:   subClusterType,
+		clusterInfo:      clusterInfo,
 	})
 	return b
 }
@@ -1601,9 +1602,9 @@ func (b *Builder) ListAwsEC2(pexecutor *ctxt.Executor, tableEC2 *[][]string) *Bu
 	return b
 }
 
-func (b *Builder) CreateTiDBCloud(tidbCloud *spec.TiDBCloud) *Builder {
+func (b *Builder) CreateTiDBCloud(tidbCloudConfigs *spec.TiDBCloudConfigs) *Builder {
 	b.tasks = append(b.tasks, &CreateTiDBCloud{
-		tidbCloud: tidbCloud,
+		tidbCloudConfigs: tidbCloudConfigs,
 	})
 	return b
 }
