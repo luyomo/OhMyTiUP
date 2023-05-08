@@ -107,21 +107,6 @@ func (b *Builder) DestroyTransitGateway(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
-// func (b *Builder) CreateTransitGateway() *Builder {
-// 	b.tasks = append(b.tasks, &CreateTransitGateway{})
-// 	return b
-// }
-
-// func (b *Builder) ListTransitGateway() *Builder {
-// 	b.tasks = append(b.tasks, &ListTransitGateway{})
-// 	return b
-// }
-
-// func (b *Builder) DestroyTransitGateway() *Builder {
-// 	b.tasks = append(b.tasks, &DestroyTransitGateway{})
-// 	return b
-// }
-
 /******************************************************************************/
 
 type TransitGatewaysInfo struct {

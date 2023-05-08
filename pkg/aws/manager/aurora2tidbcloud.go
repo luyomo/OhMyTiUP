@@ -28,16 +28,17 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
-	"github.com/luyomo/OhMyTiUP/pkg/crypto"
+	// "github.com/luyomo/OhMyTiUP/pkg/crypto"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
-	"github.com/luyomo/OhMyTiUP/pkg/logger"
+	// "github.com/luyomo/OhMyTiUP/pkg/logger"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 func (m *Manager) Aurora2TiDBCloudDeploy(
@@ -55,18 +56,6 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	exist, err := m.specManager.Exist(name)
-	if err != nil {
-		return err
-	}
-
-	if exist {
-		// FIXME: When change to use args, the suggestion text need to be updatem.
-		return errDeployNameDuplicate.
-			New("Cluster name '%s' is duplicated", name).
-			WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
-	}
-
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
 
@@ -81,108 +70,98 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		base.GlobalOptions.SSHType = sshType
 	}
 
-	var (
-		envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
-		//downloadCompTasks []*task.StepDisplay // tasks which are used to download components
-		//deployCompTasks   []*task.StepDisplay // tasks which are used to copy components to remote host
-	)
-
-	// Initialize environment
-	// uniqueHosts := make(map[string]hostInfo) // host -> ssh-port, os, arch
-	// noAgentHosts := set.NewStringSet()
-	globalOptions := base.GlobalOptions
-
-	// generate CA and client cert for TLS enabled cluster
-	var ca *crypto.CertificateAuthority
-	if globalOptions.TLSEnabled {
-		// generate CA
-		tlsPath := m.specManager.Path(name, spec.TLSCertKeyDir)
-		if err := utils.CreateDir(tlsPath); err != nil {
-			return err
-		}
-		ca, err = genAndSaveClusterCA(name, tlsPath)
-		if err != nil {
-			return err
-		}
-
-		// generate client cert
-		if err = genAndSaveClientCert(ca, name, tlsPath); err != nil {
-			return err
-		}
-	}
-
-	var clusterInfo task.ClusterInfo
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
-	timer.Take("Resource preparation")
-
-	if base.AwsAuroraConfigs.DBParameterFamilyGroup == "" {
-		return errors.New("Please specify the aurora DB")
-	}
-
-	t1 := task.NewBuilder().
-		CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs, &clusterInfo).
-		BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
-	envInitTasks = append(envInitTasks, t1)
-
-	// Prepare the workstation
-	var workstationInfo task.ClusterInfo
-	t2 := task.NewBuilder().
-		CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
-		BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
-	envInitTasks = append(envInitTasks, t2)
-
-	if base.AwsTopoConfigs.DMMaster.Count > 0 || base.AwsTopoConfigs.DMWorker.Count > 0 {
-		t3 := task.NewBuilder().CreateDMCluster(&sexecutor, "dm", base.AwsTopoConfigs, &clusterInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing dm servers"))
-		envInitTasks = append(envInitTasks, t3)
-	}
-
-	builder := task.NewBuilder().
-		ParallelStep("+ Initialize target host environments", false, envInitTasks...)
-
-	t := builder.Build()
-
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
+
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
+		return err
+	}
+
+	// -- aurora   ----------------------------------------------------------->
+	// -- tidb cloud --------------------------------------------------------->
+	// -- workstation cluster   | --> routes --> | --> TiDB instance deployment
+	// -- DM cluster          |                | --> kafka insance deployment
+
+	var task001 []*task.StepDisplay // tasks which are used to initialize environment
+
+	var clusterInfo task.ClusterInfo
+	auroraTask := task.NewBuilder().
+		CreateAurora(&m.localExe, base.AwsWSConfigs, base.AwsAuroraConfigs, &clusterInfo).
+		BuildAsStep(fmt.Sprintf("  - Preparing aurora service"))
+	task001 = append(task001, auroraTask)
+
+	var workstationInfo task.ClusterInfo
+	wsTask := task.NewBuilder().
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
+	task001 = append(task001, wsTask)
+
+	if base.AwsTopoConfigs.DMMaster.Count > 0 || base.AwsTopoConfigs.DMWorker.Count > 0 {
+		dmTask := task.NewBuilder().CreateDMCluster(&m.localExe, "dm", base.AwsTopoConfigs, &clusterInfo).
+			BuildAsStep(fmt.Sprintf("  - Preparing dm servers"))
+		task001 = append(task001, dmTask)
+	}
+
+	tidbCloudTask := task.NewBuilder().
+		CreateTiDBCloud(base.TiDBCloudConfigs).
+		BuildAsStep(fmt.Sprintf("  - Preparing TiDB Cloud ... ..."))
+	task001 = append(task001, tidbCloudTask)
+
+	paraTask001 := task.NewBuilder().
+		CreateTransitGateway(&m.localExe).
+		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
+		CreateTransitGatewayVpcAttachment(&m.localExe, "aurora", task.NetworkTypePrivate).
+		CreateRouteTgw(&m.localExe, "workstation", []string{"dm", "aurora"}).
+		CreateRouteTgw(&m.localExe, "dm", []string{"aurora"}).
+		BuildAsStep("Parallel Main step")
+
+	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
 		}
 		return err
 	}
-	var t5 *task.StepDisplay
-	t5 = task.NewBuilder().
-		CreateTransitGateway(&sexecutor).
-		CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
-		CreateTransitGatewayVpcAttachment(&sexecutor, "aurora", task.NetworkTypePrivate).
-		CreateTransitGatewayVpcAttachment(&sexecutor, "dm", task.NetworkTypePrivate).
-		CreateRouteTgw(&sexecutor, "workstation", []string{"aurora", "dm"}).
-		CreateRouteTgw(&sexecutor, "aurora", []string{"workstation", "dm"}).
-		CreateRouteTgw(&sexecutor, "dm", []string{"aurora", "workstation"}).
-		DeployDM(&sexecutor, "dm", base.AwsWSConfigs, base.TiDBCloudConnInfo, &workstationInfo).
-		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
 
-	tailctx := context.WithValue(context.Background(), "clusterName", name)
-	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
-	builder = task.NewBuilder().
-		ParallelStep("+ Deploying tidb solution service ... ...", false, t5)
-	t = builder.Build()
-	timer.Take("Preparation")
+	timer.Take("Execution")
 
-	if err := t.Execute(ctxt.New(tailctx, gOpt.Concurrency)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
-			return err
-		}
-		return err
-	}
-
-	logger.OutputDebugLog("aws-nodes")
+	// 8. Print the execution summary
 	timer.Print()
+
+	// To replace the below logic by API if it is provided.
+	// 01. Prompt the private link - host
+
+	for true {
+		tidbCloudHost := tui.Prompt("Please setup the TiDB Cloud Private endpoint and provide the accessible host:")
+		fmt.Printf("The TiDB host name : %s \n", tidbCloudHost)
+
+		stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("mysql -h %s -P %d -u %s -p%s -e 'select current_timestamp'", tidbCloudHost, base.TiDBCloudConfigs.Port, base.TiDBCloudConfigs.User, base.TiDBCloudConfigs.Password), true)
+		if err == nil {
+			base.TiDBCloudConfigs.Host = tidbCloudHost
+			fmt.Printf("The query result is: %s \n", string(stdout))
+			break
+		}
+	}
+
+	if err := m.wsExe.TransferTemplate(ctx, "templates/config/tidbcloud-db-info.yml.tpl", "/opt/tidb-db-info.yml", "0644", base.TiDBCloudConfigs, true, 0); err != nil {
+		return err
+	}
+
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+		return err
+	}
+
+	postTask := task.NewBuilder().
+		DeployDM(&m.localExe, &m.wsExe, "dm", base.AwsWSConfigs, base.TiDBCloudConfigs, &clusterInfo).
+		BuildAsStep("Parallel Main step")
+	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
 	return nil
 }
 

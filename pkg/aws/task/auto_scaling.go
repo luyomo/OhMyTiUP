@@ -31,62 +31,6 @@ import (
 	// "go.uber.org/zap"
 )
 
-// type TransitGatewayState_Process types.TransitGatewayState
-
-// func (p TransitGatewayState_Process) isState(mode ReadResourceMode) bool {
-// 	switch mode {
-// 	case ReadResourceModeCommon:
-// 		return p.isOKState()
-// 	case ReadResourceModeBeforeCreate:
-// 		return p.isBeforeCreateState()
-// 	case ReadResourceModeAfterCreate:
-// 		return p.isAfterCreateState()
-// 	case ReadResourceModeBeforeDestroy:
-// 		return p.isBeforeDestroyState()
-// 	case ReadResourceModeAfterDestroy:
-// 		return p.isAfterDestroyState()
-// 	}
-// 	return true
-// }
-
-// func (p TransitGatewayState_Process) isBeforeCreateState() bool {
-// 	return ListContainElement([]string{
-// 		string(types.TransitGatewayStatePending),
-// 		string(types.TransitGatewayStateAvailable),
-// 		string(types.TransitGatewayStateModifying),
-// 	}, string(p))
-
-// }
-
-// func (p TransitGatewayState_Process) isAfterCreateState() bool {
-// 	return ListContainElement([]string{
-// 		string(types.TransitGatewayStateAvailable),
-// 	}, string(p))
-
-// }
-
-// func (p TransitGatewayState_Process) isBeforeDestroyState() bool {
-// 	return ListContainElement([]string{
-// 		string(types.TransitGatewayStatePending),
-// 		string(types.TransitGatewayStateAvailable),
-// 		string(types.TransitGatewayStateModifying),
-// 	}, string(p))
-
-// }
-
-// func (p TransitGatewayState_Process) isAfterDestroyState() bool {
-// 	return ListContainElement([]string{
-// 		string(types.TransitGatewayStatePending),
-// 		string(types.TransitGatewayStateAvailable),
-// 		string(types.TransitGatewayStateModifying),
-// 		string(types.TransitGatewayStateDeleting),
-// 	}, string(p))
-// }
-
-// func (p TransitGatewayState_Process) isOKState() bool {
-// 	return p.isBeforeCreateState()
-// }
-
 /******************************************************************************/
 func (b *Builder) CreateAutoScaling(pexecutor *ctxt.Executor, subClusterType, component string, network NetworkType, ec2Node *spec.AwsNodeModal, awsGeneralConfig *spec.AwsTopoConfigsGeneral) *Builder {
 	if ec2Node.InstanceType != "" {
@@ -112,14 +56,6 @@ func (b *Builder) DestroyAutoScaling(pexecutor *ctxt.Executor, subClusterType st
 	})
 	return b
 }
-
-// func (b *Builder) DestroyAutoScalingGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-// 	b.tasks = append(b.tasks, &DestroyAutoScalingGroup{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 	})
-// 	return b
-// }
 
 /******************************************************************************/
 

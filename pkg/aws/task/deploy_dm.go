@@ -23,6 +23,7 @@ import (
 	"path"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/luyomo/OhMyTiUP/embed"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
@@ -31,11 +32,12 @@ import (
 )
 
 type DeployDM struct {
-	pexecutor         *ctxt.Executor
-	awsWSConfigs      *spec.AwsWSConfigs
-	tidbCloudConnInfo *spec.TiDBCloudConnInfo
-	subClusterType    string
-	clusterInfo       *ClusterInfo
+	pexecutor        *ctxt.Executor
+	workstation      *ctxt.Executor
+	awsWSConfigs     *spec.AwsWSConfigs
+	tidbCloudConfigs *spec.TiDBCloudConfigs
+	subClusterType   string
+	clusterInfo      *ClusterInfo
 }
 
 type TplTiupDMData struct {
@@ -46,7 +48,7 @@ type TplTiupDMData struct {
 	AlertManager []string
 	TaskMetaData struct {
 		Host       string
-		Port       int
+		Port       int32
 		User       string
 		Password   string
 		TaskName   string
@@ -67,10 +69,10 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	clusterType := ctx.Value("clusterType").(string)
 
 	// 1. Get all the workstation nodes
-	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// 2. Get all the nodes from tag definition
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)
@@ -115,12 +117,12 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		}
 	}
 
-	tplDMData.TaskMetaData.Host = c.tidbCloudConnInfo.Host
-	tplDMData.TaskMetaData.Port = c.tidbCloudConnInfo.Port
-	tplDMData.TaskMetaData.User = c.tidbCloudConnInfo.User
-	tplDMData.TaskMetaData.Password = c.tidbCloudConnInfo.Password
+	tplDMData.TaskMetaData.Host = c.tidbCloudConfigs.Host
+	tplDMData.TaskMetaData.Port = c.tidbCloudConfigs.Port
+	tplDMData.TaskMetaData.User = c.tidbCloudConfigs.User
+	tplDMData.TaskMetaData.Password = c.tidbCloudConfigs.Password
 	tplDMData.TaskMetaData.TaskName = clusterName
-	tplDMData.TaskMetaData.Databases = c.tidbCloudConnInfo.Databases
+	tplDMData.TaskMetaData.Databases = c.tidbCloudConfigs.Databases
 	tplDMData.TaskMetaData.SourceID = clusterName
 	tplDMData.TaskMetaData.BinlogName = "mysql-bin-changelog.000003"
 	tplDMData.TaskMetaData.BinlogPos = 154
@@ -136,21 +138,21 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	zap.L().Debug("Deploy server info:", zap.String("deploy servers", tplDMData.String()))
 
 	// 3. Make all the necessary folders
-	if _, _, err := (*workstation).Execute(ctx, `mkdir -p /opt/tidb/sql`, true); err != nil {
+	if _, _, err := (*c.workstation).Execute(ctx, `mkdir -p /opt/tidb/sql`, true); err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`chown -R %s:%s /opt/tidb`, c.awsWSConfigs.UserName, c.awsWSConfigs.UserName), true); err != nil {
+	if _, _, err := (*c.workstation).Execute(ctx, fmt.Sprintf(`chown -R %s:%s /opt/tidb`, c.awsWSConfigs.UserName, c.awsWSConfigs.UserName), true); err != nil {
 		return err
 	}
 
 	var dbInfo DBInfo
-	dbInfo.DBHost = c.tidbCloudConnInfo.Host
-	dbInfo.DBPort = int64(c.tidbCloudConnInfo.Port)
-	dbInfo.DBUser = c.tidbCloudConnInfo.User
-	dbInfo.DBPassword = c.tidbCloudConnInfo.Password
+	dbInfo.DBHost = c.tidbCloudConfigs.Host
+	dbInfo.DBPort = int64(c.tidbCloudConfigs.Port)
+	dbInfo.DBUser = c.tidbCloudConfigs.User
+	dbInfo.DBPassword = c.tidbCloudConfigs.Password
 
-	if err = TransferToWorkstation(workstation, "templates/config/db-info.yml.tpl", "/opt/tidbcloud-info.yml", "0644", dbInfo); err != nil {
+	if err = TransferToWorkstation(c.workstation, "templates/config/db-info.yml.tpl", "/opt/tidbcloud-info.yml", "0644", dbInfo); err != nil {
 		return err
 	}
 
@@ -178,19 +180,19 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 			return err
 		}
 
-		err = (*workstation).Transfer(ctx, fmt.Sprintf("/tmp/%s", configFile), "/opt/tidb/", false, 0)
+		err = (*c.workstation).Transfer(ctx, fmt.Sprintf("/tmp/%s", configFile), "/opt/tidb/", false, 0)
 		if err != nil {
 			return err
 		}
 	}
 
 	// 6. Send the access key to workstation
-	err = (*workstation).Transfer(ctx, c.clusterInfo.keyFile, "~/.ssh/id_rsa", false, 0)
+	err = (*c.workstation).Transfer(ctx, c.awsWSConfigs.KeyFile, "~/.ssh/id_rsa", false, 0)
 	if err != nil {
 		return err
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, `chmod 600 ~/.ssh/id_rsa`, false)
+	stdout, _, err = (*c.workstation).Execute(ctx, `chmod 600 ~/.ssh/id_rsa`, false)
 	if err != nil {
 		return err
 	}
@@ -200,52 +202,52 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	 * hard nofile 65535
 	 * soft nofile 65535
 	 */
-	err = (*workstation).Transfer(ctx, "embed/templates/config/limits.conf", "/tmp", false, 0)
+	err = (*c.workstation).Transfer(ctx, "embed/templates/config/limits.conf", "/tmp", false, 0)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = (*workstation).Execute(ctx, `mv /tmp/limits.conf /etc/security/limits.conf`, true)
+	_, _, err = (*c.workstation).Execute(ctx, `mv /tmp/limits.conf /etc/security/limits.conf`, true)
 	if err != nil {
 		return err
 
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, `apt-get update`, true)
+	stdout, _, err = (*c.workstation).Execute(ctx, `apt-get update`, true)
 	if err != nil {
 		return err
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
+	stdout, _, err = (*c.workstation).Execute(ctx, `curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh`, false)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
-	if err := installPKGs(workstation, ctx, []string{"mariadb-client-10.3"}); err != nil {
+	if err := installPKGs(c.workstation, ctx, []string{"mariadb-client-10.3"}); err != nil {
 		return err
 	}
 
-	dmClusterInfo, err := getDMClusterInfo(workstation, ctx, clusterName)
+	dmClusterInfo, err := getDMClusterInfo(c.workstation, ctx, clusterName)
 	if err != nil {
 		return err
 	}
 
 	if dmClusterInfo == nil {
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm deploy %s %s %s -y", clusterName, "v6.1.0", "/opt/tidb/dm-cluster.yml"), false)
+		stdout, _, err = (*c.workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm deploy %s %s %s -y", clusterName, "v6.1.0", "/opt/tidb/dm-cluster.yml"), false)
 		if err != nil {
 			fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 			return err
 		}
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm start %s", clusterName), false)
+	stdout, _, err = (*c.workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm start %s", clusterName), false)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
-	if err = (*workstation).Transfer(ctx, "/opt/db-info.yml", "/tmp/db-info.yml", true, 1024); err != nil {
+	if err = (*c.workstation).Transfer(ctx, "/opt/db-info.yml", "/tmp/db-info.yml", true, 1024); err != nil {
 		return err
 	}
 
@@ -270,28 +272,28 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	}
 	sourceData.SourceName = clusterName
 
-	err = (*workstation).TransferTemplate(ctx, "templates/config/dm-source.yml.tpl", "/tmp/dm-source.yml", "0644", sourceData, true, 0)
+	err = (*c.workstation).TransferTemplate(ctx, "templates/config/dm-source.yml.tpl", "/tmp/dm-source.yml", "0644", sourceData, true, 0)
 	if err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/dm-source.yml /opt/tidb/", true); err != nil {
+	if _, _, err := (*c.workstation).Execute(ctx, "mv /tmp/dm-source.yml /opt/tidb/", true); err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, "wget https://download.pingcap.org/tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true); err != nil {
+	if _, _, err := (*c.workstation).Execute(ctx, "wget https://download.pingcap.org/tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true, time.Second*600); err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, "tar xvf tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true); err != nil {
+	if _, _, err := (*c.workstation).Execute(ctx, "tar xvf tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true); err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, "mv tidb-community-toolkit-v6.1.0-linux-amd64/sync_diff_inspector /home/admin/.tiup/bin/", true); err != nil {
+	if _, _, err := (*c.workstation).Execute(ctx, "mv tidb-community-toolkit-v6.1.0-linux-amd64/sync_diff_inspector /home/admin/.tiup/bin/", true); err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, "rm -rf tidb-community-toolkit-v6.1.0-linux-amd64; rm tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true); err != nil {
+	if _, _, err := (*c.workstation).Execute(ctx, "rm -rf tidb-community-toolkit-v6.1.0-linux-amd64; rm tidb-community-toolkit-v6.1.0-linux-amd64.tar.gz", true); err != nil {
 		return err
 	}
 
@@ -308,10 +310,10 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		MasterNode:       fmt.Sprintf("%s:%d", tplDMData.DMMaster[0], 8261),
 		DMTaskName:       clusterName,
 		DMOutputDir:      "/tmp/output",
-		Databases:        c.tidbCloudConnInfo.Databases,
+		Databases:        c.tidbCloudConfigs.Databases,
 	}
 
-	if err = TransferToWorkstation(workstation, "templates/config/dm-sync-diff-check.toml.tpl", "/opt/dm-sync-diff-check.toml", "0644", syncDiffCheck); err != nil {
+	if err = TransferToWorkstation(c.workstation, "templates/config/dm-sync-diff-check.toml.tpl", "/opt/dm-sync-diff-check.toml", "0644", syncDiffCheck); err != nil {
 		return err
 	}
 

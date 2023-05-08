@@ -253,3 +253,81 @@ aurora$ mysqldump -h aurora2tidbcloudtest-rdsdbinstance1-uabt2ganvcep.cxmxisy1o2
    #+END_SRC
 
 
+* Purpose
+** Verify the data import using API
+** Clean the data migration process and document
+** Verify the on-duplicate - ignore feature
+** Understand the DM feature and make the demo using DM on Cloud
+* Todo
+** Clean the aurora setup scripts through the stack info and start the aurora from command
+** Include one workstation
+** Create one TiDB Cloud for test
+   + Create cluster
+   + Check Cluster status
+   + Data import using API script
+   + Check data import status
+   + Create endpoint from API
+   + Accept private endpoing from workstation
+** Setup the DM cluster for replication
+
+   #+BEGIN_SRC
+name: "aurora2tidbcloud"
+task-mode: full
+meta-schema: "dm_meta"
+
+target-database:
+  host: "privatelink-tidb.oyhkulpcx68.clusters.tidb-cloud.com"
+  port: 4000
+  user: "root"
+  password: "1234Abcd"
+  max-allowed-packet: 67108864
+
+routes:
+  route-rule-0:
+    schema-pattern: "test01"
+    target-schema: "test01"
+  route-rule-1:
+    schema-pattern: "test02"
+    target-schema: "test02"
+
+mysql-instances:
+  -
+    source-id: "aurora2tidbcloud"
+    block-allow-list:  "instance"
+    loader-config-name: "global"
+    route-rules: [ "route-rule-0", "route-rule-1"]
+
+block-allow-list:
+  instance:
+    do-dbs: ["test01", "test02"]
+
+loaders:
+  global:
+    pool-size: 16
+    dir: "./dumped_data"
+    import-mode: "logical"
+    on-duplicate-logical: "ignore"
+   #+END_SRC
+
+* Issues
+** READ: packet for query is too large. Try adjusting the 'max_allowed_packet' variable on the server\" , Workaround: Please execute `query-status` to check status."
+   Set max_allowed_packet to 1073741824
+** READ: Error 1142: SELECT, LOCK TABLES command denied to user 'admin'@'172.83.3.108' for table 'accounts'"
+#+BEGIN_SRC
+... ...
+mysql-instances:
+  -
+    source-id: "aurora2tidbcloud"
+    block-allow-list:  "instance"
+    loader-config-name: "global"
+    route-rules: [ "route-rule-0", "route-rule-1"]
+
+block-allow-list:
+  instance:
+    do-dbs: ["test01", "test02"]
+... ...
+#+END_SRC
+
+** parse mydumper metadata error: open /home/admin/dm/dm-deploy/dm-worker-8262/dumped_data.aurora2tidbcloud/metadata: no such file or directory, metadata: not found
+rm /home/admin/dm/dm-deploy/dm-worker-8262/dumped_data.aurora2tidbcloud
+/home/admin/.tiup/bin/tiup dmctl --master-addr 172.83.5.22:8261 start-task /tmp/dm-task.yml --remove-meta

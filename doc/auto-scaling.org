@@ -1,3 +1,9 @@
 * Architecture
   #+attr_html: :width 800px
   [[https://www.51yomo.net/static/doc/auto-scaling/auto-scaling-001.png]]
+
+* Todo
+** EventBridge
+** In the lambda, how to get the workstation IP
+
+Instace Startup -> EventBridge -> Lambda Function -> API -> Workstation -> Scaleout TiDB Node

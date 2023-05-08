@@ -864,19 +864,6 @@ func (items byComponentName) Less(i, j int) bool {
 	return false
 }
 
-// type TargetGroups struct {
-// 	TargetGroups []TargetGroup `json:"TargetGroups"`
-// }
-
-// type TargetGroup struct {
-// 	TargetGroupArn  string `json:"TargetGroupArn"`
-// 	TargetGroupName string `json:"TargetGroupName"`
-// 	Protocol        string `json:"Protocol"`
-// 	Port            int    `json:"Port"`
-// 	VpcId           string `json:"VpcId"`
-// 	TargetType      string `json:"TargetType"`
-// }
-
 type TagDescription struct {
 	Tags []Tag `json:"Tags"`
 }
@@ -936,27 +923,6 @@ func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, cl
 		return nil, err
 	}
 	return &describeTargetGroups.TargetGroups[0], nil
-
-	// command := fmt.Sprintf("aws elbv2 describe-target-groups --name \"%s\"", clusterName)
-	// stdout, stderr, err := executor.Execute(ctx, command, false)
-	// if err != nil {
-	// 	if strings.Contains(string(stderr), "One or more target groups not found") {
-	// 		return nil, errors.New("No target group found")
-	// 	} else {
-	// 		return nil, err
-	// 	}
-	// }
-	// var targetGroups TargetGroups
-	// if err = json.Unmarshal(stdout, &targetGroups); err != nil {
-	// 	return nil, err
-	// }
-
-	// for _, targetGroup := range targetGroups.TargetGroups {
-	// 	if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, targetGroup.TargetGroupArn); existsResource == true {
-	// 		return &targetGroup, nil
-	// 	}
-	// }
-	// return nil, errors.New("No target group found")
 }
 
 // func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*LoadBalancer, error) {
@@ -982,37 +948,6 @@ func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterTyp
 	}
 
 	return &describeLoadBalancers.LoadBalancers[0], nil
-
-	// command := fmt.Sprintf("aws elbv2 describe-load-balancers --name \"%s\"", clusterName)
-	// stdout, stderr, err := executor.Execute(ctx, command, false)
-	// if err != nil {
-	// 	// var ae smithy.APIError
-	// 	// if errors.As(err, &ae) {
-	// 	// 	fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-	// 	// 	if ae.ErrorCode() == "LoadBalancerNotFound" {
-	// 	// 		return nil, nil
-	// 	// 	}
-	// 	// }
-
-	// 	// return nil, err
-
-	// 	if strings.Contains(string(stderr), fmt.Sprintf("Load balancers '[%s]' not found", clusterName)) {
-	// 		return nil, errors.New("No NLB found")
-	// 	} else {
-	// 		return nil, err
-	// 	}
-	// }
-	// var loadBalancers LoadBalancers
-	// if err = json.Unmarshal(stdout, &loadBalancers); err != nil {
-	// 	return nil, err
-	// }
-
-	// for _, loadBalancer := range loadBalancers.LoadBalancers {
-	// 	if existsResource := ExistsELBResource(executor, ctx, clusterType, subClusterType, clusterName, loadBalancer.LoadBalancerArn); existsResource == true {
-	// 		return &loadBalancer, nil
-	// 	}
-	// }
-	// return nil, errors.New("No NLB found")
 }
 
 func installWebSSH2(wexecutor *ctxt.Executor, ctx context.Context) error {
@@ -1067,28 +1002,6 @@ type DBConnectInfo struct {
 	DBUser     string `yaml:"User"`
 	DBPassword string `yaml:"Password"`
 }
-
-// func ReadTiDBConntionInfo(workstation *ctxt.Executor, fileName string) (*DBConnectInfo, error) {
-
-// 	// 02. Get the TiDB connection info
-// 	// if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/tidb-db-info.yml"), "/tmp/tidb-db-info.yml", true, 1024); err != nil {
-// 	if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/%s", fileName), fmt.Sprintf("/tmp/%s", fileName), true, 1024); err != nil {
-// 		return nil, err
-// 	}
-
-// 	dbConnectInfo := DBConnectInfo{}
-
-// 	yfile, err := ioutil.ReadFile(fmt.Sprintf("/tmp/%s", fileName))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	if err = yaml.Unmarshal(yfile, &dbConnectInfo); err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &dbConnectInfo, nil
-// }
 
 func ReadDBConntionInfo(workstation *ctxt.Executor, fileName string, connInfo interface{}) error {
 	if err := (*workstation).Transfer(context.Background(), fmt.Sprintf("/opt/%s", fileName), fmt.Sprintf("/tmp/%s", fileName), true, 1024); err != nil {
@@ -1968,51 +1881,6 @@ func (b *BaseTask) waitUntilResouceDestroy(_interval, _timeout time.Duration, _r
 			if _data == nil || len(b.ResourceData.GetData()) == 0 {
 				return nil
 			}
-
-			// resourceStateAsExpectFlag, err := _resourceStateCheck()
-			// if err != nil {
-			// 	return err
-			// }
-
-			// caller.readResource(ReadResourceModeAfterDestroy)
-
-			// ref := reflect.ValueOf(child)
-			// fmt.Printf("The data is <%#v> \n\n\n\n\n", ref)
-			// fmt.Printf("The type is <%s> \n\n\n\n\n", ref.Kind())
-			// if ref.Kind() == reflect.Struct {
-			// 	fmt.Printf("The Fields is <%d>  \n\n\n\n\n", ref.NumField())
-			// 	for i := 0; i < ref.NumField(); i++ {
-			// 		fieldValue := ref.Field(i)
-			// 		fmt.Printf("The method is <%#v> \n\n\n\n\n", fieldValue)
-			// 		if i == 0 {
-			// 			subref := reflect.ValueOf(fieldValue)
-			// 			method := subref.MethodByName("ReadResource")
-			// 			if method.IsValid() {
-			// 				fmt.Printf("********** Calling fhunction  <%#v> \n\n\n\n\n", fieldValue)
-			// 				inputs := make([]reflect.Value, 1)
-			// 				inputs[0] = reflect.ValueOf(ReadResourceModeAfterDestroy)
-			// 				method.Call(inputs)
-			// 			} else {
-			// 				return errors.New("0003 Failed to call the readResource function during destroy")
-			// 			}
-			// 		}
-			// 	}
-			// }
-
-			// // subref := reflect.ValueOf(ref.BaseTransitGatewayVpcAttachment)
-
-			// // method01 := ref.MethodByName("Rollback")
-			// // fmt.Printf("The method is <%#v> \n\\n\nn\n\n\n", method01)
-
-			// method := ref.MethodByName("")
-			// fmt.Printf("The method is <%#v> \n\n\n\n\n", method)
-			// if method.IsValid() {
-			// 	inputs := make([]reflect.Value, 1)
-			// 	inputs[0] = reflect.ValueOf(ReadResourceModeAfterDestroy)
-			// 	method.Call(inputs)
-			// } else {
-			// 	return errors.New("Failed to call the readResource function during destroy")
-			// }
 		}
 	}
 }

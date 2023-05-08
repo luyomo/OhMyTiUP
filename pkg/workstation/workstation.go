@@ -137,6 +137,7 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 
 		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", crentials.AccessKeyID))
 		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
+		envs = append(envs, fmt.Sprintf("AWS_SESSION_TOKEN=%s", crentials.SessionToken))
 	}
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())

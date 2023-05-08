@@ -196,19 +196,6 @@ func (c *CreateVPC) Execute(ctx context.Context) error {
 
 	if clusterExistFlag == false {
 		// TODO: Add resource preparation
-		// var tags []types.Tag
-		// tags = append(tags, types.Tag{Key: aws.String("Name"), Value: aws.String(c.clusterName)})
-		// tags = append(tags, types.Tag{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)})
-
-		// // If the subClusterType is not specified, it is called from destroy to remove all the security group
-		// if c.subClusterType != "" {
-		// 	tags = append(tags, types.Tag{Key: aws.String("Type"), Value: aws.String(c.subClusterType)})
-		// }
-
-		// if c.scope != "" {
-		// 	tags = append(tags, types.Tag{Key: aws.String("Scope"), Value: aws.String(c.scope)})
-		// }
-
 		tags := c.MakeEC2Tags()
 
 		if _, err = c.client.CreateVpc(context.TODO(), &ec2.CreateVpcInput{
@@ -223,6 +210,18 @@ func (c *CreateVPC) Execute(ctx context.Context) error {
 			return err
 		}
 
+	}
+
+	vpcId, err := c.GetVpcID()
+	if err != nil {
+		return err
+	}
+
+	if _, err = c.client.ModifyVpcAttribute(context.TODO(), &ec2.ModifyVpcAttributeInput{
+		VpcId:              vpcId,
+		EnableDnsHostnames: &types.AttributeBooleanValue{Value: aws.Bool(true)},
+	}); err != nil {
+		return err
 	}
 
 	return nil
@@ -246,7 +245,6 @@ type DestroyVPC struct {
 // Execute implements the Task interface
 func (c *DestroyVPC) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
-
 
 	for _, vpc := range c.ResourceData.GetData() {
 
@@ -278,9 +276,9 @@ type ListVPC struct {
 
 // Execute implements the Task interface
 func (c *ListVPC) Execute(ctx context.Context) error {
-    if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
-        return err
-    }
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
+	}
 
 	return nil
 }
