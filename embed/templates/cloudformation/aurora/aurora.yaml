@@ -157,6 +157,7 @@ Resources:
       Parameters: 
         time_zone: Asia/Tokyo
         binlog_format: ROW
+        max_allowed_packet: 1073741824
       Tags:
         - Key: Cluster
           Value: ohmytiup-tidb2aurora

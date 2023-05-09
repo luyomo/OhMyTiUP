@@ -640,6 +640,7 @@ func GetWSExecutor02(texecutor ctxt.Executor, ctx context.Context, clusterName, 
 
 		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", crentials.AccessKeyID))
 		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
+		envs = append(envs, fmt.Sprintf("AWS_SESSION_TOKEN=%s", crentials.SessionToken))
 	}
 
 	workstation, err := GetWorkstation(texecutor, ctx)
@@ -674,6 +675,7 @@ func GetWSExecutor03(texecutor ctxt.Executor, ctx context.Context, clusterName, 
 
 		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", crentials.AccessKeyID))
 		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", crentials.SecretAccessKey))
+		envs = append(envs, fmt.Sprintf("AWS_SESSION_TOKEN=%s", crentials.SessionToken))
 	}
 
 	workstation, err := GetWorkstation(texecutor, ctx)

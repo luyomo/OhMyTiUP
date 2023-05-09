@@ -258,6 +258,18 @@ aurora$ mysqldump -h aurora2tidbcloudtest-rdsdbinstance1-uabt2ganvcep.cxmxisy1o2
 ** Clean the data migration process and document
 ** Verify the on-duplicate - ignore feature
 ** Understand the DM feature and make the demo using DM on Cloud
+* Topic
+** Who is the reader?
+   This topic is used to verifiy the on-duplicate = ignore.
+   We have to setup the minimum sdk to control the cost.
+   + The pre sale to setup the demo. Why do we need it? When we have to setup the environment for DM troubleshooting, we need it for verification without too much time.
+     - Setup the TiDB Cloud
+     - Setup Aurora Database
+     - Setup DM Cluster
+   + OpenAPI sdk verification
+   
+  Setup the replication demo from Aurora to TiDB Cloud within 30 minutes
+** Show the sdk of tidb cloud
 * Todo
 ** Clean the aurora setup scripts through the stack info and start the aurora from command
 ** Include one workstation
