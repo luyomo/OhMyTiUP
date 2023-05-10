@@ -259,9 +259,66 @@ aurora$ mysqldump -h aurora2tidbcloudtest-rdsdbinstance1-uabt2ganvcep.cxmxisy1o2
 ** Verify the on-duplicate - ignore feature
 ** Understand the DM feature and make the demo using DM on Cloud
 * Topic
+** Background
+Last week I need to verify on-duplicate=ignore(one config option of DM) of the data replication from aurora to TiDB Cloud. The default replication behavour is as below:
+*** Default behavour
+     + Aurora Data
+       #+ATTR_HTML: :border 2 :rules all :frame border
+       | PK | Value |
+       |----+-------|
+       |  1 |     1 |
+       |  2 |     2 |
+     #+TBLSPAN: A1..B1::C1..D1
+
+     + TiDB Data
+       #+ATTR_HTML: :border 2 :rules all :frame border
+       | PK | Value |
+       |----+-------|
+       |  2 |   200 |
+       |  3 |   300 |
+     #+TBLSPAN: A1..B1::C1..D1
+
+     + After full data replication
+       #+ATTR_HTML: :border 2 :rules all :frame border
+       | Aurora(Source) |       | TiDB Cloud(Target) |       | Comment                     |
+       |             PK | Value |                 PK | Value |                             |
+       |----------------+-------+--------------------+-------+-----------------------------|
+       |              1 |     1 |                  1 |     1 | Copied                      |
+       |              2 |     2 |                  2 |     2 | Replace from aurora to TiDb |
+       |                |       |                  3 |   300 |                             |
+     #+TBLSPAN: A1..B1::C1..D1
+*** on-duplicate=ignore
+     + Aurora Data
+       #+ATTR_HTML: :border 2 :rules all :frame border
+       | PK | Value |
+       |----+-------|
+       |  1 |     1 |
+       |  2 |     2 |
+     #+TBLSPAN: A1..B1::C1..D1
+
+     + TiDB Data
+       #+ATTR_HTML: :border 2 :rules all :frame border
+       | PK | Value |
+       |----+-------|
+       |  2 |   200 |
+       |  3 |   300 |
+     #+TBLSPAN: A1..B1::C1..D1
+
+     + After full data replication
+       #+ATTR_HTML: :border 2 :rules all :frame border
+       | Aurora(Source) |       | TiDB Cloud(Target) |       | Comment                     |
+       |             PK | Value |                 PK | Value |                             |
+       |----------------+-------+--------------------+-------+-----------------------------|
+       |              1 |     1 |                  1 |     1 | Copied                      |
+       |              2 |     2 |                  2 |     2 | Replace from aurora to TiDb |
+       |                |       |                  3 |   300 |                             |
+     #+TBLSPAN: A1..B1::C1..D1
+    
+  If you have aurora and TiDB Cluster available for this test, please ignore this article. But if you do not have all the resources, please use it to shorted the verification time. What you need to do is to define one yaml file and create all the resources using one command. 
 ** Who is the reader?
    This topic is used to verifiy the on-duplicate = ignore.
    We have to setup the minimum sdk to control the cost.
+   
    + The pre sale to setup the demo. Why do we need it? When we have to setup the environment for DM troubleshooting, we need it for verification without too much time.
      - Setup the TiDB Cloud
      - Setup Aurora Database

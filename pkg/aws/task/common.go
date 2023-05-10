@@ -1908,16 +1908,7 @@ func (b *BaseTask) waitUntilResouceAvailable(_interval, _timeout time.Duration, 
 			if err := _readResource(); err != nil {
 				return err
 			}
-			// ref := reflect.ValueOf(child)
 
-			// method := ref.MethodByName("readResource")
-			// if method.IsValid() {
-			// 	inputs := make([]reflect.Value, 1)
-			// 	inputs[0] = reflect.ValueOf(ReadResourceModeAfterCreate)
-			// 	method.Call(inputs)
-			// } else {
-			// 	return errors.New("Failed to call the readResource function during creation")
-			// }
 			if len(b.ResourceData.GetData()) == expectNum {
 				return nil
 			}

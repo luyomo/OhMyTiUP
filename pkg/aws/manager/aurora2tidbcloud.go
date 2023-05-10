@@ -115,12 +115,14 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		CreateRouteTgw(&m.localExe, "dm", []string{"aurora"}).
 		BuildAsStep("Parallel Main step")
 
-	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
+	if 1 == 0 {
+		if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
+			if errorx.Cast(err) != nil {
+				// FIXME: Map possible task errors and give suggestions.
+				return err
+			}
 			return err
 		}
-		return err
 	}
 
 	timer.Take("Execution")
@@ -128,9 +130,32 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	// 8. Print the execution summary
 	timer.Print()
 
+	vpcEndpointName := tui.Prompt("Please input private service name: ")
+	fmt.Printf("The TiDB host name : %s \n", vpcEndpointName)
+
+	vpceIdChan := make(chan string) // The channel is used to send message to prompt from creation task
+
+	go func() {
+		select {
+		case vpceId := <-vpceIdChan:
+			tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+		}
+	}()
+
+	// Create VPC Endpoint
+	postTask := task.NewBuilder().
+		CreateVpcEndpoint(&m.localExe, vpceIdChan, "workstation", "workstation", task.NetworkTypePublic, vpcEndpointName).
+		BuildAsStep("Parallel Main step")
+	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
 	// To replace the below logic by API if it is provided.
 	// 01. Prompt the private link - host
-
 	for true {
 		tidbCloudHost := tui.Prompt("Please setup the TiDB Cloud Private endpoint and provide the accessible host:")
 		fmt.Printf("The TiDB host name : %s \n", tidbCloudHost)
