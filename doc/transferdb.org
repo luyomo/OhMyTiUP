@@ -144,6 +144,7 @@ MySQL [transferdb]> select * from buildin_global_defaultval ;
 
   #+END_SRC
 ** Config adjust
+   #+BEGIN_SRC
 MySQL [transferdb]> insert into buildin_global_defaultval(db_type_s, db_type_t, default_value_s, default_value_t) values('ORACLE', 'MYSQL', 'SYSTIMESTAMP', 'CURRENT_TIMESTAMP(6)');
 MySQL [transferdb]> update buildin_global_defaultval set default_value_t = 'CURRENT_TIMESTAMP(6)' where id = 1; 
 MySQL [transferdb]> select * from buildin_global_defaultval; 
@@ -163,6 +164,7 @@ MySQL [transferdb]> select * from buildin_global_defaultval;
 | 572320 | ORACLE    | MYSQL     | SYSTIMESTAMP      | CURRENT_TIMESTAMP(6) | Inserted by jay | 2023-05-14 09:15:55.630 | 2023-05-14 09:33:24.475 | *
 +--------+-----------+-----------+-------------------+----------------------+-----------------+-------------------------+-------------------------+
 11 rows in set (0.001 sec)
+    #+END_SRC
 * Run the script to convert ddl
 admin@workstation:/tmp/transferdb$ ./bin/transferdb -mode prepare -source oracle -target mysql -config example/config.toml
 admin@workstation:/tmp/transferdb$ more /tmp/transferdb/data/reverse_ADMIN.sql
