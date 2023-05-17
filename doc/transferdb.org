@@ -166,11 +166,13 @@ MySQL [transferdb]> select * from buildin_global_defaultval;
 11 rows in set (0.001 sec)
     #+END_SRC
 * Run the script to convert ddl
+  #+BEGIN_SRC
 admin@workstation:/tmp/transferdb$ ./bin/transferdb -mode prepare -source oracle -target mysql -config example/config.toml
 admin@workstation:/tmp/transferdb$ more /tmp/transferdb/data/reverse_ADMIN.sql
 ... Converted DDL
 admin@workstation:/tmp/transferdb$ more /tmp/transferdb/data/compatibility_ADMIN.sql
 ... Converted compatible
+  #+END_SRC
 * Issues
   + Need to increase the PGA to avoid the [] error
     Next: ORA-04036: PGA memory used by the instance exceeds PGA_AGGREGATE_LIMIT
