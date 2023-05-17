@@ -1,0 +1,187 @@
+* Download binary
+  #+BEGIN_SRC
+admin@workstation:/tmp$ wget https://github.com/luyomo/transferdb/releases/download/v0.0.1/transferdb.x86_64-linux.tar.gz
+admin@workstation:/tmp$ tar xvf transferdb.x86_64-linux.tar.gz
+admin@workstation:/tmp$ cd transferdb
+  #+END_SRC
+* Oracle library installation
+  #+BEGIN_SRC
+admin@workstation:/tmp/transferdb$ wget https://download.oracle.com/otn_software/linux/instantclient/214000/instantclient-basic-linux.x64-21.4.0.0.0dbru.zip
+admin@workstation:/tmp/transferdb$ sudo unzip -d /opt/oracle instantclient-basic-linux.x64-21.4.0.0.0dbru.zip
+admin@workstation:/tmp/transferdb$ export LD_LIBRARY_PATH=/opt/oracle/instantclient_21_4:$LD_LIBRARY_PATH
+  #+END_SRC
+* Setup Config file
+  #+BEGIN_SRC
+admin@workstation/tmp/mockdata$ more /tmp/config.toml
+[app]
+insert-batch-size = 100
+slowlog-threshold = 1024
+pprof-port = ":9696"
+
+[reverse]
+reverse-threads = 256
+direct-write = false
+ddl-reverse-dir = "/tmp/transferdb/data"      # The directory to keep converted ddl
+ddl-compatible-dir = "/tmp/transferdb/data"   # The directory to keep ddl like foreign key
+
+[oracle]
+username = "oracle user"
+password = ""
+host = ""
+port = 1521
+service-name = "service name"
+connect-params = "poolMinSessions=50&poolMaxSessions=100&poolWaitTimeout=360s&poolSessionMaxLifetime=2h&poolSessionTimeout=2h&poolIncrement=30&timezone=Local&connect_timeout=15"
+schema-name = "ADMIN"                         # Schema name to convert
+include-table = []
+exclude-table = []
+
+[mysql]
+db-type = "tidb"
+username = "root"
+password = ""
+host = "172.168.1.10"
+port = 4000
+connect-params = "charset=utf8mb4&multiStatements=true&parseTime=True&loc=Local"
+schema-name = "test"
+table-option = "SHARD_ROW_ID_BITS = 4 PRE_SPLIT_REGIONS = 4"
+
+[meta]
+username = "root"
+password = ""
+host = "172.82.11.39"
+port = 4000
+meta-schema = "transferdb"
+
+[log]
+log-level = "info"
+log-file = "./transferdb.log"
+max-size = 128
+max-days = 7
+max-backups = 30
+  #+END_SRC
+* Run
+  Prepare the meta data for conversion
+  #+BEGIN_SRC
+admin@workstation:/tmp/transferdb$ ./bin/transferdb -mode prepare -source oracle -target mysql -config /tmp/config.toml
+MySQL [transferdb]> show tables; 
++---------------------------+
+| Tables_in_transferdbtest  |
++---------------------------+
+| buildin_column_defaultval |
+| buildin_datatype_rule     |
+| buildin_global_defaultval |
+| buildin_object_compatible |
+| chunk_error_detail        |
+| column_datatype_rule      |
+| data_compare_meta         |
+| error_log_detail          |
+| full_sync_meta            |
+| incr_sync_meta            |
+| schema_datatype_rule      |
+| table_datatype_rule       |
+| table_name_rule           |
+| wait_sync_meta            |
++---------------------------+
+14 rows in set (0.000 sec)
+MySQL [transferdb]> select count(*) from buildin_object_compatible; 
++----------+
+| count(*) |
++----------+
+|      146 |
++----------+
+1 row in set (0.001 sec)
+
+MySQL [transferdb]> select * from buildin_object_compatible limit 10; 
++----+-----------+-----------+---------------+---------------+----------------+---------+-------------------------+-------------------------+
+| id | db_type_s | db_type_t | object_name_s | is_compatible | is_convertible | comment | created_at              | updated_at              |
++----+-----------+-----------+---------------+---------------+----------------+---------+-------------------------+-------------------------+
+|  1 | ORACLE    | MYSQL     | AL32UTF8      | Y             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+|  2 | ORACLE    | MYSQL     | ZHS16GBK      | Y             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+|  3 | ORACLE    | MYSQL     | HEAP          | Y             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+|  4 | ORACLE    | MYSQL     | CLUSTERED     | N             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+|  5 | ORACLE    | MYSQL     | TEMPORARY     | Y             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+|  6 | ORACLE    | MYSQL     | PARTITIONED   | Y             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+|  7 | ORACLE    | MYSQL     | P             | Y             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+|  8 | ORACLE    | MYSQL     | U             | Y             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+|  9 | ORACLE    | MYSQL     | C             | N             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
+| 10 | ORACLE    | MYSQL     | F             | N             | Y              |         | 2023-05-17 06:21:01.323 | 2023-05-17 06:21:01.323 |
++----+-----------+-----------+---------------+---------------+----------------+---------+-------------------------+-------------------------+
+10 rows in set (0.001 sec)
+
+MySQL [transferdb]> select * from buildin_datatype_rule limit 10; 
++----+-----------+-----------+------------------+-------------------------------------+---------+-------------------------+-------------------------+
+| id | db_type_s | db_type_t | datatype_name_s  | datatype_name_t                     | comment | created_at              | updated_at              |
++----+-----------+-----------+------------------+-------------------------------------+---------+-------------------------+-------------------------+
+|  1 | ORACLE    | MYSQL     | NUMBER           | TINYINT/SMALLINT/INT/BIGINT/DECIMAL |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+|  2 | ORACLE    | MYSQL     | BFILE            | VARCHAR                             |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+|  3 | ORACLE    | MYSQL     | CHAR             | VARCHAR                             |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+|  4 | ORACLE    | MYSQL     | CHARACTER        | VARCHAR                             |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+|  5 | ORACLE    | MYSQL     | CLOB             | LONGTEXT                            |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+|  6 | ORACLE    | MYSQL     | BLOB             | BLOB                                |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+|  7 | ORACLE    | MYSQL     | DATE             | DATETIME                            |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+|  8 | ORACLE    | MYSQL     | DECIMAL          | DECIMAL                             |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+|  9 | ORACLE    | MYSQL     | DEC              | DECIMAL                             |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
+| 10 | ORACLE    | MYSQL     | DOUBLE PRECISION | DOUBLE PRECISION                    |         | 2023-05-17 06:21:01.350 | 2023-05-17 06:21:01.350 |
++----+-----------+-----------+------------------+-------------------------------------+---------+-------------------------+-------------------------+
+10 rows in set (0.001 sec)
+
+MySQL [transferdb]> select * from buildin_global_defaultval ;
++----+-----------+-----------+-------------------+-----------------+---------+-------------------------+-------------------------+
+| id | db_type_s | db_type_t | default_value_s   | default_value_t | comment | created_at              | updated_at              |
++----+-----------+-----------+-------------------+-----------------+---------+-------------------------+-------------------------+
+|  1 | ORACLE    | MYSQL     | SYSDATE           | NOW()           |         | 2023-05-17 06:21:01.310 | 2023-05-17 06:21:01.310 | *
+|  2 | ORACLE    | MYSQL     | SYS_GUID()        | UUID()          |         | 2023-05-17 06:21:01.310 | 2023-05-17 06:21:01.310 |
+|  3 | ORACLE    | MYSQL     |                   | NULL            |         | 2023-05-17 06:21:01.310 | 2023-05-17 06:21:01.310 |
+|  4 | ORACLE    | TIDB      | SYSDATE           | NOW()           |         | 2023-05-17 06:21:01.310 | 2023-05-17 06:21:01.310 |
+|  5 | ORACLE    | TIDB      | SYS_GUID()        | UUID()          |         | 2023-05-17 06:21:01.310 | 2023-05-17 06:21:01.310 |
+|  6 | ORACLE    | TIDB      |                   | NULL            |         | 2023-05-17 06:21:01.310 | 2023-05-17 06:21:01.310 |
+|  7 | MYSQL     | ORACLE    | CURRENT_TIMESTAMP | SYSDATE         |         | 2023-05-17 06:21:01.320 | 2023-05-17 06:21:01.320 |
+|  8 | TIDB      | ORACLE    | CURRENT_TIMESTAMP | SYSDATE         |         | 2023-05-17 06:21:01.320 | 2023-05-17 06:21:01.320 |
+|  9 | MYSQL     | ORACLE    | NULL              |                 |         | 2023-05-17 06:21:01.320 | 2023-05-17 06:21:01.320 |
+| 10 | TIDB      | ORACLE    | NULL              |                 |         | 2023-05-17 06:21:01.320 | 2023-05-17 06:21:01.320 |
++----+-----------+-----------+-------------------+-----------------+---------+-------------------------+-------------------------+
+10 rows in set (0.001 sec)
+
+  #+END_SRC
+** Config adjust
+MySQL [transferdb]> insert into buildin_global_defaultval(db_type_s, db_type_t, default_value_s, default_value_t) values('ORACLE', 'MYSQL', 'SYSTIMESTAMP', 'CURRENT_TIMESTAMP(6)');
+MySQL [transferdb]> update buildin_global_defaultval set default_value_t = 'CURRENT_TIMESTAMP(6)' where id = 1; 
+MySQL [transferdb]> select * from buildin_global_defaultval; 
++--------+-----------+-----------+-------------------+----------------------+-----------------+-------------------------+-------------------------+
+| id     | db_type_s | db_type_t | default_value_s   | default_value_t      | comment         | created_at              | updated_at              |
++--------+-----------+-----------+-------------------+----------------------+-----------------+-------------------------+-------------------------+
+|      1 | ORACLE    | MYSQL     | SYSDATE           | CURRENT_TIMESTAMP(6) |                 | 2023-05-11 10:21:47.019 | 2023-05-14 09:32:58.915 | *
+|      2 | ORACLE    | MYSQL     | SYS_GUID()        | UUID()               |                 | 2023-05-11 10:21:47.019 | 2023-05-11 10:21:47.019 |
+|      3 | ORACLE    | MYSQL     |                   | NULL                 |                 | 2023-05-11 10:21:47.019 | 2023-05-11 10:21:47.019 |
+|      4 | ORACLE    | TIDB      | SYSDATE           | NOW()                |                 | 2023-05-11 10:21:47.019 | 2023-05-11 10:21:47.019 |
+|      5 | ORACLE    | TIDB      | SYS_GUID()        | UUID()               |                 | 2023-05-11 10:21:47.019 | 2023-05-11 10:21:47.019 |
+|      6 | ORACLE    | TIDB      |                   | NULL                 |                 | 2023-05-11 10:21:47.019 | 2023-05-11 10:21:47.019 |
+|      7 | MYSQL     | ORACLE    | CURRENT_TIMESTAMP | SYSDATE              |                 | 2023-05-11 10:21:47.029 | 2023-05-11 10:21:47.029 |
+|      8 | TIDB      | ORACLE    | CURRENT_TIMESTAMP | SYSDATE              |                 | 2023-05-11 10:21:47.029 | 2023-05-11 10:21:47.029 |
+|      9 | MYSQL     | ORACLE    | NULL              |                      |                 | 2023-05-11 10:21:47.029 | 2023-05-11 10:21:47.029 |
+|     10 | TIDB      | ORACLE    | NULL              |                      |                 | 2023-05-11 10:21:47.029 | 2023-05-11 10:21:47.029 |
+| 572320 | ORACLE    | MYSQL     | SYSTIMESTAMP      | CURRENT_TIMESTAMP(6) | Inserted by jay | 2023-05-14 09:15:55.630 | 2023-05-14 09:33:24.475 | *
++--------+-----------+-----------+-------------------+----------------------+-----------------+-------------------------+-------------------------+
+11 rows in set (0.001 sec)
+* Run the script to convert ddl
+admin@workstation:/tmp/transferdb$ ./bin/transferdb -mode prepare -source oracle -target mysql -config example/config.toml
+admin@workstation:/tmp/transferdb$ more /tmp/transferdb/data/reverse_ADMIN.sql
+... Converted DDL
+admin@workstation:/tmp/transferdb$ more /tmp/transferdb/data/compatibility_ADMIN.sql
+... Converted compatible
+* Issues
+  + Need to increase the PGA to avoid the [] error
+    Next: ORA-04036: PGA memory used by the instance exceeds PGA_AGGREGATE_LIMIT
+    #+BEGIN_SRC
+SQL> show parameter pga;
+
+NAME                                 TYPE        VALUE
+------------------------------------ ----------- ------------------------------
+pga_aggregate_limit                  big integer 4956M
+pga_aggregate_target                 big integer 2038083072
+
+    #+END_SRC
+  + Change the systemdate to current_timestamp(6)
+    Please check [Config adjust]
+  + Change the sysdata to current_timestamp(6)
+    Please check [Config adjsut]
