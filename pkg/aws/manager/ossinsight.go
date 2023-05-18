@@ -480,9 +480,9 @@ func (m *Manager) ListOssInsight(clusterName string, opt DeployOptions) error {
 	listTasks = append(listTasks, t8)
 
 	// 009. Aurora
-	tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
-	t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
-	listTasks = append(listTasks, t9)
+	// tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
+	// t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
+	// listTasks = append(listTasks, t9)
 
 	// *********************************************************************
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
@@ -520,8 +520,8 @@ func (m *Manager) ListOssInsight(clusterName string, opt DeployOptions) error {
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
-	tui.PrintTable(tableAurora, true)
+	// fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
+	// tui.PrintTable(tableAurora, true)
 
 	timer.Print()
 

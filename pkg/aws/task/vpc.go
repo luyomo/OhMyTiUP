@@ -81,12 +81,8 @@ func (d *VPCs) GetResourceArn(throwErr ThrowErrorFlag) (*string, error) {
 type BaseVPC struct {
 	BaseTask
 
-	ResourceData ResourceData
-	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
-
 	// The below variables are initialized in the init() function
 	client *ec2.Client // Replace the example to specific service
-	// subClusterType string
 }
 
 func (b *BaseVPC) init(ctx context.Context) error {
@@ -116,6 +112,9 @@ func (b *BaseVPC) init(ctx context.Context) error {
 }
 
 func (b *BaseVPC) readResources() error {
+	if err := b.ResourceData.Reset(); err != nil {
+		return err
+	}
 
 	var filters []types.Filter
 	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{b.clusterName}})
@@ -125,6 +124,9 @@ func (b *BaseVPC) readResources() error {
 	if b.subClusterType != "" {
 		filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{b.subClusterType}})
 	}
+
+	// Note: The below function can not be used because it includes scope and component as well in the other resources.
+	// filters := b.MakeEC2Filters()
 
 	resp, err := b.client.DescribeVpcs(context.TODO(), &ec2.DescribeVpcsInput{Filters: filters})
 	if err != nil {
@@ -144,7 +146,8 @@ func (b *BaseVPC) GetVPCItem(itemType string) (*string, error) {
 	}
 
 	if resourceExistFlag == false {
-		return nil, errors.New("No VPC found")
+		// debug.PrintStack()
+		return nil, errors.New(fmt.Sprintf("No VPC found: %s", b.subClusterType))
 	}
 
 	_data := b.ResourceData.GetData()
@@ -160,20 +163,6 @@ func (b *BaseVPC) GetVPCItem(itemType string) (*string, error) {
 
 	return nil, errors.New(fmt.Sprintf("not support item from vpc", itemType))
 
-}
-
-func (b *BaseVPC) GetVpcID() (*string, error) {
-	resourceExistFlag, err := b.ResourceData.ResourceExist()
-	if err != nil {
-		return nil, err
-	}
-
-	if resourceExistFlag == false {
-		return nil, errors.New("No VPC found")
-	}
-
-	_data := b.ResourceData.GetData()
-	return _data[0].(types.Vpc).VpcId, nil
 }
 
 /******************************************************************************/
@@ -210,9 +199,14 @@ func (c *CreateVPC) Execute(ctx context.Context) error {
 			return err
 		}
 
+		if err := c.waitUntilResouceAvailable(0, 0, 1, func() error {
+			return c.readResources()
+		}); err != nil {
+			return err
+		}
 	}
 
-	vpcId, err := c.GetVpcID()
+	vpcId, err := c.GetVPCItem("VpcId")
 	if err != nil {
 		return err
 	}

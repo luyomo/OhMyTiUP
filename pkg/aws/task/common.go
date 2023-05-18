@@ -420,7 +420,7 @@ func getVPCInfo(executor ctxt.Executor, ctx context.Context, vpc ResourceTag) (*
 	}
 
 	if len(vpcs.Vpcs) == 0 {
-		return nil, errors.New("No VPC found")
+		return nil, errors.New("getVPCInfo: No VPC found")
 	}
 	return &(vpcs.Vpcs[0]), nil
 }

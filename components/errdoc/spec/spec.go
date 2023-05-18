@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tj/go-termd"
+	termd "github.com/tj/go-termd"
 )
 
 // ErrorSpec represents the standard error specification introduced by

@@ -88,16 +88,15 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
-	// var clusterInfo task.ClusterInfo
 	auroraTask := task.NewBuilder().
-		CreateAurora(&m.localExe, base.AwsWSConfigs, base.AwsAuroraConfigs).
+		CreateAurora(&m.localExe, base.AwsAuroraConfigs).
 		BuildAsStep(fmt.Sprintf("  - Preparing aurora service"))
 	task001 = append(task001, auroraTask)
 
 	var workstationInfo task.ClusterInfo
 	wsTask := task.NewBuilder().
 		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
-		BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
+		BuildAsStep(fmt.Sprintf("  - Preparing workstation ... ..."))
 	task001 = append(task001, wsTask)
 
 	var clusterInfo task.ClusterInfo
@@ -114,7 +113,7 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 
 	paraTask001 := task.NewBuilder().
 		CreateTransitGateway(&m.localExe).
-		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
+		ParallelStep("+ Deploying all the sub components for Aurora to TiDB Cloud by DM", false, task001...).
 		CreateTransitGatewayVpcAttachment(&m.localExe, "aurora", task.NetworkTypePrivate).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"dm", "aurora"}).
 		CreateRouteTgw(&m.localExe, "dm", []string{"aurora"}).
@@ -275,10 +274,11 @@ func (m *Manager) ListAurora2TiDBCloudCluster(clusterName string, opt DeployOpti
 	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
 	listTasks = append(listTasks, t8)
 
+	// Todo: Replace with workstation.execute
 	// 009. Aurora
-	tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
-	t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
-	listTasks = append(listTasks, t9)
+	// tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
+	// t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
+	// listTasks = append(listTasks, t9)
 
 	// *********************************************************************
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
@@ -315,8 +315,8 @@ func (m *Manager) ListAurora2TiDBCloudCluster(clusterName string, opt DeployOpti
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
-	tui.PrintTable(tableAurora, true)
+	// fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
+	// tui.PrintTable(tableAurora, true)
 
 	return nil
 }

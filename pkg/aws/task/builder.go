@@ -1386,14 +1386,6 @@ func (b *Builder) ListOracle(pexecutor *ctxt.Executor, tableOracle *[][]string) 
 	return b
 }
 
-func (b *Builder) ListAurora(pexecutor *ctxt.Executor, tableAurora *[][]string) *Builder {
-	b.tasks = append(b.tasks, &ListAurora{
-		pexecutor:   pexecutor,
-		tableAurora: tableAurora,
-	})
-	return b
-}
-
 func (b *Builder) ListPostgres(pexecutor *ctxt.Executor, tablePostgres *[][]string) *Builder {
 	b.tasks = append(b.tasks, &ListPostgres{
 		pexecutor:     pexecutor,
@@ -1508,29 +1500,12 @@ func (b *Builder) DestroyOracle(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
-func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsAuroraConfigs *spec.AwsAuroraConfigs) *Builder {
-	b.tasks = append(b.tasks, &CreateAurora{
-		pexecutor:        pexecutor,
-		awsAuroraConfigs: awsAuroraConfigs,
-		awsWSConfigs:     awsWSConfigs,
-		// clusterInfo:      clusterInfo,
-	})
-	return b
-}
-
 func (b *Builder) CreatePostgres(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, awsPostgresConfigs *spec.AwsPostgresConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreatePostgres{
 		pexecutor:          pexecutor,
 		awsPostgresConfigs: awsPostgresConfigs,
 		awsWSConfigs:       awsWSConfigs,
 		clusterInfo:        clusterInfo,
-	})
-	return b
-}
-
-func (b *Builder) DestroyAurora(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &DestroyAurora{
-		pexecutor: pexecutor,
 	})
 	return b
 }

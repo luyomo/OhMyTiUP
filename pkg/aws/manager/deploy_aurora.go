@@ -148,7 +148,7 @@ func (m *Manager) AuroraDeploy(
 			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora", task.NetworkTypePrivate).
-			CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs).
+			CreateAurora(&sexecutor, base.AwsAuroraConfigs).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora"}).
 			CreateRouteTgw(&sexecutor, "aurora", []string{"workstation"}).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
@@ -232,9 +232,9 @@ func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error
 	listTasks = append(listTasks, t8)
 
 	// 009. Aurora
-	tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
-	t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
-	listTasks = append(listTasks, t9)
+	// tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
+	// t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
+	// listTasks = append(listTasks, t9)
 
 	// *********************************************************************
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
@@ -270,8 +270,8 @@ func (m *Manager) ListAuroraCluster(clusterName string, opt DeployOptions) error
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 
-	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
-	tui.PrintTable(tableAurora, true)
+	// fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
+	// tui.PrintTable(tableAurora, true)
 
 	return nil
 }

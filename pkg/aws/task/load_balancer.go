@@ -27,56 +27,6 @@ import (
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
-// 1. create target group
-// 2. register targets
-// 3. Create load balancer
-// 4. Create listener
-
-// type CreateTargetGroup struct {
-// 	pexecutor      *ctxt.Executor
-// 	subClusterType string
-// 	clusterInfo    *ClusterInfo
-// }
-
-// // Execute implements the Task interface
-// func (c *CreateTargetGroup) Execute(ctx context.Context) error {
-// 	clusterName := ctx.Value("clusterName").(string)
-// 	clusterType := ctx.Value("clusterType").(string)
-// 	// aws elbv2 create-target-group --name testtisample --protocol TCP --port 4000 --vpc-id  vpc-0a0b77e3dda822203 --target-type instance
-
-// 	_, err := getTargetGroup(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
-// 	if err != nil && err.Error() != "No target group found" {
-// 		fmt.Printf("The err is <%s> \n\n\n", err.Error())
-// 		return err
-// 	}
-
-// 	vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
-// 	if err != nil {
-// 		if err.Error() != "No VPC found" {
-// 			zap.L().Debug("Failed to fetch vpc info ", zap.Error(err))
-// 			return err
-// 		} else {
-// 			return nil
-// 		}
-// 	}
-
-// 	_, _, err = (*c.pexecutor).Execute(ctx, fmt.Sprintf("aws elbv2 create-target-group --name %s --protocol TCP --port 4000 --vpc-id %s --target-type instance --tags Key=Name,Value=%s Key=Cluster,Value=%s Key=Type,Value=%s", clusterName, (*vpcInfo).VpcId, clusterName, clusterType, c.subClusterType), false)
-// 	if err != nil {
-// 		zap.L().Error("Failed to create vpc. VPCInfo: ", zap.String("VpcInfo", c.clusterInfo.String()))
-// 		return err
-// 	}
-// 	return nil
-// }
-
-// func (c *CreateTargetGroup) Rollback(ctx context.Context) error {
-// 	return ErrUnsupportedRollback
-// }
-
-// // String implements the fmt.Stringer interface
-// func (c *CreateTargetGroup) String() string {
-// 	return fmt.Sprintf("Echo: Creating Target Group ")
-// }
-
 /******************************************************************************/
 
 type RegisterTarget struct {

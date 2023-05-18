@@ -46,7 +46,7 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 	sourceVpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
 
 	if err != nil {
-		if err.Error() == "No VPC found" {
+        if err.Error() == "getVPCInfo: No VPC found" {
 			return nil
 		}
 		return err
@@ -76,7 +76,7 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 	for _, targetSubClusterType := range c.subClusterTypes {
 		vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: targetSubClusterType})
 		if err != nil {
-			if err.Error() == "No VPC found" {
+            if err.Error() == "getVPCInfo: No VPC found" {
 				continue
 			}
 			return err
