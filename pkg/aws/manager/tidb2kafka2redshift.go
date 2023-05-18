@@ -362,7 +362,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2Redshift(clusterName, clusterType string
 	var arrData []string           // Array to keep data to be inserted. ex: ["true"]
 	var pgPreQueries []string      // Array of queries to be executed in PG. ex: ["create type t_enum_test ..."]
 
-	/* 002.01 Prepare primary key column definition */
+	/** 002.01 Prepare primary key column definition */
 	arrTiDBTblDataDef = append(arrTiDBTblDataDef, "pk_col BIGINT PRIMARY KEY AUTO_RANDOM")
 	arrPGTblDataDef = append(arrPGTblDataDef, "pk_col bigint PRIMARY KEY")
 

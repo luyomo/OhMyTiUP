@@ -11,6 +11,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+all kinds of smallest tasks for build
+*/
 package task
 
 import (
@@ -30,14 +33,25 @@ import (
 	"io/ioutil"
 )
 
+/*
+Function is used to create aurora instance.
+*/
 type CreateAurora struct {
-	pexecutor        *ctxt.Executor
-	awsAuroraConfigs *spec.AwsAuroraConfigs
-	awsWSConfigs     *spec.AwsWSConfigs
-	clusterInfo      *ClusterInfo
+	pexecutor        *ctxt.Executor         // local executor
+	awsAuroraConfigs *spec.AwsAuroraConfigs // Aurora config info
+	awsWSConfigs     *spec.AwsWSConfigs     // Workstation config info
+	// clusterInfo      *ClusterInfo           // Cluster info to keep context
 }
 
-// Execute implements the Task interface
+/*
+Create Aurora instance through cloudformation if it does not exist.
+[aurora] is the template and set the parameter from OhMyTiIP config file.
+
+# Aurora connection info
+Write aurora connection info into /opt/aurora-db-info.yaml
+
+[aurora]: embed/templates/cloudformation/aurora.yaml
+*/
 func (c *CreateAurora) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
@@ -49,8 +63,8 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 
 	client := cloudformation.NewFromConfig(cfg)
 
-	listStacksInput := &cloudformation.ListStacksInput{}
-	listStacks, err := client.ListStacks(context.TODO(), listStacksInput)
+	// 01. Check cloudformation's existence
+	listStacks, err := client.ListStacks(context.TODO(), &cloudformation.ListStacksInput{})
 	if err != nil {
 		return err
 	}
@@ -80,17 +94,11 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 	}
 
 	if c.awsAuroraConfigs.EngineVersion != "" {
-		parameters = append(parameters, types.Parameter{
-			ParameterKey:   aws.String("EngineVersion"),
-			ParameterValue: aws.String(c.awsAuroraConfigs.EngineVersion),
-		})
+		parameters = append(parameters, types.Parameter{ParameterKey: aws.String("EngineVersion"), ParameterValue: aws.String(c.awsAuroraConfigs.EngineVersion)})
 	}
 
 	if c.awsAuroraConfigs.InstanceType != "" {
-		parameters = append(parameters, types.Parameter{
-			ParameterKey:   aws.String("InstanceType"),
-			ParameterValue: aws.String(c.awsAuroraConfigs.InstanceType),
-		})
+		parameters = append(parameters, types.Parameter{ParameterKey: aws.String("InstanceType"), ParameterValue: aws.String(c.awsAuroraConfigs.InstanceType)})
 	}
 
 	stackInput := &cloudformation.CreateStackInput{
@@ -98,22 +106,10 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 		TemplateBody: aws.String(templateBody),
 		Parameters:   parameters,
 		Tags: []types.Tag{
-			{
-				Key:   aws.String("Cluster"),
-				Value: aws.String(clusterType),
-			},
-			{
-				Key:   aws.String("Type"),
-				Value: aws.String("aurora"),
-			},
-			{
-				Key:   aws.String("Scope"),
-				Value: aws.String("private"),
-			},
-			{
-				Key:   aws.String("Name"),
-				Value: aws.String(clusterName),
-			},
+			{Key: aws.String("Cluster"), Value: aws.String(clusterType)},
+			{Key: aws.String("Type"), Value: aws.String("aurora")},
+			{Key: aws.String("Scope"), Value: aws.String("private")},
+			{Key: aws.String("Name"), Value: aws.String(clusterName)},
 		},
 	}
 
@@ -148,53 +144,6 @@ func (c *CreateAurora) Execute(ctx context.Context) error {
 		time.Sleep(60 * time.Second)
 	}
 
-	// 1. Get all the workstation nodes
-	workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile)
-	if err != nil {
-		return err
-	}
-
-	auroraInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "aurora")
-	if err != nil {
-		return err
-	}
-
-	var dbInfo DBInfo
-	dbInfo.DBHost = (*auroraInstanceInfos)[0].EndPointAddress
-	dbInfo.DBPort = (*auroraInstanceInfos)[0].DBPort
-	dbInfo.DBUser = (*auroraInstanceInfos)[0].DBUserName
-	dbInfo.DBPassword = c.awsAuroraConfigs.DBPassword
-
-	_, _, err = (*workstation).Execute(ctx, "mkdir /opt/scripts", true)
-	if err != nil {
-		return err
-	}
-
-	err = (*workstation).TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/db-info.yml", "0644", dbInfo, true, 0)
-	if err != nil {
-		return err
-	}
-
-	err = (*workstation).TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_mysql_query", "0755", dbInfo, true, 0)
-	if err != nil {
-		return err
-	}
-
-	err = (*workstation).TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_mysql_from_file", "0755", dbInfo, true, 0)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = (*workstation).Execute(ctx, "apt-get update", true)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = (*workstation).Execute(ctx, "apt-get install -y mariadb-server", true)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -211,8 +160,8 @@ func (c *CreateAurora) String() string {
 /******************************************************************************/
 
 type DestroyAurora struct {
-	pexecutor   *ctxt.Executor
-	clusterInfo *ClusterInfo
+	pexecutor *ctxt.Executor
+	// clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface
@@ -260,7 +209,7 @@ func (c *ListAurora) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	auroraInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "aurora")
+	auroraInstanceInfos, err := utils.ExtractInstanceRDSInfo(clusterName, clusterType, "aurora")
 	if err != nil {
 		return err
 	}

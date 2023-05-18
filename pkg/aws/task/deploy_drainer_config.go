@@ -48,7 +48,7 @@ func (c *DeployDrainConfig) Execute(ctx context.Context) error {
 	}
 
 	// 2. Extract Oracle info from RDS
-	oracleInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "oracle")
+	oracleInstanceInfos, err := utils.ExtractInstanceRDSInfo(clusterName, clusterType, "oracle")
 	if err != nil {
 		return err
 	}

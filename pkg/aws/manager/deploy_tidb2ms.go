@@ -125,7 +125,7 @@ func (m *Manager) TiDB2MSDeploy(
 	}
 	clusterType := "ohmytiup-tidb2ms"
 
-	var workstationInfo, clusterInfo, auroraInfo, msInfo, dmsInfo task.ClusterInfo
+	var workstationInfo, clusterInfo, msInfo, dmsInfo task.ClusterInfo
 
 	if base.AwsWSConfigs.InstanceType != "" {
 		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
@@ -142,7 +142,7 @@ func (m *Manager) TiDB2MSDeploy(
 	}
 
 	if base.AwsAuroraConfigs.InstanceType != "" {
-		t3 := task.NewBuilder().CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs, &auroraInfo).
+		t3 := task.NewBuilder().CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora instance"))
 		envInitTasks = append(envInitTasks, t3)
 	}

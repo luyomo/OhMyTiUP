@@ -32,8 +32,18 @@ func (p VpcEndpointState_Process) isState(mode ReadResourceMode) bool {
 	switch mode {
 	case ReadResourceModeCommon:
 		return p.isOKState()
+	case ReadResourceModeAfterCreate:
+		return p.isAfterCreateState()
 	}
 	return true
+}
+
+func (p VpcEndpointState_Process) isAfterCreateState() bool {
+	return ListContainElement([]string{
+		string("available"),
+		string("pending"),
+	}, string(p))
+
 }
 
 func (p VpcEndpointState_Process) isOKState() bool {

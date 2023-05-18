@@ -183,7 +183,7 @@ func (c *ListOracle) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	oracleInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "oracle")
+	oracleInstanceInfos, err := utils.ExtractInstanceRDSInfo(clusterName, clusterType, "oracle")
 	if err != nil {
 		return err
 	}

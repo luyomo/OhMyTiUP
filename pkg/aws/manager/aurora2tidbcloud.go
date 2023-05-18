@@ -49,6 +49,8 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 ) error {
 	clusterType := "ohmytiup-aurora2tidbcloud"
 
+	// *********************************************************************/
+	// 01. pre process: common process
 	// Check the cluster name
 	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
 		return err
@@ -77,6 +79,8 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		return err
 	}
 
+	// *********************************************************************/
+	// 02. AWS resource generation
 	// -- aurora   ----------------------------------------------------------->
 	// -- tidb cloud --------------------------------------------------------->
 	// -- workstation cluster   | --> routes --> | --> TiDB instance deployment
@@ -84,9 +88,9 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
-	var clusterInfo task.ClusterInfo
+	// var clusterInfo task.ClusterInfo
 	auroraTask := task.NewBuilder().
-		CreateAurora(&m.localExe, base.AwsWSConfigs, base.AwsAuroraConfigs, &clusterInfo).
+		CreateAurora(&m.localExe, base.AwsWSConfigs, base.AwsAuroraConfigs).
 		BuildAsStep(fmt.Sprintf("  - Preparing aurora service"))
 	task001 = append(task001, auroraTask)
 
@@ -96,6 +100,7 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
 	task001 = append(task001, wsTask)
 
+	var clusterInfo task.ClusterInfo
 	if base.AwsTopoConfigs.DMMaster.Count > 0 || base.AwsTopoConfigs.DMWorker.Count > 0 {
 		dmTask := task.NewBuilder().CreateDMCluster(&m.localExe, "dm", base.AwsTopoConfigs, &clusterInfo).
 			BuildAsStep(fmt.Sprintf("  - Preparing dm servers"))
@@ -115,25 +120,33 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		CreateRouteTgw(&m.localExe, "dm", []string{"aurora"}).
 		BuildAsStep("Parallel Main step")
 
-	if 1 == 0 {
-		if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
-			if errorx.Cast(err) != nil {
-				// FIXME: Map possible task errors and give suggestions.
-				return err
-			}
+		//	if 1 == 0 {
+	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
 			return err
 		}
+		return err
 	}
+	//}
 
 	timer.Take("Execution")
 
 	// 8. Print the execution summary
 	timer.Print()
 
-	vpcEndpointName := tui.Prompt("Please input private service name: ")
-	fmt.Printf("The TiDB host name : %s \n", vpcEndpointName)
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+		return err
+	}
+
+	if err := m.workstation.DeployAuroraInfo(clusterType, name, base.AwsAuroraConfigs.DBPassword); err != nil {
+		return err
+	}
 
 	vpceIdChan := make(chan string) // The channel is used to send message to prompt from creation task
+
+	vpcEndpointName := tui.Prompt("Please input private service name: ")
+	fmt.Printf("The TiDB host name : %s \n", vpcEndpointName)
 
 	go func() {
 		select {
@@ -143,10 +156,29 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	}()
 
 	// Create VPC Endpoint
-	postTask := task.NewBuilder().
+	vpcEndpointTask := task.NewBuilder().
 		CreateVpcEndpoint(&m.localExe, vpceIdChan, "workstation", "workstation", task.NetworkTypePublic, vpcEndpointName).
 		BuildAsStep("Parallel Main step")
-	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
+	if err := vpcEndpointTask.Execute(ctxt.New(ctx, 10)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
+		return err
+	}
+
+	go func() {
+		select {
+		case vpceId := <-vpceIdChan:
+			tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+		}
+	}()
+
+	// Create VPC Endpoint
+	vpcEndpointTask = task.NewBuilder().
+		CreateVpcEndpoint(&m.localExe, vpceIdChan, "dm", "worker", task.NetworkTypePrivate, vpcEndpointName).
+		BuildAsStep("Parallel Main step")
+	if err := vpcEndpointTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
@@ -169,10 +201,6 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	}
 
 	if err := m.wsExe.TransferTemplate(ctx, "templates/config/tidbcloud-db-info.yml.tpl", "/opt/tidb-db-info.yml", "0644", base.TiDBCloudConfigs, true, 0); err != nil {
-		return err
-	}
-
-	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 

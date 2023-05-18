@@ -28,30 +28,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 )
-
-/*
-componentName: alertmanager/cdc/grafana/pd/prometheus/tidb/tikv
-*/
-// func (b *BaseTask) getTiDBComponent(componentName string) (*[]TiDBInstanceInfo, error) {
-// 	tidbClusterInfos, err := b.getTiDBClusterInfo()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var tidbInstancesInfo []TiDBInstanceInfo
-// 	for _, instanceInfo := range (*tidbClusterInfos).Instances {
-// 		if instanceInfo.Role == componentName {
-// 			tidbInstancesInfo = append(tidbInstancesInfo, instanceInfo)
-// 		}
-// 	}
-
-// 	return &tidbInstancesInfo, nil
-
-// }
 
 // Deploy Redshift Instance
 type Workstation struct {
@@ -202,6 +183,48 @@ func (c *Workstation) InstallPackages(packages *[]string) error {
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func (w *Workstation) DeployAuroraInfo(clusterType, clusterName, password string) error {
+	auroraInstanceInfos, err := awsutils.ExtractInstanceRDSInfo(clusterName, clusterType, "aurora")
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	dbInfo := make(map[string]string)
+
+	dbInfo["DBHost"] = (*auroraInstanceInfos)[0].EndPointAddress
+	dbInfo["DBPort"] = fmt.Sprintf("%d", (*auroraInstanceInfos)[0].DBPort)
+	dbInfo["DBUser"] = (*auroraInstanceInfos)[0].DBUserName
+	dbInfo["DBPassword"] = password
+
+	_, _, err = (*w.executor).Execute(ctx, "mkdir /opt/scripts", true)
+	if err != nil {
+		return err
+	}
+
+	err = (*w.executor).TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/aurora-db-info.yml", "0644", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = (*w.executor).TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_mysql_query", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = (*w.executor).TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_mysql_from_file", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	if err := w.InstallPackages(&[]string{"mariadb-server"}); err != nil {
+		return err
 	}
 
 	return nil

@@ -188,7 +188,7 @@ func (c *CreatePostgres) Install(ctx context.Context) error {
 		return err
 	}
 
-	auroraInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "postgres")
+	auroraInstanceInfos, err := utils.ExtractInstanceRDSInfo(clusterName, clusterType, "postgres")
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func (c *ListPostgres) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	auroraInstanceInfos, err := utils.ExtractInstanceOracleInfo(clusterName, clusterType, "postgres")
+	auroraInstanceInfos, err := utils.ExtractInstanceRDSInfo(clusterName, clusterType, "postgres")
 	if err != nil {
 		return err
 	}

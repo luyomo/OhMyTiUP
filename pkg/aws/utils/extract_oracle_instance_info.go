@@ -21,7 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 )
 
-type OracleInstanceInfo struct {
+type RDSInstanceInfo struct {
 	PhysicalResourceId string
 	EndPointAddress    string
 	DBName             string
@@ -34,7 +34,7 @@ type OracleInstanceInfo struct {
 	VpcSecurityGroupId string
 }
 
-func ExtractInstanceOracleInfo(name, cluster, clusterType string) (*[]OracleInstanceInfo, error) {
+func ExtractInstanceRDSInfo(name, cluster, clusterType string) (*[]RDSInstanceInfo, error) {
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 
@@ -44,14 +44,13 @@ func ExtractInstanceOracleInfo(name, cluster, clusterType string) (*[]OracleInst
 
 	rdsclient := rds.NewFromConfig(cfg)
 
-	rdsDescribeInput := &rds.DescribeDBInstancesInput{}
-	var oracleInstanceInfos []OracleInstanceInfo
+	var rdsInstanceInfos []RDSInstanceInfo
 
 	describeCNT := 100
 	// Search the available RDS instance. If the instance is not available, wait until it becomes available.
 	// From the logic it might have multiple RDS instance. But so far it is used for sinle instance.
 	for describeCNT > 0 {
-		rdsResourceInfo, err := rdsclient.DescribeDBInstances(context.TODO(), rdsDescribeInput)
+		rdsResourceInfo, err := rdsclient.DescribeDBInstances(context.TODO(), &rds.DescribeDBInstancesInput{})
 		if err != nil {
 
 			return nil, err
@@ -85,37 +84,37 @@ func ExtractInstanceOracleInfo(name, cluster, clusterType string) (*[]OracleInst
 				break
 			}
 
-			var oracleInstanceInfo OracleInstanceInfo
+			var rdsInstanceInfo RDSInstanceInfo
 			if dbInstance.DBInstanceIdentifier != nil {
-				oracleInstanceInfo.PhysicalResourceId = *(dbInstance.DBInstanceIdentifier)
+				rdsInstanceInfo.PhysicalResourceId = *(dbInstance.DBInstanceIdentifier)
 			}
 			if dbInstance.Endpoint.Address != nil {
-				oracleInstanceInfo.EndPointAddress = *(dbInstance.Endpoint.Address)
+				rdsInstanceInfo.EndPointAddress = *(dbInstance.Endpoint.Address)
 			}
 
 			if dbInstance.DBName != nil {
-				oracleInstanceInfo.DBName = *(dbInstance.DBName)
+				rdsInstanceInfo.DBName = *(dbInstance.DBName)
 			}
 
-			oracleInstanceInfo.DBPort = int64(dbInstance.Endpoint.Port)
+			rdsInstanceInfo.DBPort = int64(dbInstance.Endpoint.Port)
 			if dbInstance.MasterUsername != nil {
-				oracleInstanceInfo.DBUserName = *(dbInstance.MasterUsername)
+				rdsInstanceInfo.DBUserName = *(dbInstance.MasterUsername)
 			}
-			oracleInstanceInfo.DBSize = int64(dbInstance.AllocatedStorage)
+			rdsInstanceInfo.DBSize = int64(dbInstance.AllocatedStorage)
 			if dbInstance.Engine != nil {
-				oracleInstanceInfo.DBEngine = *(dbInstance.Engine)
+				rdsInstanceInfo.DBEngine = *(dbInstance.Engine)
 			}
 			if dbInstance.EngineVersion != nil {
-				oracleInstanceInfo.DBEngineVersion = *(dbInstance.EngineVersion)
+				rdsInstanceInfo.DBEngineVersion = *(dbInstance.EngineVersion)
 			}
 			if dbInstance.DBInstanceClass != nil {
-				oracleInstanceInfo.DBInstanceClass = *(dbInstance.DBInstanceClass)
+				rdsInstanceInfo.DBInstanceClass = *(dbInstance.DBInstanceClass)
 			}
 			if len(dbInstance.VpcSecurityGroups) > 0 {
-				oracleInstanceInfo.VpcSecurityGroupId = *(dbInstance.VpcSecurityGroups[0].VpcSecurityGroupId)
+				rdsInstanceInfo.VpcSecurityGroupId = *(dbInstance.VpcSecurityGroups[0].VpcSecurityGroupId)
 			}
 
-			oracleInstanceInfos = append(oracleInstanceInfos, oracleInstanceInfo)
+			rdsInstanceInfos = append(rdsInstanceInfos, rdsInstanceInfo)
 		}
 
 		// if the status is not set, no instance match.
@@ -128,5 +127,5 @@ func ExtractInstanceOracleInfo(name, cluster, clusterType string) (*[]OracleInst
 		break
 	}
 
-	return &oracleInstanceInfos, nil
+	return &rdsInstanceInfos, nil
 }

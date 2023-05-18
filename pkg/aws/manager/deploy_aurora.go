@@ -136,7 +136,6 @@ func (m *Manager) AuroraDeploy(
 		}
 	}
 
-	var clusterInfo task.ClusterInfo
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
 		return err
@@ -149,7 +148,7 @@ func (m *Manager) AuroraDeploy(
 			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora", task.NetworkTypePrivate).
-			CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs, &clusterInfo).
+			CreateAurora(&sexecutor, base.AwsWSConfigs, base.AwsAuroraConfigs).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora"}).
 			CreateRouteTgw(&sexecutor, "aurora", []string{"workstation"}).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
