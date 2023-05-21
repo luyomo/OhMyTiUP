@@ -25,9 +25,34 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/tidbcloudapi"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 	"github.com/luyomo/tidbcloud-sdk-go-v1/pkg/tidbcloud"
 )
 
+func (b *Builder) CreateTiDBCloud(tidbCloudConfigs *spec.TiDBCloudConfigs) *Builder {
+	b.tasks = append(b.tasks, &CreateTiDBCloud{
+		tidbCloudConfigs: tidbCloudConfigs,
+	})
+	return b
+}
+
+func (b *Builder) ListTiDBCloud(projectID uint64, status, clusterType string, tableClusters *[][]string, tableNodes *[][]string) *Builder {
+	b.tasks = append(b.tasks, &ListTiDBCloud{
+		projectID:     projectID,
+		status:        status,
+		clusterType:   clusterType,
+		tableClusters: tableClusters,
+		tableNodes:    tableNodes,
+	})
+	return b
+}
+
+func (b *Builder) DestroyTiDBCloud(workstation *ws.Workstation) *Builder {
+	b.tasks = append(b.tasks, &DestroyTiDBCloud{workstation: workstation})
+	return b
+}
+
+/* *************************************************************************** */
 type BaseTiDBCloud struct {
 }
 
@@ -93,23 +118,11 @@ func (c *CreateTiDBCloud) Execute(ctx context.Context) error {
 	// Get ClusterName from context
 	clusterName := ctx.Value("clusterName").(string)
 
-	fmt.Printf("Configuration is <%#v> \n\n\n\n\n\n", c.tidbCloudConfigs)
 	client, err := tidbcloud.NewDigestClientWithResponses()
 	if err != nil {
 		return err
 	}
 
-	// // 01. Look for the cluster
-
-	// listResponse, err := client.ListClustersOfProjectWithResponse(context.Background(), c.tidbCloudConfigs.TiDBCloudProjectID, &tidbcloud.ListClustersOfProjectParams{})
-	// if err != nil {
-	// 	return err
-	// }
-	// for _, item := range listResponse.JSON200.Items {
-	// 	if clusterName == *item.Name {
-	// 		return nil
-	// 	}
-	// }
 	clusterExist, err := c.ResourceExist(c.tidbCloudConfigs.TiDBCloudProjectID, clusterName)
 	if err != nil {
 		return err
@@ -244,12 +257,21 @@ func (c *CreateTiDBCloud) String() string {
 
 type DestroyTiDBCloud struct {
 	pexecutor *ctxt.Executor
+
+	workstation *ws.Workstation
 }
 
 // Execute implements the Task interface
 func (c *DestroyTiDBCloud) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	fmt.Printf("The cluster name is <%s> \n\n\n", clusterName)
+	tidbCloudInfo, err := c.workstation.ReadTiDBCloudDBInfo()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("tidb cloud info: %#v \n", tidbCloudInfo)
+
+	// func (c *BaseTiDBCloud) ResourceExist(projectID, clusterName string) (bool, error) {
 
 	return nil
 }

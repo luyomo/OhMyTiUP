@@ -46,6 +46,13 @@ const (
 	EXC_AWS_ENV INC_AWS_ENV_FLAG = false
 )
 
+type IS_ROOT_USER bool
+
+const (
+	ROOT_USER     IS_ROOT_USER = true
+	NON_ROOT_USER IS_ROOT_USER = false
+)
+
 // Input:
 //
 //	     localExe
@@ -70,6 +77,7 @@ type DBConnectInfo struct {
 	DBPort     int    `yaml:"Port"`
 	DBUser     string `yaml:"User"`
 	DBPassword string `yaml:"Password"`
+	ProjectID  string `yaml:"ProjectID"`
 }
 
 func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, identityFile string, awsCliFlag INC_AWS_ENV_FLAG) (*Workstation, error) {
@@ -203,7 +211,7 @@ func (w *Workstation) DeployAuroraInfo(clusterType, clusterName, password string
 	dbInfo["DBUser"] = (*auroraInstanceInfos)[0].DBUserName
 	dbInfo["DBPassword"] = password
 
-	_, _, err = (*w.executor).Execute(ctx, "mkdir /opt/scripts", true)
+	_, _, err = (*w.executor).Execute(ctx, "mkdir -p /opt/scripts", true)
 	if err != nil {
 		return err
 	}
@@ -230,6 +238,7 @@ func (w *Workstation) DeployAuroraInfo(clusterType, clusterName, password string
 	return nil
 }
 
+// Todo: Remove it after ReadDBConnInfo migration
 func (w *Workstation) GetRedshiftDBInfo() (*RedshiftDBInfo, error) {
 	var redshiftDBInfos []RedshiftDBInfo
 	err := w.ParseYamlConfig("/opt/redshift.dbinfo.yaml", &redshiftDBInfos)
@@ -248,6 +257,7 @@ func (w *Workstation) GetRedshiftDBInfo() (*RedshiftDBInfo, error) {
 	return &(redshiftDBInfos[0]), nil
 }
 
+// Todo: Remove it after ReadDBConnInfo migration
 func (w *Workstation) GetTiDBDBInfo() (*DBConnectInfo, error) {
 	var dbConnectInfo DBConnectInfo
 
@@ -259,10 +269,53 @@ func (w *Workstation) GetTiDBDBInfo() (*DBConnectInfo, error) {
 	return &dbConnectInfo, nil
 }
 
-func (c *Workstation) ParseYamlConfig(yamlFile string, config interface{}) error {
+type DB_TYPE string
+
+const (
+	DB_TYPE_AURORA    DB_TYPE = "aurora"
+	DB_TYPE_TIDBCLOUD DB_TYPE = "tidbcloud"
+	DB_TYPE_TIDB      DB_TYPE = "tidb"
+)
+
+func (w *Workstation) ReadDBConnInfo(dbType DB_TYPE) (*DBConnectInfo, error) {
+	var dbConnectInfo DBConnectInfo
+
+	var connFile string
+	switch dbType {
+	case DB_TYPE_AURORA:
+		connFile = "/opt/aurora-db-info.yml"
+	case DB_TYPE_TIDBCLOUD:
+		connFile = "/opt/tidbcloud-info.yml"
+	case DB_TYPE_TIDB:
+		connFile = "/opt/tidb-info.yml"
+	default:
+		return nil, errors.New("Please input the db type: aurora, tidbcloud, tidb")
+	}
+
+	err := w.ParseYamlConfig(connFile, &dbConnectInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dbConnectInfo, nil
+}
+
+// Todo: Remove it after migration to ReadDBConnInfo
+func (w *Workstation) ReadTiDBCloudDBInfo() (*DBConnectInfo, error) {
+	var dbConnectInfo DBConnectInfo
+
+	err := w.ParseYamlConfig("/opt/tidbcloud-info.yml", &dbConnectInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dbConnectInfo, nil
+}
+
+func (w *Workstation) ParseYamlConfig(yamlFile string, config interface{}) error {
 	localFile := fmt.Sprintf("/tmp/%s", filepath.Base(yamlFile))
 
-	if err := (*c.executor).Transfer(context.Background(), yamlFile, localFile, true, 1024); err != nil {
+	if err := (*w.executor).Transfer(context.Background(), yamlFile, localFile, true, 1024); err != nil {
 		return err
 	}
 
@@ -283,4 +336,40 @@ func (w *Workstation) GetExecutor() (*ctxt.Executor, error) {
 		return nil, errors.New("Not valid workstation executor")
 	}
 	return w.executor, nil
+}
+
+func (w *Workstation) InstallProfiles() error {
+	return w.RunSerialCmds([]string{
+		`echo "for i in ~/.profile.d/*.sh ; do
+    if [ -r "\$i" ]; then
+        . \$i
+    fi
+done" > ~/.bash_aliases`,
+		"mkdir -p ~/.profile.d",
+	}, false)
+}
+
+func (w *Workstation) InstallMySQLShell() error {
+	if err := w.RunSerialCmds([]string{
+		"wget https://cdn.mysql.com//Downloads/MySQL-Shell/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz -P /tmp",
+		"tar xvf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz -C /opt --transform s/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit/mysql-shell/",
+		"rm -rf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit",
+		"rm -rf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz",
+	}, true); err != nil {
+		return err
+	}
+
+	return w.RunSerialCmds([]string{`echo 'export PATH=/opt/mysql-shell/bin:$PATH' > ~/.profile.d/mysql-shell.sh`}, false)
+
+}
+
+func (w *Workstation) RunSerialCmds(cmds []string, isRootUser bool) error {
+	ctx := context.Background()
+
+	for _, cmd := range cmds {
+		if _, _, err := (*w.executor).Execute(ctx, cmd, isRootUser); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -677,15 +677,6 @@ func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType str
 	return b
 }
 
-// func (b *Builder) CreateInternetGateway(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-// 	b.tasks = append(b.tasks, &CreateInternetGateway{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 		clusterInfo:    clusterInfo,
-// 	})
-// 	return b
-// }
-
 func (b *Builder) AcceptVPCPeering(pexecutor *ctxt.Executor, listComponent []string) *Builder {
 	b.tasks = append(b.tasks, &AcceptVPCPeering{
 		pexecutor:     pexecutor,
@@ -700,18 +691,6 @@ func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, aw
 		awsWSConfigs:   awsWSConfigs,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
-	})
-	return b
-}
-
-func (b *Builder) DeployDM(pexecutor *ctxt.Executor, workstation *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, tidbCloudConfigs *spec.TiDBCloudConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &DeployDM{
-		pexecutor:        pexecutor,
-		workstation:      workstation,
-		awsWSConfigs:     awsWSConfigs,
-		tidbCloudConfigs: tidbCloudConfigs,
-		subClusterType:   subClusterType,
-		clusterInfo:      clusterInfo,
 	})
 	return b
 }
@@ -1101,19 +1080,11 @@ func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterT
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "public", clusterInfo, []int{22, 80, 3000}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "public", clusterInfo, []int{22, 80, 3000, 4000}).Build()).
 		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo, wsExe, gOpt).Build())
 
 	return b
 }
-
-// func (b *Builder) CreateNAT(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-// 	b.tasks = append(b.tasks, &CreateNAT{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 	})
-// 	return b
-// }
 
 func (b *Builder) DestroyNAT(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &DestroyNAT{pexecutor: pexecutor, subClusterType: subClusterType})
@@ -1256,8 +1227,8 @@ func (b *Builder) CreateMongoCluster(pexecutor *ctxt.Executor, subClusterType st
 }
 
 func (b *Builder) DestroyBasicResource(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-
-	b.Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor).Build()).
+	b.Step(fmt.Sprintf("Destroying vpc endpoints ... ..."), NewBuilder().DestroyVpcEndpoint(pexecutor).Build()).
+		Step(fmt.Sprintf("%s : Destroying internet gateway ... ...", subClusterType), NewBuilder().DestroyInternetGateway(pexecutor).Build()).
 		Step(fmt.Sprintf("%s : Destroying security group ... ...", subClusterType), NewBuilder().DestroySecurityGroup(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying nat ... ...", subClusterType), NewBuilder().DestroyNAT(pexecutor, subClusterType).Build()).
 		Step(fmt.Sprintf("%s : Destroying network ... ...", subClusterType), NewBuilder().DestroyNetwork(pexecutor, subClusterType).Build()).
@@ -1573,24 +1544,6 @@ func (b *Builder) ListAwsEC2(pexecutor *ctxt.Executor, tableEC2 *[][]string) *Bu
 	b.tasks = append(b.tasks, &ListAllAwsEC2{
 		pexecutor: pexecutor,
 		tableEC2:  tableEC2,
-	})
-	return b
-}
-
-func (b *Builder) CreateTiDBCloud(tidbCloudConfigs *spec.TiDBCloudConfigs) *Builder {
-	b.tasks = append(b.tasks, &CreateTiDBCloud{
-		tidbCloudConfigs: tidbCloudConfigs,
-	})
-	return b
-}
-
-func (b *Builder) ListTiDBCloud(projectID uint64, status, clusterType string, tableClusters *[][]string, tableNodes *[][]string) *Builder {
-	b.tasks = append(b.tasks, &ListTiDBCloud{
-		projectID:     projectID,
-		status:        status,
-		clusterType:   clusterType,
-		tableClusters: tableClusters,
-		tableNodes:    tableNodes,
 	})
 	return b
 }

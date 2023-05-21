@@ -119,15 +119,15 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		CreateRouteTgw(&m.localExe, "dm", []string{"aurora"}).
 		BuildAsStep("Parallel Main step")
 
-		//	if 1 == 0 {
-	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
+	if 1 == 0 {
+		if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
+			if errorx.Cast(err) != nil {
+				// FIXME: Map possible task errors and give suggestions.
+				return err
+			}
 			return err
 		}
-		return err
 	}
-	//}
 
 	timer.Take("Execution")
 
@@ -138,73 +138,85 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		return err
 	}
 
+	if err := m.workstation.InstallProfiles(); err != nil {
+		return err
+	}
+
+	if err := m.workstation.InstallMySQLShell(); err != nil {
+		return err
+	}
+
+	// // Fetch aurora db info and write it into workstation's aurora-db-info.yaml
 	if err := m.workstation.DeployAuroraInfo(clusterType, name, base.AwsAuroraConfigs.DBPassword); err != nil {
 		return err
 	}
 
-	vpceIdChan := make(chan string) // The channel is used to send message to prompt from creation task
+	// If /opt/tidbcloud-info.yml in the worksation exists, skip the private link setup for TiDB Cloud
+	if _, err := m.workstation.ReadDBConnInfo(ws.DB_TYPE_TIDBCLOUD); err != nil {
+		vpceIdChan := make(chan string) // The channel is used to send message to prompt from creation task
 
-	vpcEndpointName := tui.Prompt("Please input private service name: ")
-	fmt.Printf("The TiDB host name : %s \n", vpcEndpointName)
+		vpcEndpointName := tui.Prompt("Please input private service name: ")
+		fmt.Printf("The TiDB host name : %s \n", vpcEndpointName)
 
-	go func() {
-		select {
-		case vpceId := <-vpceIdChan:
-			tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
-		}
-	}()
+		go func() {
+			select {
+			case vpceId := <-vpceIdChan:
+				tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+			}
+		}()
 
-	// Create VPC Endpoint
-	vpcEndpointTask := task.NewBuilder().
-		CreateVpcEndpoint(&m.localExe, vpceIdChan, "workstation", "workstation", task.NetworkTypePublic, vpcEndpointName).
-		BuildAsStep("Parallel Main step")
-	if err := vpcEndpointTask.Execute(ctxt.New(ctx, 10)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
+		// Create VPC Endpoint
+		vpcEndpointTask := task.NewBuilder().
+			CreateVpcEndpoint(&m.localExe, vpceIdChan, "workstation", "workstation", task.NetworkTypePublic, vpcEndpointName).
+			BuildAsStep("Parallel Main step")
+		if err := vpcEndpointTask.Execute(ctxt.New(ctx, 10)); err != nil {
+			if errorx.Cast(err) != nil {
+				// FIXME: Map possible task errors and give suggestions.
+				return err
+			}
 			return err
 		}
-		return err
-	}
 
-	go func() {
-		select {
-		case vpceId := <-vpceIdChan:
-			tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
-		}
-	}()
+		go func() {
+			select {
+			case vpceId := <-vpceIdChan:
+				tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+			}
+		}()
 
-	// Create VPC Endpoint
-	vpcEndpointTask = task.NewBuilder().
-		CreateVpcEndpoint(&m.localExe, vpceIdChan, "dm", "worker", task.NetworkTypePrivate, vpcEndpointName).
-		BuildAsStep("Parallel Main step")
-	if err := vpcEndpointTask.Execute(ctxt.New(ctx, 10)); err != nil {
-		if errorx.Cast(err) != nil {
-			// FIXME: Map possible task errors and give suggestions.
+		// Create VPC Endpoint
+		vpcEndpointTask = task.NewBuilder().
+			CreateVpcEndpoint(&m.localExe, vpceIdChan, "dm", "worker", task.NetworkTypePrivate, vpcEndpointName).
+			BuildAsStep("Parallel Main step")
+		if err := vpcEndpointTask.Execute(ctxt.New(ctx, 10)); err != nil {
+			if errorx.Cast(err) != nil {
+				// FIXME: Map possible task errors and give suggestions.
+				return err
+			}
 			return err
 		}
-		return err
-	}
 
-	// To replace the below logic by API if it is provided.
-	// 01. Prompt the private link - host
-	for true {
-		tidbCloudHost := tui.Prompt("Please setup the TiDB Cloud Private endpoint and provide the accessible host:")
-		fmt.Printf("The TiDB host name : %s \n", tidbCloudHost)
+		// To replace the below logic by API if it is provided.
+		// 01. Prompt the private link - host
+		for true {
+			tidbCloudHost := tui.Prompt("Please setup the TiDB Cloud Private endpoint and provide the accessible host:")
+			fmt.Printf("The TiDB host name : %s \n", tidbCloudHost)
 
-		stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("mysql -h %s -P %d -u %s -p%s -e 'select current_timestamp'", tidbCloudHost, base.TiDBCloudConfigs.Port, base.TiDBCloudConfigs.User, base.TiDBCloudConfigs.Password), true)
-		if err == nil {
-			base.TiDBCloudConfigs.Host = tidbCloudHost
-			fmt.Printf("The query result is: %s \n", string(stdout))
-			break
+			stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("mysql -h %s -P %d -u %s -p%s -e 'select current_timestamp'", tidbCloudHost, base.TiDBCloudConfigs.Port, base.TiDBCloudConfigs.User, base.TiDBCloudConfigs.Password), true)
+			if err == nil {
+				base.TiDBCloudConfigs.Host = tidbCloudHost
+				fmt.Printf("The query result is: %s \n", string(stdout))
+				break
+			}
 		}
-	}
 
-	if err := m.wsExe.TransferTemplate(ctx, "templates/config/tidbcloud-db-info.yml.tpl", "/opt/tidb-db-info.yml", "0644", base.TiDBCloudConfigs, true, 0); err != nil {
-		return err
+		if err := m.wsExe.TransferTemplate(ctx, "templates/config/tidbcloud-db-info.yml.tpl", "/opt/tidbcloud-info.yml", "0644", base.TiDBCloudConfigs, true, 0); err != nil {
+			return err
+		}
 	}
 
 	postTask := task.NewBuilder().
-		DeployDM(&m.localExe, &m.wsExe, "dm", base.AwsWSConfigs, base.TiDBCloudConfigs, &clusterInfo).
+		DeployDM(&m.localExe, &m.wsExe, m.workstation, "dm", base.AwsWSConfigs, base.TiDBCloudConfigs, &clusterInfo).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {

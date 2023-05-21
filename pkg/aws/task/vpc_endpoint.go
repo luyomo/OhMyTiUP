@@ -64,8 +64,8 @@ func (b *Builder) ListVpcEndpoint(pexecutor *ctxt.Executor) *Builder {
 	return b
 }
 
-func (b *Builder) DestroyVpcEndpoint(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-	b.tasks = append(b.tasks, &DestroyVpcEndpoint{BaseVpcEndpoint: BaseVpcEndpoint{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}}})
+func (b *Builder) DestroyVpcEndpoint(pexecutor *ctxt.Executor) *Builder {
+	b.tasks = append(b.tasks, &DestroyVpcEndpoint{BaseVpcEndpoint: BaseVpcEndpoint{BaseTask: BaseTask{pexecutor: pexecutor}}})
 	return b
 }
 
@@ -269,7 +269,6 @@ func (c *CreateVpcEndpoint) String() string {
 
 type DestroyVpcEndpoint struct {
 	BaseVpcEndpoint
-	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface

@@ -175,8 +175,6 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		ImageId:      aws.String(c.awsWSConfigs.ImageId),
 		InstanceType: types.InstanceType(c.awsWSConfigs.InstanceType),
 		KeyName:      aws.String(c.awsWSConfigs.KeyName),
-		// SubnetId:         aws.String((*subnets)[0]),
-		// SecurityGroupIds: []string{*securityGroupID},
 		NetworkInterfaces: []types.InstanceNetworkInterfaceSpecification{
 			{
 				AssociatePublicIpAddress: aws.Bool(true),
@@ -185,8 +183,6 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 				SubnetId:                 aws.String((*subnets)[0]),
 				Groups:                   []string{*securityGroupID},
 				InterfaceType:            aws.String("interface"),
-				// Groups:                   []string{c.clusterInfo.publicSecurityGroupId},
-				// SubnetId:                 aws.String(c.clusterInfo.publicSubnet),
 			},
 		},
 		TagSpecifications: tagSpecification,
@@ -254,7 +250,7 @@ func (c *DestroyAutoScalingGroup) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("The auto saling group: %#v \n\n\n", describeAutoScalingGroups.AutoScalingGroups)
+
 	for _, _autoScalingGroup := range describeAutoScalingGroups.AutoScalingGroups {
 		fmt.Printf("The auto scaling group: <%#v> \n\n\n", *_autoScalingGroup.AutoScalingGroupName)
 		deleteAutoScalingGroupInput := &autoscaling.DeleteAutoScalingGroupInput{AutoScalingGroupName: _autoScalingGroup.AutoScalingGroupName, ForceDelete: aws.Bool(true)}
@@ -289,64 +285,6 @@ func (c *DestroyAutoScalingGroup) Rollback(ctx context.Context) error {
 func (c *DestroyAutoScalingGroup) String() string {
 	return fmt.Sprintf("Echo: Destroying auto scaling")
 }
-
-// type DestroyLaunchTemplate struct {
-// 	pexecutor      *ctxt.Executor
-// 	subClusterType string
-// }
-
-// // Execute implements the Task interface
-// func (c *DestroyLaunchTemplate) Execute(ctx context.Context) error {
-// 	cfg, err := config.LoadDefaultConfig(context.TODO())
-// 	if err != nil {
-// 		return err
-// 	}
-// 	clusterName := ctx.Value("clusterName").(string)
-// 	clusterType := ctx.Value("clusterType").(string)
-
-// 	client := ec2.NewFromConfig(cfg)
-
-// 	var filters []types.Filter
-// 	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
-// 	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
-
-// 	describeLaunchTemplatesInput := &ec2.DescribeLaunchTemplatesInput{Filters: filters}
-
-// 	describeLaunchTemplates, err := client.DescribeLaunchTemplates(context.TODO(), describeLaunchTemplatesInput)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	for _, launchTemplate := range describeLaunchTemplates.LaunchTemplates {
-// 		deleteLaunchTemplateInput := &ec2.DeleteLaunchTemplateInput{LaunchTemplateId: launchTemplate.LaunchTemplateId}
-// 		_, err := client.DeleteLaunchTemplate(context.TODO(), deleteLaunchTemplateInput)
-// 		if err != nil {
-// 			var ae smithy.APIError
-// 			if errors.As(err, &ae) {
-// 				fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
-// 				if ae.ErrorCode() != "InvalidLaunchTemplateId.NotFound" {
-// 					return nil
-// 				}
-// 			} else {
-// 				return err
-// 			}
-// 			return err
-// 		}
-
-// 	}
-
-// 	return nil
-// }
-
-// // Rollback implements the Task interface
-// func (c *DestroyLaunchTemplate) Rollback(ctx context.Context) error {
-// 	return ErrUnsupportedRollback
-// }
-
-// // String implements the fmt.Stringer interface
-// func (c *DestroyLaunchTemplate) String() string {
-// 	return fmt.Sprintf("Echo: Destroying launch template")
-// }
 
 type DestroyEC struct {
 	pexecutor      *ctxt.Executor
