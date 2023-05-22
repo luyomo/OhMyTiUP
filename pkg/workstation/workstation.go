@@ -226,6 +226,11 @@ func (w *Workstation) DeployAuroraInfo(clusterType, clusterName, password string
 		return err
 	}
 
+	err = (*w.executor).TransferTemplate(ctx, "templates/scripts/run_mysql_shell_query.sh.tpl", "/opt/scripts/run_mysql_shell_query.sh", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
 	err = (*w.executor).TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_mysql_from_file", "0755", dbInfo, true, 0)
 	if err != nil {
 		return err
@@ -355,6 +360,7 @@ func (w *Workstation) InstallMySQLShell() error {
 		"tar xvf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz -C /opt --transform s/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit/mysql-shell/",
 		"rm -rf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit",
 		"rm -rf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz",
+		"sed -i 's/^default-character-set/#default-character-set/' /etc/mysql/mariadb.conf.d/50-client.cnf",
 	}, true); err != nil {
 		return err
 	}
