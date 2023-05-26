@@ -1916,26 +1916,27 @@ func (b *BaseTask) waitUntilResouceAvailable(_interval, _timeout time.Duration, 
 	}
 }
 
-func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceStateCheck func() (bool, error)) error {
-	timeout := time.After(_timeout)
-	d := time.NewTicker(_interval)
+// Move it to untils
+// func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceStateCheck func() (bool, error)) error {
+// 	timeout := time.After(_timeout)
+// 	d := time.NewTicker(_interval)
 
-	for {
-		// Select statement
-		select {
-		case <-timeout:
-			return errors.New("Timed out")
-		case _ = <-d.C:
-			resourceStateAsExpectFlag, err := _resourceStateCheck()
-			if err != nil {
-				return err
-			}
-			if resourceStateAsExpectFlag == true {
-				return nil
-			}
-		}
-	}
-}
+// 	for {
+// 		// Select statement
+// 		select {
+// 		case <-timeout:
+// 			return errors.New("Timed out")
+// 		case _ = <-d.C:
+// 			resourceStateAsExpectFlag, err := _resourceStateCheck()
+// 			if err != nil {
+// 				return err
+// 			}
+// 			if resourceStateAsExpectFlag == true {
+// 				return nil
+// 			}
+// 		}
+// 	}
+// }
 
 // Deploy Redshift Instance
 type RunCommonWS struct {

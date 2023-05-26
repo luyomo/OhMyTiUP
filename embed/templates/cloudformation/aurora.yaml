@@ -8,6 +8,7 @@ Metadata:
         Label:
           default: "Meta Configuration"
         Parameters:
+          - ClusterName
           - InstanceType
           - AuroraFamily
           - Engine
@@ -58,6 +59,9 @@ Parameters:
       - 5.7.mysql_aurora.2.11.2
       - 8.0.29
       - 8.0.mysql_aurora.3.02.0
+  ClusterName:
+    Type: String
+    Description: The DB instance cluster name
   Password:
     Type: String
     Description: The password of RDB
@@ -197,7 +201,8 @@ Resources:
     Type: AWS::RDS::DBCluster
     DeletionPolicy: Snapshot
     Properties: 
-      DBClusterIdentifier: tidb2aurora
+      DBClusterIdentifier: 
+        Ref: ClusterName
       DBClusterParameterGroupName: 
         Ref: RDSDBClusterParameterGroup
       DBSubnetGroupName: 

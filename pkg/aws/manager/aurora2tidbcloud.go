@@ -138,16 +138,20 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		return err
 	}
 
-	if err := m.workstation.InstallProfiles(); err != nil {
+	if err := m.workstation.InstallPackages(&[]string{"mariadb-server", "jq"}); err != nil {
 		return err
 	}
 
-	if err := m.workstation.InstallMySQLShell(); err != nil {
+	if err := m.workstation.InstallProfiles(); err != nil {
 		return err
 	}
 
 	// // Fetch aurora db info and write it into workstation's aurora-db-info.yaml
 	if err := m.workstation.DeployAuroraInfo(clusterType, name, base.AwsAuroraConfigs.DBPassword); err != nil {
+		return err
+	}
+
+	if err := m.workstation.InstallMySQLShell(); err != nil {
 		return err
 	}
 

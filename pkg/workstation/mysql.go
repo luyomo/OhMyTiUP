@@ -17,7 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	// "errors"
-	// "fmt"
+	"fmt"
 	// "gopkg.in/yaml.v3"
 	// "io/ioutil"
 	// "os"
@@ -33,8 +33,16 @@ import (
 	// "github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 
-func (w *Workstation) ReadMySQLBinPos() (*map[string]interface{}, error) {
-	stdout, _, err := (*w.executor).Execute(context.Background(), "/opt/scripts/run_mysql_shell_query.sh mysql 'show master status'", false)
+func (w *Workstation) ReadMySQLBinPos() (*[]map[string]interface{}, error) {
+	return w.queryMySQL("SHOW MASTER STATUS")
+}
+
+func (w *Workstation) ReadMySQLEarliestBinPos() (*[]map[string]interface{}, error) {
+	return w.queryMySQL("SHOW BINARY LOGS")
+}
+
+func (w *Workstation) queryMySQL(query string) (*[]map[string]interface{}, error) {
+	stdout, _, err := (*w.executor).Execute(context.Background(), fmt.Sprintf("/opt/scripts/run_mysql_shell_query.sh mysql '%s'", query), false)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +53,12 @@ func (w *Workstation) ReadMySQLBinPos() (*map[string]interface{}, error) {
 		return nil, err
 	}
 
-	msgMap := msgMapTemplate.(map[string]interface{})
+	var res []map[string]interface{}
 
-	return &msgMap, nil
+	msgMap := msgMapTemplate.([]interface{})
+	for _, _entry := range msgMap {
+		res = append(res, _entry.(map[string]interface{}))
+	}
+
+	return &res, nil
 }

@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
+	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
@@ -83,18 +84,28 @@ func (t TplTiupDMData) String() string {
 	return fmt.Sprintf("DM Master: %s  |  DMWorker:%s  | Monitor:%s | AlertManager: %s | Grafana: %s", strings.Join(t.DMMaster, ","), strings.Join(t.DMWorker, ","), strings.Join(t.Monitor, ","), strings.Join(t.Grafana, ","), strings.Join(t.AlertManager, ","))
 }
 
-// 04. Take aurora database snapshot to S3
-// 05. Import snapshot data from S3 to TiDBCloud
-// 06. Take the TiDB Cloud connection info
-// 07. Create source
-// 08. Create task
+// 04. Task aurora snapshot
+// 05. Take aurora database snapshot to S3
+// 06. Import snapshot data from S3 to TiDBCloud
+// 07. Take the TiDB Cloud connection info
+// 08. Create source
+// 09. Create task
 // Execute implements the Task interface
 func (c *DeployDM) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
+	mapArgs := make(map[string]string)
+	mapArgs["clusterName"] = clusterName
+	mapArgs["clusterType"] = clusterType
+	mapArgs["subClusterType"] = c.subClusterType
+
 	// 01. Get the instance info using AWS SDK
-	dmInstances, err := awsutils.ExtractEC2Instances(clusterName, clusterType, "")
+	ec2api, err := ec2utils.NewEC2API(&mapArgs)
+	if err != nil {
+		return err
+	}
+	dmInstances, err := ec2api.ExtractEC2Instances(clusterName, clusterType, "")
 	if err != nil {
 		return err
 	}
@@ -114,7 +125,85 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	}
 	fmt.Printf("The bionlog position: %#v \n\n\n", *binlogPos)
 
+	earliestBinlogPos, err := c.workstation.ReadMySQLEarliestBinPos() // Get [show master status]
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The bionlog position: %#v \n\n\n", (*earliestBinlogPos)[0])
+
+	// snapshotARN, err := awsutils.GetSnapshot(clusterName, (*binlogPos)[0]["File"].(string), (*binlogPos)[0]["Position"].(float64))
+	snapshotARN, err := awsutils.GetSnapshot(clusterName)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The snapshot arn: %s \n\n\n", *snapshotARN)
+
+	if *snapshotARN == "" {
+		snapshotARN, err = awsutils.RDSSnapshotTaken(clusterName, (*binlogPos)[0]["File"].(string), (*binlogPos)[0]["Position"].(float64))
+		if err != nil {
+			return err
+		}
+		fmt.Printf("created snapshot arn : %s \n\n\n", *snapshotARN)
+	}
+	fmt.Printf("fetched snapshot arn : %s \n\n\n", *snapshotARN)
+
+	policy := fmt.Sprintf(`{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ExportPolicy",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject*",
+                "s3:ListBucket",
+                "s3:GetObject*",
+                "s3:DeleteObject*",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": [
+                "arn:aws:s3:::%s",
+                "arn:aws:s3:::%s/*"
+            ]
+        }
+    ]
+}`, "jay-data", "jay-data")
+	assumeRolePolicyDocument := `{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+            "Service": "export.rds.amazonaws.com"
+          },
+         "Action": "sts:AssumeRole"
+       }
+     ] 
+   }`
+	if err := NewBuilder().
+		CreateServiceIamPolicy("s3", policy).
+		CreateServiceIamRole("s3", assumeRolePolicyDocument).
+		CreateKMS("s3").
+		CreateRDSExportS3("s3").
+		Build().Execute(ctxt.New(ctx, 1)); err != nil {
+		return err
+	}
+
+	// if err := tasks.Execute(ctxt.New(ctx, 10)); err != nil {
+	// 	return err
+	// }
+
+	// fmt.Printf("The tasks are <%#v> \n\n\n", tasks)
+
+	// Cloud formation
+	// -- Create S3 bucket
+	// -- Create IAM policy
+	// -- Create IAM role
+
 	return errors.New("stop here")
+
+	// Get the earliest bin position
+	// Get the current bin position
+	// Get the bin position from snapshot
 
 	// 2. Get all the nodes from tag definition
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, c.subClusterType)

@@ -16,6 +16,7 @@ package utils
 import (
 	"strconv"
 	"strings"
+    "sort"
 
 	"github.com/spf13/pflag"
 )
@@ -45,4 +46,13 @@ func IsFlagSetByUser(flagSet *pflag.FlagSet, flagName string) bool {
 func MustAtoI(a string) int {
 	v, _ := strconv.Atoi(a)
 	return v
+}
+
+func Includes(s []string, searchterm string) bool {
+    if len(s) == 0 {
+        return false
+    }
+    i := sort.SearchStrings(s, searchterm)
+
+    return i < len(s) && s[i] == searchterm
 }

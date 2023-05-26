@@ -24,6 +24,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
+
+	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
 )
 
 type VpcEndpointState_Process string
@@ -147,7 +149,6 @@ func (b *BaseVpcEndpoint) readResources(mode ReadResourceMode) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The response is: <%#v> \n\n\n\n\n\n", resp)
 
 	for _, vpcEndpoint := range resp.VpcEndpoints {
 		_state := VpcEndpointState_Process(vpcEndpoint.State)
@@ -183,7 +184,6 @@ type CreateVpcEndpoint struct {
 
 // Execute implements the Task interface
 func (c *CreateVpcEndpoint) Execute(ctx context.Context) error {
-	fmt.Printf("Starting to create vpc endpoint \n\n\n")
 
 	if err := c.init(ctx, ReadResourceModeAfterCreate); err != nil { // ClusterName/ClusterType and client initialization
 		return err
@@ -193,31 +193,41 @@ func (c *CreateVpcEndpoint) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Starting to create resource <%#v> \n\n\n", clusterExistFlag)
 
 	if clusterExistFlag == false {
 		// TODO: Add resource preparation
 		tags := c.MakeEC2Tags()
 
-		fmt.Printf("CreateRouteTable -> ClusterName: %s, ClusterType: %s, subClusterType: %s, scope: %s \n\n\n\n", c.clusterName, c.clusterType, c.subClusterType, c.scope)
 		vpcId, err := c.GetVpcItem("VpcId")
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("The vpc id is <%s> \n\n\n", *vpcId)
-
 		securityGroup, err := c.GetSecurityGroup(ThrowErrorIfNotExists)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The security group  is <%s> \n\n\n", *securityGroup)
 
-		subnet, err := c.GetSubnetsInfo(1)
+		// subnet, err := c.GetSubnetsInfo(1)
+		// if err != nil {
+		// 	return err
+		// }
+
+		mapArgs := make(map[string]string)
+		mapArgs["clusterName"] = c.clusterName
+		mapArgs["clusterType"] = c.clusterType
+		mapArgs["subClusterType"] = c.subClusterType
+
+		// 01. Get the instance info using AWS SDK
+		ec2api, err := ec2utils.NewEC2API(&mapArgs)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("The subnet is <%s> \n\n\n", *subnet)
+
+		subnet, err := ec2api.GetAvailabilitySubnet4EndpointService(c.serviceName)
+		if err != nil {
+			return err
+		}
 
 		resp, err := c.client.CreateVpcEndpoint(context.TODO(), &ec2.CreateVpcEndpointInput{
 			ServiceName:      aws.String(c.serviceName),

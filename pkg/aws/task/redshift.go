@@ -28,6 +28,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
+    awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 )
 
 func (b *Builder) CreateRedshiftCluster(pexecutor *ctxt.Executor, subClusterType string, awsRedshiftTopoConfigs *spec.AwsRedshiftTopoConfigs, clusterInfo *ClusterInfo) *Builder {
@@ -362,7 +363,7 @@ func (c *DestroyRedshiftCluster) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if err = WaitResourceUntilExpectState(30*time.Second, 5*time.Minute, func() (bool, error) {
+		if err = awsutils.WaitResourceUntilExpectState(30*time.Second, 5*time.Minute, func() (bool, error) {
 			clusterExist, err := c.ClusterExist( /*client, clusterName*/ )
 			return !clusterExist, err
 		}); err != nil {
