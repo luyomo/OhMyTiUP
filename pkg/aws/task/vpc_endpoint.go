@@ -208,11 +208,6 @@ func (c *CreateVpcEndpoint) Execute(ctx context.Context) error {
 			return err
 		}
 
-		// subnet, err := c.GetSubnetsInfo(1)
-		// if err != nil {
-		// 	return err
-		// }
-
 		mapArgs := make(map[string]string)
 		mapArgs["clusterName"] = c.clusterName
 		mapArgs["clusterType"] = c.clusterType
@@ -262,6 +257,8 @@ func (c *CreateVpcEndpoint) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		c.vpceIdChan <- ""
 	}
 
 	return nil

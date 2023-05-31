@@ -53,6 +53,7 @@ require (
 	github.com/joomcode/errorx v1.1.0
 	github.com/juju/ansiterm v1.0.0
 	github.com/luyomo/tidbcloud-sdk-go-v1 v0.1.0
+	github.com/manifoldco/promptui v0.9.0
 	github.com/mattn/go-runewidth v0.0.13
 	github.com/otiai10/copy v1.9.0
 	github.com/pingcap/check v0.0.0-20200212061837-5e12011dc712
@@ -121,6 +122,7 @@ require (
 	github.com/blevesearch/zap/v13 v13.0.6 // indirect
 	github.com/blevesearch/zap/v14 v14.0.5 // indirect
 	github.com/blevesearch/zap/v15 v15.0.3 // indirect
+	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/couchbase/vellum v1.0.2 // indirect

@@ -33,10 +33,12 @@ import (
 
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
+	kmsapi "github.com/luyomo/OhMyTiUP/pkg/aws/utils/kms"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/utils/tidbcloud"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
-func (b *Builder) DeployDM(pexecutor *ctxt.Executor, workstation02 *ctxt.Executor, workstation *ws.Workstation, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, tidbCloudConfigs *spec.TiDBCloudConfigs, clusterInfo *ClusterInfo) *Builder {
+func (b *Builder) DeployDM(pexecutor *ctxt.Executor, workstation02 *ctxt.Executor, workstation *ws.Workstation, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, tidbCloudConfigs *spec.TiDBCloudConfigs) *Builder {
 	b.tasks = append(b.tasks, &DeployDM{
 		pexecutor:        pexecutor,
 		workstation02:    workstation02,
@@ -44,7 +46,6 @@ func (b *Builder) DeployDM(pexecutor *ctxt.Executor, workstation02 *ctxt.Executo
 		awsWSConfigs:     awsWSConfigs,
 		tidbCloudConfigs: tidbCloudConfigs,
 		subClusterType:   subClusterType,
-		clusterInfo:      clusterInfo,
 	})
 	return b
 }
@@ -58,7 +59,6 @@ type DeployDM struct {
 	awsWSConfigs     *spec.AwsWSConfigs
 	tidbCloudConfigs *spec.TiDBCloudConfigs
 	subClusterType   string
-	clusterInfo      *ClusterInfo
 }
 
 type TplTiupDMData struct {
@@ -136,7 +136,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The snapshot arn: %s \n\n\n", *snapshotARN)
+	fmt.Printf("---------- The snapshot arn : %s \n\n\n", *snapshotARN)
 
 	if *snapshotARN == "" {
 		snapshotARN, err = awsutils.RDSSnapshotTaken(clusterName, (*binlogPos)[0]["File"].(string), (*binlogPos)[0]["Position"].(float64))
@@ -167,6 +167,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
         }
     ]
 }`, "jay-data", "jay-data")
+
 	assumeRolePolicyDocument := `{
      "Version": "2012-10-17",
      "Statement": [
@@ -179,11 +180,88 @@ func (c *DeployDM) Execute(ctx context.Context) error {
        }
      ] 
    }`
+
+	mapArgs["subClusterType"] = "s3"
+	kmsapi, err := kmsapi.NewKmsAPI(&mapArgs)
+	if err != nil {
+		return err
+	}
+
+	kmsKeys, err := kmsapi.GetKMSKey()
+	if err != nil {
+		return err
+	}
+	if kmsKeys == nil {
+		return errors.New("No KMS key found")
+	}
+
+	importPolicy := fmt.Sprintf(`{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": "arn:aws:s3:::%s/*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetBucketLocation"
+            ],
+            "Resource": "arn:aws:s3:::%s"
+        },
+        {
+            "Sid": "AllowKMSkey",
+            "Effect": "Allow",
+            "Action": [
+                "kms:Decrypt"
+            ],
+            "Resource": "%s"
+        }
+    ]
+}`, "jay-data", "jay-data", *(*kmsKeys)[0].KeyArn)
+
+	tidbcloudApi, err := tidbcloud.NewTiDBCloudAPI(c.tidbCloudConfigs.TiDBCloudProjectID, clusterName, nil)
+	if err != nil {
+		return err
+	}
+	accountId, externalId, err := tidbcloudApi.GetImportTaskRoleInfo()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("The account Id : %s, external id: %s \n\n\n", *accountId, *externalId)
+
+	importAssumeRolePolicyDocument := fmt.Sprintf(`{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+                "AWS": "%s"
+            },
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "%s"
+                }
+            }
+        }
+    ]
+}`, *accountId, *externalId)
+
 	if err := NewBuilder().
-		CreateServiceIamPolicy("s3", policy).
-		CreateServiceIamRole("s3", assumeRolePolicyDocument).
+		CreateServiceIamPolicy("s3export", policy).
+		CreateServiceIamRole("s3export", assumeRolePolicyDocument).
 		CreateKMS("s3").
-		CreateRDSExportS3("s3").
+		CreateRDSExportS3("s3export").
+		CreateServiceIamPolicy("s3import", importPolicy).
+		CreateServiceIamRole("s3import", importAssumeRolePolicyDocument).
 		Build().Execute(ctxt.New(ctx, 1)); err != nil {
 		return err
 	}
@@ -199,6 +277,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	// -- Create IAM policy
 	// -- Create IAM role
 
+	return nil
 	return errors.New("stop here")
 
 	// Get the earliest bin position

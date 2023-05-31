@@ -434,12 +434,65 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 		return err
 	}
 
+	_, accountID, err := task.GetCallerUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	policy := fmt.Sprintf(`{
+		    "Version": "2012-10-17",
+		    "Statement": [
+		        {
+		            "Sid": "VisualEditor0",
+		            "Effect": "Allow",
+		            "Action": [
+		                "glue:ListSchemaVersions",
+		                "glue:GetRegistry",
+		                "glue:QuerySchemaVersionMetadata",
+		                "glue:GetSchemaVersionsDiff",
+		                "glue:ListSchemas",
+		                "glue:UntagResource",
+		                "glue:GetSchema",
+		                "glue:TagResource",
+		                "glue:GetSchemaByDefinition"
+		            ],
+		            "Resource": [
+		                "arn:aws:glue:*:%s:schema/*",
+		                "arn:aws:glue:*:%s:registry/*"
+		            ]
+		        },
+		        {
+		            "Sid": "VisualEditor1",
+		            "Effect": "Allow",
+		            "Action": [
+		                "glue:GetSchemaVersion",
+		                "glue:ListRegistries"
+		            ],
+		            "Resource": "*"
+		        }
+		    ]
+	}`, accountID, accountID)
+
+	assumeRolePolicyDocument := `{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Statement1",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "kafkaconnect.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}`
+
 	t2 := task.NewBuilder().
 		CreatePerfTables(&m.wsExe, "embed/templates/config/tidb2kafka2redshift/ColumnMapping.yml", strings.Split("BOOL,TINYINT,SMALLINT", ",")).
 		CreateChangefeed(&m.wsExe, mskEndpoints).
 		CreateWorkerConfiguration().
-		CreateServiceIamPolicy().
-		CreateServiceIamRole().
+		CreateServiceIamPolicy("glue",  policy).
+		CreateServiceIamRole("glue",  assumeRolePolicyDocument).
 		CreateMskConnect(&m.wsExe, &task.CreateMskConnectInput{
 			RedshiftDBInfo:     redshiftDBInfo,
 			MskEndpoints:       mskEndpoints,

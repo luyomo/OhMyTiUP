@@ -21,16 +21,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	// "github.com/aws/smithy-go"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	// "github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	// "go.uber.org/zap"
 )
 
 /******************************************************************************/
-func (b *Builder) CreateServiceIamPolicy() *Builder {
-	b.tasks = append(b.tasks, &CreateServiceIamPolicy{})
+func (b *Builder) CreateServiceIamPolicy(subClusterType, policyDocument string) *Builder {
+	b.tasks = append(b.tasks, &CreateServiceIamPolicy{policyDocument: policyDocument, BaseServiceIamPolicy: BaseServiceIamPolicy{BaseTask: BaseTask{subClusterType: subClusterType}}})
 	return b
 }
 
@@ -74,6 +69,9 @@ type BaseServiceIamPolicy struct {
 	ResourceData ResourceData
 	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
 
+	path       string
+	policyName string
+
 	// The below variables are initialized in the init() function
 	client *iam.Client // Replace the example to specific service
 }
@@ -81,6 +79,8 @@ type BaseServiceIamPolicy struct {
 func (b *BaseServiceIamPolicy) init(ctx context.Context) error {
 	b.clusterName = ctx.Value("clusterName").(string)
 	b.clusterType = ctx.Value("clusterType").(string)
+
+	b.policyName = fmt.Sprintf("%s.%s", b.clusterName, b.subClusterType)
 
 	// Client initialization
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -103,17 +103,19 @@ func (b *BaseServiceIamPolicy) init(ctx context.Context) error {
 }
 
 func (b *BaseServiceIamPolicy) readResources() error {
+	fmt.Printf("sub cluster type: %s, policy name: %s \n\n\n", b.subClusterType, b.policyName)
 	resp, err := b.client.ListPolicies(context.TODO(), &iam.ListPoliciesInput{
-		PathPrefix: aws.String("/kafkaconnect/"),
+		// Need to replace to kafka as well
+		// PathPrefix: aws.String("/kafkaconnect/"),
+		PathPrefix: aws.String(fmt.Sprintf("/%s/", b.subClusterType)),
 	})
 	if err != nil {
 		return err
 	}
-
+	fmt.Printf("The number of policy: %d \n\n\n", len(resp.Policies))
 	for _, policy := range resp.Policies {
-		fmt.Printf("<%s> vs <%s> \n\n\n\n\n", *policy.PolicyName, b.clusterName)
-		if *policy.PolicyName == b.clusterName {
-			fmt.Printf("Coming here to set the calue <%s> \n\n\n\n", *policy.PolicyName)
+		fmt.Printf("The policu name : %s \n\n\n", *policy.PolicyName)
+		if *policy.PolicyName == b.policyName {
 			b.ResourceData.Append(policy)
 		}
 	}
@@ -124,7 +126,7 @@ func (b *BaseServiceIamPolicy) readResources() error {
 type CreateServiceIamPolicy struct {
 	BaseServiceIamPolicy
 
-	clusterInfo *ClusterInfo
+	policyDocument string
 }
 
 // Execute implements the Task interface
@@ -142,59 +144,56 @@ func (c *CreateServiceIamPolicy) Execute(ctx context.Context) error {
 		tags := []types.Tag{
 			{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
 			{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
-			{Key: aws.String("Type"), Value: aws.String("glue")},
-			{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
+			{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},
 		}
 
-		policy := `{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "VisualEditor0",
-            "Effect": "Allow",
-            "Action": [
-                "glue:ListSchemaVersions",
-                "glue:GetRegistry",
-                "glue:QuerySchemaVersionMetadata",
-                "glue:GetSchemaVersionsDiff",
-                "glue:ListSchemas",
-                "glue:UntagResource",
-                "glue:GetSchema",
-                "glue:TagResource",
-                "glue:GetSchemaByDefinition"
-            ],
-            "Resource": [
-                "arn:aws:glue:*:%s:schema/*",
-                "arn:aws:glue:*:%s:registry/*"
-            ]
-        },
-        {
-            "Sid": "VisualEditor1",
-            "Effect": "Allow",
-            "Action": [
-                "glue:GetSchemaVersion",
-                "glue:ListRegistries"
-            ],
-            "Resource": "*"
-        }
-    ]
-}`
+		// 		policy := `{
+		//     "Version": "2012-10-17",
+		//     "Statement": [
+		//         {
+		//             "Sid": "VisualEditor0",
+		//             "Effect": "Allow",
+		//             "Action": [
+		//                 "glue:ListSchemaVersions",
+		//                 "glue:GetRegistry",
+		//                 "glue:QuerySchemaVersionMetadata",
+		//                 "glue:GetSchemaVersionsDiff",
+		//                 "glue:ListSchemas",
+		//                 "glue:UntagResource",
+		//                 "glue:GetSchema",
+		//                 "glue:TagResource",
+		//                 "glue:GetSchemaByDefinition"
+		//             ],
+		//             "Resource": [
+		//                 "arn:aws:glue:*:%s:schema/*",
+		//                 "arn:aws:glue:*:%s:registry/*"
+		//             ]
+		//         },
+		//         {
+		//             "Sid": "VisualEditor1",
+		//             "Effect": "Allow",
+		//             "Action": [
+		//                 "glue:GetSchemaVersion",
+		//                 "glue:ListRegistries"
+		//             ],
+		//             "Resource": "*"
+		//         }
+		//     ]
+		// }`
 
-		_, accountID, err := GetCallerUser(ctx)
-		if err != nil {
-			return err
-		}
+		// _, accountID, err := GetCallerUser(ctx)
+		// if err != nil {
+		// 	return err
+		// }
 
 		if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{
-			PolicyName:     aws.String(c.clusterName),
+			PolicyName:     aws.String(c.policyName),
 			Tags:           tags,
-			Path:           aws.String("/kafkaconnect/"),
-			PolicyDocument: aws.String(fmt.Sprintf(policy, accountID, accountID)),
+			Path:           aws.String(fmt.Sprintf("/%s/", c.subClusterType)),
+			PolicyDocument: aws.String(c.policyDocument),
 		}); err != nil {
 			return err
 		}
-
-		// TODO: Check cluster status until expected status
 	}
 
 	return nil
@@ -218,8 +217,6 @@ type DestroyServiceIamPolicy struct {
 // Execute implements the Task interface
 func (c *DestroyServiceIamPolicy) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
-
-	fmt.Printf("***** DestroyServiceIamPolicy ****** \n\n\n")
 
 	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {

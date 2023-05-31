@@ -15,6 +15,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -29,8 +30,8 @@ import (
 )
 
 /******************************************************************************/
-func (b *Builder) CreateServiceIamRole() *Builder {
-	b.tasks = append(b.tasks, &CreateServiceIamRole{})
+func (b *Builder) CreateServiceIamRole(subClusterType, policyDocument string) *Builder {
+	b.tasks = append(b.tasks, &CreateServiceIamRole{policyDocument: policyDocument, BaseServiceIamRole: BaseServiceIamRole{BaseTask: BaseTask{subClusterType: subClusterType}}})
 	return b
 }
 
@@ -74,6 +75,7 @@ type BaseServiceIamRole struct {
 	BaseTask
 
 	ResourceData ResourceData
+	roleName     string
 	/* awsExampleTopoConfigs *spec.AwsExampleTopoConfigs */ // Replace the config here
 
 	// The below variables are initialized in the init() function
@@ -83,6 +85,8 @@ type BaseServiceIamRole struct {
 func (b *BaseServiceIamRole) init(ctx context.Context) error {
 	b.clusterName = ctx.Value("clusterName").(string)
 	b.clusterType = ctx.Value("clusterType").(string)
+
+	b.roleName = fmt.Sprintf("%s.%s", b.clusterName, b.subClusterType)
 
 	// Client initialization
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -106,30 +110,40 @@ func (b *BaseServiceIamRole) init(ctx context.Context) error {
 
 func (b *BaseServiceIamRole) readResources() error {
 	resp, err := b.client.ListRoles(context.TODO(), &iam.ListRolesInput{
-		PathPrefix: aws.String("/kafkaconnect/"),
+		PathPrefix: aws.String(fmt.Sprintf("/%s/", b.subClusterType)),
 	})
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("Found roles: %#v and path: <%s> \n\n\n", resp.Roles, b.subClusterType)
 	for _, role := range resp.Roles {
-		if *role.RoleName == b.clusterName {
+		if *role.RoleName == b.roleName {
 			b.ResourceData.Append(role)
 		}
 	}
 	return nil
 }
 
+func (b *BaseServiceIamRole) GetKeyId() (*string, error) {
+	_data := b.ResourceData.GetData()
+	if len(_data) == 0 {
+		return nil, errors.New("No role found")
+	}
+	return _data[0].(types.Role).Arn, nil
+
+}
+
 /******************************************************************************/
 type CreateServiceIamRole struct {
 	BaseServiceIamRole
 
-	clusterInfo *ClusterInfo
+	policyDocument string
 }
 
 // Execute implements the Task interface
 func (c *CreateServiceIamRole) Execute(ctx context.Context) error {
-	fmt.Printf("------------ Create Service IAM Role ----------- \n\n\n\n\n\n")
+
 	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}
@@ -145,27 +159,33 @@ func (c *CreateServiceIamRole) Execute(ctx context.Context) error {
 		tags := []types.Tag{
 			{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
 			{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
-			{Key: aws.String("Type"), Value: aws.String("glue")},
-			{Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
+			{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},
+
+			// {Key: aws.String("Type"), Value: aws.String("glue")},
+			// {Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
 		}
 
+		fmt.Printf("path to create : %s \n\n\n", c.subClusterType)
+
 		if _, err = c.client.CreateRole(context.TODO(), &iam.CreateRoleInput{
-			RoleName: aws.String(c.clusterName),
-			Path:     aws.String("/kafkaconnect/"),
-			Tags:     tags,
-			AssumeRolePolicyDocument: aws.String(`{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "Statement1",
-            "Effect": "Allow",
-            "Principal": {
-                "Service": "kafkaconnect.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-        }
-    ]
-}`),
+			RoleName:                 aws.String(c.roleName),
+			Path:                     aws.String(fmt.Sprintf("/%s/", c.subClusterType)),
+			Tags:                     tags,
+			AssumeRolePolicyDocument: aws.String(c.policyDocument),
+			// 				`{
+			//     "Version": "2012-10-17",
+			//     "Statement": [
+			//         {
+			//             "Sid": "Statement1",
+			//             "Effect": "Allow",
+			//             "Principal": {
+			//                 "Service": "kafkaconnect.amazonaws.com"
+			//             },
+			//             "Action": "sts:AssumeRole"
+			//         }
+			//     ]
+			// }`
+
 		}); err != nil {
 			return err
 		}
@@ -181,14 +201,9 @@ func (c *CreateServiceIamRole) Execute(ctx context.Context) error {
 }
 
 func (c *CreateServiceIamRole) attachPoliciesToRole(ctx context.Context) error {
-	// Get role arn
-	// roleArn, err := c.ResourceData.GetResourceArn()
-	// if err != nil {
-	// 	return err
-	// }
 
 	// Get policies arn from name
-	listServiceIamPolicy := &ListServiceIamPolicy{BaseServiceIamPolicy: BaseServiceIamPolicy{BaseTask: BaseTask{pexecutor: c.pexecutor, clusterName: c.clusterName}}}
+	listServiceIamPolicy := &ListServiceIamPolicy{BaseServiceIamPolicy: BaseServiceIamPolicy{BaseTask: BaseTask{pexecutor: c.pexecutor, clusterName: c.clusterName, subClusterType: c.subClusterType}}}
 	if err := listServiceIamPolicy.Execute(ctx); err != nil {
 		return err
 	}
@@ -199,19 +214,20 @@ func (c *CreateServiceIamRole) attachPoliciesToRole(ctx context.Context) error {
 
 	// List policies from role
 	listAttachedRolePolicies, err := c.client.ListAttachedRolePolicies(context.TODO(), &iam.ListAttachedRolePoliciesInput{
-		RoleName:   aws.String(c.clusterName),
-		PathPrefix: aws.String("/kafkaconnect/"),
+		RoleName:   aws.String(c.roleName),
+		PathPrefix: aws.String(fmt.Sprintf("/%s/", c.subClusterType)),
 	})
 
 	for _, attachedPolicy := range listAttachedRolePolicies.AttachedPolicies {
-		if *attachedPolicy.PolicyName == c.clusterName {
+		// roleName == policyName : clusterName.subClusterType
+		if *attachedPolicy.PolicyName == c.roleName {
 			return nil
 		}
 	}
 
 	if _, err := c.client.AttachRolePolicy(context.TODO(), &iam.AttachRolePolicyInput{
 		PolicyArn: policyArn,
-		RoleName:  aws.String(c.clusterName),
+		RoleName:  aws.String(c.roleName),
 	}); err != nil {
 		return err
 	}
@@ -232,7 +248,6 @@ func (c *CreateServiceIamRole) String() string {
 
 type DestroyServiceIamRole struct {
 	BaseServiceIamRole
-	clusterInfo *ClusterInfo
 }
 
 // Execute implements the Task interface

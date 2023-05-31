@@ -37,6 +37,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"go.uber.org/zap"
+    awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 )
 
 type CreateWorkstation struct {
@@ -201,7 +202,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if err = WaitResourceUntilExpectState(30*time.Second, 10*time.Minute, func() (bool, error) { return c.instanceIsAvailable(ctx, client, []string{"running"}, true) }); err != nil {
+	if err = awsutils.WaitResourceUntilExpectState(30*time.Second, 10*time.Minute, func() (bool, error) { return c.instanceIsAvailable(ctx, client, []string{"running"}, true) }); err != nil {
 		return err
 	}
 

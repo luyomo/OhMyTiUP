@@ -179,13 +179,11 @@ func (c *CreateTiDBCloud) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The response is <%#v> \n\n\n\n\n\n", response)
 
 	statusCode := response.StatusCode()
-	fmt.Printf("status code: <%d> \n\n\n\n\n\n", statusCode)
 	switch statusCode {
 	case 200:
-		fmt.Printf("The common info: <%#v> \n\n\n\n\n\n", response.JSON200)
+		// fmt.Printf("The common info: <%#v> \n\n\n\n\n\n", response.JSON200)
 	case 400:
 		return errors.New(fmt.Sprintf("The JSON400 : <%#v> and <%#v> \n\n\n\n\n\n", *response.JSON400.Message, *response.JSON400.Details))
 
@@ -196,51 +194,6 @@ func (c *CreateTiDBCloud) Execute(ctx context.Context) error {
 	}
 
 	return nil
-	// clusterName := ctx.Value("clusterName").(string)
-	//
-	//	if err := InitClientInstance(); err != nil {
-	//		return err
-	//	}
-	//
-	// // Create the cluster
-	// _url := fmt.Sprintf("%s/api/v1beta/projects/%d/clusters", tidbcloudapi.Host, c.tidbCloud.General.ProjectID)
-	//
-	//	payload := tidbcloudapi.CreateClusterReq{
-	//		Name:          clusterName,
-	//		ClusterType:   "DEDICATED",
-	//		CloudProvider: "AWS",
-	//		Region:        c.tidbCloud.General.Region,
-	//		Config: tidbcloudapi.ClusterConfig{
-	//			RootPassword: c.tidbCloud.General.Password,
-	//			Port:         c.tidbCloud.General.Port,
-	//			Components: tidbcloudapi.Components{
-	//				TiDB: &tidbcloudapi.ComponentTiDB{
-	//					NodeSize:     c.tidbCloud.TiDB.NodeSize,
-	//					NodeQuantity: c.tidbCloud.TiDB.Count,
-	//				},
-	//				TiKV: &tidbcloudapi.ComponentTiKV{
-	//					NodeSize:       c.tidbCloud.TiKV.NodeSize,
-	//					NodeQuantity:   c.tidbCloud.TiKV.Count,
-	//					StorageSizeGib: c.tidbCloud.TiKV.Storage,
-	//				},
-	//			},
-	//			IPAccessList: []tidbcloudapi.IPAccess{
-	//				{
-	//					CIDR:        "0.0.0.0/0",
-	//					Description: "Allow Access from Anywhere.",
-	//				},
-	//			},
-	//		},
-	//	}
-	//
-	// var result tidbcloudapi.Cluster
-	// _, err := tidbcloudapi.DoPOST(_url, payload, &result)
-	//
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	// return nil
 }
 
 // Rollback implements the Task interface

@@ -236,10 +236,6 @@ func (w *Workstation) DeployAuroraInfo(clusterType, clusterName, password string
 		return err
 	}
 
-	if err := w.InstallPackages(&[]string{"mariadb-server"}); err != nil {
-		return err
-	}
-
 	return nil
 }
 

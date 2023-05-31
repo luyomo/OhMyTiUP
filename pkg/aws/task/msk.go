@@ -27,6 +27,7 @@ import (
 	// "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+    awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 )
 
 func (b *Builder) CreateMSKCluster(pexecutor *ctxt.Executor, subClusterType string, awsMSKTopoConfigs *spec.AwsMSKTopoConfigs, clusterInfo *ClusterInfo) *Builder {
@@ -400,7 +401,7 @@ zookeeper.session.timeout.ms=18000`),
 			return err
 		}
 
-		if err = WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
+		if err = awsutils.WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
 			clusterExist, err := c.ClusterExist( /*client, clusterName,*/ true)
 			return clusterExist, err
 		}); err != nil {
@@ -456,7 +457,7 @@ func (c *DestroyMSKCluster) Execute(ctx context.Context) error {
 			return err
 		}
 
-		if err = WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
+		if err = awsutils.WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
 			clusterExist, err := c.ClusterExist( /*client, clusterName, */ false)
 			return !clusterExist, err
 		}); err != nil {

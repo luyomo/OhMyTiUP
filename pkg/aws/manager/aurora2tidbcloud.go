@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/fatih/color"
@@ -36,6 +37,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
+
+	"github.com/manifoldco/promptui"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
@@ -119,15 +122,15 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		CreateRouteTgw(&m.localExe, "dm", []string{"aurora"}).
 		BuildAsStep("Parallel Main step")
 
-	if 1 == 0 {
-		if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
-			if errorx.Cast(err) != nil {
-				// FIXME: Map possible task errors and give suggestions.
-				return err
-			}
+		// if 1 == 0 {
+	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
 			return err
 		}
+		return err
 	}
+	// }
 
 	timer.Take("Execution")
 
@@ -159,13 +162,28 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	if _, err := m.workstation.ReadDBConnInfo(ws.DB_TYPE_TIDBCLOUD); err != nil {
 		vpceIdChan := make(chan string) // The channel is used to send message to prompt from creation task
 
-		vpcEndpointName := tui.Prompt("Please input private service name: ")
+		prompt := promptui.Prompt{Label: "Please input private service name"}
+		vpcEndpointName, err := prompt.Run()
+		if err != nil {
+			return err
+		}
+
+		// vpcEndpointName := tui.Prompt("Please input private service name: ")
 		fmt.Printf("The TiDB host name : %s \n", vpcEndpointName)
 
+		var wg sync.WaitGroup
+		wg.Add(1)
+
 		go func() {
+			defer wg.Done()
+
 			select {
 			case vpceId := <-vpceIdChan:
-				tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+				if vpceId == "" {
+					tui.Prompt("The VPCE has created")
+				} else {
+					tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+				}
 			}
 		}()
 
@@ -181,10 +199,19 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 			return err
 		}
 
+		wg.Wait()
+
+		wg.Add(1)
+
 		go func() {
+			defer wg.Done()
 			select {
 			case vpceId := <-vpceIdChan:
-				tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+				if vpceId == "" {
+					tui.Prompt("The VPCE has created")
+				} else {
+					tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+				}
 			}
 		}()
 
@@ -199,14 +226,18 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 			}
 			return err
 		}
+		wg.Wait()
 
 		// To replace the below logic by API if it is provided.
 		// 01. Prompt the private link - host
 		for true {
-			tidbCloudHost := tui.Prompt("Please setup the TiDB Cloud Private endpoint and provide the accessible host:")
-			fmt.Printf("The TiDB host name : %s \n", tidbCloudHost)
+			prompt := promptui.Prompt{Label: "Please setup the TiDB Cloud Private endpoint and provide the accessible host"}
+			tidbCloudHost, err := prompt.Run()
+			if err != nil {
+				return err
+			}
 
-			stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("mysql -h %s -P %d -u %s -p%s -e 'select current_timestamp'", tidbCloudHost, base.TiDBCloudConfigs.Port, base.TiDBCloudConfigs.User, base.TiDBCloudConfigs.Password), true)
+			stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("mysqladmin -h %s -P %d -u %s -p%s --connect-timeout 2 ping", tidbCloudHost, base.TiDBCloudConfigs.Port, base.TiDBCloudConfigs.User, base.TiDBCloudConfigs.Password), true)
 			if err == nil {
 				base.TiDBCloudConfigs.Host = tidbCloudHost
 				fmt.Printf("The query result is: %s \n", string(stdout))
@@ -214,13 +245,59 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 			}
 		}
 
+		dbInfo := make(map[string]string)
+
+		dbInfo["DBHost"] = base.TiDBCloudConfigs.Host
+		dbInfo["DBPort"] = fmt.Sprintf("%d", base.TiDBCloudConfigs.Port)
+		dbInfo["DBUser"] = base.TiDBCloudConfigs.User
+		dbInfo["DBPassword"] = base.TiDBCloudConfigs.Password
+
 		if err := m.wsExe.TransferTemplate(ctx, "templates/config/tidbcloud-db-info.yml.tpl", "/opt/tidbcloud-info.yml", "0644", base.TiDBCloudConfigs, true, 0); err != nil {
+			return err
+		}
+
+		err = m.wsExe.TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_tidbcloud_query", "0755", dbInfo, true, 0)
+		if err != nil {
+			return err
+		}
+
+		err = m.wsExe.TransferTemplate(ctx, "templates/scripts/run_mysql_shell_query.sh.tpl", "/opt/scripts/run_tidbcloud_shell_query.sh", "0755", dbInfo, true, 0)
+		if err != nil {
+			return err
+		}
+
+		err = m.wsExe.TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_tidbcloud_from_file", "0755", dbInfo, true, 0)
+		if err != nil {
 			return err
 		}
 	}
 
+	// Replace the logic to insert data
+	queries := []string{
+		"create table if not exists test01(col01 int primary key, col02 int)",
+		"delete from test.test01",
+		"insert into test.test01 values(1,1),(2,2)",
+	}
+	_, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_mysql_query mysql 'create database if not exists test'"), false)
+	if err != nil {
+		return err
+	}
+
+	for _, query := range queries {
+		_, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_mysql_query test '%s'", query), false)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidbcloud_query test '%s'", "create table if not exists test01(col01 int primary key, col02 int)"), false)
+	if err != nil {
+		return err
+	}
+
 	postTask := task.NewBuilder().
-		DeployDM(&m.localExe, &m.wsExe, m.workstation, "dm", base.AwsWSConfigs, base.TiDBCloudConfigs, &clusterInfo).
+		DeployDM(&m.localExe, &m.wsExe, m.workstation, "dm", base.AwsWSConfigs, base.TiDBCloudConfigs).
+		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import").
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {

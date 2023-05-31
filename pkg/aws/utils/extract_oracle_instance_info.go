@@ -15,11 +15,40 @@ package utils
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
+	"github.com/aws/aws-sdk-go-v2/service/rds/types"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/utils/s3"
+
+	"github.com/aws/smithy-go"
 )
+
+func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceStateCheck func() (bool, error)) error {
+	timeout := time.After(_timeout)
+	d := time.NewTicker(_interval)
+
+	for {
+		// Select statement
+		select {
+		case <-timeout:
+			return errors.New("Timed out")
+		case _ = <-d.C:
+			resourceStateAsExpectFlag, err := _resourceStateCheck()
+			if err != nil {
+				return err
+			}
+			if resourceStateAsExpectFlag == true {
+				return nil
+			}
+		}
+	}
+}
 
 type RDSInstanceInfo struct {
 	PhysicalResourceId string
@@ -35,9 +64,7 @@ type RDSInstanceInfo struct {
 }
 
 func ExtractInstanceRDSInfo(name, cluster, clusterType string) (*[]RDSInstanceInfo, error) {
-
 	cfg, err := config.LoadDefaultConfig(context.TODO())
-
 	if err != nil {
 		return nil, err
 	}
@@ -129,3 +156,230 @@ func ExtractInstanceRDSInfo(name, cluster, clusterType string) (*[]RDSInstanceIn
 
 	return &rdsInstanceInfos, nil
 }
+
+func RDSSnapshotTaken(name, file string, position float64) (*string, error) {
+	fmt.Printf("name: %s \n\n\n", name)
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	rdsclient := rds.NewFromConfig(cfg)
+
+	rdsClusterInfo, err := rdsclient.DescribeDBClusters(context.TODO(), &rds.DescribeDBClustersInput{})
+	if err != nil {
+		return nil, err
+	}
+	for _, dbCluster := range rdsClusterInfo.DBClusters {
+		if *dbCluster.DBClusterIdentifier == name {
+			var tags []types.Tag
+			tags = append(tags, types.Tag{Key: aws.String("File"), Value: aws.String(file)})
+			tags = append(tags, types.Tag{Key: aws.String("Position"), Value: aws.String(fmt.Sprintf("%d", int(position)))})
+
+			backupName := fmt.Sprintf("%s-%s-%d", name, strings.ReplaceAll(file, ".", "-"), int(position))
+
+			snapshot, err := rdsclient.CreateDBClusterSnapshot(context.TODO(), &rds.CreateDBClusterSnapshotInput{
+				DBClusterIdentifier:         dbCluster.DBClusterIdentifier,
+				DBClusterSnapshotIdentifier: aws.String(backupName),
+				Tags:                        tags,
+			})
+			if err != nil {
+				return nil, err
+			}
+			fmt.Printf("The snapshot is : <%#v> \n\n\n", snapshot.DBClusterSnapshot.DBClusterSnapshotArn)
+
+			if err = WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
+				rdsSnapshot, err := rdsclient.DescribeDBClusterSnapshots(context.TODO(), &rds.DescribeDBClusterSnapshotsInput{
+					DBClusterSnapshotIdentifier: snapshot.DBClusterSnapshot.DBClusterSnapshotArn,
+				})
+				if err != nil {
+					return false, err
+				}
+
+				if len(rdsSnapshot.DBClusterSnapshots) > 0 && *rdsSnapshot.DBClusterSnapshots[0].Status == "available" {
+					return true, nil
+				}
+
+				return false, nil
+
+			}); err != nil {
+				return snapshot.DBClusterSnapshot.DBClusterSnapshotArn, err
+			}
+
+			return snapshot.DBClusterSnapshot.DBClusterSnapshotArn, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func GetSnapshot(name string) (*string, error) {
+
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	rdsclient := rds.NewFromConfig(cfg)
+
+	rdsSnapshot, err := rdsclient.DescribeDBClusterSnapshots(context.TODO(), &rds.DescribeDBClusterSnapshotsInput{
+		DBClusterIdentifier: aws.String(name),
+		SnapshotType:        aws.String("manual"),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	dbClusterSnapshotArn := ""
+
+	_file := ""
+	_position := ""
+
+	for _, snapshot := range rdsSnapshot.DBClusterSnapshots {
+		fmt.Printf("snapshot: %#v \n\n\n", snapshot)
+		fmt.Printf("snapshot: %#v and status : %s, DBClusterSnapshotArn: %s, DBClusterSnapshotIdentifier: %s  \n\n\n", *snapshot.DBClusterIdentifier, *snapshot.Status, *snapshot.DBClusterSnapshotArn, *snapshot.DBClusterSnapshotIdentifier)
+		fmt.Printf("snapshot: %#v \n\n\n", snapshot.TagList)
+
+		localFile := ""
+		localPosition := ""
+		for _, tag := range snapshot.TagList {
+			if *(tag.Key) == "File" {
+				localFile = *(tag.Value)
+			}
+			if *(tag.Key) == "Position" {
+				localPosition = *(tag.Value)
+			}
+		}
+		if _file == "" && _position == "" {
+			_file = localFile
+			_position = localPosition
+			dbClusterSnapshotArn = *snapshot.DBClusterSnapshotArn
+		} else if _file <= localFile && _position <= localPosition {
+			_file = localFile
+			_position = localPosition
+			dbClusterSnapshotArn = *snapshot.DBClusterSnapshotArn
+		}
+	}
+
+	return &dbClusterSnapshotArn, nil
+}
+
+func GetValidBackupS3(snapshotName string) (*[]types.ExportTask, error) {
+
+	// Only one snapshot is taken in the demo naming the cluster name.
+	snapshotARN, err := GetSnapshot(snapshotName)
+	if err != nil {
+		return nil, err
+	}
+	if *snapshotARN == "" {
+		return nil, errors.New("No snapshot found")
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	rdsclient := rds.NewFromConfig(cfg)
+
+	// Loop all the export tasks to s3. Check the meta json file to get the valid export
+	resp, err := rdsclient.DescribeExportTasks(context.TODO(), &rds.DescribeExportTasksInput{SourceArn: snapshotARN})
+	if err != nil {
+		return nil, err
+	}
+
+	s3api, err := s3.NewS3API(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	retExportTasks := []types.ExportTask{}
+	for _, exportTask := range resp.ExportTasks {
+		// b.ResourceData.Append(exportTask)
+		// 01. Read the S3 contents.
+		// 02. Check the content. If it's there skip it.
+		fmt.Printf("export task: bucket name: %s, prefix: %s, status: %s , export name: %s\n\n\n", *exportTask.S3Bucket, *exportTask.S3Prefix, *exportTask.Status, *exportTask.ExportTaskIdentifier)
+		// export_info_aurora2tidbcloud-ohmytiup-aurora2tidbcloud-s3.json
+
+		if *exportTask.Status != "COMPLETE" {
+			continue
+		}
+
+		file := fmt.Sprintf("%s/%s/export_info_%s.json", *exportTask.S3Prefix, *exportTask.ExportTaskIdentifier, *exportTask.ExportTaskIdentifier)
+		// fmt.Printf("The file is: %s \n\n\n", file)
+		err := s3api.GetObject(*exportTask.S3Bucket, file)
+		if err != nil {
+			var ae smithy.APIError
+			if errors.As(err, &ae) {
+				fmt.Printf("ErrorCode: %s \n\n\n", ae.ErrorCode())
+				if ae.ErrorCode() == "NoSuchKey" {
+					continue
+				}
+			}
+
+			return nil, err
+		}
+		retExportTasks = append(retExportTasks, exportTask)
+		// b.ResourceData.Append(exportTask)
+	}
+	return &retExportTasks, nil
+}
+
+// 01. Create S3 policy
+// 02. Create S3 role
+// 03. Create S3 export
+// func RDSExport2S3(snapshotIdentifier *string) (*string, error) {
+// 	fmt.Printf("name: %s \n\n\n", name)
+// 	cfg, err := config.LoadDefaultConfig(context.TODO())
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	rdsclient := rds.NewFromConfig(cfg)
+
+// 	rdsClusterInfo, err := rdsclient.DescribeDBClusters(context.TODO(), &rds.DescribeDBClustersInput{})
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	for _, dbCluster := range rdsClusterInfo.DBClusters {
+// 		if *dbCluster.DBClusterIdentifier == name {
+// 			var tags []types.Tag
+// 			tags = append(tags, types.Tag{Key: aws.String("File"), Value: aws.String(file)})
+// 			tags = append(tags, types.Tag{Key: aws.String("Position"), Value: aws.String(fmt.Sprintf("%d", int(position)))})
+
+// 			backupName := fmt.Sprintf("%s-%s-%d", name, strings.ReplaceAll(file, ".", "-"), int(position))
+
+// 			snapshot, err := rdsclient.CreateDBClusterSnapshot(context.TODO(), &rds.CreateDBClusterSnapshotInput{
+// 				DBClusterIdentifier:         dbCluster.DBClusterIdentifier,
+// 				DBClusterSnapshotIdentifier: aws.String(backupName),
+// 				Tags:                        tags,
+// 			})
+// 			if err != nil {
+// 				return nil, err
+// 			}
+// 			fmt.Printf("The snapshot is : <%#v> \n\n\n", snapshot.DBClusterSnapshot.DBClusterSnapshotArn)
+
+// 			if err = WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
+// 				rdsSnapshot, err := rdsclient.DescribeDBClusterSnapshots(context.TODO(), &rds.DescribeDBClusterSnapshotsInput{
+// 					DBClusterSnapshotIdentifier: snapshot.DBClusterSnapshot.DBClusterSnapshotArn,
+// 				})
+// 				if err != nil {
+// 					return false, err
+// 				}
+
+// 				if len(rdsSnapshot.DBClusterSnapshots) > 0 && *rdsSnapshot.DBClusterSnapshots[0].Status == "available" {
+// 					return true, nil
+// 				}
+
+// 				return false, nil
+
+// 			}); err != nil {
+// 				return snapshot.DBClusterSnapshot.DBClusterSnapshotArn, err
+// 			}
+
+// 			return snapshot.DBClusterSnapshot.DBClusterSnapshotArn, nil
+// 		}
+// 	}
+
+// 	return nil, nil
+// }
