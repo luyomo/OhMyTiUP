@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	// "go.uber.org/zap"
 
@@ -39,7 +40,8 @@ import (
 type Workstation struct {
 	executor *ctxt.Executor
 
-	tiupCmd string
+	// tiupCmd     string
+	tiupCmdPath string
 }
 
 type INC_AWS_ENV_FLAG bool
@@ -173,7 +175,7 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 		return nil, err
 	}
 
-	return &Workstation{executor: &_executor}, nil
+	return &Workstation{executor: &_executor, tiupCmdPath: "$HOME/.tiup/bin"}, nil
 }
 
 // Execute implements the Task interface
@@ -383,7 +385,7 @@ func (w *Workstation) RunSerialCmds(cmds []string, isRootUser bool) error {
 	ctx := context.Background()
 
 	for _, cmd := range cmds {
-		if _, _, err := (*w.executor).Execute(ctx, cmd, isRootUser); err != nil {
+		if _, _, err := (*w.executor).Execute(ctx, cmd, isRootUser, 60*time.Minute); err != nil {
 			return err
 		}
 	}
@@ -393,7 +395,7 @@ func (w *Workstation) RunSerialCmds(cmds []string, isRootUser bool) error {
 func (w *Workstation) InstallTiup() error {
 	ctx := context.Background()
 
-	stdout, stderr, err := (*w.executor).Execute(ctx, "which $HOME/.tiup/bin/tiup", false)
+	stdout, stderr, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/tiup", w.tiupCmdPath), false)
 	if err != nil {
 		fmt.Printf("stdout: <%s>, stderr:<%s>, err: <%s> \n\n\n", string(stdout), string(stderr), err.Error())
 		if strings.Contains(err.Error(), "cause: exit status 1") {
@@ -411,8 +413,32 @@ func (w *Workstation) InstallTiup() error {
 	}
 	fmt.Printf("stdout: %s, stderr: %s \n\n\n", string(stdout), string(stderr))
 
-	w.tiupCmd = strings.ReplaceAll(string(stdout), "\n", "")
-	fmt.Printf("The tiup command: <%s>", w.tiupCmd)
+	return nil
+}
+
+func (w *Workstation) InstallSyncDiffInspector(version string) error {
+	ctx := context.Background()
+
+	installerFileName := fmt.Sprintf("tidb-community-toolkit-v%s-linux-amd64", version)
+
+	stdout, stderr, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/sync_diff_inspector", w.tiupCmdPath), false)
+	if err != nil {
+		fmt.Printf("stdout: <%s>, stderr:<%s>, err: <%s> \n\n\n", string(stdout), string(stderr), err.Error())
+		if strings.Contains(err.Error(), "cause: exit status 1") {
+			if err := w.RunSerialCmds([]string{
+				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", installerFileName),
+				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", installerFileName),
+				fmt.Sprintf("mv /tmp/%s/sync_diff_inspector %s/", installerFileName, w.tiupCmdPath),
+				fmt.Sprintf("rm -rf /tmp/%s", installerFileName),
+				fmt.Sprintf("rm /tmp/%s.tar.gz", installerFileName),
+			}, false); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+
+	}
 
 	return nil
 }

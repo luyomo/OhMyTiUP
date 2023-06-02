@@ -95,6 +95,8 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
+	version := "6.5.2"
+
 	mapArgs := make(map[string]string)
 	mapArgs["clusterName"] = clusterName
 	mapArgs["clusterType"] = clusterType
@@ -283,7 +285,17 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.workstation.DeployDMCluster(clusterName, "6.5.2", dmInstances); err != nil {
+	if err := c.workstation.InstallSyncDiffInspector(version); err != nil {
+		return err
+	}
+
+	if err := c.workstation.SyncDiffInspector(clusterName, "test,test01"); err != nil {
+		return err
+	}
+
+	return errors.New("Stop after diff inspector")
+
+	if err := c.workstation.DeployDMCluster(clusterName, version, dmInstances); err != nil {
 		return err
 	}
 

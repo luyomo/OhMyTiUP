@@ -42,7 +42,7 @@ import (
 func (w *Workstation) GetDMCluster(clusterName string) (*map[string]interface{}, error) {
 	ctx := context.Background()
 
-	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s dm list --format json 2>/dev/null", w.tiupCmd), false)
+	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s/tiup dm list --format json 2>/dev/null", w.tiupCmdPath), false)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (w *Workstation) GetDMCluster(clusterName string) (*map[string]interface{},
 		if _cluster.(map[string]interface{})["name"] == clusterName {
 			_, ok := _cluster.(map[string]interface{})
 			if ok {
-				stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s dm display %s --format json 2>/dev/null", w.tiupCmd, clusterName), false)
+				stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s/tiup dm display %s --format json 2>/dev/null", w.tiupCmdPath, clusterName), false)
 				if err != nil {
 					return nil, err
 				}
@@ -92,12 +92,12 @@ func (w *Workstation) DeployDMCluster(clusterName, clusterVersion string, mapDBI
 			return err
 		}
 
-		_, _, err = (*w.executor).Execute(ctx, fmt.Sprintf("%s dm deploy %s %s %s -y", w.tiupCmd, clusterName, clusterVersion, "/opt/tidb/dm-cluster.yml"), false)
+		_, _, err = (*w.executor).Execute(ctx, fmt.Sprintf("%s/tiup dm deploy %s %s %s -y", w.tiupCmdPath, clusterName, clusterVersion, "/opt/tidb/dm-cluster.yml"), false)
 		if err != nil {
 			return err
 		}
 
-		_, _, err = (*w.executor).Execute(ctx, fmt.Sprintf("%s dm start %s -y", w.tiupCmd, clusterName), false, 5*time.Minute)
+		_, _, err = (*w.executor).Execute(ctx, fmt.Sprintf("%s/tiup dm start %s -y", w.tiupCmdPath, clusterName), false, 5*time.Minute)
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func (w *Workstation) GetDMSource(clusterName string) (*map[string]interface{}, 
 		return nil, errors.New("No DM cluster found.")
 	}
 
-	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s dmctl --master-addr %s operate-source show", w.tiupCmd, (*pDMMasterAddr)[0]), false, 1*time.Minute)
+	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s/tiup dmctl --master-addr %s operate-source show", w.tiupCmdPath, (*pDMMasterAddr)[0]), false, 1*time.Minute)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return nil, err
@@ -189,7 +189,7 @@ func (w *Workstation) DeployDMSource(clusterName string, mapDBConnInfo *map[stri
 		return err
 	}
 
-	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s dmctl --master-addr %s operate-source create /opt/tidb/dm-source.yml", w.tiupCmd, (*pDMMasterAddr)[0]), false, 1*time.Minute)
+	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s/tiup dmctl --master-addr %s operate-source create /opt/tidb/dm-source.yml", w.tiupCmdPath, (*pDMMasterAddr)[0]), false, 1*time.Minute)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
@@ -213,7 +213,7 @@ func (w *Workstation) GetDMTask(clusterName string) (*map[string]interface{}, er
 		return nil, errors.New("No DM cluster found.")
 	}
 
-	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s dmctl --master-addr %s query-status", w.tiupCmd, (*pDMMasterAddr)[0]), false, 1*time.Minute)
+	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s/tiup dmctl --master-addr %s query-status", w.tiupCmdPath, (*pDMMasterAddr)[0]), false, 1*time.Minute)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return nil, err
@@ -258,15 +258,50 @@ func (w *Workstation) DeployDMTask(clusterName string, mapDBConnInfo *map[string
 	return errors.New("Stopped here")
 
 	(*mapDBConnInfo)["Databases"] = strings.Split((*mapDBConnInfo)["Databases"].(string), ",")
-	fmt.Printf("The source connection info: %#v \n\n\n", mapDBConnInfo)
+
 	if err := (*w.executor).TransferTemplate(ctx, "templates/config/dm-task.yml.tpl", "/opt/tidb/dm-task.yml", "0644", mapDBConnInfo, true, 0); err != nil {
 		return err
 	}
 
-	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s dmctl --master-addr %s start-task /opt/tidb/dm-task.yml", w.tiupCmd, (*pDMMasterAddr)[0]), false, 1*time.Minute)
+	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("%s/tiup dmctl --master-addr %s start-task /opt/tidb/dm-task.yml", w.tiupCmdPath, (*pDMMasterAddr)[0]), false, 1*time.Minute)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err
 	}
+	return nil
+}
+
+func (w *Workstation) SyncDiffInspector(clusterName, databases string) error {
+	ctx := context.Background()
+
+	pDMMasterAddr, err := w.GetDMMasterAddr(clusterName)
+	if err != nil {
+		return err
+	}
+	if pDMMasterAddr == nil {
+		return errors.New("No DM cluster found.")
+	}
+
+	mapArgs := make(map[string]interface{})
+	mapArgs["DMMasterAddr"] = (*pDMMasterAddr)[0]
+	mapArgs["TaskName"] = clusterName
+	mapArgs["Databases"] = strings.Split(databases, ",")
+
+	if err := (*w.executor).TransferTemplate(ctx, "templates/config/sync_diff_inspector.toml.tpl", "/opt/tidb/sync_diff_inspector.toml", "0644", mapArgs, true, 0); err != nil {
+		return err
+	}
+
+	stdout, _, err := (*w.executor).Execute(ctx, "rm -rf /tmp/output/config/*", false, 1*time.Minute)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
+	stdout, _, err = (*w.executor).Execute(ctx, fmt.Sprintf("%s/sync_diff_inspector --config /opt/tidb/sync_diff_inspector.toml", w.tiupCmdPath), false, 1*time.Minute)
+	if err != nil {
+		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
+		return err
+	}
+
 	return nil
 }
