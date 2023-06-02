@@ -1,16 +1,16 @@
-name: "{{ .TaskMetaData.TaskName }}"
+name: "{{ .TaskName }}"
 task-mode: incremental
 meta-schema: "dm_meta"
 
 target-database:
-  host: "{{ .TaskMetaData.Host }}"
-  port: {{ .TaskMetaData.Port }}
-  user: "{{ .TaskMetaData.User }}"
-  password: "{{ .TaskMetaData.Password }}"
+  host: "{{ .Host }}"
+  port: {{ .Port }}
+  user: "{{ .User }}"
+  password: "{{ .Password }}"
   max-allowed-packet: 67108864
 
 routes:
- {{- range $i, $v := .TaskMetaData.Databases }}
+ {{- range $i, $v := .Databases }}
   route-rule-{{$i}}:
     schema-pattern: "{{$v}}"
     target-schema: "{{$v}}"
@@ -18,9 +18,9 @@ routes:
 
 mysql-instances:
   -
-    source-id: "{{ .TaskMetaData.SourceID }}"
+    source-id: "{{ .SourceID }}"
     meta:
-      binlog-name: {{ .TaskMetaData.BinlogName }}
-      binlog-pos: {{ .TaskMetaData.BinlogPos }}
-    route-rules: [ {{- range $i, $v := .TaskMetaData.Databases -}} {{if $i}},{{end}} "route-rule-{{$i}}" {{- end -}} ]
+      binlog-name: {{ .BinlogName }}
+      binlog-pos: {{ .BinlogPos }}
+    route-rules: [ {{- range $i, $v := .Databases -}} {{if $i}},{{end}} "route-rule-{{$i}}" {{- end -}} ]
 

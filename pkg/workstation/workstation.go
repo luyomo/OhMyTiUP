@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	// "go.uber.org/zap"
 
@@ -37,6 +38,8 @@ import (
 // Deploy Redshift Instance
 type Workstation struct {
 	executor *ctxt.Executor
+
+	tiupCmd string
 }
 
 type INC_AWS_ENV_FLAG bool
@@ -278,8 +281,9 @@ const (
 	DB_TYPE_TIDB      DB_TYPE = "tidb"
 )
 
-func (w *Workstation) ReadDBConnInfo(dbType DB_TYPE) (*DBConnectInfo, error) {
-	var dbConnectInfo DBConnectInfo
+func (w *Workstation) ReadDBConnInfo(dbType DB_TYPE) (*map[string]interface{}, error) {
+	// var dbConnectInfo DBConnectInfo
+	var dbConnectInfo map[string]interface{}
 
 	var connFile string
 	switch dbType {
@@ -339,7 +343,16 @@ func (w *Workstation) GetExecutor() (*ctxt.Executor, error) {
 	return w.executor, nil
 }
 
-func (w *Workstation) InstallProfiles() error {
+func (w *Workstation) InstallProfiles(localKeyFile string) error {
+	ctx := context.Background()
+	if err := (*w.executor).Transfer(ctx, localKeyFile, "~/.ssh/id_rsa", false, 0); err != nil {
+		return err
+	}
+
+	if _, _, err := (*w.executor).Execute(ctx, `chmod 600 ~/.ssh/id_rsa`, false); err != nil {
+		return err
+	}
+
 	return w.RunSerialCmds([]string{
 		`echo "for i in ~/.profile.d/*.sh ; do
     if [ -r "\$i" ]; then
@@ -348,6 +361,7 @@ func (w *Workstation) InstallProfiles() error {
 done" > ~/.bash_aliases`,
 		"mkdir -p ~/.profile.d",
 	}, false)
+
 }
 
 func (w *Workstation) InstallMySQLShell() error {
@@ -373,5 +387,32 @@ func (w *Workstation) RunSerialCmds(cmds []string, isRootUser bool) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (w *Workstation) InstallTiup() error {
+	ctx := context.Background()
+
+	stdout, stderr, err := (*w.executor).Execute(ctx, "which $HOME/.tiup/bin/tiup", false)
+	if err != nil {
+		fmt.Printf("stdout: <%s>, stderr:<%s>, err: <%s> \n\n\n", string(stdout), string(stderr), err.Error())
+		if strings.Contains(err.Error(), "cause: exit status 1") {
+			if _, _, err := (*w.executor).Execute(ctx, "curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh", false); err != nil {
+				return err
+			}
+			stdout, stderr, err = (*w.executor).Execute(ctx, "which $HOME/.tiup/bin/tiup", false)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+
+	}
+	fmt.Printf("stdout: %s, stderr: %s \n\n\n", string(stdout), string(stderr))
+
+	w.tiupCmd = strings.ReplaceAll(string(stdout), "\n", "")
+	fmt.Printf("The tiup command: <%s>", w.tiupCmd)
+
 	return nil
 }

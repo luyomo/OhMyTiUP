@@ -145,7 +145,7 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		return err
 	}
 
-	if err := m.workstation.InstallProfiles(); err != nil {
+	if err := m.workstation.InstallProfiles(base.AwsWSConfigs.KeyFile); err != nil {
 		return err
 	}
 

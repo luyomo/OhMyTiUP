@@ -35,20 +35,25 @@ worker_servers:
     config:
       log-level: info
    {{- end }}
-
+{{- if (and (.Monitor) (gt (len .Monitor) 0)) }}
 monitoring_servers:
    {{- range .Monitor }}
   - host: {{. }}
     port: 19090
    {{- end }}
+{{- end }}
+{{- if (and (.Monitor) (gt (len .Monitor) 0)) }}
 grafana_servers:
    {{- range .Monitor }}
   - host: {{. }}
     port: 13000
    {{- end }}
+{{- end }}
+{{- if (and (.Monitor) (gt (len .Monitor) 0)) }}
 alertmanager_servers:
    {{- range .Monitor }}
   - host: {{. }}
     web_port: 19093
     cluster_port: 19094
    {{- end }}
+{{- end }}

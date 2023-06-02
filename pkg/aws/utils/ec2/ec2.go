@@ -115,14 +115,8 @@ func (e *EC2API) getEndpointServiceAvailabilityZones(serviceName string) (*[]str
 	return &resp.ServiceDetails[0].AvailabilityZones, nil
 }
 
-func (e *EC2API) ExtractEC2Instances(clusterName, clusterType, subClusterType string) (*map[string][]string, error) {
+func (e *EC2API) ExtractEC2Instances() (*map[string][]string, error) {
 
-	// var filters []types.Filter
-	// filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
-	// filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
-	// if subClusterType != "" {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{subClusterType}})
-	// }
 	filters := e.makeFilters()
 
 	describeInstances, err := e.client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{Filters: *filters})

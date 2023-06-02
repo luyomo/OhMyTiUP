@@ -105,7 +105,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	dmInstances, err := ec2api.ExtractEC2Instances(clusterName, clusterType, "")
+	dmInstances, err := ec2api.ExtractEC2Instances()
 	if err != nil {
 		return err
 	}
@@ -130,6 +130,18 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		return err
 	}
 	fmt.Printf("The bionlog position: %#v \n\n\n", (*earliestBinlogPos)[0])
+
+	tidbcloudConnInfo, err := c.workstation.ReadDBConnInfo(ws.DB_TYPE_TIDBCLOUD)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("tidb cloud db info: %#v \n\n\n", tidbcloudConnInfo)
+
+	(*tidbcloudConnInfo)["TaskName"] = clusterName
+	(*tidbcloudConnInfo)["Databases"] = "test,test01"
+	(*tidbcloudConnInfo)["SourceID"] = clusterName
+	(*tidbcloudConnInfo)["BinlogName"] = (*binlogPos)[0]["File"].(string)
+	(*tidbcloudConnInfo)["BinlogPos"] = fmt.Sprintf("%d", int((*binlogPos)[0]["Position"].(float64)))
 
 	// snapshotARN, err := awsutils.GetSnapshot(clusterName, (*binlogPos)[0]["File"].(string), (*binlogPos)[0]["Position"].(float64))
 	snapshotARN, err := awsutils.GetSnapshot(clusterName)
@@ -255,6 +267,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
     ]
 }`, *accountId, *externalId)
 
+	// Need to move the KMS creation in the beginning.
 	if err := NewBuilder().
 		CreateServiceIamPolicy("s3export", policy).
 		CreateServiceIamRole("s3export", assumeRolePolicyDocument).
@@ -265,6 +278,25 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		Build().Execute(ctxt.New(ctx, 1)); err != nil {
 		return err
 	}
+
+	if err := c.workstation.InstallTiup(); err != nil {
+		return err
+	}
+
+	if err := c.workstation.DeployDMCluster(clusterName, "6.5.2", dmInstances); err != nil {
+		return err
+	}
+
+	(*auroraConnInfo)["SourceName"] = clusterName
+	if err := c.workstation.DeployDMSource(clusterName, auroraConnInfo); err != nil {
+		return err
+	}
+
+	if err := c.workstation.DeployDMTask(clusterName, tidbcloudConnInfo); err != nil {
+		return err
+	}
+
+	// tiup install in the workstation
 
 	// if err := tasks.Execute(ctxt.New(ctx, 10)); err != nil {
 	// 	return err
@@ -374,7 +406,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 	// ************************** Cluster setup **************************
 	// The below logic is better to move to workstation
 
-	if err := c.workstation.DeployDMCluster(); err != nil {
+	if err := c.workstation.DeployDMCluster(clusterName, "6.5.2", dmInstances); err != nil {
 		return err
 	}
 
