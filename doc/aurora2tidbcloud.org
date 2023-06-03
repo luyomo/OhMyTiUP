@@ -380,14 +380,14 @@ loaders:
 
 * TODOList
 ** Destroy command to include
-   + TiDB Cloud
-   + S3 backup
-   + RDS snapshot
+*** DONE TiDB Cloud
+*** TODO S3 backup
+*** TODO RDS snapshot
 ** Make progress visible
-   + Aurora setup
-   + TiDB cloud setup
-   + Aurora database snapshot taken
-   + Data S3 export
+*** TODO Aurora setup
+*** TODO TiDB cloud setup
+*** TODO Aurora database snapshot taken
+*** TODO Data S3 export
 ** List all the time taken on each process
 ** List all the AWS Resource
    + RDS
@@ -396,6 +396,7 @@ loaders:
    + Subnet
    + VPC
 ** Prompt improvment
+** Comment removal
 * Issues
 ** READ: packet for query is too large. Try adjusting the 'max_allowed_packet' variable on the server\" , Workaround: Please execute `query-status` to check status."
    Set max_allowed_packet to 1073741824
