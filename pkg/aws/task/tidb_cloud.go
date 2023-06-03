@@ -222,11 +222,44 @@ func (c *DestroyTiDBCloud) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("tidb cloud info: %#v \n", tidbCloudInfo)
+	fmt.Printf("tidb cloud info: %#v \n\n\n", tidbCloudInfo)
 
-	// func (c *BaseTiDBCloud) ResourceExist(projectID, clusterName string) (bool, error) {
+	client, err := tidbcloud.NewDigestClientWithResponses()
+	if err != nil {
+		panic(err)
+	}
 
-	return nil
+	response, err := client.ListClustersOfProjectWithResponse(context.Background(), tidbCloudInfo.ProjectID, &tidbcloud.ListClustersOfProjectParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	clusterID := ""
+	for _, item := range response.JSON200.Items {
+		if *item.Name == clusterName {
+			clusterID = item.Id
+		}
+	}
+
+	if clusterID == "" {
+		return nil
+	}
+
+	resDelete, err := client.DeleteClusterWithResponse(context.Background(), tidbCloudInfo.ProjectID, clusterID)
+	if err != nil {
+		panic(err)
+	}
+
+	statusCode := resDelete.StatusCode()
+	switch statusCode {
+	case 200:
+		fmt.Printf("Succeeded in deleting the cluster")
+		return nil
+	case 400:
+		fmt.Printf("Failed to delete the cluster: %#v \n", *resDelete.JSON400.Message)
+	}
+
+	return errors.New("Failed to destroy tidb cloud cluster")
 }
 
 // Rollback implements the Task interface

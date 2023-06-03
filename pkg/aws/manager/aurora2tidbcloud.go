@@ -584,6 +584,12 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 	}
 
 	clusterType := "ohmytiup-aurora2tidbcloud"
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+		return err
+	}
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
@@ -591,6 +597,7 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 	}
 
 	t0 := task.NewBuilder().
+		DestroyTiDBCloud(m.workstation).
 		DestroyTransitGateways(&sexecutor).
 		DestroyVpcPeering(&sexecutor, []string{"workstation", "dm", "aurora"}).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
@@ -598,8 +605,7 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 	builder := task.NewBuilder().
 		ParallelStep("+ Destroying aurora solution service ... ...", false, t0)
 	t := builder.Build()
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
 	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
