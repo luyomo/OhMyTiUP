@@ -206,7 +206,7 @@ func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
 	createImportTaskJSONRequestBody.Spec.Source.Uri = backupFile
 	createImportTaskJSONRequestBody.Spec.Source.AwsAssumeRoleAccess = &struct {
 		AssumeRole string `json:"assume_role"`
-	}{"arn:aws:iam::729581434105:role/s3import/aurora2tidbcloud.s3import"}
+	}{*(*pRoles)[0].Arn}
 
 	resImport, err := client.CreateImportTaskWithResponse(context.Background(), c.projectId, *clusterId, createImportTaskJSONRequestBody)
 	if err != nil {

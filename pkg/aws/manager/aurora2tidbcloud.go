@@ -290,14 +290,24 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		}
 	}
 
-	_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidbcloud_query test '%s'", "create table if not exists test01(col01 int primary key, col02 int)"), false)
-	if err != nil {
-		return err
+	tidbcloudQueries := []string{
+		"create table if not exists test01(col01 int primary key, col02 int)",
+		"delete from test.test01",
+	}
+	for _, query := range tidbcloudQueries {
+		_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidbcloud_query test '%s'", query), false)
+		if err != nil {
+			return err
+		}
 	}
 
 	postTask := task.NewBuilder().
-		DeployDM(&m.localExe, &m.wsExe, m.workstation, "dm", base.AwsWSConfigs, base.TiDBCloudConfigs).
-		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import").
+		CreateKMS("s3").                                                                  // 01. Make KMS for data excryption of data export
+		AuroraSnapshotTaken(m.workstation).                                               // 02. Take snapshot from aurora
+		AuroraSnapshotExportS3(m.workstation).                                            // 03. Export data from snapshot to S3. -> task 01/02
+		MakeRole4ExternalAccess(m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID). // 04. Make role for TiDB Cloud import -> task 03
+		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import").      // 05. Import data into TiDB Cloud from S3 -> task 04
+		DeployDM(m.workstation, "dm").
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {

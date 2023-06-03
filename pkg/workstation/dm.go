@@ -255,8 +255,6 @@ func (w *Workstation) DeployDMTask(clusterName string, mapDBConnInfo *map[string
 		return nil
 	}
 
-	return errors.New("Stopped here")
-
 	(*mapDBConnInfo)["Databases"] = strings.Split((*mapDBConnInfo)["Databases"].(string), ",")
 
 	if err := (*w.executor).TransferTemplate(ctx, "templates/config/dm-task.yml.tpl", "/opt/tidb/dm-task.yml", "0644", mapDBConnInfo, true, 0); err != nil {
