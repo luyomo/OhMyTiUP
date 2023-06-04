@@ -34,16 +34,25 @@ func (p VpcEndpointState_Process) isState(mode ReadResourceMode) bool {
 	switch mode {
 	case ReadResourceModeCommon:
 		return p.isOKState()
+	case ReadResourceModeBeforeCreate:
+		return p.isBeforeCreateState()
 	case ReadResourceModeAfterCreate:
 		return p.isAfterCreateState()
 	}
 	return true
 }
 
+func (p VpcEndpointState_Process) isBeforeCreateState() bool {
+	return ListContainElement([]string{
+		string("available"),
+		string("pendingAcceptance"),
+	}, string(p))
+
+}
+
 func (p VpcEndpointState_Process) isAfterCreateState() bool {
 	return ListContainElement([]string{
 		string("available"),
-		string("pending"),
 	}, string(p))
 
 }
@@ -151,11 +160,13 @@ func (b *BaseVpcEndpoint) readResources(mode ReadResourceMode) error {
 	}
 
 	for _, vpcEndpoint := range resp.VpcEndpoints {
+		fmt.Printf("The voc endpoint: %#v, status: %s \n\n\n", vpcEndpoint, vpcEndpoint.State)
 		_state := VpcEndpointState_Process(vpcEndpoint.State)
 		if _state.isState(mode) == true {
 			b.ResourceData.Append(vpcEndpoint)
 		}
 	}
+	fmt.Printf("vpc endpoint: <%d> \n\n\n", len(b.ResourceData.GetData()))
 	return nil
 }
 
@@ -185,7 +196,7 @@ type CreateVpcEndpoint struct {
 // Execute implements the Task interface
 func (c *CreateVpcEndpoint) Execute(ctx context.Context) error {
 
-	if err := c.init(ctx, ReadResourceModeAfterCreate); err != nil { // ClusterName/ClusterType and client initialization
+	if err := c.init(ctx, ReadResourceModeBeforeCreate); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}
 
@@ -224,7 +235,7 @@ func (c *CreateVpcEndpoint) Execute(ctx context.Context) error {
 			return err
 		}
 
-		resp, err := c.client.CreateVpcEndpoint(context.TODO(), &ec2.CreateVpcEndpointInput{
+		_, err = c.client.CreateVpcEndpoint(context.TODO(), &ec2.CreateVpcEndpointInput{
 			ServiceName:      aws.String(c.serviceName),
 			VpcId:            vpcId,
 			SecurityGroupIds: []string{*securityGroup},
@@ -242,27 +253,44 @@ func (c *CreateVpcEndpoint) Execute(ctx context.Context) error {
 			return err
 		}
 
-		c.vpceIdChan <- *resp.VpcEndpoint.VpcEndpointId
-
-		if err := c.waitUntilResouceAvailable(0, 0, 1, func() error {
-			return c.readResources(ReadResourceModeCommon)
-		}); err != nil {
+		if err := c.readResources(ReadResourceModeBeforeCreate); err != nil {
 			return err
 		}
+	}
 
-		_, err = c.client.ModifyVpcEndpoint(context.TODO(), &ec2.ModifyVpcEndpointInput{
-			VpcEndpointId:     resp.VpcEndpoint.VpcEndpointId,
-			PrivateDnsEnabled: aws.Bool(true),
-		})
-		if err != nil {
-			return err
-		}
-	} else {
-		c.vpceIdChan <- ""
+	resp := (c.ResourceData.GetData()[0]).(types.VpcEndpoint)
+	if err != nil {
+		return err
+	}
+
+	c.vpceIdChan <- fmt.Sprintf("%s:%s", *resp.VpcEndpointId, resp.State)
+
+	if err := c.waitUntilResouceAvailable(0, 0, 1, func() error {
+		return c.readResources(ReadResourceModeAfterCreate)
+	}); err != nil {
+		return err
+	}
+
+	resp = (c.ResourceData.GetData()[0]).(types.VpcEndpoint)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.ModifyVpcEndpoint(context.TODO(), &ec2.ModifyVpcEndpointInput{
+		VpcEndpointId:     resp.VpcEndpointId,
+		PrivateDnsEnabled: aws.Bool(true),
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
+
+// 01. Fetch vpce whose statis is available or pending
+// 02. If it exists,fetch the data, otherwise create vpce
+// 03.01 If the status is available, send back vpceid:available, complete the process
+// 03.02 If the status is pending, send back vpce:pending, wait the process to be done
 
 // Rollback implements the Task interface
 func (c *CreateVpcEndpoint) Rollback(ctx context.Context) error {

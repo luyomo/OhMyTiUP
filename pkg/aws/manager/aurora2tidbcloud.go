@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -168,23 +169,19 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 			return err
 		}
 
-		// vpcEndpointName := tui.Prompt("Please input private service name: ")
-		fmt.Printf("The TiDB host name : %s \n", vpcEndpointName)
-
 		var wg sync.WaitGroup
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
-
 			select {
 			case vpceId := <-vpceIdChan:
-				if vpceId == "" {
-					tui.Prompt("The VPCE has created")
-				} else {
-					tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+				_arrVpceId := strings.Split(vpceId, ":")
+				if _arrVpceId[1] == "pendingAcceptance" {
+					tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s from TiDB Cloud console, then enter return to continue.", _arrVpceId[0]))
 				}
 			}
+
 		}()
 
 		// Create VPC Endpoint
@@ -202,17 +199,16 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		wg.Wait()
 
 		wg.Add(1)
-
 		go func() {
 			defer wg.Done()
 			select {
 			case vpceId := <-vpceIdChan:
-				if vpceId == "" {
-					tui.Prompt("The VPCE has created")
-				} else {
-					tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s", vpceId))
+				_arrVpceId := strings.Split(vpceId, ":")
+				if _arrVpceId[1] == "pendingAcceptance" {
+					tui.Prompt(fmt.Sprintf("Please accept the VPC Endpoint: %s from TiDB Cloud console, then enter return to continue.", _arrVpceId[0]))
 				}
 			}
+
 		}()
 
 		// Create VPC Endpoint
@@ -225,7 +221,9 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 				return err
 			}
 			return err
+
 		}
+
 		wg.Wait()
 
 		// To replace the below logic by API if it is provided.

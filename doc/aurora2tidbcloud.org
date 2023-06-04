@@ -397,6 +397,7 @@ loaders:
    + VPC
 ** Prompt improvment
 ** Comment removal
+** How to resume vpce if the status is pending
 * Issues
 ** READ: packet for query is too large. Try adjusting the 'max_allowed_packet' variable on the server\" , Workaround: Please execute `query-status` to check status."
    Set max_allowed_packet to 1073741824
