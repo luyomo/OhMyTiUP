@@ -17,12 +17,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
 	kmsapi "github.com/luyomo/OhMyTiUP/pkg/aws/utils/kms"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/utils/s3"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/utils/tidbcloud"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
@@ -86,6 +88,29 @@ func (c AuroraSnapshotTaken) Execute(ctx context.Context) error {
 	return nil
 }
 
+func (b *Builder) DeleteAuroraSnapshots(workstation *ws.Workstation) *Builder {
+	b.tasks = append(b.tasks, &DeleteAuroraSnapshots{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Deleting aurora snapshots ... ..."}})
+	return b
+}
+
+type DeleteAuroraSnapshots struct {
+	BaseWSTask
+}
+
+// 01. Aurora snapshot taken
+// 01.01. Get Aurora connection info
+// 01.02. Get binlog position
+// 01.03. Make snapshot if it does not exist
+func (c DeleteAuroraSnapshots) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+
+	if err := awsutils.DeleteAuroraSnapshots(clusterName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 /* ***************************************************************************** */
 
 func (b *Builder) AuroraSnapshotExportS3(workstation *ws.Workstation) *Builder {
@@ -93,9 +118,7 @@ func (b *Builder) AuroraSnapshotExportS3(workstation *ws.Workstation) *Builder {
 	return b
 }
 
-type AuroraSnapshotExportS3 struct {
-	BaseWSTask
-}
+type AuroraSnapshotExportS3 struct{ BaseWSTask }
 
 // 03. Data export to s3
 // 03.01. Preare export role
@@ -347,6 +370,8 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		return err
 	}
 
+	time.Sleep(1 * time.Minute)
+
 	if err := c.workstation.InstallSyncDiffInspector(version); err != nil {
 		return err
 	}
@@ -367,4 +392,42 @@ func (c *DeployDM) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *DeployDM) String() string {
 	return fmt.Sprintf("Echo: Deploying DM")
+}
+
+/* ***************************************************************************** */
+func (b *Builder) DeleteS3Folder(workstation *ws.Workstation) *Builder {
+	b.tasks = append(b.tasks, &DeleteS3Folder{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Deleting S3 folder ... ... "}})
+	return b
+}
+
+type DeleteS3Folder struct {
+	BaseWSTask
+}
+
+// 03. Data export to s3
+// 03.01. Preare export role
+// 03.02. Export snapshot to S3
+func (c DeleteS3Folder) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+
+	exportTasks, err := awsutils.GetValidBackupS3(clusterName)
+	if err != nil {
+		return err
+	}
+
+	s3api, err := s3.NewS3API(nil)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("All the exports: <%#v> \n\n\n", exportTasks)
+
+	for _, exportTask := range *exportTasks {
+		if err := s3api.DeleteObject(*exportTask.S3Bucket, fmt.Sprintf("%s/%s", *exportTask.S3Prefix, *exportTask.ExportTaskIdentifier)); err != nil {
+			return err
+		}
+
+		fmt.Printf("export: <%s> and <%s> \n\n\n\n\n\n", *exportTask.S3Bucket, fmt.Sprintf("%s/%s", *exportTask.S3Prefix, *exportTask.ExportTaskIdentifier))
+	}
+	return nil
 }

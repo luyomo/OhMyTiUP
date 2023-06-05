@@ -24,11 +24,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/aws/smithy-go"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/utils/s3"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	// "go.uber.org/zap"
 
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 )
@@ -145,8 +142,6 @@ func (b *BaseRDSExportS3) readResources() error {
 		// b.ResourceData.Append(exportTask)
 		// 01. Read the S3 contents.
 		// 02. Check the content. If it's there skip it.
-		fmt.Printf("export task: bucket name: %s, prefix: %s, status: %s , export name: %s\n\n\n", *exportTask.S3Bucket, *exportTask.S3Prefix, *exportTask.Status, *exportTask.ExportTaskIdentifier)
-		// export_info_aurora2tidbcloud-ohmytiup-aurora2tidbcloud-s3.json
 
 		if *exportTask.Status != "COMPLETE" {
 			continue
@@ -187,15 +182,13 @@ func (c *CreateRDSExportS3) Execute(ctx context.Context) error {
 		return err
 	}
 
-	baseServiceIamRole := BaseServiceIamRole{BaseTask: BaseTask{subClusterType: c.subClusterType, component: c.subClusterType}}
-	baseServiceIamRole.init(ctx)
-	roleArn, err := baseServiceIamRole.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Role arn: %#v \n\n\n", *roleArn)
+	// baseServiceIamRole := BaseServiceIamRole{BaseTask: BaseTask{subClusterType: c.subClusterType, component: c.subClusterType}}
+	// baseServiceIamRole.init(ctx)
+	// roleArn, err := baseServiceIamRole.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
+	// if err != nil {
+	// 	return err
+	// }
 
-	fmt.Printf("cluster exist flag: %#v \n\n\n", clusterExistFlag)
 	if clusterExistFlag == false {
 		// TODO: Add resource preparation
 		// tags := c.MakeEC2Tags()
@@ -223,9 +216,6 @@ func (c *CreateRDSExportS3) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Role arn: %#v \n\n\n", roleArn)
-		fmt.Printf("The key is: %s \n\n\n", *keyId)
-		fmt.Printf("The time: %s \n\n\n", time.Now().Format("20060102150405"))
 
 		if _, err = c.client.StartExportTask(context.TODO(), &rds.StartExportTaskInput{
 			ExportTaskIdentifier: aws.String(fmt.Sprintf("%s-%s-%s", c.clusterName, c.clusterType, time.Now().Format("20060102150405"))),
@@ -266,15 +256,14 @@ type DestroyRDSExportS3 struct {
 func (c *DestroyRDSExportS3) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	for _, rdsExportS3 := range c.ResourceData.GetData() {
-		fmt.Printf("The task : <%#v> \n\n\n", rdsExportS3)
+	// for _, rdsExportS3 := range c.ResourceData.GetData() {
 
-		// if _, err := c.client.DeleteVpc(context.Background(), &ec2.DeleteVpcInput{
-		// 	VpcId: vpc.(types.Vpc).VpcId,
-		// }); err != nil {
-		// 	return err
-		// }
-	}
+	// if _, err := c.client.DeleteVpc(context.Background(), &ec2.DeleteVpcInput{
+	// 	VpcId: vpc.(types.Vpc).VpcId,
+	// }); err != nil {
+	// 	return err
+	// }
+	// }
 
 	return nil
 }

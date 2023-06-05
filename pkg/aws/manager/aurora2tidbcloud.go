@@ -235,10 +235,9 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 				return err
 			}
 
-			stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("mysqladmin -h %s -P %d -u %s -p%s --connect-timeout 2 ping", tidbCloudHost, base.TiDBCloudConfigs.Port, base.TiDBCloudConfigs.User, base.TiDBCloudConfigs.Password), true)
+			_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("mysqladmin -h %s -P %d -u %s -p%s --connect-timeout 2 ping", tidbCloudHost, base.TiDBCloudConfigs.Port, base.TiDBCloudConfigs.User, base.TiDBCloudConfigs.Password), true)
 			if err == nil {
 				base.TiDBCloudConfigs.Host = tidbCloudHost
-				fmt.Printf("The query result is: %s \n", string(stdout))
 				break
 			}
 		}
@@ -596,6 +595,7 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 
 	t0 := task.NewBuilder().
 		DestroyTiDBCloud(m.workstation).
+		DeleteS3Folder(m.workstation).
 		DestroyTransitGateways(&sexecutor).
 		DestroyVpcPeering(&sexecutor, []string{"workstation", "dm", "aurora"}).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
@@ -631,6 +631,11 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 		DestroyEC2Nodes(&sexecutor, "dm").
 		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
 	destroyTasks = append(destroyTasks, t2)
+
+	t5 := task.NewBuilder().
+		DeleteAuroraSnapshots(m.workstation).
+		BuildAsStep(fmt.Sprintf("  - Destroying all the snapshots for %s ", name))
+	destroyTasks = append(destroyTasks, t5)
 
 	builder = task.NewBuilder().
 		ParallelStep("+ Destroying all the componets", false, destroyTasks...)

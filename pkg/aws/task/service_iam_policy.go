@@ -103,7 +103,6 @@ func (b *BaseServiceIamPolicy) init(ctx context.Context) error {
 }
 
 func (b *BaseServiceIamPolicy) readResources() error {
-	fmt.Printf("sub cluster type: %s, policy name: %s \n\n\n", b.subClusterType, b.policyName)
 	resp, err := b.client.ListPolicies(context.TODO(), &iam.ListPoliciesInput{
 		// Need to replace to kafka as well
 		// PathPrefix: aws.String("/kafkaconnect/"),
@@ -112,9 +111,8 @@ func (b *BaseServiceIamPolicy) readResources() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The number of policy: %d \n\n\n", len(resp.Policies))
+
 	for _, policy := range resp.Policies {
-		fmt.Printf("The policu name : %s \n\n\n", *policy.PolicyName)
 		if *policy.PolicyName == b.policyName {
 			b.ResourceData.Append(policy)
 		}

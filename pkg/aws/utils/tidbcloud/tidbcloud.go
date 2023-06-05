@@ -17,7 +17,7 @@ import (
 	"context"
 	// "encoding/json"
 	// "errors"
-	"fmt"
+	// "fmt"
 	"github.com/luyomo/tidbcloud-sdk-go-v1/pkg/tidbcloud"
 	// "os"
 	// "path"
@@ -87,13 +87,12 @@ func (t *TiDBCloudAPI) GetClusterId() (*string, error) {
 }
 
 func (t *TiDBCloudAPI) GetImportTaskRoleInfo() (*string, *string, error) {
-	fmt.Printf("Starting to get import task role info ... ... \n\n\n")
-
 	response, err := t.client.GetImportTaskRoleInfoWithResponse(context.Background(), t.projectId, t.clusterId)
 	if err != nil {
 		return nil, nil, err
 	}
-	fmt.Printf("The response is : %s and %s  \n\n\n", response.JSON200.AwsImportRole.AccountId, response.JSON200.AwsImportRole.ExternalId)
+	// fmt.Printf("The response is : %s and %s  \n\n\n", response.JSON200.AwsImportRole.AccountId, response.JSON200.AwsImportRole.ExternalId)
+
 	// for _, item := range response.JSON200.Items {
 	// 	fmt.Printf("The item: %#v \n\n\n", item)
 	// 	// if c.clusterName == *item.Name {

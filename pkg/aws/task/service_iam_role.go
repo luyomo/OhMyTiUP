@@ -116,7 +116,6 @@ func (b *BaseServiceIamRole) readResources() error {
 		return err
 	}
 
-	fmt.Printf("Found roles: %#v and path: <%s> \n\n\n", resp.Roles, b.subClusterType)
 	for _, role := range resp.Roles {
 		if *role.RoleName == b.roleName {
 			b.ResourceData.Append(role)
@@ -160,12 +159,7 @@ func (c *CreateServiceIamRole) Execute(ctx context.Context) error {
 			{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
 			{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
 			{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},
-
-			// {Key: aws.String("Type"), Value: aws.String("glue")},
-			// {Key: aws.String("Component"), Value: aws.String("kafkaconnect")},
 		}
-
-		fmt.Printf("path to create : %s \n\n\n", c.subClusterType)
 
 		if _, err = c.client.CreateRole(context.TODO(), &iam.CreateRoleInput{
 			RoleName:                 aws.String(c.roleName),

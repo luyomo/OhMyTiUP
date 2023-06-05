@@ -145,27 +145,26 @@ type CreateTiDBCloudImport struct {
 func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
 	// Get ClusterName from context
 	c.clusterName = ctx.Value("clusterName").(string)
-	fmt.Printf("Starting to import data job : %s ... ... \n\n\n\n\n\n", c.clusterName)
 
 	client, err := tidbcloud.NewDigestClientWithResponses()
 	if err != nil {
 		return err
 	}
 
-	clusterExist, err := c.ResourceExist()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Cluster exist flag: %#v \n\n\n", clusterExist)
-	if clusterExist == true {
-		return nil
-	}
+	// Skipped the
+	// clusterExist, err := c.ResourceExist()
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if clusterExist == true {
+	// 	return nil
+	// }
 
 	clusterId, err := c.GetClusterID()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Got the cluster ID from name \n\n\n")
 
 	// // 02. Create the cluster
 
@@ -184,7 +183,6 @@ func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
 	}
 
 	backupFile := fmt.Sprintf("s3://%s/%s/%s", *(*exportTasks)[0].S3Bucket, *(*exportTasks)[0].S3Prefix, *(*exportTasks)[0].ExportTaskIdentifier)
-	fmt.Printf("The backup file to import: %s \n\n\n", backupFile)
 
 	iamapi, err := iam.NewIAMAPI(nil)
 	if err != nil {
@@ -197,7 +195,6 @@ func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
 	if pRoles == nil {
 		return errors.New("No role for data import found. ")
 	}
-	fmt.Printf("Roles: %#v \n\n\n", *pRoles)
 
 	var createImportTaskJSONRequestBody tidbcloud.CreateImportTaskJSONRequestBody
 	createImportTaskJSONRequestBody.Name = ptr.String(c.clusterName)
@@ -258,8 +255,8 @@ type DestroyTiDBCloudImport struct {
 
 // Execute implements the Task interface
 func (c *DestroyTiDBCloudImport) Execute(ctx context.Context) error {
-	clusterName := ctx.Value("clusterName").(string)
-	fmt.Printf("The cluster name is <%s> \n\n\n", clusterName)
+	// clusterName := ctx.Value("clusterName").(string)
+
 	tidbCloudInfo, err := c.workstation.ReadTiDBCloudDBInfo()
 	if err != nil {
 		return err
@@ -304,7 +301,7 @@ func (c *ListTiDBCloudImport) Execute(ctx context.Context) error {
 	}
 
 	var _projects []uint64
-	// fmt.Printf("The projects are %#v \n\n\n", test)
+
 	for _, _item := range _theProjects {
 		_projects = append(_projects, _item.ID)
 	}
@@ -316,7 +313,6 @@ func (c *ListTiDBCloudImport) Execute(ctx context.Context) error {
 		_projects = []uint64{c.projectID}
 	}
 
-	// fmt.Printf("Proejct is %#v \n\n\n", c.projectID)
 	for _, _projectID := range _projects {
 		var (
 			url    = fmt.Sprintf("%s/api/v1beta/projects/%d/clusters", tidbcloudapi.Host, _projectID)

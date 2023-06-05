@@ -15,15 +15,7 @@ package s3
 
 import (
 	"context"
-	// "encoding/json"
-	// "errors"
 	// "fmt"
-	// "os"
-	// "path"
-	// "sort"
-	// "strings"
-	// "text/template"
-	// "time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -78,84 +70,30 @@ func (c *S3API) GetObject(bucket, key string) error {
 	return nil
 }
 
-// func (e *EC2API) GetAvailabilitySubnet4EndpointService(serviceName string) (*[]string, error) {
-// 	availableZones, err := e.getEndpointServiceAvailabilityZones(serviceName)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	// fmt.Printf("The available zones are: %#v \n\n\n", availableZones)
+func (c *S3API) DeleteObject(bucket, prefix string) error {
 
-// 	filters := e.makeFilters()
+	objects, err := c.client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	})
+	if err != nil {
+		return err
+	}
 
-// 	resp, err := e.client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{Filters: *filters})
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	var objectIds []types.ObjectIdentifier
+	for _, file := range objects.Contents {
+		objectIds = append(objectIds, types.ObjectIdentifier{Key: file.Key})
+	}
 
-// 	for _, subnet := range resp.Subnets {
-// 		if utils.Includes(*availableZones, *subnet.AvailabilityZone) == true {
-// 			return &[]string{*subnet.SubnetId}, nil
-// 		}
+	if _, err := c.client.DeleteObjects(context.TODO(), &s3.DeleteObjectsInput{
+		Bucket: aws.String(bucket),
+		Delete: &types.Delete{Objects: objectIds},
+	}); err != nil {
+		return err
+	}
 
-// 	}
-
-// 	return nil, errors.New("Not availability zone for service found")
-// }
-// func (e *EC2API) getEndpointServiceAvailabilityZones(serviceName string) (*[]string, error) {
-// 	resp, err := e.client.DescribeVpcEndpointServices(context.TODO(), &ec2.DescribeVpcEndpointServicesInput{
-// 		ServiceNames: []string{serviceName},
-// 	})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	if len(resp.ServiceDetails) == 0 {
-// 		return nil, errors.New("No endpoint service found")
-// 	}
-
-// 	if len(resp.ServiceDetails) > 1 {
-// 		return nil, errors.New("More than one endpoint service found")
-// 	}
-
-// 	return &resp.ServiceDetails[0].AvailabilityZones, nil
-// }
-
-// func (e *EC2API) ExtractEC2Instances(clusterName, clusterType, subClusterType string) (*map[string][]string, error) {
-
-// 	// var filters []types.Filter
-// 	// filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
-// 	// filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
-// 	// if subClusterType != "" {
-// 	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{subClusterType}})
-// 	// }
-// 	filters := e.makeFilters()
-
-// 	describeInstances, err := e.client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{Filters: *filters})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	mapInstances := make(map[string][]string)
-
-// 	for _, reservation := range describeInstances.Reservations {
-// 		for _, instance := range reservation.Instances {
-// 			for _, tag := range instance.Tags {
-// 				switch {
-// 				case *tag.Key == "Component" && *tag.Value == "dm-master":
-// 					mapInstances["DMMaster"] = append(mapInstances["DMMaster"], *instance.PrivateIpAddress)
-// 				case *tag.Key == "Component" && *tag.Value == "dm-worker":
-// 					mapInstances["DMWorker"] = append(mapInstances["DMWorker"], *instance.PrivateIpAddress)
-// 				case *tag.Key == "Component" && *tag.Value == "workstation":
-// 					mapInstances["Grafana"] = append(mapInstances["Grafana"], *instance.PrivateIpAddress)
-// 					mapInstances["Monitor"] = append(mapInstances["Monitor"], *instance.PrivateIpAddress)
-// 					mapInstances["AlertManager"] = append(mapInstances["AlertManager"], *instance.PrivateIpAddress)
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	return &mapInstances, nil
-// }
+	return nil
+}
 
 func (c *S3API) makeTags() *[]types.Tag {
 	var tags []types.Tag

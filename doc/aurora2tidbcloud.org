@@ -379,25 +379,32 @@ loaders:
    #+END_SRC
 
 * TODOList
-** Destroy command to include
-*** DONE TiDB Cloud
-*** TODO S3 backup
-*** TODO RDS snapshot
-** Make progress visible
-*** TODO Aurora setup
-*** TODO TiDB cloud setup
-*** TODO Aurora database snapshot taken
-*** TODO Data S3 export
-** List all the time taken on each process
-** List all the AWS Resource
-   + RDS
-   + S3
-   + KMS
-   + Subnet
-   + VPC
-** Prompt improvment
-** Comment removal
-** How to resume vpce if the status is pending
+** Full case
+*** Destroy command to include
+**** DONE TiDB Cloud
+**** TODO S3 backup
+**** TODO RDS snapshot
+*** Make progress visible
+**** TODO Aurora setup
+**** TODO TiDB cloud setup
+**** TODO Aurora database snapshot taken
+**** TODO Data S3 export
+*** List all the time taken on each process
+*** List all the AWS Resource
+    + RDS
+    + S3
+    + KMS
+    + Subnet
+    + VPC
+*** DONE Prompt improvment
+*** Comment removal
+*** DONE How to resume vpce if the status is pending
+*** extract_oracle_instance_info.go rename
+*** Convert S3/bucket as parameter
+*** TiDB Version as parameter
+*** Target DB as parameters
+** Replication without Aurora
+** Replication without TiDB Cloud and aurora
 * Issues
 ** READ: packet for query is too large. Try adjusting the 'max_allowed_packet' variable on the server\" , Workaround: Please execute `query-status` to check status."
    Set max_allowed_packet to 1073741824

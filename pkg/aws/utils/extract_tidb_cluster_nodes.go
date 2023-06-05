@@ -44,25 +44,10 @@ func ExtractTiDBClusterNodes(name, cluster, clusterType string) (*TiDBClusterNod
 	client := ec2.NewFromConfig(cfg)
 
 	var filters []types.Filter
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Name"),
-		Values: []string{name},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Cluster"),
-		Values: []string{cluster},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("tag:Type"),
-		Values: []string{clusterType},
-	})
-
-	filters = append(filters, types.Filter{
-		Name:   aws.String("instance-state-name"),
-		Values: []string{"running"},
-	})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{name}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{cluster}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{clusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("instance-state-name"), Values: []string{"running"}})
 
 	ec2DescribeInstancesInput := &ec2.DescribeInstancesInput{
 		Filters: filters,

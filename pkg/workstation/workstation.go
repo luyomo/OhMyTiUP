@@ -251,7 +251,6 @@ func (w *Workstation) GetRedshiftDBInfo() (*RedshiftDBInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("The config is <%#v> \n\n\n", redshiftDBInfos)
 
 	if len(redshiftDBInfos) > 1 {
 		return nil, errors.New("Duplicate Redshift DB connection info")
@@ -395,14 +394,13 @@ func (w *Workstation) RunSerialCmds(cmds []string, isRootUser bool) error {
 func (w *Workstation) InstallTiup() error {
 	ctx := context.Background()
 
-	stdout, stderr, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/tiup", w.tiupCmdPath), false)
+	_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/tiup", w.tiupCmdPath), false)
 	if err != nil {
-		fmt.Printf("stdout: <%s>, stderr:<%s>, err: <%s> \n\n\n", string(stdout), string(stderr), err.Error())
 		if strings.Contains(err.Error(), "cause: exit status 1") {
 			if _, _, err := (*w.executor).Execute(ctx, "curl --proto '=https' --tlsv1.2 -sSf https://tiup-mirrors.pingcap.com/install.sh | sh", false); err != nil {
 				return err
 			}
-			stdout, stderr, err = (*w.executor).Execute(ctx, "which $HOME/.tiup/bin/tiup", false)
+			_, _, err = (*w.executor).Execute(ctx, "which $HOME/.tiup/bin/tiup", false)
 			if err != nil {
 				return err
 			}
@@ -411,7 +409,6 @@ func (w *Workstation) InstallTiup() error {
 		}
 
 	}
-	fmt.Printf("stdout: %s, stderr: %s \n\n\n", string(stdout), string(stderr))
 
 	return nil
 }
@@ -421,9 +418,8 @@ func (w *Workstation) InstallSyncDiffInspector(version string) error {
 
 	installerFileName := fmt.Sprintf("tidb-community-toolkit-v%s-linux-amd64", version)
 
-	stdout, stderr, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/sync_diff_inspector", w.tiupCmdPath), false)
+	_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/sync_diff_inspector", w.tiupCmdPath), false)
 	if err != nil {
-		fmt.Printf("stdout: <%s>, stderr:<%s>, err: <%s> \n\n\n", string(stdout), string(stderr), err.Error())
 		if strings.Contains(err.Error(), "cause: exit status 1") {
 			if err := w.RunSerialCmds([]string{
 				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", installerFileName),

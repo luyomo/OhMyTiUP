@@ -20,19 +20,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	// "gopkg.in/yaml.v3"
-	// "io/ioutil"
-	// "os"
-	// "path/filepath"
-	// "go.uber.org/zap"
-	// "github.com/aws/aws-sdk-go-v2/aws"
-	// "github.com/aws/aws-sdk-go-v2/config"
-	// "github.com/aws/aws-sdk-go-v2/service/ec2"
-	// "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	// awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
-	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	// "github.com/luyomo/OhMyTiUP/pkg/executor"
-	// "github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 
 /* ***************************************************************************** */
@@ -65,7 +52,6 @@ func (w *Workstation) GetDMCluster(clusterName string) (*map[string]interface{},
 				if err := json.Unmarshal(stdout, &dmInfo); err != nil {
 					return nil, err
 				}
-				fmt.Printf("The cluster info: <%#v> \n\n\n", dmInfo)
 
 				return &dmInfo, nil
 			}
@@ -236,8 +222,6 @@ func (w *Workstation) GetDMTask(clusterName string) (*map[string]interface{}, er
 func (w *Workstation) DeployDMTask(clusterName string, mapDBConnInfo *map[string]interface{}) error {
 	ctx := context.Background()
 
-	fmt.Printf("Starting the DeployDMTsk \n\n\n")
-
 	pDMMasterAddr, err := w.GetDMMasterAddr(clusterName)
 	if err != nil {
 		return err
@@ -250,7 +234,7 @@ func (w *Workstation) DeployDMTask(clusterName string, mapDBConnInfo *map[string
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The task is: <%#v> \n\n\n", task)
+
 	if task != nil {
 		return nil
 	}

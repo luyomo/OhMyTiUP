@@ -159,8 +159,6 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("CreateRouteTable -> ClusterName: %s, ClusterType: %s, subClusterType: %s, scope: %s \n\n\n\n", c.clusterName, c.clusterType, c.subClusterType, c.scope)
-
 	// Check resource's existness
 	clusterExistFlag, err := c.ResourceData.ResourceExist()
 	if err != nil {
@@ -199,9 +197,9 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 	// 01. Create the internet gateway if it does not exit.
 	// 02. Attach the internet gateway to VPC
 	// 03. Create route for the route table
-	fmt.Printf("ClusterName: %s, ClusterType: %s, subClusterType: %s, scope: %s \n\n\n\n", c.clusterName, c.clusterType, c.subClusterType, c.scope)
+
 	if c.scope == NetworkTypePublic {
-		fmt.Printf("------------------- \n\n\n\n\n")
+
 		if err := c.CreateInternetGateway(); err != nil {
 			return err
 		}
