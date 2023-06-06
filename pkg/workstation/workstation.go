@@ -40,7 +40,6 @@ import (
 type Workstation struct {
 	executor *ctxt.Executor
 
-	// tiupCmd     string
 	tiupCmdPath string
 }
 

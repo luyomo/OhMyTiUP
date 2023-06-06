@@ -17,12 +17,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	// "os"
 	"strconv"
 	"time"
 
-	// "github.com/aws/smithy-go/ptr"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/aws/smithy-go/ptr"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/tidbcloudapi"
@@ -33,7 +30,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/aws/utils/iam"
 )
 
-func (b *Builder) CreateTiDBCloudImport(projectId, subClusterType string) *Builder {
+func (b *Builder) CreateTiDBCloudImport(projectId, subClusterType string, timer *awsutils.ExecutionTimer) *Builder {
 	b.tasks = append(b.tasks, &CreateTiDBCloudImport{BaseTiDBCloudImport: BaseTiDBCloudImport{projectId: projectId, subClusterType: subClusterType}})
 	return b
 }
@@ -56,6 +53,8 @@ func (b *Builder) DestroyTiDBCloudImport(workstation *ws.Workstation) *Builder {
 
 /* *************************************************************************** */
 type BaseTiDBCloudImport struct {
+	BaseWSTask
+
 	projectId      string
 	clusterName    string
 	subClusterType string
@@ -143,6 +142,8 @@ type CreateTiDBCloudImport struct {
    03. Role
 */
 func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
+	defer c.takeTimer("Data import to TiDB Cloud")
+
 	// Get ClusterName from context
 	c.clusterName = ctx.Value("clusterName").(string)
 
@@ -213,7 +214,6 @@ func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
 	statusCode := resImport.StatusCode()
 	switch statusCode {
 	case 200:
-		fmt.Printf("Started the import job")
 	case 400:
 		return errors.New(fmt.Sprintf("Failed to import data: %s", *resImport.JSON400.Message))
 	case 403:
@@ -242,7 +242,7 @@ func (c *CreateTiDBCloudImport) Rollback(ctx context.Context) error {
 
 // String implements the fmt.Stringer interface
 func (c *CreateTiDBCloudImport) String() string {
-	return fmt.Sprintf("Echo: Create TiDB Cloud ")
+	return fmt.Sprintf("Echo: Importing S3 parquet data into TiDB Cloud ... ... ")
 }
 
 /******************************************************************************/

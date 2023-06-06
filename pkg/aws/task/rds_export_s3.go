@@ -30,9 +30,9 @@ import (
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 )
 
-func (b *Builder) CreateRDSExportS3(subClusterType, s3BackupFolder string) *Builder {
+func (b *Builder) CreateRDSExportS3(subClusterType, s3BackupFolder string, timer *awsutils.ExecutionTimer) *Builder {
 	b.tasks = append(b.tasks, &CreateRDSExportS3{
-		BaseRDSExportS3: BaseRDSExportS3{BaseTask: BaseTask{subClusterType: subClusterType}},
+		BaseRDSExportS3: BaseRDSExportS3{BaseTask: BaseTask{subClusterType: subClusterType, timer: timer}},
 		s3BackupFolder:  s3BackupFolder,
 	})
 	return b
@@ -129,6 +129,8 @@ type CreateRDSExportS3 struct {
 
 // Execute implements the Task interface
 func (c *CreateRDSExportS3) Execute(ctx context.Context) error {
+	defer c.takeTimer("Export snapshot to S3")
+
 	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
 		return err
 	}

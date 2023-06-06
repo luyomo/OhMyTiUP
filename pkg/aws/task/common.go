@@ -49,6 +49,9 @@ import (
 	nlbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 
+	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
+
 	// "github.com/aws/aws-sdk-go-v2/service/ec2"
 	// ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
@@ -1543,6 +1546,44 @@ type BaseTaskInterface interface {
 	readResources(mode ReadResourceMode) error
 }
 
+type BaseWSTask struct {
+	barMessage  string
+	workstation *ws.Workstation
+
+	innerTimer *awsutils.ExecutionTimer
+	timer      *awsutils.ExecutionTimer
+}
+
+func (c *BaseWSTask) Rollback(ctx context.Context) error {
+	return nil
+}
+
+func (c *BaseWSTask) String() string {
+	return c.barMessage
+}
+
+func (c *BaseWSTask) startTimer() {
+	c.innerTimer = awsutils.NewTimer()
+}
+
+func (c *BaseWSTask) takeInnerTimer(proc string) {
+	if c.innerTimer != nil {
+		c.innerTimer.Take(fmt.Sprintf("    -> %s", proc))
+	}
+}
+
+func (c *BaseWSTask) completeTimer(jobName string) {
+	c.takeInnerTimer(jobName)
+
+	c.timer.Append(c.innerTimer)
+}
+
+func (c *BaseWSTask) takeTimer(jobName string) {
+	if c.timer != nil {
+		c.timer.Take(jobName)
+	}
+}
+
 type BaseTask struct {
 	BaseTaskInterface
 
@@ -1551,6 +1592,8 @@ type BaseTask struct {
 
 	ResourceData ResourceData
 
+	timer *awsutils.ExecutionTimer
+
 	clusterName    string      // It's initialized from init() function
 	clusterType    string      // It's initialized from init() function
 	subClusterType string      // tidb/msk/workstation
@@ -1558,6 +1601,13 @@ type BaseTask struct {
 	component      string      // tidb/tikv/pd
 
 	clusterInfo *ClusterInfo
+}
+
+func (c *BaseTask) takeTimer(jobName string) {
+	if c.timer != nil {
+		c.timer.Take(jobName)
+	}
+
 }
 
 func (b *BaseTask) getTiDBClusterInfo() (*TiDBClusterDisplay, error) {

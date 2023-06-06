@@ -62,6 +62,8 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
+	defer timer.Print()
+
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
 
@@ -94,7 +96,7 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 
 	auroraTask := task.NewBuilder().
 		CreateAurora(&m.localExe, base.AwsAuroraConfigs).
-		BuildAsStep(fmt.Sprintf("  - Preparing aurora service"))
+		BuildAsStep(fmt.Sprintf("  - Preparing aurora service ... ..."))
 	task001 = append(task001, auroraTask)
 
 	var workstationInfo task.ClusterInfo
@@ -106,7 +108,7 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	var clusterInfo task.ClusterInfo
 	if base.AwsTopoConfigs.DMMaster.Count > 0 || base.AwsTopoConfigs.DMWorker.Count > 0 {
 		dmTask := task.NewBuilder().CreateDMCluster(&m.localExe, "dm", base.AwsTopoConfigs, &clusterInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing dm servers"))
+			BuildAsStep(fmt.Sprintf("  - Preparing dm servers ... ..."))
 		task001 = append(task001, dmTask)
 	}
 
@@ -123,7 +125,6 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		CreateRouteTgw(&m.localExe, "dm", []string{"aurora"}).
 		BuildAsStep("Parallel Main step")
 
-		// if 1 == 0 {
 	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
@@ -131,12 +132,8 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		}
 		return err
 	}
-	// }
 
-	timer.Take("Execution")
-
-	// 8. Print the execution summary
-	timer.Print()
+	timer.Take("AWS resources")
 
 	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
@@ -158,6 +155,8 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	if err := m.workstation.InstallMySQLShell(); err != nil {
 		return err
 	}
+
+	timer.Take("Workstation init")
 
 	// If /opt/tidbcloud-info.yml in the worksation exists, skip the private link setup for TiDB Cloud
 	if _, err := m.workstation.ReadDBConnInfo(ws.DB_TYPE_TIDBCLOUD); err != nil {
@@ -244,6 +243,8 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 
 		}
 
+		timer.Take("Private endpoint setup")
+
 		dbInfo := make(map[string]string)
 
 		dbInfo["DBHost"] = base.TiDBCloudConfigs.Host
@@ -270,6 +271,8 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 			return err
 		}
 	}
+
+	timer.Take("shell files preparation")
 
 	// Replace the logic to insert data
 	queries := []string{
@@ -300,13 +303,15 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		}
 	}
 
+	timer.Take("DB Resource creation")
+
 	postTask := task.NewBuilder().
-		CreateKMS("s3").                                                                  // 01. Make KMS for data excryption of data export
-		AuroraSnapshotTaken(m.workstation).                                               // 02. Take snapshot from aurora
-		AuroraSnapshotExportS3(m.workstation, base.AwsAuroraConfigs.S3BackupFolder).      // 03. Export data from snapshot to S3. -> task 01/02
-		MakeRole4ExternalAccess(m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID). // 04. Make role for TiDB Cloud import -> task 03
-		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import").      // 05. Import data into TiDB Cloud from S3 -> task 04
-		DeployDM(m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion).
+		CreateKMS("s3").                                                                          // 01. Make KMS for data excryption of data export
+		AuroraSnapshotTaken(m.workstation, &timer).                                               // 02. Take snapshot from aurora
+		AuroraSnapshotExportS3(m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).      // 03. Export data from snapshot to S3. -> task 01/02
+		MakeRole4ExternalAccess(m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID, &timer). // 04. Make role for TiDB Cloud import -> task 03
+		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import", &timer).      // 05. Import data into TiDB Cloud from S3 -> task 04
+		DeployDM(m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion, &timer).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {

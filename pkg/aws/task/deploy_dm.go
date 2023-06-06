@@ -31,22 +31,9 @@ import (
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
-type BaseWSTask struct {
-	barMessage  string
-	workstation *ws.Workstation
-}
-
-func (c *BaseWSTask) Rollback(ctx context.Context) error {
-	return nil
-}
-
-func (c *BaseWSTask) String() string {
-	return c.barMessage
-}
-
 /* **************************************************************************** */
-func (b *Builder) AuroraSnapshotTaken(workstation *ws.Workstation) *Builder {
-	b.tasks = append(b.tasks, &AuroraSnapshotTaken{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Taking aurora snapshot"}})
+func (b *Builder) AuroraSnapshotTaken(workstation *ws.Workstation, timer *awsutils.ExecutionTimer) *Builder {
+	b.tasks = append(b.tasks, &AuroraSnapshotTaken{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Taking aurora snapshot", timer: timer}})
 	return b
 }
 
@@ -59,6 +46,9 @@ type AuroraSnapshotTaken struct {
 // 01.02. Get binlog position
 // 01.03. Make snapshot if it does not exist
 func (c AuroraSnapshotTaken) Execute(ctx context.Context) error {
+	c.startTimer()
+	defer c.completeTimer("aurora snapshot taken")
+
 	clusterName := ctx.Value("clusterName").(string)
 
 	binlogPos, err := c.workstation.ReadMySQLBinPos() // Get [show master status]
@@ -115,10 +105,10 @@ func (c DeleteAuroraSnapshots) Execute(ctx context.Context) error {
 
 /* ***************************************************************************** */
 
-func (b *Builder) AuroraSnapshotExportS3(workstation *ws.Workstation, s3BackupFolder string) *Builder {
+func (b *Builder) AuroraSnapshotExportS3(workstation *ws.Workstation, s3BackupFolder string, timer *awsutils.ExecutionTimer) *Builder {
 	b.tasks = append(b.tasks, &AuroraSnapshotExportS3{
 		s3BackupFolder: s3BackupFolder,
-		BaseWSTask:     BaseWSTask{workstation: workstation, barMessage: "Exporting data from aurora to S3 ... ... "}})
+		BaseWSTask:     BaseWSTask{workstation: workstation, barMessage: "Exporting data from aurora to S3 ... ... ", timer: timer}})
 	return b
 }
 
@@ -132,6 +122,8 @@ type AuroraSnapshotExportS3 struct {
 // 03.01. Preare export role
 // 03.02. Export snapshot to S3
 func (c AuroraSnapshotExportS3) Execute(ctx context.Context) error {
+	c.startTimer()
+	defer c.completeTimer("Export snapshot to s3")
 
 	parsedS3Dir, err := url.Parse(c.s3BackupFolder)
 	if err != nil {
@@ -175,7 +167,7 @@ func (c AuroraSnapshotExportS3) Execute(ctx context.Context) error {
 	if err := NewBuilder().
 		CreateServiceIamPolicy("s3export", policy).
 		CreateServiceIamRole("s3export", assumeRolePolicyDocument).
-		CreateRDSExportS3("s3export", c.s3BackupFolder).
+		CreateRDSExportS3("s3export", c.s3BackupFolder, c.timer).
 		Build().Execute(ctxt.New(ctx, 1)); err != nil {
 		return err
 	}
@@ -185,8 +177,8 @@ func (c AuroraSnapshotExportS3) Execute(ctx context.Context) error {
 
 /* ***************************************************************************** */
 
-func (b *Builder) MakeRole4ExternalAccess(workstation *ws.Workstation, projectId string) *Builder {
-	b.tasks = append(b.tasks, &MakeRole4ExternalAccess{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Making role for external access ... ... "}, tidbProjectId: projectId})
+func (b *Builder) MakeRole4ExternalAccess(workstation *ws.Workstation, projectId string, timer *awsutils.ExecutionTimer) *Builder {
+	b.tasks = append(b.tasks, &MakeRole4ExternalAccess{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Making role for external access ... ... ", timer: timer}, tidbProjectId: projectId})
 	return b
 }
 
@@ -199,6 +191,9 @@ type MakeRole4ExternalAccess struct {
 // 09. Create import role
 // 15. TiDB Data import
 func (c MakeRole4ExternalAccess) Execute(ctx context.Context) error {
+	c.startTimer()
+	defer c.completeTimer("Make roles for external access")
+
 	clusterName := ctx.Value("clusterName").(string)
 
 	mapArgs := make(map[string]string)
@@ -290,9 +285,9 @@ func (c MakeRole4ExternalAccess) Execute(ctx context.Context) error {
 }
 
 /* **************************************************************************** */
-func (b *Builder) DeployDM(workstation *ws.Workstation, subClusterType, version string) *Builder {
+func (b *Builder) DeployDM(workstation *ws.Workstation, subClusterType, version string, timer *awsutils.ExecutionTimer) *Builder {
 	b.tasks = append(b.tasks, &DeployDM{
-		BaseWSTask:     BaseWSTask{workstation: workstation, barMessage: "Deploying DM cluster ... ... "},
+		BaseWSTask:     BaseWSTask{workstation: workstation, barMessage: "Deploying DM cluster ... ... ", timer: timer},
 		subClusterType: subClusterType,
 		version:        version,
 	})
@@ -315,6 +310,9 @@ type DeployDM struct {
 
 // 14. Diff check
 func (c *DeployDM) Execute(ctx context.Context) error {
+	c.startTimer()
+	defer c.completeTimer("DM Deployment")
+
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
