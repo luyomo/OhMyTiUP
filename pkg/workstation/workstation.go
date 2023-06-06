@@ -416,7 +416,7 @@ func (w *Workstation) InstallTiup() error {
 func (w *Workstation) InstallSyncDiffInspector(version string) error {
 	ctx := context.Background()
 
-	installerFileName := fmt.Sprintf("tidb-community-toolkit-v%s-linux-amd64", version)
+	installerFileName := fmt.Sprintf("tidb-community-toolkit-%s-linux-amd64", version)
 
 	_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/sync_diff_inspector", w.tiupCmdPath), false)
 	if err != nil {

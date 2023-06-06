@@ -325,12 +325,11 @@ func GetValidBackupS3(snapshotName string) (*[]types.ExportTask, error) {
 		}
 
 		file := fmt.Sprintf("%s/%s/export_info_%s.json", *exportTask.S3Prefix, *exportTask.ExportTaskIdentifier, *exportTask.ExportTaskIdentifier)
-		// fmt.Printf("The file is: %s \n\n\n", file)
+
 		err := s3api.GetObject(*exportTask.S3Bucket, file)
 		if err != nil {
 			var ae smithy.APIError
 			if errors.As(err, &ae) {
-				fmt.Printf("ErrorCode: %s \n\n\n", ae.ErrorCode())
 				if ae.ErrorCode() == "NoSuchKey" {
 					continue
 				}
@@ -339,7 +338,6 @@ func GetValidBackupS3(snapshotName string) (*[]types.ExportTask, error) {
 			return nil, err
 		}
 		retExportTasks = append(retExportTasks, exportTask)
-		// b.ResourceData.Append(exportTask)
 	}
 	return &retExportTasks, nil
 }

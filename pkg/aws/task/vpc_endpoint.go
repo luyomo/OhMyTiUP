@@ -160,13 +160,12 @@ func (b *BaseVpcEndpoint) readResources(mode ReadResourceMode) error {
 	}
 
 	for _, vpcEndpoint := range resp.VpcEndpoints {
-		fmt.Printf("The voc endpoint: %#v, status: %s \n\n\n", vpcEndpoint, vpcEndpoint.State)
 		_state := VpcEndpointState_Process(vpcEndpoint.State)
 		if _state.isState(mode) == true {
 			b.ResourceData.Append(vpcEndpoint)
 		}
 	}
-	fmt.Printf("vpc endpoint: <%d> \n\n\n", len(b.ResourceData.GetData()))
+
 	return nil
 }
 

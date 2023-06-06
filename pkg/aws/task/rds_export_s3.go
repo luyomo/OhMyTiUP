@@ -17,22 +17,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
-	"github.com/aws/smithy-go"
-	"github.com/luyomo/OhMyTiUP/pkg/aws/utils/s3"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 )
 
-func (b *Builder) CreateRDSExportS3(subClusterType string) *Builder {
+func (b *Builder) CreateRDSExportS3(subClusterType, s3BackupFolder string) *Builder {
 	b.tasks = append(b.tasks, &CreateRDSExportS3{
 		BaseRDSExportS3: BaseRDSExportS3{BaseTask: BaseTask{subClusterType: subClusterType}},
+		s3BackupFolder:  s3BackupFolder,
 	})
 	return b
 }
@@ -112,55 +113,9 @@ func (b *BaseRDSExportS3) readResources() error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("The export task: <%#v> \n\n\n", *exportTasks)
 
 	for _, exportTask := range *exportTasks {
-		b.ResourceData.Append(exportTask)
-	}
-	return nil
-
-	// Only one snapshot is taken in the demo naming the cluster name.
-	snapshotARN, err := awsutils.GetSnapshot(b.clusterName)
-	if err != nil {
-		return err
-	}
-	if *snapshotARN == "" {
-		return errors.New("No snapshot found")
-	}
-
-	// Loop all the export tasks to s3. Check the meta json file to get the valid export
-	resp, err := b.client.DescribeExportTasks(context.TODO(), &rds.DescribeExportTasksInput{SourceArn: snapshotARN})
-	if err != nil {
-		return err
-	}
-
-	s3api, err := s3.NewS3API(nil)
-	if err != nil {
-		return err
-	}
-
-	for _, exportTask := range resp.ExportTasks {
-		// b.ResourceData.Append(exportTask)
-		// 01. Read the S3 contents.
-		// 02. Check the content. If it's there skip it.
-
-		if *exportTask.Status != "COMPLETE" {
-			continue
-		}
-
-		file := fmt.Sprintf("%s/%s/export_info_%s.json", *exportTask.S3Prefix, *exportTask.ExportTaskIdentifier, *exportTask.ExportTaskIdentifier)
-		// fmt.Printf("The file is: %s \n\n\n", file)
-		err := s3api.GetObject(*exportTask.S3Bucket, file)
-		if err != nil {
-			var ae smithy.APIError
-			if errors.As(err, &ae) {
-				fmt.Printf("ErrorCode: %s \n\n\n", ae.ErrorCode())
-				if ae.ErrorCode() == "NoSuchKey" {
-					continue
-				}
-			}
-
-			return err
-		}
 		b.ResourceData.Append(exportTask)
 	}
 	return nil
@@ -169,6 +124,8 @@ func (b *BaseRDSExportS3) readResources() error {
 /******************************************************************************/
 type CreateRDSExportS3 struct {
 	BaseRDSExportS3
+
+	s3BackupFolder string
 }
 
 // Execute implements the Task interface
@@ -217,12 +174,17 @@ func (c *CreateRDSExportS3) Execute(ctx context.Context) error {
 			return err
 		}
 
+		parsedS3Dir, err := url.Parse(c.s3BackupFolder)
+		if err != nil {
+			return err
+		}
+
 		if _, err = c.client.StartExportTask(context.TODO(), &rds.StartExportTaskInput{
 			ExportTaskIdentifier: aws.String(fmt.Sprintf("%s-%s-%s", c.clusterName, c.clusterType, time.Now().Format("20060102150405"))),
 			IamRoleArn:           roleArn,
 			KmsKeyId:             keyId,
-			S3BucketName:         aws.String("jay-data"),
-			S3Prefix:             aws.String("aurora-export"),
+			S3BucketName:         aws.String(parsedS3Dir.Host),
+			S3Prefix:             aws.String(strings.Trim(parsedS3Dir.Path, "/")),
 			SourceArn:            snapshotARN,
 		}); err != nil {
 			return err

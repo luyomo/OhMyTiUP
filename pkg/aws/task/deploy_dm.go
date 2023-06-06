@@ -17,6 +17,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
@@ -113,17 +115,28 @@ func (c DeleteAuroraSnapshots) Execute(ctx context.Context) error {
 
 /* ***************************************************************************** */
 
-func (b *Builder) AuroraSnapshotExportS3(workstation *ws.Workstation) *Builder {
-	b.tasks = append(b.tasks, &AuroraSnapshotExportS3{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Exporting data from aurora to S3 ... ... "}})
+func (b *Builder) AuroraSnapshotExportS3(workstation *ws.Workstation, s3BackupFolder string) *Builder {
+	b.tasks = append(b.tasks, &AuroraSnapshotExportS3{
+		s3BackupFolder: s3BackupFolder,
+		BaseWSTask:     BaseWSTask{workstation: workstation, barMessage: "Exporting data from aurora to S3 ... ... "}})
 	return b
 }
 
-type AuroraSnapshotExportS3 struct{ BaseWSTask }
+type AuroraSnapshotExportS3 struct {
+	BaseWSTask
+
+	s3BackupFolder string
+}
 
 // 03. Data export to s3
 // 03.01. Preare export role
 // 03.02. Export snapshot to S3
 func (c AuroraSnapshotExportS3) Execute(ctx context.Context) error {
+
+	parsedS3Dir, err := url.Parse(c.s3BackupFolder)
+	if err != nil {
+		return err
+	}
 
 	policy := fmt.Sprintf(`{
     "Version": "2012-10-17",
@@ -144,7 +157,7 @@ func (c AuroraSnapshotExportS3) Execute(ctx context.Context) error {
             ]
         }
     ]
-}`, "jay-data", "jay-data")
+}`, parsedS3Dir.Host, strings.Trim(parsedS3Dir.Host, "/"))
 
 	assumeRolePolicyDocument := `{
      "Version": "2012-10-17",
@@ -162,7 +175,7 @@ func (c AuroraSnapshotExportS3) Execute(ctx context.Context) error {
 	if err := NewBuilder().
 		CreateServiceIamPolicy("s3export", policy).
 		CreateServiceIamRole("s3export", assumeRolePolicyDocument).
-		CreateRDSExportS3("s3export").
+		CreateRDSExportS3("s3export", c.s3BackupFolder).
 		Build().Execute(ctxt.New(ctx, 1)); err != nil {
 		return err
 	}
@@ -173,7 +186,7 @@ func (c AuroraSnapshotExportS3) Execute(ctx context.Context) error {
 /* ***************************************************************************** */
 
 func (b *Builder) MakeRole4ExternalAccess(workstation *ws.Workstation, projectId string) *Builder {
-	b.tasks = append(b.tasks, &MakeRole4ExternalAccess{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Exporting data from aurora to S3 ... ... "}, tidbProjectId: projectId})
+	b.tasks = append(b.tasks, &MakeRole4ExternalAccess{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Making role for external access ... ... "}, tidbProjectId: projectId})
 	return b
 }
 
@@ -277,10 +290,11 @@ func (c MakeRole4ExternalAccess) Execute(ctx context.Context) error {
 }
 
 /* **************************************************************************** */
-func (b *Builder) DeployDM(workstation *ws.Workstation, subClusterType string) *Builder {
+func (b *Builder) DeployDM(workstation *ws.Workstation, subClusterType, version string) *Builder {
 	b.tasks = append(b.tasks, &DeployDM{
 		BaseWSTask:     BaseWSTask{workstation: workstation, barMessage: "Deploying DM cluster ... ... "},
 		subClusterType: subClusterType,
+		version:        version,
 	})
 	return b
 }
@@ -289,6 +303,7 @@ type DeployDM struct {
 	BaseWSTask
 
 	subClusterType string
+	version        string
 }
 
 // 04. Get TiDB connection info
@@ -302,8 +317,6 @@ type DeployDM struct {
 func (c *DeployDM) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-
-	version := "6.5.2"
 
 	mapArgs := make(map[string]string)
 	mapArgs["clusterName"] = clusterName
@@ -357,7 +370,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.workstation.DeployDMCluster(clusterName, version, dmInstances); err != nil {
+	if err := c.workstation.DeployDMCluster(clusterName, c.version, dmInstances); err != nil {
 		return err
 	}
 
@@ -372,7 +385,7 @@ func (c *DeployDM) Execute(ctx context.Context) error {
 
 	time.Sleep(1 * time.Minute)
 
-	if err := c.workstation.InstallSyncDiffInspector(version); err != nil {
+	if err := c.workstation.InstallSyncDiffInspector(c.version); err != nil {
 		return err
 	}
 

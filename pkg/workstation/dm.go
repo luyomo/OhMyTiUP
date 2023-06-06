@@ -170,7 +170,6 @@ func (w *Workstation) DeployDMSource(clusterName string, mapDBConnInfo *map[stri
 		return errors.New("No DM cluster found.")
 	}
 
-	fmt.Printf("The source connection info: %#v \n\n\n", mapDBConnInfo)
 	if err := (*w.executor).TransferTemplate(ctx, "templates/config/dm-source.yml.tpl", "/opt/tidb/dm-source.yml", "0644", mapDBConnInfo, true, 0); err != nil {
 		return err
 	}

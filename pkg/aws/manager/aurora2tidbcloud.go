@@ -117,7 +117,7 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 
 	paraTask001 := task.NewBuilder().
 		CreateTransitGateway(&m.localExe).
-		ParallelStep("+ Deploying all the sub components for Aurora to TiDB Cloud by DM", false, task001...).
+		ParallelStep("+ Deployng all the sub components for Aurora to TiDB Cloud by DM", false, task001...).
 		CreateTransitGatewayVpcAttachment(&m.localExe, "aurora", task.NetworkTypePrivate).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"dm", "aurora"}).
 		CreateRouteTgw(&m.localExe, "dm", []string{"aurora"}).
@@ -238,8 +238,10 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 			_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("mysqladmin -h %s -P %d -u %s -p%s --connect-timeout 2 ping", tidbCloudHost, base.TiDBCloudConfigs.Port, base.TiDBCloudConfigs.User, base.TiDBCloudConfigs.Password), true)
 			if err == nil {
 				base.TiDBCloudConfigs.Host = tidbCloudHost
+				tui.Prompt("Succeeded to connect to tidb cloud.")
 				break
 			}
+
 		}
 
 		dbInfo := make(map[string]string)
@@ -301,10 +303,10 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	postTask := task.NewBuilder().
 		CreateKMS("s3").                                                                  // 01. Make KMS for data excryption of data export
 		AuroraSnapshotTaken(m.workstation).                                               // 02. Take snapshot from aurora
-		AuroraSnapshotExportS3(m.workstation).                                            // 03. Export data from snapshot to S3. -> task 01/02
+		AuroraSnapshotExportS3(m.workstation, base.AwsAuroraConfigs.S3BackupFolder).      // 03. Export data from snapshot to S3. -> task 01/02
 		MakeRole4ExternalAccess(m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID). // 04. Make role for TiDB Cloud import -> task 03
 		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import").      // 05. Import data into TiDB Cloud from S3 -> task 04
-		DeployDM(m.workstation, "dm").
+		DeployDM(m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
@@ -616,6 +618,7 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 
 	t1 := task.NewBuilder().
 		DestroyAurora(&sexecutor).
+		DeleteAuroraSnapshots(m.workstation).
 		BuildAsStep(fmt.Sprintf("  - Destroying aurora nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
@@ -631,11 +634,6 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 		DestroyEC2Nodes(&sexecutor, "dm").
 		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
 	destroyTasks = append(destroyTasks, t2)
-
-	t5 := task.NewBuilder().
-		DeleteAuroraSnapshots(m.workstation).
-		BuildAsStep(fmt.Sprintf("  - Destroying all the snapshots for %s ", name))
-	destroyTasks = append(destroyTasks, t5)
 
 	builder = task.NewBuilder().
 		ParallelStep("+ Destroying all the componets", false, destroyTasks...)

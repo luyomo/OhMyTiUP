@@ -225,6 +225,7 @@ type (
 		DBUserName             string `yaml:"db_username"`
 		DBPassword             string `yaml:"db_password"`
 		PubliclyAccessibleFlag bool   `yaml:"public_accessible_flag" default: false`
+		S3BackupFolder         string `yaml:"s3backup_folder"`
 	}
 
 	AwsPostgresConfigs struct {
