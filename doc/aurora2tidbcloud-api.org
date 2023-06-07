@@ -1,0 +1,234 @@
+#+OPTIONS: \n:t
+* Background
+  In this post, I will explain the demo to migrate aws aurora database to [[https://tidbcloud.com/][TiDB Cloud]] with [[https://github.com/aws/aws-sdk-go-v2][AWS SDK]] and TiDB Cloud OpenAPI with minimum manual work. It contains resource generation, full data migration and incremental replication.
+* Architecture
+    [[./png/aurora2tidbcloud/Aurora2TiDBCloud.01.png]]
+    
+  + AWS aurora cluster setup with golang SDK
+    According to provided config file, it generates the Aurora Cluster using [[https://github.com/aws/aws-sdk-go-v2][golang sdk]].
+  + EC2 node generation for workstation and DM cluster
+    Generate EC2 nodes for workstation and DM clusters. The workstation is used to run tiup to deploy DM cluster, data comparison, table creation and data generation. The DM cluster is used for data replication from aws aurora to TiDB Cloud.
+  + TiDB Cloud setup
+    The TiDB Cloud API is used to generate TiDB Cloud cluster. Please find the [[https://docs.pingcap.com/tidbcloud/api-overview][OpenAPI]] interface and [[https://github.com/luyomo/tidbcloud-sdk-go-v1][tidb cloud golang sdk]] for your reference.
+  + Setup Private Link between TiDB Cloud and workstation/aurora (Interactive operation)
+    Need interactive operation to setup privatelink between workstation/DM cluster and TiDB Cloud since it has not been provided by TiDB Cloud. 
+  + Test table creation and test data generation
+    Create one table and insert few rows for test. 
+  + Take binlog position from AWS aurora
+    Take the binlog position before taking snapshot, with which the DM replication task will be created. 
+  + AWS aurora snapshot taking
+    Take the aurora snapshot to extract data to S3. 
+  + Export snapshot to S3 parauet data
+    Export the snapshot to S3 parquet which is supported to be imported by [[https://docs.pingcap.com/tidbcloud/import-parquet-files][TiDB Cloud]].
+  + Data import to TiDB Cloud
+    TiDB Cloud supports the data import API which make the data integration easier. 
+  + DM setup for replication
+    So far DM on TiDB Cloud API has not been supported. To make the demo simpler, deploy the DM cluster on AWS premise. 
+  + Data comparison between TiDB Cloud and aurora
+    The [[https://docs.pingcap.com/tidb/dev/sync-diff-inspector-overview][sync-diff-inspector]] is used to compare between Aurora and TiDB Cloud to make sure that the data has been migrated successfully.
+
+* Demo execution
+  #+BEGIN_SRC
+pi@local$ more /tmp/aurora2tidbcloud.yaml
+ workstation:
+   cidr: 172.82.0.0/16
+   instance_type: c5.2xlarge
+   keyname: key-name                              # public key name
+   keyfile: /home/pi/.ssh/private-key-name        # private key name
+   username: admin
+   imageid: ami-07d02ee1eeb0c996c
+   volumeSize: 100
+   #shared: false
+ aurora:
+   cidr: 172.84.0.0/16
+   instance_type: db.r5.large
+   db_parameter_family_group: aurora-mysql5.7
+   engine: aurora-mysql
+   engine_version: 5.7.mysql_aurora.2.11.2
+   db_username: admin
+   db_password: 1234Abcd
+   public_accessible_flag: false
+   s3backup_folder: s3://jay-data/aurora-export/   # s3 directory for data export
+ aws_topo_configs:
+   general:
+     # debian os
+     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+     keyname: jay-us-east-01                       # Public key to access the EC2 instance
+     keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+     cidr: 172.83.0.0/16                           # The cidr for the VPC
+     instance_type: m5.2xlarge                     # Default instance type
+     tidb_version: v6.5.2                          # TiDB version
+     excluded_az:                                  # The AZ to be excluded for the subnets
+       - us-east-1e
+     network_type: nat
+   dm-master:
+     instance_type: t2.small                       # Instance type for dm master
+     count: 1                                      # Number of dm master node to be deployed
+   dm-worker:
+     instance_type: t2.small                       # Instance type for dm worker
+     count: 1                                      # Number of dm worker node to be deployed
+ tidb_cloud:
+   tidbcloud_project_id: 1111113089206752222       # The project id in the tidb cloud in which tidb cluster is to be created.
+   cloud_provider: AWS
+   cluster_type: DEDICATED
+   region: us-east-1
+   components:
+     tidb:
+       node_quantity: 1
+       node_size: 2C8G
+     tikv:
+       node_quantity: 3
+       node_size: 2C8G
+       storage_size_gib: 200
+   ip_access_list:
+     cidr: 0.0.0.0/0
+     description: Data migration from aurora to TiDB Test
+   port: 4000
+   user: root
+   password: 1234Abcd
+   databases:
+     - test01
+     - test02
+pi@local$./bin/aws aurora2tidbcloud deploy aurora2tidbcloud /tmp/aurora2tidbcloud.yaml
+Parallel Main step ... Echo: Create TransitGateway ... ...
+... ...
+  #+END_SRC
+
+** Private Link Setup between TiDB Cloud and TiDB Cloud
+   Once workstation and TiDB Cloud is setup, the prompt asks the endpoint service which is provided by TiDB Cloud. You will have to switch to TiBDB Cloud to get the information.
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/001.png]]
+*** Fetch private endpoint service name
+    Go to TiDB Console to check that the TiDB Cluster has been created as below picture.
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/002.png]]
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/003.png]]
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/004.png]]
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/005.png]]
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/006.png]]
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/007.png]]
+*** Input the private service name into prompt and enter return
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/008.png]]
+*** private endpoint is created to be provided
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/009.png]]
+*** Switch back TiDB Cloud console to input the endpoint id to be accept
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/010.png]]
+*** Click create without cli comamnd
+    The cli command is included in the script. No need to run the cli command.
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/011.png]]
+** Do the same process for private link between TiDB Cloud and DM Cluster VPC
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/012.png]]
+** Input private link connection host
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/013.png]]
+*** Get the private link connection host from TiDB Cloud console
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/014.png]]
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/015.png]]
+*** Input the Private link connection host and enter return
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/016.png]]
+*** Once the connection is established, input return
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/017.png]]
+** Execution summary
+   The execution time for each process is showed after the demo is setup.
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/018.png]]
+** Verify the result
+   Confirm the data has been copied to TiDb Cloud and DM replication
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/019.png]]
+
+                                        
+
+* TODOList
+** Full case
+*** Destroy command to include
+**** DONE TiDB Cloud
+**** DONE S3 backup
+**** DONE RDS snapshot
+*** Make progress visible
+**** TODO Aurora setup
+**** TODO TiDB cloud setup
+**** TODO Aurora database snapshot taken
+**** TODO Data S3 export
+*** List all the time taken on each process
+*** List all the AWS Resource
+    + RDS
+    + S3
+    + KMS
+    + Subnet
+    + VPC
+*** DONE Prompt improvment
+*** DONE Comment removal
+*** DONE How to resume vpce if the status is pending
+*** DONE extract_oracle_instance_info.go rename
+*** DONE Convert S3/bucket as parameter
+*** DONE TiDB Version as parameter
+*** TiDB components
+    + EC2 instance creation
+    + TiDB Cloud
+    + Aurora database
+    + Snapshot taken
+    + Export snapshot to S3
+    + Import data into TiDB Cloud from S3
+    + DM deployment
+** Replication without Aurora
+** Replication without TiDB Cloud and aurora
+* Issues
+** READ: packet for query is too large. Try adjusting the 'max_allowed_packet' variable on the server\" , Workaround: Please execute `query-status` to check status."
+   Set max_allowed_packet to 1073741824
+** READ: Error 1142: SELECT, LOCK TABLES command denied to user 'admin'@'172.83.3.108' for table 'accounts'"
+#+BEGIN_SRC
+... ...
+mysql-instances:
+  -
+    source-id: "aurora2tidbcloud"
+    block-allow-list:  "instance"
+    loader-config-name: "global"
+    route-rules: [ "route-rule-0", "route-rule-1"]
+
+block-allow-list:
+  instance:
+    do-dbs: ["test01", "test02"]
+... ...
+#+END_SRC
+
+** parse mydumper metadata error: open /home/admin/dm/dm-deploy/dm-worker-8262/dumped_data.aurora2tidbcloud/metadata: no such file or directory, metadata: not found
+rm /home/admin/dm/dm-deploy/dm-worker-8262/dumped_data.aurora2tidbcloud
+/home/admin/.tiup/bin/tiup dmctl --master-addr 172.83.5.22:8261 start-task /tmp/dm-task.yml --remove-meta
+
+* Issue
+** Error: operation error EC2: CreateVpcEndpoint, https response error StatusCode: 400, RequestID: 682fa180-fa53-4ad3-a901-2946bec8310c, api error InvalidParameter: The VPC endpoint service com.amazonaws.vpce.us-east-1.vpce-svc-06d591e2487736f5a does not support the availability zone of the subnet: subnet-068a6987f91221918.
+Not all the zones are supported for the VPC endpoint service. Please use the below command to determine what zone are supportted. 
+#+BEGIN_SRC
+{
+    "ServiceDetails": [
+        { ... ...
+            "AvailabilityZones": [
+                "us-east-1a",
+                "us-east-1b",
+                "us-east-1c"
+            ], 
+    ... ...
+}
+#+END_SRC
+
+* Get Auroa info
+** Select the resion for aurora
+** Select aurora database 
+** Check DB configuration
+   + binlog format
+** Setup the vpc peering or transti gateway for connection
