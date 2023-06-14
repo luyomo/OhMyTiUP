@@ -149,86 +149,12 @@ Parallel Main step ... Echo: Create TransitGateway ... ...
 ** Verify the result
    Confirm the data has been copied to TiDb Cloud and DM replication
   #+attr_html: :width 800px
-  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/019.png]]
-
-                                        
-
-* TODOList
-** Full case
-*** Destroy command to include
-**** DONE TiDB Cloud
-**** DONE S3 backup
-**** DONE RDS snapshot
-*** Make progress visible
-**** TODO Aurora setup
-**** TODO TiDB cloud setup
-**** TODO Aurora database snapshot taken
-**** TODO Data S3 export
-*** List all the time taken on each process
-*** List all the AWS Resource
-    + RDS
-    + S3
-    + KMS
-    + Subnet
-    + VPC
-*** DONE Prompt improvment
-*** DONE Comment removal
-*** DONE How to resume vpce if the status is pending
-*** DONE extract_oracle_instance_info.go rename
-*** DONE Convert S3/bucket as parameter
-*** DONE TiDB Version as parameter
-*** TiDB components
-    + EC2 instance creation
-    + TiDB Cloud
-    + Aurora database
-    + Snapshot taken
-    + Export snapshot to S3
-    + Import data into TiDB Cloud from S3
-    + DM deployment
-** Replication without Aurora
-** Replication without TiDB Cloud and aurora
-* Issues
-** READ: packet for query is too large. Try adjusting the 'max_allowed_packet' variable on the server\" , Workaround: Please execute `query-status` to check status."
-   Set max_allowed_packet to 1073741824
-** READ: Error 1142: SELECT, LOCK TABLES command denied to user 'admin'@'172.83.3.108' for table 'accounts'"
-#+BEGIN_SRC
-... ...
-mysql-instances:
-  -
-    source-id: "aurora2tidbcloud"
-    block-allow-list:  "instance"
-    loader-config-name: "global"
-    route-rules: [ "route-rule-0", "route-rule-1"]
-
-block-allow-list:
-  instance:
-    do-dbs: ["test01", "test02"]
-... ...
-#+END_SRC
-
-** parse mydumper metadata error: open /home/admin/dm/dm-deploy/dm-worker-8262/dumped_data.aurora2tidbcloud/metadata: no such file or directory, metadata: not found
-rm /home/admin/dm/dm-deploy/dm-worker-8262/dumped_data.aurora2tidbcloud
-/home/admin/.tiup/bin/tiup dmctl --master-addr 172.83.5.22:8261 start-task /tmp/dm-task.yml --remove-meta
-
-* Issue
-** Error: operation error EC2: CreateVpcEndpoint, https response error StatusCode: 400, RequestID: 682fa180-fa53-4ad3-a901-2946bec8310c, api error InvalidParameter: The VPC endpoint service com.amazonaws.vpce.us-east-1.vpce-svc-06d591e2487736f5a does not support the availability zone of the subnet: subnet-068a6987f91221918.
-Not all the zones are supported for the VPC endpoint service. Please use the below command to determine what zone are supportted. 
-#+BEGIN_SRC
-{
-    "ServiceDetails": [
-        { ... ...
-            "AvailabilityZones": [
-                "us-east-1a",
-                "us-east-1b",
-                "us-east-1c"
-            ], 
-    ... ...
-}
-#+END_SRC
-
-* Get Auroa info
-** Select the resion for aurora
-** Select aurora database 
-** Check DB configuration
-   + binlog format
-** Setup the vpc peering or transti gateway for connection
+  [[https://www.51yomo.net/static/doc/aurora2tidbcloud/019.png]]                            
+* Conclusion
+  What can we use this script? First, it helps to setup the demo very quickly. Without too much effort, it is completed within 90 minutes. Secondly, based on this demo, one tool to migrate aurora to TiDB is to provided. In the future, with one command, we are able to complete the data migration .
+  What can we improve? If we get below three features from TiDB Cloud API, it can be improved much more easily.
+    + TiDB Cloud API to fetch private endpoint service
+    + TiDB Cloud API to accept the private endpoint connection
+    + TiDB Cloud API to fetch private endpoint service host name
+    + TiDB Cloud API to support DM
+    + TiDB Cloud API to support TiCDC
