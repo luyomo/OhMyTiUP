@@ -21,11 +21,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	// "github.com/aws/smithy-go"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	// "go.uber.org/zap"
 )
 
 /******************************************************************************/
@@ -269,9 +266,7 @@ func (c *CreateNATGateway) addRouteFromPrivate2NAT() error {
 		return err
 	}
 
-	fmt.Printf("05 checking length: <%d> \n\n\n\n\n", len(routeTable.Routes))
 	for _, route := range routeTable.Routes {
-		fmt.Printf("05 checking: <%s> vs <%#v> \n\n\n\n\n\n", *natGatewayId, route)
 		if route.NatGatewayId != nil && *route.NatGatewayId == *natGatewayId {
 			return nil
 		}

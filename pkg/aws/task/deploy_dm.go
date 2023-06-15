@@ -431,8 +431,6 @@ func (c DeleteS3Folder) Execute(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("All the exports: <%#v> \n\n\n", exportTasks)
-
 	for _, exportTask := range *exportTasks {
 		if err := s3api.DeleteObject(*exportTask.S3Bucket, fmt.Sprintf("%s/%s", *exportTask.S3Prefix, *exportTask.ExportTaskIdentifier)); err != nil {
 			return err

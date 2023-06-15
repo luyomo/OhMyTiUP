@@ -217,19 +217,18 @@ type DestroyTiDBCloud struct {
 // Execute implements the Task interface
 func (c *DestroyTiDBCloud) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
-	fmt.Printf("The cluster name is <%s> \n\n\n", clusterName)
-	tidbCloudInfo, err := c.workstation.ReadTiDBCloudDBInfo()
+
+	tidbCloudInfo, err := c.workstation.ReadDBConnInfo(ws.DB_TYPE_TIDBCLOUD)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("tidb cloud info: %#v \n\n\n", tidbCloudInfo)
 
 	client, err := tidbcloud.NewDigestClientWithResponses()
 	if err != nil {
 		panic(err)
 	}
 
-	response, err := client.ListClustersOfProjectWithResponse(context.Background(), tidbCloudInfo.ProjectID, &tidbcloud.ListClustersOfProjectParams{})
+	response, err := client.ListClustersOfProjectWithResponse(context.Background(), fmt.Sprintf("%d", (*tidbCloudInfo)["ProjectID"].(int)), &tidbcloud.ListClustersOfProjectParams{})
 	if err != nil {
 		panic(err)
 	}
@@ -245,7 +244,7 @@ func (c *DestroyTiDBCloud) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	resDelete, err := client.DeleteClusterWithResponse(context.Background(), tidbCloudInfo.ProjectID, clusterID)
+	resDelete, err := client.DeleteClusterWithResponse(context.Background(), fmt.Sprintf("%d", (*tidbCloudInfo)["ProjectID"].(int)), clusterID)
 	if err != nil {
 		panic(err)
 	}

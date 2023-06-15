@@ -186,7 +186,6 @@ func (b *BaseRedshiftCluster) readResources() error {
 
 	if describeClusters != nil {
 		for _, cluster := range describeClusters.Clusters {
-			fmt.Printf("------ 002. Get redshift data \n\n\n\n\n\n")
 			password := ""
 			if b.awsRedshiftTopoConfigs != nil {
 				password = b.awsRedshiftTopoConfigs.Password

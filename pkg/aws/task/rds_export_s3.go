@@ -113,6 +113,9 @@ func (b *BaseRDSExportS3) readResources() error {
 	if err != nil {
 		return err
 	}
+	if exportTasks == nil {
+		return nil
+	}
 
 	for _, exportTask := range *exportTasks {
 		b.ResourceData.Append(exportTask)

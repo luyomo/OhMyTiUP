@@ -175,6 +175,10 @@ func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
 		return err
 	}
 
+	if exportTasks == nil {
+		return errors.New("No valid snapshot found.")
+	}
+
 	if len(*exportTasks) > 1 {
 		return errors.New("Multile S3 buckets backup exists")
 	}
@@ -208,24 +212,24 @@ func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
 
 	resImport, err := client.CreateImportTaskWithResponse(context.Background(), c.projectId, *clusterId, createImportTaskJSONRequestBody)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	statusCode := resImport.StatusCode()
 	switch statusCode {
 	case 200:
 	case 400:
-		return errors.New(fmt.Sprintf("Failed to import data: %s", *resImport.JSON400.Message))
+		return errors.New(fmt.Sprintf("Failed to import data<400>: %s, detail:%#v", *resImport.JSON400.Message, *resImport.JSON400.Details))
 	case 403:
-		return errors.New(fmt.Sprintf("Failed to import data: %s", *resImport.JSON403.Message))
+		return errors.New(fmt.Sprintf("Failed to import data<403>: %s, detail:%#v", *resImport.JSON403.Message, *resImport.JSON403.Details))
 	case 404:
-		return errors.New(fmt.Sprintf("Failed to import data: %s", *resImport.JSON404.Message))
+		return errors.New(fmt.Sprintf("Failed to import data<404>: %s, detail:%#v", *resImport.JSON404.Message, *resImport.JSON404.Details))
 	case 429:
-		return errors.New(fmt.Sprintf("Failed to import data: %s", *resImport.JSON429.Message))
+		return errors.New(fmt.Sprintf("Failed to import data<429>: %s, detail:%#v", *resImport.JSON429.Message, *resImport.JSON429.Details))
 	case 500:
-		return errors.New(fmt.Sprintf("Failed to import data: %s", *resImport.JSON500.Message))
+		return errors.New(fmt.Sprintf("Failed to import data<500>: %s, detail:%#v", *resImport.JSON500.Message, *resImport.JSON500.Details))
 	default:
-		return errors.New(fmt.Sprintf("Failed to import data: %s", *resImport))
+		return errors.New(fmt.Sprintf("Failed to import data<%d>: %s", statusCode, *resImport))
 	}
 
 	if err := c.WaitResourceUnitlAvailable(); err != nil {

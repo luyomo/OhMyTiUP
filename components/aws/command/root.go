@@ -195,6 +195,7 @@ func init() {
 		newOssInsightCmd(),
 		newResourceMonitorCmd(),
 		newTiDB2Kafka2MongoCmd(),
+		newTiDBCloudAutoscalingCmd(),
 	)
 }
 

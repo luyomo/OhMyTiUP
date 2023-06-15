@@ -1,16 +1,102 @@
+#+OPTIONS: \n:t
+* Background
+  In this post, I will explain the demo to migrate aws aurora database to [[https://tidbcloud.com/][TiDB Cloud]] with [[https://github.com/aws/aws-sdk-go-v2][AWS SDK]] and TiDB Cloud OpenAPI with minimum manual work. It contains resource generation, full data migration and incremental replication.
 * Architecture
-  + Take Aurora GTID
-  + Take aurora database snapshot
-  + Convert aurora snapshot to S3(Parquet)
-  + Import snapshot data into TiDB Cloud from S3
-  + Setup DM to replicate data from Aurora to TiDB Cloud(using GTID)
-  + Stop DM replication
-  + Wait for replication completeness
-  + Start the reverse TiCDC reverse replication from TiDB Cloud to Aurora
-  [[./png/aurora2tidbcloud/Aurora2TiDBCloud.01.png]]
+    [[./png/aurora2tidbcloud/Aurora2TiDBCloud.01.png]]
+    
+  + AWS aurora cluster setup with golang SDK
+    According to provided config file, it generates the Aurora Cluster using [[https://github.com/aws/aws-sdk-go-v2][golang sdk]].
+  + EC2 node generation for workstation and DM cluster
+    Generate EC2 nodes for workstation and DM clusters. The workstation is used to run tiup to deploy DM cluster, data comparison, table creation and data generation. The DM cluster is used for data replication from aws aurora to TiDB Cloud.
+  + TiDB Cloud setup
+    The TiDB Cloud API is used to generate TiDB Cloud cluster. Please find the [[https://docs.pingcap.com/tidbcloud/api-overview][OpenAPI]] interface and [[https://github.com/luyomo/tidbcloud-sdk-go-v1][tidb cloud golang sdk]] for your reference.
+  + Setup Private Link between TiDB Cloud and workstation/aurora (Interactive operation)
+    Need interactive operation to setup privatelink between workstation/DM cluster and TiDB Cloud since it has not been provided by TiDB Cloud. 
+  + Test table creation and test data generation
+    Create one table and insert few rows for test. 
+  + Take binlog position from AWS aurora
+    Take the binlog position before taking snapshot, with which the DM replication task will be created. 
+  + AWS aurora snapshot taking
+    Take the aurora snapshot to extract data to S3. 
+  + Export snapshot to S3 parauet data
+    Export the snapshot to S3 parquet which is supported to be imported by [[https://docs.pingcap.com/tidbcloud/import-parquet-files][TiDB Cloud]].
+  + Data import to TiDB Cloud
+    TiDB Cloud supports the data import API which make the data integration easier. 
+  + DM setup for replication
+    So far DM on TiDB Cloud API has not been supported. To make the demo simpler, deploy the DM cluster on AWS premise. 
+  + Data comparison between TiDB Cloud and aurora
+    The [[https://docs.pingcap.com/tidb/dev/sync-diff-inspector-overview][sync-diff-inspector]] is used to compare between Aurora and TiDB Cloud to make sure that the data has been migrated successfully.
+
+
   [[./png/aurora2tidbcloud/Aurora2TiDBCloud.02.png]]
 
-* Aurora environment
+* Demo execution
+  #+BEGIN_SRC
+pi@local$ more /tmp/aurora2tidbcloud.yaml
+ workstation:
+   cidr: 172.82.0.0/16
+   instance_type: c5.2xlarge
+   keyname: key-name                              # public key name
+   keyfile: /home/pi/.ssh/private-key-name        # private key name
+   username: admin
+   imageid: ami-07d02ee1eeb0c996c
+   volumeSize: 100
+   #shared: false
+ aurora:
+   cidr: 172.84.0.0/16
+   instance_type: db.r5.large
+   db_parameter_family_group: aurora-mysql5.7
+   engine: aurora-mysql
+   engine_version: 5.7.mysql_aurora.2.11.2
+   db_username: admin
+   db_password: 1234Abcd
+   public_accessible_flag: false
+   s3backup_folder: s3://jay-data/aurora-export/   # s3 directory for data export
+ aws_topo_configs:
+   general:
+     # debian os
+     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+     keyname: jay-us-east-01                       # Public key to access the EC2 instance
+     keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+     cidr: 172.83.0.0/16                           # The cidr for the VPC
+     instance_type: m5.2xlarge                     # Default instance type
+     tidb_version: v6.5.2                          # TiDB version
+     excluded_az:                                  # The AZ to be excluded for the subnets
+       - us-east-1e
+     network_type: nat
+   dm-master:
+     instance_type: t2.small                       # Instance type for dm master
+     count: 1                                      # Number of dm master node to be deployed
+   dm-worker:
+     instance_type: t2.small                       # Instance type for dm worker
+     count: 1                                      # Number of dm worker node to be deployed
+ tidb_cloud:
+   tidbcloud_project_id: 1111113089206752222       # The project id in the tidb cloud in which tidb cluster is to be created.
+   cloud_provider: AWS
+   cluster_type: DEDICATED
+   region: us-east-1
+   components:
+     tidb:
+       node_quantity: 1
+       node_size: 2C8G
+     tikv:
+       node_quantity: 3
+       node_size: 2C8G
+       storage_size_gib: 200
+   ip_access_list:
+     cidr: 0.0.0.0/0
+     description: Data migration from aurora to TiDB Test
+   port: 4000
+   user: root
+   password: 1234Abcd
+   databases:
+     - test01
+     - test02
+pi@local$./bin/aws aurora2tidbcloud deploy aurora2tidbcloud /tmp/aurora2tidbcloud.yaml
+Parallel Main step ... Echo: Create TransitGateway ... ...
+... ...
+  #+END_SRC
+* Manual setup
 ** binlog is enabled
    Make sure that the binlog is enabled in the aurora for the incremental replication.
  [[./png/aurora2tidbcloud/01.aurora.01.png]]
@@ -382,8 +468,8 @@ loaders:
 ** Full case
 *** Destroy command to include
 **** DONE TiDB Cloud
-**** TODO S3 backup
-**** TODO RDS snapshot
+**** DONE S3 backup
+**** DONE RDS snapshot
 *** Make progress visible
 **** TODO Aurora setup
 **** TODO TiDB cloud setup
@@ -397,12 +483,19 @@ loaders:
     + Subnet
     + VPC
 *** DONE Prompt improvment
-*** Comment removal
+*** DONE Comment removal
 *** DONE How to resume vpce if the status is pending
-*** extract_oracle_instance_info.go rename
-*** Convert S3/bucket as parameter
-*** TiDB Version as parameter
-*** Target DB as parameters
+*** DONE extract_oracle_instance_info.go rename
+*** DONE Convert S3/bucket as parameter
+*** DONE TiDB Version as parameter
+*** TiDB components
+    + EC2 instance creation
+    + TiDB Cloud
+    + Aurora database
+    + Snapshot taken
+    + Export snapshot to S3
+    + Import data into TiDB Cloud from S3
+    + DM deployment
 ** Replication without Aurora
 ** Replication without TiDB Cloud and aurora
 * Issues
@@ -443,3 +536,10 @@ Not all the zones are supported for the VPC endpoint service. Please use the bel
     ... ...
 }
 #+END_SRC
+
+* Get Auroa info
+** Select the resion for aurora
+** Select aurora database 
+** Check DB configuration
+   + binlog format
+** Setup the vpc peering or transti gateway for connection

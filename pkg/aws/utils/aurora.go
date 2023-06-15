@@ -293,8 +293,9 @@ func GetValidBackupS3(snapshotName string) (*[]types.ExportTask, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if *snapshotARN == "" {
-		return nil, errors.New("No snapshot found")
+		return nil, nil
 	}
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
