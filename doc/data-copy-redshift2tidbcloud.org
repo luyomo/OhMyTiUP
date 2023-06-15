@@ -69,7 +69,7 @@ workstation$ aws redshift modify-cluster-iam-roles \
     In the editor-v2, run the below command
     #+BEGIN_SRC
 EDITOR: UNLOAD('select * from public.test01') TO 's3://jay-data/redshift/test01.csv' 
-WITH CREDENTIALS 'aws_iam_role=arn:aws:iam::123456789012:role/redshift-s3-role;aws_access_key_id=ASIA2TXTRGT46JOEQQHF;aws_secret_access_key=/KgOW4pX9UyxwKI52y0IdD5GAjEIXPMkaUTd2K3f;aws_session_token=QoJb3JpZ2luX2VjEM3//////////wEaDmFwLW5vcnRoZWFzdC0xIkcwRQIgEuB0BPaYHzdBKsX5+i+lEJToheo8cmPQXUwtCIjOE9kCIQCpwLLsxJO9UcAbpMVz1r2mIALS9xZKfNMHuyFHbxJXdiqUAwgmEAEaDDcyOTU4MTQzNDEwNSIMFrjqlDk8GTcdCyYoKvECIMB5ZO7Eyu0PVF0U+s0fKkAOeljXg7PDegvBvwvpIokA1jUQsbgu5v1gDba7z5a9LPDZNXacnaev55Y6wWK6YSA3QHgNOvZ5fERMlaqSgTmoBuo9epsczxkHvEyQ2uSoOarVnuiFDmxMWNhRMDZn2JQDTEIdSci+Pnff3bCBRaRVInrQkNVPYgffMnfoUuo2R30sYClEacR4XXP20HTjdgHUfg2q7hXP8Jel+FUuXZTCapnSF9t0Z2Z8pTd9ChvAP/g2pTZpVrfbYNund4HTgoa+P/9CqSP1A1GvJGpeBuoqVq4gFRUQwny127xB4FcISvxDulQsks3n1NJj6vtD+GnVye6ZkedofIalKudFxjiU/WqHFhn/5HalsIEweByEKVZUtt0IBz6JVEH9piDkteZ7vkx8KrCzfQ5xQjc0Rj0b9NJhD9OxC1U0b94DfD7Fh7krimw5S69SLRc2ZYN5Pjpl4bykajlIXFDjVa325mCuMIi4qqQGOqYB83L8/gVomg/SidKinZFgE1QnEnHVBC/NVEviSHsLZh6hg+Xp2Z6RlOXqNdHNonM6V4LxnxQyRQa42APJWgz9X8XYlY9j5aJkZkJAbPn8sMxzZP88BdNvhxYPiK+qwEer0HMJBkQLqFv5e1qz9wZmuKWq7cPT6f0rI2vk/xqE1l+2Ca+9d6J5LkR+l6hu/MDpM+rMyiTOS8vCOTTFnisSARgHrFYtnQ==' 
+WITH CREDENTIALS 'aws_iam_role=arn:aws:iam::123456789012:role/redshift-s3-role;aws_access_key_id=ASIA......EQQHF;aws_secret_access_key=/KgOW4pX......kaUTd2K3f;aws_session_token=QoJb3......OTTFnisSARgHrFYtnQ==' 
 DELIMITER ',' NULL 'null' ALLOWOVERWRITE;
 
 Summary
@@ -79,7 +79,7 @@ Returned rows: 0
 Elapsed time: 748ms
 Result set query:
 UNLOAD('select * from public.test01') TO 's3://jay-data/redshift/test01.csv' 
-WITH CREDENTIALS 'aws_iam_role=arn:aws:iam::123456789012:role/redshift-s3-role;aws_access_key_id=ASIA2TXTRGT4RGGCV7FB;aws_secret_access_key=D6IsfNmrjo1ILRC7LXyElTZZMOD9muzwdx3Eq3KT;aws_session_token=IQoJb3JpZ2luX2VjENX//////////wEaDmFwLW5vcnRoZWFzdC0xIkcwRQIhANDzXim9UIdoe0M9VgVW+Dd4uGXOA0LkTKv0KypcgDt5AiBrPHW8VSlY0n+nFgZnoZ9JrF51G50QFKbVK4QrBXSC2yqUAwguEAEaDDcyOTU4MTQzNDEwNSIMvYVbgGnqW0s2xPavKvEC+RarE41Cqye74RBR2dYxl5b1D7moIls/ivRO0ZFGM9Z6O3Ywv8pTmibP1u1Xd/G4XTYxcufWGYa/WmcCJE/hPHlvhle5ZxLrpQqiMk/w31Q4qmBI8fkz5/a8OObBGOXwOTl9dLImKpTad7k59uNbiCoNqQQMbJQgGPxgz0j2ve3T/DVkAQr4vhQIfBrGQytKX2oeWD0S/RFc9JOD0KKURE6msyGmh1EDEfCkLLnO0CNCBNYIZ2yDu0JospazXDvmwifSADI0jzhbIA7VcZZ4yve1gplteP8mzYB2nXSccOGxYVxWZSQn9cgmAziYbxUc3IuR+JODeDaCHs96Z6CIK7xfCJb4P/FmiggjCjU1HK5XAxZOzqQtRXGZkrQXoGjmO5VJD93CV3jt95jwXsx0aUocNLSInrZvz8sxJjUi9RXxPZKunyJjzxAYk+swGHkiuektbaGzcaAnU6NzJsndTVFPEys1xiG1bUifxPcpa1DcMOuRrKQGOqYBpWtz8vxb6c+9Q4HXGKKaFbELKwdpKeldYRteTb2B/yEKhCPq4QGvv5v9Rog3vKd8F2K3P6pv4iqtaTTcAbuvxGfl9duN5C+4zoLx8N81+xUcw8WcUjTzpGDuy0heHPz0bqVcNP3UKcJejxrr+MGCbPWhfGvXFsw5HT77OGJb3cdHTK1nuzR0kHociL+w8jFonlvOC/CuCquqPOP5FfOY8p+8qxr46g==' 
+WITH CREDENTIALS 'aws_iam_role=arn:aws:iam::123456789012:role/redshift-s3-role;aws_access_key_id=ASIA......CV7FB;aws_secret_access_key=D6Isf......uzwdx3Eq3KT;aws_session_token=IQoJb3JpZ2l......xfOY8p+8qxr46g==' 
 DELIMITER ',' NULL 'null' ALLOWOVERWRITE
 --RequestID=898565f1-2e37-4087-938b-2189fe02a4a9; TraceID=1-648b092c-7ae868af266e275c2a4cb02e
     #+END_SRC
