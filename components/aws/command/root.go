@@ -183,6 +183,7 @@ func init() {
 		newPostgresCmd(),
 		newTiDB2AuroraCmd(),
 		newAurora2TiDBCloudCmd(),
+		newMySQL2TiDBCloudCmd(),
 		newTiDB2MSCmd(),
 		newTiDB2OraCmd(),
 		newTiDB2Kafka2PgCmd(),

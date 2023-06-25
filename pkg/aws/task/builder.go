@@ -571,6 +571,33 @@ func (b *Builder) CreateDMWorkerNodes(pexecutor *ctxt.Executor, subClusterType s
 	return b
 }
 
+func (b *Builder) CreateMySQLCluster(pexecutor *ctxt.Executor, subClusterType string, awsMySQLConfigs *spec.AwsMySQLTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	clusterInfo.cidr = awsMySQLConfigs.General.CIDR
+	clusterInfo.excludedAZ = awsMySQLConfigs.General.ExcludedAZ
+	clusterInfo.includedAZ = awsMySQLConfigs.General.IncludedAZ
+	clusterInfo.subnetsNum = awsMySQLConfigs.General.SubnetsNum
+	// clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 3306}).Build()).
+		Step(fmt.Sprintf("%s : Creating MySQL Nodes ... ...", subClusterType),
+			NewBuilder().CreateMySQLNodes(pexecutor, subClusterType, awsMySQLConfigs, clusterInfo).Build())
+
+	return b
+}
+
+func (b *Builder) CreateMySQLNodes(pexecutor *ctxt.Executor, subClusterType string, awsMySQLConfigs *spec.AwsMySQLTopoConfigs, clusterInfo *ClusterInfo) *Builder {
+	b.tasks = append(b.tasks, &CreateEC2Nodes{
+		pexecutor:         pexecutor,
+		awsTopoConfigs:    &awsMySQLConfigs.Worker,
+		awsGeneralConfigs: &awsMySQLConfigs.General,
+		subClusterType:    subClusterType,
+		clusterInfo:       clusterInfo,
+		componentName:     "worker",
+	})
+	return b
+}
+
 func (b *Builder) CreateTiCDCNodes(pexecutor *ctxt.Executor, subClusterType string, awsTopoConfigs *spec.AwsTopoConfigs, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &CreateEC2Nodes{
 		pexecutor:         pexecutor,
