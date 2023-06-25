@@ -138,6 +138,8 @@ func (e *EC2API) ExtractEC2Instances() (*map[string][]string, error) {
 					mapInstances["Grafana"] = append(mapInstances["Grafana"], *instance.PrivateIpAddress)
 					mapInstances["Monitor"] = append(mapInstances["Monitor"], *instance.PrivateIpAddress)
 					mapInstances["AlertManager"] = append(mapInstances["AlertManager"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "mysql-worker":
+					mapInstances["MySQLWorker"] = append(mapInstances["MySQLWorker"], *instance.PrivateIpAddress)
 				}
 			}
 		}

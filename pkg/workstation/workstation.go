@@ -437,3 +437,34 @@ func (w *Workstation) InstallSyncDiffInspector(version string) error {
 
 	return nil
 }
+
+func (w *Workstation) InstallMySQLBinToWorker(targetIP string) error {
+	// ctx := context.Background()
+
+	return w.RunSerialCmds([]string{
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt update -y"`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt install -y gnupg"`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 467B942D3A79BD29 "`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "wget -O /tmp/mysql-apt-config_0.8.18-1_all.deb https://dev.mysql.com/get/mysql-apt-config_0.8.18-1_all.deb"`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt update -y "`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo debconf-set-selections <<< 'mysql-server-5.7 mysql-server/root_password 1234Abcd 1234Abcd'"`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo debconf-set-selections <<< 'mysql-server-5.7 mysql-server/root_password_again 1234Abcd 1234Abcd'"`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/mysql-apt-config_0.8.18-1_all.deb"`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt update -y "`, targetIP),
+		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo DEBIAN_FRONTEND=noninteractive apt install -y mysql-server"`, targetIP),
+	}, false)
+
+	// if _, _, err := (*w.executor).Execute(ctx, `chmod 600 ~/.ssh/id_rsa`, false); err != nil {
+	// 		return err
+	// 	}
+
+	// 	return w.RunSerialCmds([]string{
+	// 		`echo "for i in ~/.profile.d/*.sh ; do
+	//     if [ -r "\$i" ]; then
+	//         . \$i
+	//     fi
+	// done" > ~/.bash_aliases`,
+	// 		"mkdir -p ~/.profile.d",
+	// 	}, false)
+
+}

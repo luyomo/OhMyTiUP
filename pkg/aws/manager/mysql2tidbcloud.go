@@ -145,18 +145,28 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 		return err
 	}
 
-	return nil
-
 	// // Fetch aurora db info and write it into workstation's aurora-db-info.yaml
-	if err := m.workstation.DeployAuroraInfo(clusterType, name, base.AwsAuroraConfigs.DBPassword); err != nil {
-		return err
-	}
+	// if err := m.workstation.DeployAuroraInfo(clusterType, name, base.AwsAuroraConfigs.DBPassword); err != nil {
+	// 	return err
+	// }
 
-	if err := m.workstation.InstallMySQLShell(); err != nil {
+	// if err := m.workstation.InstallMySQLShell(); err != nil {
+	// 	return err
+	// }
+
+	postTask := task.NewBuilder().
+		DeployMySQL(m.workstation, "mysql-worker", base.AwsTopoConfigs.General.TiDBVersion, &timer).
+		BuildAsStep("Parallel Main step")
+	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
+		if errorx.Cast(err) != nil {
+			// FIXME: Map possible task errors and give suggestions.
+			return err
+		}
 		return err
 	}
 
 	timer.Take("Workstation init")
+	return nil
 
 	// If /opt/tidbcloud-info.yml in the worksation exists, skip the private link setup for TiDB Cloud
 	if _, err := m.workstation.ReadDBConnInfo(ws.DB_TYPE_TIDBCLOUD); err != nil {
@@ -305,7 +315,7 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 
 	timer.Take("DB Resource creation")
 
-	postTask := task.NewBuilder().
+	postTask = task.NewBuilder().
 		CreateKMS("s3").                                                                          // 01. Make KMS for data excryption of data export
 		AuroraSnapshotTaken(m.workstation, &timer).                                               // 02. Take snapshot from aurora
 		AuroraSnapshotExportS3(m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).      // 03. Export data from snapshot to S3. -> task 01/02

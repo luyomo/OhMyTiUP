@@ -579,7 +579,7 @@ func (b *Builder) CreateMySQLCluster(pexecutor *ctxt.Executor, subClusterType st
 	// clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType),
-		NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 3306}).Build()).
+		NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypeNAT, clusterInfo, []int{22, 3306}).Build()).
 		Step(fmt.Sprintf("%s : Creating MySQL Nodes ... ...", subClusterType),
 			NewBuilder().CreateMySQLNodes(pexecutor, subClusterType, awsMySQLConfigs, clusterInfo).Build())
 
