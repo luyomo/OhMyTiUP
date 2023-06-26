@@ -1,0 +1,24 @@
+* tidbcloud-autoscaling
+* TodoList
+** DONE Start one TiDB Cloud
+** DONE Setup client prometheus scrape
+   #+BEING_SRC
+workstation$ sudo more /etc/prometheus/prometheus.yml
+... ...
+  - job_name: DMTest
+    scheme: https
+    metrics_path: /public_api/v1/projects/1372ddddddddddd1438/metrics
+    params:
+      format: ["Prometheus"]
+    bearer_token: ad5682360df8496995b7650694879190
+    static_configs:
+    - targets: ["tidbcloud.com"]
+   #+END_SRC
+** Prepare one golang to read the prometheus data
+   #+BEGIN_SRC
+promql --host "http://localhost:9090" 'sum(rate(tidbcloud_node_cpu_seconds_total{exported_instance="tidb-0"}[10m])) by (COMPONENT)'
+
+curl http://localhost:9090/api/v1/query_range --data-urlencode 'query=sum(rate(tidbcloud_node_cpu_seconds_total{exported_instance="tidb-0"}[10m])) by (COMPONENT)' --data-urlencode "start=2023-06-13T23:30:30.781Z" --data-urlencode "end=2023-06-14T20:11:00.781Z" --data-urlencode "step=60" | jq
+   #+END_SRC
+** Monitoring the metrics to scale out the nodes using API
+  

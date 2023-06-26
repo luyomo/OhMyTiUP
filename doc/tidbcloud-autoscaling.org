@@ -1,0 +1,8 @@
+* TODO
+** Setup workstation
+** Setup TiDB Cloud
+** TPCC Install
+** Private link setup
+** Setup prometheus client
+** Keep Read prometheus metrics
+** Scale out the TiDB Node

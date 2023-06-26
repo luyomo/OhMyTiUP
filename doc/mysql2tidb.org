@@ -1,0 +1,22 @@
+* Todo
+** Data flow
+   + Setup two ec2
+   + Setup the mysql on the ec2
+     - Setup master mysql node with binlog format mix
+     - Setup slace mysql node with binlog row format
+   + mock data into master mysql
+   + Setup DM to replicate data
+
+     
+** References
+  #+BEGIN_SRC
+workstation$ wget https://cdn.mysql.com//Downloads/MySQL-5.7/mysql-server_5.7.42-1debian10_amd64.deb-bundle.tar
+tar xvf mysql-server_5.7.42-1debian10_amd64.deb-bundle.tar
+
+sudo apt-key adv --keyserver pgp.mit.edu --recv-keys 467B942D3A79BD29
+  #+END_SRC
+
+  https://www.digitalocean.com/community/tutorials/how-to-install-the-latest-mysql-on-debian-10
+
+  https://computingforgeeks.com/how-to-install-mysql-on-debian-linux-system/
+  https://stackoverflow.com/questions/36979574/mysql-5-7-community-server-non-interactive-apt-install
