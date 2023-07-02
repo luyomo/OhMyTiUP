@@ -1,0 +1,150 @@
+* cassandra installation(3.0)
+** open jdk
+   #+BEGIN_SRC
+node01$ sudo apt-get install gnupg2
+node01$ wget -qO - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | sudo apt-key add -
+node01$ sudo apt-get install software-properties-common
+node01$ sudo add-apt-repository --yes https://adoptopenjdk.jfrog.io/adoptopenjdk/deb/
+node01$ sudo apt-get update && sudo apt-get install adoptopenjdk-8-hotspot
+
+   #+END_SRC
+** cassandra install
+*** node 01
+   #+BEGIN_SRC
+node 01$ wget https://dlcdn.apache.org/cassandra/3.11.15/apache-cassandra-3.11.15-bin.tar.gz
+node 01$ more cassandar.yaml
+... ...
+cluster_name: 'cdctest'
+... ...
+cdc_enabled: true
+... ...
+listen_address: 182.83.4.65
+... ...
+seed_provider:
+    # Addresses of hosts that are deemed contact points. 
+    # Cassandra nodes use this list of hosts to find each other and learn
+    # the topology of the ring.  You must change this if you are running
+    # multiple nodes!
+    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+      parameters:
+          # seeds is actually a comma-delimited list of addresses.
+          # Ex: "<ip1>,<ip2>,<ip3>"
+          - seeds: "182.83.3.130,182.83.5.48"
+... ...
+    #+END_SRC
+*** node 02
+   #+BEGIN_SRC
+node 02$ wget https://dlcdn.apache.org/cassandra/3.11.15/apache-cassandra-3.11.15-bin.tar.gz
+node 02$ more cassandar.yaml
+... ...
+cluster_name: 'cdctest'
+... ...
+cdc_enabled: true
+... ...
+listen_address: 182.83.3.130
+... ...
+seed_provider:
+    # Addresses of hosts that are deemed contact points. 
+    # Cassandra nodes use this list of hosts to find each other and learn
+    # the topology of the ring.  You must change this if you are running
+    # multiple nodes!
+    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+      parameters:
+          # seeds is actually a comma-delimited list of addresses.
+          # Ex: "<ip1>,<ip2>,<ip3>"
+          - seeds: "182.83.4.65,182.83.5.48"
+... ...
+   #+END_SRC
+*** node 03
+   #+BEGIN_SRC
+node 03$ wget https://dlcdn.apache.org/cassandra/3.11.15/apache-cassandra-3.11.15-bin.tar.gz
+node 03$ more cassandar.yaml
+... ...
+cluster_name: 'cdctest'
+... ...
+cdc_enabled: true
+... ...
+listen_address: 182.83.5.48
+... ...
+seed_provider:
+    # Addresses of hosts that are deemed contact points. 
+    # Cassandra nodes use this list of hosts to find each other and learn
+    # the topology of the ring.  You must change this if you are running
+    # multiple nodes!
+    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+      parameters:
+          # seeds is actually a comma-delimited list of addresses.
+          # Ex: "<ip1>,<ip2>,<ip3>"
+          - seeds: "182.83.3.130,182.83.4.65"
+... ...
+   #+END_SRC
+* Cluster startup
+** node01
+   #+BEGIN_SRC
+node01 # /bin/cassandra
+   #+END_SRC
+** node02
+   #+BEGIN_SRC
+node01 # /bin/cassandra
+   #+END_SRC
+** node03
+   #+BEGIN_SRC
+node01 # /bin/cassandra
+   #+END_SRC
+* cqlsh
+  #+BEGIN_SRC
+workstation$ sudo apt-get install python2.7
+workstation$ ./bin/cqlsh
+cqlsh> 
+  #+END_SRC
+** describe keyspace
+   #+BEGIN_SRC
+cqlsh> describe keyspace;
+cqlsh> CREATE KEYSPACE "tidb" WITH REPLICATION = {'class' : 'NetworkTopologyStrategy', 'datacenter1' :3 };
+cqlsh> CREATE TABLE tidb.test01( col01 int, col02 int, col03 text, primary key(col01) ) with cdc = true;
+cqlsh>  use system;
+cqlsh:system> select data_center from local;
+cqlsh:tidb> insert into tidb.test01(col01, col02, col03) values(1,1,'test text');
+cqlsh:tidb> select * from tidb.test01;
+   #+END_SRC
+* CDC
+** Compilation
+  #+BEGIN_SRC
+node02$ sudo apt-get install git
+node02$ sudo apt-get install maven
+node02$ git clone https://github.com/yukim/cassandra-cdc-example.git
+node02$ cd cassandra-cdc-example/
+node02$ chmod 755 mvnw
+node02$ ./mvnw
+  #+END_SRC
+** Installation
+   #+BEGIN_SRC
+node02$ tar xvf cassandra-cdc-json-0.1.0-SNAPSHOT.tar.gz
+node02$ cp cassandra-cdc-json-0.1.0-SNAPSHOT/lib/* apache-cassandra-3.11.15/lib
+node02$ cp cassandra-cdc-json-0.1.0-SNAPSHOT/bin/* apache-cassandra-3.11.15/bin
+   #+END_SRC
+** Run
+   #+BEGIN_SRC
+node02$ CASSANDRA_INCLUDE=/home/admin/workspace/apache-cassandra-3.11.15/bin/cassandra.in.sh ./bin/cassandra-cdc.sh > output.log
+node02$ more output.log
+... ...
+{
+  "timestamp" : "2023-07-01T08:44:05.373Z",
+  "keyspace" : "tidb",
+  "table" : "test01",
+  "table_id" : "438b2220-17e7-11ee-83d9-211ffbb2da5e",
+  "type" : "update",
+  "row" : {
+    "col01" : 2,
+    "col02" : 2,
+    "col03" : "test text"
+  }
+}
+... ...
+
+   #+END_SRC
+* Reference
+** Official document
+  https://github.com/apache/cassandra/blob/e31e216234c6b57a531cae607e0355666007deb2/src/java/org/apache/cassandra/db/commitlog/CommitLogReader.java
+** insall
+   https://www.cnblogs.com/ityunwei/p/14121165.html
