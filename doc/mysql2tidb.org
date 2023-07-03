@@ -1,3 +1,4 @@
+#+OPTIONS: ^:nil
 * Todo
 ** Data flow
    + Setup two ec2
@@ -20,3 +21,670 @@ sudo apt-key adv --keyserver pgp.mit.edu --recv-keys 467B942D3A79BD29
 
   https://computingforgeeks.com/how-to-install-mysql-on-debian-linux-system/
   https://stackoverflow.com/questions/36979574/mysql-5-7-community-server-non-interactive-apt-install
+
+*** replication
+    https://hevodata.com/learn/mysql-master-slave-replication/#b2
+
+    https://www.mysqltutorial.org/import-csv-file-mysql-table/
+    
+    + Create user
+      #+BEGIN_SRC
+MySQL$ CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
+MySQL$ GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
+MySQL$ FLUSH PRIVILEGES;
+MySQL$ FLUSH TABLES WITH READ LOCK;
+      #+END_SRC
+    + Move data from master to slave
+      - data dumpling to csv into csv file
+      - load data infile csv to table
+    + Setup replication
+      #+BEGIN_SRC
+MySQL$ CHANGE MASTER TO
+MASTER_HOST='172.83.3.118',
+MASTER_USER='slave',
+MASTER_PASSWORD='1234Abcd',
+MASTER_LOG_FILE='binlog.000007',
+MASTER_LOG_POS=859;
+
+MySQL$ show slave status \G
+MySQL$ start slave;
+MySQL$ show slave status \G
+      #+END_SRC
+
+*** DM User
+    #+BEGIN_SRC
+https://docs.pingcap.com/tidbcloud/migrate-from-mysql-using-data-migration?_gl=1*m1cmxi*_gcl_au*MjQ3MTk4OTI2LjE2ODU1MzAxOTc.&_ga=2.251305286.1197550859.1687160686-1219007525.1677735681#grant-required-privileges-to-the-upstream-database
+    #+END_SRC
+**** error
+#+BEGIN_SRC
+code=26007:class=task-check:scope=internal:level=medium], Message: source-900026 has GTID_MODE = OFF instead of ON, Workaround: Please check the `enable-gtid` config in source configuration file.
+#+END_SRC
+**** After set the GTID=ON
+     After set the slave's GTID to on, it also requires the upstream server to set the GTID to on. 
+#+BEGIN_SRC
+ The replication receiver thread cannot start because the source has GTID_MODE = OFF and this server has GTID_MODE = ON.
+#+END_SRC
+****  Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection
+     #+BEGIN_SRC
+MySQL$ CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
+     ERROR 3021 (HY000): This operation cannot be performed with a running replica io thread; run STOP REPLICA IO_THREAD FOR CHANNEL '' first.
+MySQL$ stop slave;
+MySQL$ CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
+MySQL$ start slave;
+     #+END_SRC
+**** Failure start
+     #+BEGIN_SRC
+Got fatal error 1236 from source when reading data from binary log: 'Cannot replicate anonymous transaction when @@GLOBAL.GTID_MODE = ON, at file ./binlog.000003, position 2207.; the first event 'binlog.000003' at 2207, the last event read from './binlog.000003' at 2293, the last byte read from './binlog.000003' at 2293.'
+     #+END_SRC
+     https://dev.mysql.com/doc/refman/5.7/en/replication-mode-change-online-concepts.html
+**** ON_PERMISSUVE
+     Succeeded to replicate data to slave. But failed to replicate data to TiDB. error as below:
+     get binlog event error: ERROR 1236(HY000); The replication sender thread cannot start in AUTO_POSITION mode: this server has GTID_MODE = ON_PERMISSICE instead of ON.
+
+** Config file
+*** Master
+    #+BEGIN_SRC
+[mysqld]
+binlog_format=MIXED
+gtid_mode=ON
+enforce-gtid-consistency=ON
+    #+END_SRC
+*** Slave
+    #+BEGIN_SRC
+[mysqld]
+binlog_format=MIXED
+server_id=10001
+gtid_mode=ON
+enforce-gtid-consistency=ON
+    #+END_SRC
+*** Slave to Slave
+    #+BEGIN_SRC
+[mysqld]
+binlog_format=MIXED
+server_id=10002
+gtid_mode=ON
+enforce-gtid-consistency=ON
+    #+END_SRC
+** Full data copy
+**** Input
+     + Target MySQL Connection String
+       - host
+       - port
+       - user
+       - password
+     + S3
+       - bucket name
+       - prefix
+       - kms(might not required)
+       - role permission
+     + Target MySQL
+       - host
+       - port
+       - user
+       - password
+     + Target TiDB
+       - project
+       - cluster name
+*** Todo
+https://blog.csdn.net/weixin_42421284/article/details/113638321
+set sql_log_bin=0
+
+** Fatal error: The replica I/O thread stops because source and replica have equal MySQL server UUIDs; these UUIDs must be different for replication to w
+ork.
+remove auto.conf
+
+* Problems
+** DM bug
+   https://jira.tidbcloud.com/browse/DM-8986
+** Test data(500GB) - data generatio
+
+* Database structure verification
+** Master DB
+   + Database size
+     #+BEGIN_SRC
+mysql> use information_schema;
+mysql> select concat(round(sum(data_length/1024/1024/1024),2),'GB') as data from tables;
++----------+
+| data     |
++----------+
+| 172.69GB |
++----------+
+1 row in set (0.07 sec)
+     #+END_SRC
+   + binlog format
+     #+BEGIN_SRC
+mysql> show variables like 'binlog_format';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| binlog_format | MIXED |
++---------------+-------+
+1 row in set (0.01 sec)
+     #+END_SRC
+  + gtid mode
+    #+BEGIN_SRC
+mysql> show variables like 'gtid_mode';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| gtid_mode     | OFF   |
++---------------+-------+
+1 row in set (0.00 sec)
+    #+END_SRC
+  + master status
+    #+BEGIN_SRC
+mysql> show master status;
+    #+END_SRC
+** Slave DB
+* Slave node setup
+** Stop master node DB
+** Copy the master data file to slave node
+   #+BEGIN_SRC
+rm auto.cnf
+   #+END_SRC
+** Create user for data replication to slave on master node
+   #+BEGIN_SRC
+mysql> CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
+Query OK, 0 rows affected (0.02 sec)
+
+mysql> GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> FLUSH PRIVILEGES;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> FLUSH TABLES WITH READ LOCK;
+Query OK, 0 rows affected (0.00 sec)
+   #+END_SRC
+** Get the binlog position from master node
+   #+BEGIN_SRC
+mysql> show master status; 
++---------------+----------+--------------+------------------+-------------------+
+| File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++---------------+----------+--------------+------------------+-------------------+
+| binlog.000136 |      859 |              |                  |                   |
++---------------+----------+--------------+------------------+-------------------+
+1 row in set (0.01 sec)
+   #+END_SRC
+** Setup the slave replication
+   #+BEGIN_SRC
+mysql> CHANGE MASTER TO
+MASTER_HOST='172.83.3.145',
+MASTER_USER='slave',
+MASTER_PASSWORD='1234Abcd',
+MASTER_LOG_FILE='binlog.000136',
+MASTER_LOG_POS=859;
+Query OK, 0 rows affected, 8 warnings (0.03 sec)
+mysql> start slave; 
+Query OK, 0 rows affected, 1 warning (0.01 sec)
+   #+END_SRC
+*** GTID MODE
+    #+BEGIN_SRC
+mysql> show variables like 'gtid_mode'; 
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| gtid_mode     | OFF   |
++---------------+-------+
+1 row in set (0.00 sec)
+    #+END_SRC
+*** binlog_format
+    #+BEGIN_SRC
+mysql> show variables like 'binlog_format';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| binlog_format | MIXED |
++---------------+-------+
+1 row in set (0.00 sec)
+    #+END_SRC
+*** replica status
+    #+BEGIN_SRC
+mysql> show replica status \G  
+ *************************** 1. row ***************************
+             Replica_IO_State: Waiting for source to send event
+                  Source_Host: 172.83.3.145
+                  Source_User: slave
+                  Source_Port: 3306
+                Connect_Retry: 60
+              Source_Log_File: binlog.000136
+          Read_Source_Log_Pos: 1044
+               Relay_Log_File: ip-172-83-2-117-relay-bin.000003
+                Relay_Log_Pos: 508
+        Relay_Source_Log_File: binlog.000136
+           ... ...
+                  Source_UUID: c1b1c341-14ca-11ee-9600-0aa77c5edf2d
+             Source_Info_File: mysql.slave_master_info
+                    SQL_Delay: 0
+          SQL_Remaining_Delay: NULL
+    Replica_SQL_Running_State: Replica has read all relay log; waiting for more updates
+           Source_Retry_Count: 86400
+           ... ...
+    #+END_SRC
+* Setup slave node to slave node
+** Node and DB setup
+*** mysqldump
+    #+BEGIN_SRC
+slave-node$ time sudo mysqldump -u root --all-databases > dump.sql
+real    58m46.003s
+user    31m21.173s
+sys     3m44.236s
+    #+END_SRC
+*** Data copy the slave-to-slave node
+    #+BEGIN_SRC
+slave-to-slave$ time rsync 172.83.2.117:/var/lib/mysql/backdata/dump.sql ./ 
+real    20m59.524s
+user    8m16.271s
+sys     9m37.505s
+
+    #+END_SRC
+*** Import data to slavbe-to-slave node
+    #+BEGIN_SRC
+slave-to-slave$ time sudo mysql -u root < dump.sql
+real    394m40.050s
+user    22m49.640s
+sys     2m17.276s
+    #+END_SRC
+*** Get GTID_MODE
+    #+BEGIN_SRC
+mysql> show variables like 'gtid_mode';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| gtid_mode     | OFF   |
++---------------+-------+
+1 row in set (0.01 sec)
+    #+END_SRC
+*** Get binlog_format
+    #+BEGIN_SRC
+mysql> show variables like 'binlog_format';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| binlog_format | ROW   |
++---------------+-------+
+1 row in set (0.00 sec)
+    #+END_SRC
+** Create replication user on the slave node
+    #+BEGIN_SRC
+mysql> CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
+Query OK, 0 rows affected (0.05 sec)
+
+mysql> GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> FLUSH PRIVILEGES;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> FLUSH TABLES WITH READ LOCK;
+Query OK, 0 rows affected (0.01 sec)
+    #+END_SRC
+** Get binlog position from slave node
+   #+BEGIN_SRC
+mysql> show master status;
++---------------+----------+--------------+------------------+-------------------+
+| File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++---------------+----------+--------------+------------------+-------------------+
+| binlog.000138 |     1051 |              |                  |                   |
++---------------+----------+--------------+------------------+-------------------+
+1 row in set (0.01 sec)
+   #+END_SRC
+** Dumpling data from slave node
+** Import data into slave node
+** Set server id for slave-slave node
+   #+BEGIN_SRC
+slave-to-slave$ more /etc/mysql/conf.d/my.cnf
+... ...
+[mysqld]
+server_id=10002
+   #+END_SRC
+** Start slave replication
+   #+BEGIN_SRC
+mysql> CHANGE MASTER TO                                                                                                                                                              
+    -> MASTER_HOST='172.83.2.117',
+    -> MASTER_USER='slave',       
+    -> MASTER_PASSWORD='1234Abcd',           
+    -> MASTER_LOG_FILE='binlog.000138',
+    -> MASTER_LOG_POS=1051;                                                               
+Query OK, 0 rows affected, 8 warnings (0.06 sec)               
+                                             
+mysql> start slave ;                
+Query OK, 0 rows affected, 1 warning (0.03 sec)
+                                             
+mysql> show slave status;
+mysql> show slave status \G    
+ *************************** 1. row ***************************
+               Slave_IO_State: Waiting for source to send event
+                  Master_Host: 172.83.2.117
+                  Master_User: slave
+                  Master_Port: 3306
+                Connect_Retry: 60
+              Master_Log_File: binlog.000138
+          Read_Master_Log_Pos: 1051
+               Relay_Log_File: ip-172-83-4-169-relay-bin.000002
+                Relay_Log_Pos: 323
+        Relay_Master_Log_File: binlog.000138
+        ... ...
+             Master_Server_Id: 10001
+                  Master_UUID: 8b750673-159f-11ee-ae00-129f095a0c83
+             Master_Info_File: mysql.slave_master_info
+                    SQL_Delay: 0
+          SQL_Remaining_Delay: NULL
+      Slave_SQL_Running_State: Replica has read all relay log; waiting for more updates
+           Master_Retry_Count: 86400
+        ... ...
+   #+END_SRC
+* Data comparison between master and slave-to-slave
+  Make sure there are enough disk for data comparison.
+** make sure the dir of tmpdir has enough disk
+   #+BEGIN_SRC
+mysql> show variables like 'tmpdir';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| tmpdir        | /tmp  |
++---------------+-------+
+1 row in set (0.01 sec)  
+   #+END_SRC
+** Analyze all the tables
+** Create check user in the master node
+  #+BEGIN_SRC
+mysql> create user `datachkusr`@`%` identified by '1234Abcd'; 
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> grant select on *.* to `datachkusr`@`%`;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> grant SHOW DATABASES on *.* to `datachkusr`@`%`;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> grant RELOAD on *.* to `datachkusr`@`%`;
+Query OK, 0 rows affected (0.01 sec)
+  #+END_SRC
+** Create chk user in the slave-to-slave node
+   User is replicated from master db to slave2slave
+** config file
+   #+BEGIN_SRC
+workstation$ more config.toml
+check-thread-count = 64
+export-fix-sql = true
+check-struct-only = false
+skip-non-existing-table = false
+
+######################### Datasource config #########################
+[data-sources]
+[data-sources.masterdb]
+    host = "172.83.3.145"
+    port = 3306
+    user = "datachkusr"
+    password = "1234Abcd"
+
+[data-sources.slave2slave]
+    host = "172.83.4.169"
+    port = 3306
+    user = "datachkusr"
+    password = "1234Abcd"
+
+[task]
+    output-dir = "./output"
+    source-instances = ["masterdb"]
+    target-instance = "slave2slave"
+    target-check-tables = ["*.*"]
+   #+END_SRC
+** Data comparison
+   #+BEGIN_SRC
+sync_diff_inspector --config=config.toml 
+A total of 10 tables need to be compared
+
+Comparing the table structure of ``test`.`test03`` ... equivalent
+Comparing the table data of ``test`.`test03`` ... equivalent
+Comparing the table structure of ``tpcc`.`district`` ... equivalent
+Comparing the table data of ``tpcc`.`district`` ... equivalent
+Comparing the table structure of ``tpcc`.`item`` ... equivalent
+Comparing the table data of ``tpcc`.`item`` ... equivalent
+Comparing the table structure of ``tpcc`.`new_order`` ... equivalent
+Comparing the table data of ``tpcc`.`new_order`` ... equivalent
+Comparing the table structure of ``tpcc`.`orders`` ... equivalent
+Comparing the table data of ``tpcc`.`orders`` ... equivalent
+Comparing the table structure of ``tpcc`.`history`` ... equivalent
+Comparing the table data of ``tpcc`.`history`` ... equivalent
+Comparing the table structure of ``tpcc`.`customer`` ... equivalent
+Comparing the table data of ``tpcc`.`customer`` ... equivalent
+Comparing the table structure of ``tpcc`.`stock`` ... equivalent
+Comparing the table data of ``tpcc`.`stock`` ... equivalent
+Comparing the table structure of ``tpcc`.`order_line`` ... equivalent
+Comparing the table data of ``tpcc`.`order_line`` ... equivalent
+_____________________________________________________________________________
+Progress [============================================================>] 100% 0/0
+A total of 10 table have been compared and all are equal.
+You can view the comparision details through './output/sync_diff.log'
+
+   #+END_SRC
+* Replication test
+** Run one more tpcc to insert data into master DB
+** Comparison between master and slave-slave node
+* TiDB Cloud replication(DM on cloud setup)
+  Answer how long it will takes.
+** TiDB Cloud setup
+** VPC Peering
+   Please refer to [[https://docs.pingcap.com/tidbcloud/set-up-vpc-peering-connections][VPC Peering setup]] to setup the vpc peering between TiDB Cloud and VPC of MySQL cluster.
+   #+BEGIN_SRC
+admin@ip-172-83-4-169:~$ mysql --connect-timeout 15 -u root -h private-tidb.fxinygs92q0.clusters.tidb-cloud.com -P 4000 -D test -p
+Enter password: 
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 943
+Server version: 5.7.25-TiDB-v6.5.3 TiDB Server (Apache License 2.0) Enterprise Edition, MySQL 5.7 compatible
+
+Copyright (c) 2000, 2023, Oracle and/or its affiliates.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> 
+   #+END_SRC
+** User preparation on the slave node
+   #+BEGIN_SRC
+mysql> create user `tidbdmusr`@`10.250.8.0/21` identified by '1234Abcd';
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> GRANT SELECT,LOCK TABLES,RELOAD,REPLICATION SLAVE,REPLICATION CLIENT ON *.* TO `tidbdmusr`@`10.250.8.0/21`; 
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> flush privileges; 
+Query OK, 0 rows affected (0.01 sec)
+   #+END_SRC
+** Check collation before migration
+   #+BEGIN_SRC
+mysql> show collation;
+   #+END_SRC
+** DM replication setup
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/mysql2tidbcloud/001.png]]
+** Data comparison
+*** Table analyze
+*** Data comparison
+    #+BEGIN_SRC
+workstation$ more mysql-vs-tidb.toml
+check-thread-count = 64
+export-fix-sql = true
+check-struct-only = false
+skip-non-existing-table = false
+
+######################### Datasource config #########################
+[data-sources]
+[data-sources.masterdb]
+    host = "172.83.3.145"
+    port = 3306
+    user = "datachkusr"
+    password = "1234Abcd"
+
+[data-sources.tidb]
+    host = "private-tidb.fxinygs92q0.clusters.tidb-cloud.com"
+    port = 4000
+    user = "root"
+    password = "1234Abcd"
+
+[task]
+    output-dir = "./output"
+    source-instances = ["masterdb"]
+    target-instance = "tidb"
+    target-check-tables = ["tpcc.*"]
+    #+END_SRC
+*** RUn diff
+    #+BEGIN_SRC
+workstation$ sync_diff_inspector --config=mysql-vs-tidb.toml
+A total of 9 tables need to be compared
+
+Comparing the table structure of ``tpcc`.`new_order`` ... equivalent
+Comparing the table structure of ``tpcc`.`district`` ... equivalent
+Comparing the table structure of ``tpcc`.`customer`` ... equivalent
+Comparing the table structure of ``tpcc`.`order_line`` ... equivalent
+Comparing the table structure of ``tpcc`.`history`` ... equivalent
+Comparing the table structure of ``tpcc`.`warehouse`` ... equivalent
+Comparing the table structure of ``tpcc`.`stock`` ... equivalent
+Comparing the table structure of ``tpcc`.`item`` ... equivalent
+Comparing the table structure of ``tpcc`.`orders`` ... equivalent
+Comparing the table data of ``tpcc`.`district`` ... equivalent
+Comparing the table data of ``tpcc`.`warehouse`` ... equivalent
+Comparing the table data of ``tpcc`.`item`` ... equivalent
+Comparing the table data of ``tpcc`.`new_order`` ... equivalent
+Comparing the table data of ``tpcc`.`customer`` ... equivalent
+Comparing the table data of ``tpcc`.`history`` ... equivalent
+Comparing the table data of ``tpcc`.`orders`` ... equivalent
+Comparing the table data of ``tpcc`.`stock`` ... equivalent
+Comparing the table data of ``tpcc`.`order_line`` ... equivalent
+_____________________________________________________________________________
+Progress [============================================================>] 100% 0/0
+A total of 9 table have been compared and all are equal.
+You can view the comparision details through './output/sync_diff.log'
+    #+END_SRC
+*** Data generation
+    + Master db
+    #+BEGIN_SRC
+mysql> insert into test03 values(5,5);
+Query OK, 1 row affected (0.08 sec)
+
+mysql> select * from test03;
++-------+-------+
+| col01 | col02 |
++-------+-------+
+|     1 |     1 |
+|     2 |     2 |
+|     3 |     3 |
+|     4 |     4 |
+|     5 |     5 |
++-------+-------+
+5 rows in set (0.00 sec)
+    #+END_SRC
+    + TiDB
+      #+BEGIN_SRC
+mysql> select * from test03;
++-------+-------+
+| col01 | col02 |
++-------+-------+
+|     1 |     1 |
+|     2 |     2 |
+|     3 |     3 |
+|     4 |     4 |
+|     5 |     5 |
++-------+-------+
+5 rows in set (0.00 sec)
+      #+END_SRC
+*** Database creation
+    + master db
+    #+BEGIN_SRC
+mysql> create database tpcc02 collate utf8mb4_bin;
+Query OK, 1 row affected (0.02 sec)
+    #+END_SRC
+    + tidb
+      #+BEGIN_SRC
+mysql> show databases; 
++--------------------+
+| Database           |
++--------------------+
+| INFORMATION_SCHEMA |
+| PERFORMANCE_SCHEMA |
+.. ...
+| tpcc               |
+| tpcc02             |
++--------------------+
+7 rows in set (0.00 sec)
+      #+END_SRC
+*** Test data import
+    #+BEGIN_SRC
+workstation$ tiup bench tpcc -H 172.83.3.145 -P 3306 -D tpcc02 --warehouses 2 -U dataload -p 1234Abcd --threads 10 prepare
+tiup is checking updates for component bench ...                                          
+Starting component `bench`: /home/admin/.tiup/components/bench/v1.12.0/tiup-bench tpcc -H 172.83.3.145 -P 3306 -D tpcc02 --warehouses 2 -U dataload -p 1234Abcd --threads 10 prepare
+creating table warehouse                                                                  
+creating table district                                                                   
+creating table customer                                                                   
+creating table history                                                                    
+creating table new_order                                                                  
+creating table orders                                                                     
+creating table order_line                                                                 
+creating table stock                                                                      
+creating table item                                                                       
+load to item
+... ...
+Finished
+    #+END_SRC
+*** Check replicated data
+    #+BEGIN_SRC
+workstation$ more mysql-vs-tidb-02.toml
+check-thread-count = 64
+export-fix-sql = true
+check-struct-only = false
+skip-non-existing-table = false
+
+######################### Datasource config #########################
+[data-sources]
+[data-sources.masterdb]
+    host = "172.83.3.145"
+    port = 3306
+    user = "datachkusr"
+    password = "1234Abcd"
+
+[data-sources.tidb]
+    host = "private-tidb.fxinygs92q0.clusters.tidb-cloud.com"
+    port = 4000
+    user = "root"
+    password = "1234Abcd"
+
+[task]
+    output-dir = "./output"
+    source-instances = ["masterdb"]
+    target-instance = "tidb"
+    target-check-tables = ["tpcc02.*"]
+    #+END_SRC
+
+*** Data comparison
+    #+BEGIN_SRC
+workstation$ sync_diff_inspector --config=mysql-vs-tidb-02.toml
+A total of 9 tables need to be compared
+
+Comparing the table structure of ``tpcc02`.`customer`` ... equivalent
+Comparing the table structure of ``tpcc02`.`orders`` ... equivalent
+Comparing the table structure of ``tpcc02`.`order_line`` ... equivalent
+Comparing the table structure of ``tpcc02`.`stock`` ... equivalent
+Comparing the table structure of ``tpcc02`.`item`` ... equivalent
+Comparing the table structure of ``tpcc02`.`warehouse`` ... equivalent
+Comparing the table structure of ``tpcc02`.`new_order`` ... equivalent
+Comparing the table structure of ``tpcc02`.`district`` ... equivalent
+Comparing the table data of ``tpcc02`.`warehouse`` ... equivalent
+Comparing the table data of ``tpcc02`.`district`` ... equivalent
+Comparing the table data of ``tpcc02`.`new_order`` ... equivalent
+Comparing the table data of ``tpcc02`.`orders`` ... equivalent
+Comparing the table data of ``tpcc02`.`item`` ... equivalent
+Comparing the table data of ``tpcc02`.`customer`` ... equivalent
+Comparing the table structure of ``tpcc02`.`history`` ... equivalent
+Comparing the table data of ``tpcc02`.`history`` ... equivalent
+Comparing the table data of ``tpcc02`.`stock`` ... equivalent
+Comparing the table data of ``tpcc02`.`order_line`` ... equivalent
+_____________________________________________________________________________
+Progress [============================================================>] 100% 0/0
+A total of 9 table have been compared and all are equal.
+You can view the comparision details through './output/sync_diff.log'
+    #+END_SRC
