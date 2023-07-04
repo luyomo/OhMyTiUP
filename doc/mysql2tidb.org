@@ -1,147 +1,33 @@
 #+OPTIONS: ^:nil
-* Todo
-** Data flow
-   + Setup two ec2
-   + Setup the mysql on the ec2
-     - Setup master mysql node with binlog format mix
-     - Setup slace mysql node with binlog row format
-   + mock data into master mysql
-   + Setup DM to replicate data
+#+OPTIONS: \n:t
 
-     
-** References
-  #+BEGIN_SRC
-workstation$ wget https://cdn.mysql.com//Downloads/MySQL-5.7/mysql-server_5.7.42-1debian10_amd64.deb-bundle.tar
-tar xvf mysql-server_5.7.42-1debian10_amd64.deb-bundle.tar
-
-sudo apt-key adv --keyserver pgp.mit.edu --recv-keys 467B942D3A79BD29
-  #+END_SRC
-
-  https://www.digitalocean.com/community/tutorials/how-to-install-the-latest-mysql-on-debian-10
-
-  https://computingforgeeks.com/how-to-install-mysql-on-debian-linux-system/
-  https://stackoverflow.com/questions/36979574/mysql-5-7-community-server-non-interactive-apt-install
-
-*** replication
-    https://hevodata.com/learn/mysql-master-slave-replication/#b2
-
-    https://www.mysqltutorial.org/import-csv-file-mysql-table/
-    
-    + Create user
-      #+BEGIN_SRC
-MySQL$ CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
-MySQL$ GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
-MySQL$ FLUSH PRIVILEGES;
-MySQL$ FLUSH TABLES WITH READ LOCK;
-      #+END_SRC
-    + Move data from master to slave
-      - data dumpling to csv into csv file
-      - load data infile csv to table
-    + Setup replication
-      #+BEGIN_SRC
-MySQL$ CHANGE MASTER TO
-MASTER_HOST='172.83.3.118',
-MASTER_USER='slave',
-MASTER_PASSWORD='1234Abcd',
-MASTER_LOG_FILE='binlog.000007',
-MASTER_LOG_POS=859;
-
-MySQL$ show slave status \G
-MySQL$ start slave;
-MySQL$ show slave status \G
-      #+END_SRC
-
-*** DM User
-    #+BEGIN_SRC
-https://docs.pingcap.com/tidbcloud/migrate-from-mysql-using-data-migration?_gl=1*m1cmxi*_gcl_au*MjQ3MTk4OTI2LjE2ODU1MzAxOTc.&_ga=2.251305286.1197550859.1687160686-1219007525.1677735681#grant-required-privileges-to-the-upstream-database
-    #+END_SRC
-**** error
-#+BEGIN_SRC
-code=26007:class=task-check:scope=internal:level=medium], Message: source-900026 has GTID_MODE = OFF instead of ON, Workaround: Please check the `enable-gtid` config in source configuration file.
-#+END_SRC
-**** After set the GTID=ON
-     After set the slave's GTID to on, it also requires the upstream server to set the GTID to on. 
-#+BEGIN_SRC
- The replication receiver thread cannot start because the source has GTID_MODE = OFF and this server has GTID_MODE = ON.
-#+END_SRC
-****  Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection
-     #+BEGIN_SRC
-MySQL$ CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
-     ERROR 3021 (HY000): This operation cannot be performed with a running replica io thread; run STOP REPLICA IO_THREAD FOR CHANNEL '' first.
-MySQL$ stop slave;
-MySQL$ CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
-MySQL$ start slave;
-     #+END_SRC
-**** Failure start
-     #+BEGIN_SRC
-Got fatal error 1236 from source when reading data from binary log: 'Cannot replicate anonymous transaction when @@GLOBAL.GTID_MODE = ON, at file ./binlog.000003, position 2207.; the first event 'binlog.000003' at 2207, the last event read from './binlog.000003' at 2293, the last byte read from './binlog.000003' at 2293.'
-     #+END_SRC
-     https://dev.mysql.com/doc/refman/5.7/en/replication-mode-change-online-concepts.html
-**** ON_PERMISSUVE
-     Succeeded to replicate data to slave. But failed to replicate data to TiDB. error as below:
-     get binlog event error: ERROR 1236(HY000); The replication sender thread cannot start in AUTO_POSITION mode: this server has GTID_MODE = ON_PERMISSICE instead of ON.
-
-** Config file
-*** Master
-    #+BEGIN_SRC
-[mysqld]
-binlog_format=MIXED
-gtid_mode=ON
-enforce-gtid-consistency=ON
-    #+END_SRC
-*** Slave
-    #+BEGIN_SRC
-[mysqld]
-binlog_format=MIXED
-server_id=10001
-gtid_mode=ON
-enforce-gtid-consistency=ON
-    #+END_SRC
-*** Slave to Slave
-    #+BEGIN_SRC
-[mysqld]
-binlog_format=MIXED
-server_id=10002
-gtid_mode=ON
-enforce-gtid-consistency=ON
-    #+END_SRC
-** Full data copy
-**** Input
-     + Target MySQL Connection String
-       - host
-       - port
-       - user
-       - password
-     + S3
-       - bucket name
-       - prefix
-       - kms(might not required)
-       - role permission
-     + Target MySQL
-       - host
-       - port
-       - user
-       - password
-     + Target TiDB
-       - project
-       - cluster name
-*** Todo
-https://blog.csdn.net/weixin_42421284/article/details/113638321
-set sql_log_bin=0
-
-** Fatal error: The replica I/O thread stops because source and replica have equal MySQL server UUIDs; these UUIDs must be different for replication to w
-ork.
-remove auto.conf
-
-* Problems
-** DM bug
-   https://jira.tidbcloud.com/browse/DM-8986
-** Test data(500GB) - data generatio
-
+* Architecture
+  Database structure is one master multiple slaves with binlog_format MIXED. To replicate the MySQL to TiDB without changing binlog_format, one new MySQL slave(binlog_format) is added to replicate from MySQL Slave(binlog_format=MIXED). The MySQL Slave(binlog_format=ROW) is taken as the source to replicate to TiDB Cloud.
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/mysql2tidbcloud/001.png]]
+** Test Data
+   172GB test data is generated by tpcc into MySQL Master Data.
+** Server list
+  |                                              IP | Instance                         | Spec                                       |
+  |-------------------------------------------------+----------------------------------+--------------------------------------------|
+  |                                   172.82.31.201 | Workstation                      | c5.2xlarge                                 |
+  |                                    172.83.3.145 | MySQL Master Instance            | t2.2xlarge                                 |
+  |                                    172.83.2.117 | MySQL Slave(binlog_format=MIXED) | t2.2xlarge                                 |
+  |                                    172.83.4.169 | MySQL Slave(binlog_format=ROW)   | t2.2xlarge                                 |
+  | pivate-tidb.fxinygs92q0.clusters.tidb-cloud.com | TiDB Cloud                       | TiDB: 8c32GB 2 nodes, TiKV: 8c32GB 3 nodes |
+** Process
+   + MySQL Slave(binlog_format=ROW) setup (9 hours)
+     - MySQL Slave(binlog_format=MIXED) data export (1 hour)
+     - File copy to MySQL Slave(binlog_format=ROW) (20 minutes)
+     - Data import to MySQL Slave(binlog_format=ROW) (7 hours)
+     - Data comparison between Master Instance and MySQL Slave(binlog_format) (2 hours)
+   + Data migration from MySQL Slave(binlog_format=ROW) to TiDB Cloud
+     + Data Export from MySQL Salve(binlog_format) (40 minutes)
+     + Data Import to TiDB Cloud(4 hours)
 * Database structure verification
 ** Master DB
-   + Database size
-     #+BEGIN_SRC
+*** Database size
+    #+BEGIN_SRC
 mysql> use information_schema;
 mysql> select concat(round(sum(data_length/1024/1024/1024),2),'GB') as data from tables;
 +----------+
@@ -150,18 +36,8 @@ mysql> select concat(round(sum(data_length/1024/1024/1024),2),'GB') as data from
 | 172.69GB |
 +----------+
 1 row in set (0.07 sec)
-     #+END_SRC
-   + binlog format
-     #+BEGIN_SRC
-mysql> show variables like 'binlog_format';
-+---------------+-------+
-| Variable_name | Value |
-+---------------+-------+
-| binlog_format | MIXED |
-+---------------+-------+
-1 row in set (0.01 sec)
-     #+END_SRC
-  + gtid mode
+    #+END_SRC
+*** GTID mode
     #+BEGIN_SRC
 mysql> show variables like 'gtid_mode';
 +---------------+-------+
@@ -171,53 +47,21 @@ mysql> show variables like 'gtid_mode';
 +---------------+-------+
 1 row in set (0.00 sec)
     #+END_SRC
-  + master status
+*** binlog format
+    #+BEGIN_SRC
+mysql> show variables like 'binlog_format';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| binlog_format | MIXED |
++---------------+-------+
+1 row in set (0.01 sec)
+    #+END_SRC
+*** master status
     #+BEGIN_SRC
 mysql> show master status;
     #+END_SRC
 ** Slave DB
-* Slave node setup
-** Stop master node DB
-** Copy the master data file to slave node
-   #+BEGIN_SRC
-rm auto.cnf
-   #+END_SRC
-** Create user for data replication to slave on master node
-   #+BEGIN_SRC
-mysql> CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
-Query OK, 0 rows affected (0.02 sec)
-
-mysql> GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
-Query OK, 0 rows affected (0.01 sec)
-
-mysql> FLUSH PRIVILEGES;
-Query OK, 0 rows affected (0.01 sec)
-
-mysql> FLUSH TABLES WITH READ LOCK;
-Query OK, 0 rows affected (0.00 sec)
-   #+END_SRC
-** Get the binlog position from master node
-   #+BEGIN_SRC
-mysql> show master status; 
-+---------------+----------+--------------+------------------+-------------------+
-| File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
-+---------------+----------+--------------+------------------+-------------------+
-| binlog.000136 |      859 |              |                  |                   |
-+---------------+----------+--------------+------------------+-------------------+
-1 row in set (0.01 sec)
-   #+END_SRC
-** Setup the slave replication
-   #+BEGIN_SRC
-mysql> CHANGE MASTER TO
-MASTER_HOST='172.83.3.145',
-MASTER_USER='slave',
-MASTER_PASSWORD='1234Abcd',
-MASTER_LOG_FILE='binlog.000136',
-MASTER_LOG_POS=859;
-Query OK, 0 rows affected, 8 warnings (0.03 sec)
-mysql> start slave; 
-Query OK, 0 rows affected, 1 warning (0.01 sec)
-   #+END_SRC
 *** GTID MODE
     #+BEGIN_SRC
 mysql> show variables like 'gtid_mode'; 
@@ -263,119 +107,120 @@ mysql> show replica status \G
     #+END_SRC
 * Setup slave node to slave node
 ** Node and DB setup
-*** mysqldump
-    #+BEGIN_SRC
-slave-node$ time sudo mysqldump -u root --all-databases > dump.sql
-real    58m46.003s
-user    31m21.173s
-sys     3m44.236s
-    #+END_SRC
-*** Data copy the slave-to-slave node
-    #+BEGIN_SRC
-slave-to-slave$ time rsync 172.83.2.117:/var/lib/mysql/backdata/dump.sql ./ 
-real    20m59.524s
-user    8m16.271s
-sys     9m37.505s
+*** MySQL instancer setup
+Deploy one empty MySQL instance in the new node and set the GTID_MODE and binlog_format as below:
+**** Get GTID_MODE
+     #+BEGIN_SRC
+ mysql> show variables like 'gtid_mode';
+ +---------------+-------+
+ | Variable_name | Value |
+ +---------------+-------+
+ | gtid_mode     | OFF   |
+ +---------------+-------+
+ 1 row in set (0.01 sec)
+     #+END_SRC
+**** Get binlog_format
+     #+BEGIN_SRC
+ mysql> show variables like 'binlog_format';
+ +---------------+-------+
+ | Variable_name | Value |
+ +---------------+-------+
+ | binlog_format | ROW   |
+ +---------------+-------+
+ 1 row in set (0.00 sec)
+     #+END_SRC
+*** Data Copy
+**** mysqldump from slave MySQL instance
+     #+BEGIN_SRC
+ slave-node$ time sudo mysqldump -u root --all-databases > dump.sql
+ real    58m46.003s
+ user    31m21.173s
+ sys     3m44.236s
+     #+END_SRC
+**** Data copy the slave-to-slave node from MySQL instance
+     #+BEGIN_SRC
+ slave-to-slave$ time rsync 172.83.2.117:/var/lib/mysql/backdata/dump.sql ./ 
+ real    20m59.524s
+ user    8m16.271s
+ sys     9m37.505s
 
-    #+END_SRC
-*** Import data to slavbe-to-slave node
-    #+BEGIN_SRC
-slave-to-slave$ time sudo mysql -u root < dump.sql
-real    394m40.050s
-user    22m49.640s
-sys     2m17.276s
-    #+END_SRC
-*** Get GTID_MODE
-    #+BEGIN_SRC
-mysql> show variables like 'gtid_mode';
-+---------------+-------+
-| Variable_name | Value |
-+---------------+-------+
-| gtid_mode     | OFF   |
-+---------------+-------+
-1 row in set (0.01 sec)
-    #+END_SRC
-*** Get binlog_format
-    #+BEGIN_SRC
-mysql> show variables like 'binlog_format';
-+---------------+-------+
-| Variable_name | Value |
-+---------------+-------+
-| binlog_format | ROW   |
-+---------------+-------+
-1 row in set (0.00 sec)
-    #+END_SRC
-** Create replication user on the slave node
-    #+BEGIN_SRC
-mysql> CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
-Query OK, 0 rows affected (0.05 sec)
+     #+END_SRC
+**** Import data to slave-to-slave instance
+     #+BEGIN_SRC
+ slave-to-slave$ time sudo mysql -u root < dump.sql
+ real    394m40.050s
+ user    22m49.640s
+ sys     2m17.276s
+     #+END_SRC
+*** Replication setup
+**** Create replication user on the slave node
+     #+BEGIN_SRC
+  mysql> CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
+  Query OK, 0 rows affected (0.05 sec)
 
-mysql> GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
-Query OK, 0 rows affected (0.01 sec)
+  mysql> GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
+  Query OK, 0 rows affected (0.01 sec)
 
-mysql> FLUSH PRIVILEGES;
-Query OK, 0 rows affected (0.01 sec)
+  mysql> FLUSH PRIVILEGES;
+  Query OK, 0 rows affected (0.01 sec)
 
-mysql> FLUSH TABLES WITH READ LOCK;
-Query OK, 0 rows affected (0.01 sec)
-    #+END_SRC
-** Get binlog position from slave node
-   #+BEGIN_SRC
-mysql> show master status;
-+---------------+----------+--------------+------------------+-------------------+
-| File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
-+---------------+----------+--------------+------------------+-------------------+
-| binlog.000138 |     1051 |              |                  |                   |
-+---------------+----------+--------------+------------------+-------------------+
-1 row in set (0.01 sec)
-   #+END_SRC
-** Dumpling data from slave node
-** Import data into slave node
-** Set server id for slave-slave node
-   #+BEGIN_SRC
-slave-to-slave$ more /etc/mysql/conf.d/my.cnf
-... ...
-[mysqld]
-server_id=10002
-   #+END_SRC
-** Start slave replication
-   #+BEGIN_SRC
-mysql> CHANGE MASTER TO                                                                                                                                                              
-    -> MASTER_HOST='172.83.2.117',
-    -> MASTER_USER='slave',       
-    -> MASTER_PASSWORD='1234Abcd',           
-    -> MASTER_LOG_FILE='binlog.000138',
-    -> MASTER_LOG_POS=1051;                                                               
-Query OK, 0 rows affected, 8 warnings (0.06 sec)               
+  mysql> FLUSH TABLES WITH READ LOCK;
+  Query OK, 0 rows affected (0.01 sec)
+     #+END_SRC
+**** Get binlog position from slave node
+     #+BEGIN_SRC
+  mysql> show master status;
+  +---------------+----------+--------------+------------------+-------------------+
+  | File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
+  +---------------+----------+--------------+------------------+-------------------+
+  | binlog.000138 |     1051 |              |                  |                   |
+  +---------------+----------+--------------+------------------+-------------------+
+  1 row in set (0.01 sec)
+     #+END_SRC
+**** Start slave replication
+     #+BEGIN_SRC
+  mysql> CHANGE MASTER TO                                                                                                                                                              
+      -> MASTER_HOST='172.83.2.117',
+      -> MASTER_USER='slave',       
+      -> MASTER_PASSWORD='1234Abcd',           
+      -> MASTER_LOG_FILE='binlog.000138',
+      -> MASTER_LOG_POS=1051;                                                               
+  Query OK, 0 rows affected, 8 warnings (0.06 sec)               
                                              
-mysql> start slave ;                
-Query OK, 0 rows affected, 1 warning (0.03 sec)
+  mysql> start slave ;                
+  Query OK, 0 rows affected, 1 warning (0.03 sec)
                                              
-mysql> show slave status;
-mysql> show slave status \G    
- *************************** 1. row ***************************
-               Slave_IO_State: Waiting for source to send event
-                  Master_Host: 172.83.2.117
-                  Master_User: slave
-                  Master_Port: 3306
-                Connect_Retry: 60
-              Master_Log_File: binlog.000138
-          Read_Master_Log_Pos: 1051
-               Relay_Log_File: ip-172-83-4-169-relay-bin.000002
-                Relay_Log_Pos: 323
-        Relay_Master_Log_File: binlog.000138
-        ... ...
-             Master_Server_Id: 10001
-                  Master_UUID: 8b750673-159f-11ee-ae00-129f095a0c83
-             Master_Info_File: mysql.slave_master_info
-                    SQL_Delay: 0
-          SQL_Remaining_Delay: NULL
-      Slave_SQL_Running_State: Replica has read all relay log; waiting for more updates
-           Master_Retry_Count: 86400
-        ... ...
-   #+END_SRC
+  mysql> show slave status \G    
+   *************************** 1. row ***************************
+                 Slave_IO_State: Waiting for source to send event
+                    Master_Host: 172.83.2.117
+                    Master_User: slave
+                    Master_Port: 3306
+                  Connect_Retry: 60
+                Master_Log_File: binlog.000138
+            Read_Master_Log_Pos: 1051
+                 Relay_Log_File: ip-172-83-4-169-relay-bin.000002
+                  Relay_Log_Pos: 323
+          Relay_Master_Log_File: binlog.000138
+          ... ...
+               Master_Server_Id: 10001
+                    Master_UUID: 8b750673-159f-11ee-ae00-129f095a0c83
+               Master_Info_File: mysql.slave_master_info
+                      SQL_Delay: 0
+            SQL_Remaining_Delay: NULL
+        Slave_SQL_Running_State: Replica has read all relay log; waiting for more updates
+             Master_Retry_Count: 86400
+          ... ...
+     #+END_SRC
+**** Set server id for slave-slave node
+     #+BEGIN_SRC
+  slave-to-slave$ more /etc/mysql/conf.d/my.cnf
+  ... ...
+  [mysqld]
+  server_id=10002
+     #+END_SRC
 * Data comparison between master and slave-to-slave
-  Make sure there are enough disk for data comparison.
+  Make sure there are enough disk for data comparison in the both MySQL database which use tmpdir. This step is not mandatory for production. Recommend to diff in the test environment to make sure the process is correct.
 ** make sure the dir of tmpdir has enough disk
    #+BEGIN_SRC
 mysql> show variables like 'tmpdir';
@@ -387,7 +232,9 @@ mysql> show variables like 'tmpdir';
 1 row in set (0.01 sec)  
    #+END_SRC
 ** Analyze all the tables
-** Create check user in the master node
+   Before data comparason, the analyze must be done in the slave-to-slave MySQL instance which impact the performance a lot. 
+** Create check user in the master node(optional)
+   
   #+BEGIN_SRC
 mysql> create user `datachkusr`@`%` identified by '1234Abcd'; 
 Query OK, 0 rows affected (0.01 sec)
@@ -401,9 +248,9 @@ Query OK, 0 rows affected (0.01 sec)
 mysql> grant RELOAD on *.* to `datachkusr`@`%`;
 Query OK, 0 rows affected (0.01 sec)
   #+END_SRC
-** Create chk user in the slave-to-slave node
-   User is replicated from master db to slave2slave
-** config file
+** Create check user in the slave-to-slave node
+   No need to create the user manually since it is replicated to salve-to-salve from master db.
+** config file for sync-diff-inspector
    #+BEGIN_SRC
 workstation$ more config.toml
 check-thread-count = 64
@@ -431,9 +278,9 @@ skip-non-existing-table = false
     target-instance = "slave2slave"
     target-check-tables = ["*.*"]
    #+END_SRC
-** Data comparison
+** Data comparison execution
    #+BEGIN_SRC
-sync_diff_inspector --config=config.toml 
+workstation$ sync_diff_inspector --config=config.toml 
 A total of 10 tables need to be compared
 
 Comparing the table structure of ``test`.`test03`` ... equivalent
@@ -458,16 +305,12 @@ _____________________________________________________________________________
 Progress [============================================================>] 100% 0/0
 A total of 10 table have been compared and all are equal.
 You can view the comparision details through './output/sync_diff.log'
-
    #+END_SRC
-* Replication test
-** Run one more tpcc to insert data into master DB
-** Comparison between master and slave-slave node
 * TiDB Cloud replication(DM on cloud setup)
-  Answer how long it will takes.
 ** TiDB Cloud setup
+   Please go the [[https://tidbcloud.com/][TiDB Cloud]] to start one cluster.
 ** VPC Peering
-   Please refer to [[https://docs.pingcap.com/tidbcloud/set-up-vpc-peering-connections][VPC Peering setup]] to setup the vpc peering between TiDB Cloud and VPC of MySQL cluster.
+   Please refer to [[https://docs.pingcap.com/tidbcloud/set-up-vpc-peering-connections][VPC Peering setup]] to setup the vpc peering between TiDB Cloud and VPC of MySQL cluster. After the vpc peering setup, test the connection between TiDB Cloud and MySQL cluster vpc.
    #+BEGIN_SRC
 admin@ip-172-83-4-169:~$ mysql --connect-timeout 15 -u root -h private-tidb.fxinygs92q0.clusters.tidb-cloud.com -P 4000 -D test -p
 Enter password: 
@@ -485,7 +328,7 @@ Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
 
 mysql> 
    #+END_SRC
-** User preparation on the slave node
+** User preparation on the slave-to-slave node
    #+BEGIN_SRC
 mysql> create user `tidbdmusr`@`10.250.8.0/21` identified by '1234Abcd';
 Query OK, 0 rows affected (0.01 sec)
@@ -501,8 +344,53 @@ Query OK, 0 rows affected (0.01 sec)
 mysql> show collation;
    #+END_SRC
 ** DM replication setup
-   #+attr_html: :width 800px
-   [[https://www.51yomo.net/static/doc/mysql2tidbcloud/001.png]]
+   + Create DM job
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/002.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/003.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/004.png]]
+   + make sure the vpc peering has been setup
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/005.png]]
+   + Choose full data and incremental replication
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/006.png]]
+   + Check all warns
+     Recommend to conntact us if there is any warnings.
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/007.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/008.png]]
+   + Ignore warnings if it is acceptable
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/009.png]]
+   + No performance requirment, 2RU is recommended
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/010.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/011.png]]
+   + Check the status until the migration is completed
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/012.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/013.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/014.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/015.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/016.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/017.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/018.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/019.png]]
+     #+attr_html: :width 800px
+     [[https://www.51yomo.net/static/doc/mysql2tidbcloud/020.png]]
+
 ** Data comparison
 *** Table analyze
 *** Data comparison
@@ -687,4 +575,229 @@ _____________________________________________________________________________
 Progress [============================================================>] 100% 0/0
 A total of 9 table have been compared and all are equal.
 You can view the comparision details through './output/sync_diff.log'
+    #+END_SRC
+
+* Todo
+** Data flow
+   + Setup two ec2
+   + Setup the mysql on the ec2
+     - Setup master mysql node with binlog format mix
+     - Setup slace mysql node with binlog row format
+   + mock data into master mysql
+   + Setup DM to replicate data
+
+     
+** References
+  #+BEGIN_SRC
+workstation$ wget https://cdn.mysql.com//Downloads/MySQL-5.7/mysql-server_5.7.42-1debian10_amd64.deb-bundle.tar
+tar xvf mysql-server_5.7.42-1debian10_amd64.deb-bundle.tar
+
+sudo apt-key adv --keyserver pgp.mit.edu --recv-keys 467B942D3A79BD29
+  #+END_SRC
+
+  https://www.digitalocean.com/community/tutorials/how-to-install-the-latest-mysql-on-debian-10
+
+  https://computingforgeeks.com/how-to-install-mysql-on-debian-linux-system/
+  https://stackoverflow.com/questions/36979574/mysql-5-7-community-server-non-interactive-apt-install
+
+*** replication
+    https://hevodata.com/learn/mysql-master-slave-replication/#b2
+
+    https://www.mysqltutorial.org/import-csv-file-mysql-table/
+    
+    + Create user
+      #+BEGIN_SRC
+MySQL$ CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
+MySQL$ GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
+MySQL$ FLUSH PRIVILEGES;
+MySQL$ FLUSH TABLES WITH READ LOCK;
+      #+END_SRC
+    + Move data from master to slave
+      - data dumpling to csv into csv file
+      - load data infile csv to table
+    + Setup replication
+      #+BEGIN_SRC
+MySQL$ CHANGE MASTER TO
+MASTER_HOST='172.83.3.118',
+MASTER_USER='slave',
+MASTER_PASSWORD='1234Abcd',
+MASTER_LOG_FILE='binlog.000007',
+MASTER_LOG_POS=859;
+
+MySQL$ show slave status \G
+MySQL$ start slave;
+MySQL$ show slave status \G
+      #+END_SRC
+
+*** DM User
+    #+BEGIN_SRC
+https://docs.pingcap.com/tidbcloud/migrate-from-mysql-using-data-migration?_gl=1*m1cmxi*_gcl_au*MjQ3MTk4OTI2LjE2ODU1MzAxOTc.&_ga=2.251305286.1197550859.1687160686-1219007525.1677735681#grant-required-privileges-to-the-upstream-database
+    #+END_SRC
+**** error
+#+BEGIN_SRC
+code=26007:class=task-check:scope=internal:level=medium], Message: source-900026 has GTID_MODE = OFF instead of ON, Workaround: Please check the `enable-gtid` config in source configuration file.
+#+END_SRC
+**** After set the GTID=ON
+     After set the slave's GTID to on, it also requires the upstream server to set the GTID to on. 
+#+BEGIN_SRC
+ The replication receiver thread cannot start because the source has GTID_MODE = OFF and this server has GTID_MODE = ON.
+#+END_SRC
+****  Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection
+     #+BEGIN_SRC
+MySQL$ CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
+     ERROR 3021 (HY000): This operation cannot be performed with a running replica io thread; run STOP REPLICA IO_THREAD FOR CHANNEL '' first.
+MySQL$ stop slave;
+MySQL$ CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
+MySQL$ start slave;
+     #+END_SRC
+**** Failure start
+     #+BEGIN_SRC
+Got fatal error 1236 from source when reading data from binary log: 'Cannot replicate anonymous transaction when @@GLOBAL.GTID_MODE = ON, at file ./binlog.000003, position 2207.; the first event 'binlog.000003' at 2207, the last event read from './binlog.000003' at 2293, the last byte read from './binlog.000003' at 2293.'
+     #+END_SRC
+     https://dev.mysql.com/doc/refman/5.7/en/replication-mode-change-online-concepts.html
+**** ON_PERMISSUVE
+     Succeeded to replicate data to slave. But failed to replicate data to TiDB. error as below:
+     get binlog event error: ERROR 1236(HY000); The replication sender thread cannot start in AUTO_POSITION mode: this server has GTID_MODE = ON_PERMISSICE instead of ON.
+
+** Config file
+*** Master
+    #+BEGIN_SRC
+[mysqld]
+binlog_format=MIXED
+gtid_mode=ON
+enforce-gtid-consistency=ON
+    #+END_SRC
+*** Slave
+    #+BEGIN_SRC
+[mysqld]
+binlog_format=MIXED
+server_id=10001
+gtid_mode=ON
+enforce-gtid-consistency=ON
+    #+END_SRC
+*** Slave to Slave
+    #+BEGIN_SRC
+[mysqld]
+binlog_format=MIXED
+server_id=10002
+gtid_mode=ON
+enforce-gtid-consistency=ON
+    #+END_SRC
+** Full data copy
+**** Input
+     + Target MySQL Connection String
+       - host
+       - port
+       - user
+       - password
+     + S3
+       - bucket name
+       - prefix
+       - kms(might not required)
+       - role permission
+     + Target MySQL
+       - host
+       - port
+       - user
+       - password
+     + Target TiDB
+       - project
+       - cluster name
+*** Todo
+https://blog.csdn.net/weixin_42421284/article/details/113638321
+set sql_log_bin=0
+
+** Fatal error: The replica I/O thread stops because source and replica have equal MySQL server UUIDs; these UUIDs must be different for replication to w
+ork.
+remove auto.conf
+
+* Problems
+** DM bug
+   https://jira.tidbcloud.com/browse/DM-8986
+** Test data(500GB) - data generatio
+
+* Slave node setup
+** Stop master node DB
+** Copy the master data file to slave node
+   #+BEGIN_SRC
+rm auto.cnf
+   #+END_SRC
+** Create user for data replication to slave on master node
+   #+BEGIN_SRC
+mysql> CREATE USER slave@`%` IDENTIFIED BY '1234Abcd';
+Query OK, 0 rows affected (0.02 sec)
+
+mysql> GRANT REPLICATION SLAVE ON *.* TO slave@`%`;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> FLUSH PRIVILEGES;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> FLUSH TABLES WITH READ LOCK;
+Query OK, 0 rows affected (0.00 sec)
+   #+END_SRC
+** Get the binlog position from master node
+   #+BEGIN_SRC
+mysql> show master status; 
++---------------+----------+--------------+------------------+-------------------+
+| File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++---------------+----------+--------------+------------------+-------------------+
+| binlog.000136 |      859 |              |                  |                   |
++---------------+----------+--------------+------------------+-------------------+
+1 row in set (0.01 sec)
+   #+END_SRC
+** Setup the slave replication
+   #+BEGIN_SRC
+mysql> CHANGE MASTER TO
+MASTER_HOST='172.83.3.145',
+MASTER_USER='slave',
+MASTER_PASSWORD='1234Abcd',
+MASTER_LOG_FILE='binlog.000136',
+MASTER_LOG_POS=859;
+Query OK, 0 rows affected, 8 warnings (0.03 sec)
+mysql> start slave; 
+Query OK, 0 rows affected, 1 warning (0.01 sec)
+   #+END_SRC
+*** GTID MODE
+    #+BEGIN_SRC
+mysql> show variables like 'gtid_mode'; 
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| gtid_mode     | OFF   |
++---------------+-------+
+1 row in set (0.00 sec)
+    #+END_SRC
+*** binlog_format
+    #+BEGIN_SRC
+mysql> show variables like 'binlog_format';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| binlog_format | MIXED |
++---------------+-------+
+1 row in set (0.00 sec)
+    #+END_SRC
+*** replica status
+    #+BEGIN_SRC
+mysql> show replica status \G  
+ *************************** 1. row ***************************
+             Replica_IO_State: Waiting for source to send event
+                  Source_Host: 172.83.3.145
+                  Source_User: slave
+                  Source_Port: 3306
+                Connect_Retry: 60
+              Source_Log_File: binlog.000136
+          Read_Source_Log_Pos: 1044
+               Relay_Log_File: ip-172-83-2-117-relay-bin.000003
+                Relay_Log_Pos: 508
+        Relay_Source_Log_File: binlog.000136
+           ... ...
+                  Source_UUID: c1b1c341-14ca-11ee-9600-0aa77c5edf2d
+             Source_Info_File: mysql.slave_master_info
+                    SQL_Delay: 0
+          SQL_Remaining_Delay: NULL
+    Replica_SQL_Running_State: Replica has read all relay log; waiting for more updates
+           Source_Retry_Count: 86400
+           ... ...
     #+END_SRC
