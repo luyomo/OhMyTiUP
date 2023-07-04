@@ -16,11 +16,9 @@
   |                                    172.83.4.169 | MySQL Slave(binlog_format=ROW)   | t2.2xlarge                                 |
   | pivate-tidb.fxinygs92q0.clusters.tidb-cloud.com | TiDB Cloud                       | TiDB: 8c32GB 2 nodes, TiKV: 8c32GB 3 nodes |
 ** Process
-   + MySQL Slave(binlog_format=ROW) setup (9 hours)
-     - MySQL Slave(binlog_format=MIXED) data export (1 hour)
-     - File copy to MySQL Slave(binlog_format=ROW) (20 minutes)
-     - Data import to MySQL Slave(binlog_format=ROW) (7 hours)
-     - Data comparison between Master Instance and MySQL Slave(binlog_format) (2 hours)
+   The whole process takes 5 hours to complete the migration if we use the above server spec.
+   + MySQL Slave(binlog_format=ROW) setup (28 minutes)
+     - File copy to MySQL Slave(binlog_format=ROW) (28 minutes)
    + Data migration from MySQL Slave(binlog_format=ROW) to TiDB Cloud
      + Data Export from MySQL Salve(binlog_format) (40 minutes)
      + Data Import to TiDB Cloud(4 hours)
@@ -37,16 +35,6 @@ mysql> select concat(round(sum(data_length/1024/1024/1024),2),'GB') as data from
 +----------+
 1 row in set (0.07 sec)
     #+END_SRC
-*** GTID mode
-    #+BEGIN_SRC
-mysql> show variables like 'gtid_mode';
-+---------------+-------+
-| Variable_name | Value |
-+---------------+-------+
-| gtid_mode     | OFF   |
-+---------------+-------+
-1 row in set (0.00 sec)
-    #+END_SRC
 *** binlog format
     #+BEGIN_SRC
 mysql> show variables like 'binlog_format';
@@ -60,18 +48,14 @@ mysql> show variables like 'binlog_format';
 *** master status
     #+BEGIN_SRC
 mysql> show master status;
-    #+END_SRC
-** Slave DB
-*** GTID MODE
-    #+BEGIN_SRC
-mysql> show variables like 'gtid_mode'; 
-+---------------+-------+
-| Variable_name | Value |
-+---------------+-------+
-| gtid_mode     | OFF   |
-+---------------+-------+
++---------------+----------+--------------+------------------+-------------------+
+| File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++---------------+----------+--------------+------------------+-------------------+
+| binlog.000139 |      157 |              |                  |                   |
++---------------+----------+--------------+------------------+-------------------+
 1 row in set (0.00 sec)
     #+END_SRC
+** Slave DB
 *** binlog_format
     #+BEGIN_SRC
 mysql> show variables like 'binlog_format';
@@ -107,51 +91,82 @@ mysql> show replica status \G
     #+END_SRC
 * Setup slave node to slave node
 ** Node and DB setup
-*** MySQL instancer setup
-Deploy one empty MySQL instance in the new node and set the GTID_MODE and binlog_format as below:
-**** Get GTID_MODE
+*** physical files copy(Recommendation)
+**** Get binlog position and Graceful stop one MySQL slave node
      #+BEGIN_SRC
- mysql> show variables like 'gtid_mode';
- +---------------+-------+
- | Variable_name | Value |
- +---------------+-------+
- | gtid_mode     | OFF   |
- +---------------+-------+
- 1 row in set (0.01 sec)
+mysql> show master status
++---------------+----------+--------------+------------------+-------------------+
+| File          | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++---------------+----------+--------------+------------------+-------------------+
+| binlog.000139 |      157 |              |                  |                   |
++---------------+----------+--------------+------------------+-------------------+
+1 row in set (0.00 sec)
      #+END_SRC
-**** Get binlog_format
+**** Data copy
      #+BEGIN_SRC
- mysql> show variables like 'binlog_format';
- +---------------+-------+
- | Variable_name | Value |
- +---------------+-------+
- | binlog_format | ROW   |
- +---------------+-------+
- 1 row in set (0.00 sec)
+mysql@slave(172.83.2.117):/var/lib/mysql> time rsync -r -a data 172.83.4.169:/var/lib/mysql/
+real    28m0.061s
+user    8m25.828s
+sys     9m46.862s
      #+END_SRC
-*** Data Copy
-**** mysqldump from slave MySQL instance
+**** Set binlog_format=ROW in the  my.conf
      #+BEGIN_SRC
- slave-node$ time sudo mysqldump -u root --all-databases > dump.sql
- real    58m46.003s
- user    31m21.173s
- sys     3m44.236s
+[mysqld]
+...
+server_id       = 10002  # Need to set one unique server id
+binlog_format   = ROW    # For DM replication
+...
      #+END_SRC
-**** Data copy the slave-to-slave node from MySQL instance
+**** Start MySQL service on slave-to-salve(172.83.4.169)
      #+BEGIN_SRC
- slave-to-slave$ time rsync 172.83.2.117:/var/lib/mysql/backdata/dump.sql ./ 
- real    20m59.524s
- user    8m16.271s
- sys     9m37.505s
+admin@slave-to-slave(172.83.4.169):/var/lib/mysql> sudo systemctl start mysql
+     #+END_SRC
+*** Logical data copy(Not recommended)
+**** MySQL instancer setup
+ Deploy one empty MySQL instance in the new node and set the GTID_MODE and binlog_format as below:
+***** Get GTID_MODE
+      #+BEGIN_SRC
+  mysql> show variables like 'gtid_mode';
+  +---------------+-------+
+  | Variable_name | Value |
+  +---------------+-------+
+  | gtid_mode     | OFF   |
+  +---------------+-------+
+  1 row in set (0.01 sec)
+      #+END_SRC
+***** Get binlog_format
+      #+BEGIN_SRC
+  mysql> show variables like 'binlog_format';
+  +---------------+-------+
+  | Variable_name | Value |
+  +---------------+-------+
+  | binlog_format | ROW   |
+  +---------------+-------+
+  1 row in set (0.00 sec)
+      #+END_SRC
+**** Data Copy
+***** mysqldump from slave MySQL instance
+      #+BEGIN_SRC
+  slave-node$ time sudo mysqldump -u root --all-databases > dump.sql
+  real    58m46.003s
+  user    31m21.173s
+  sys     3m44.236s
+      #+END_SRC
+***** Data copy the slave-to-slave node from MySQL instance
+      #+BEGIN_SRC
+  slave-to-slave$ time rsync 172.83.2.117:/var/lib/mysql/backdata/dump.sql ./ 
+  real    20m59.524s
+  user    8m16.271s
+  sys     9m37.505s
 
-     #+END_SRC
-**** Import data to slave-to-slave instance
-     #+BEGIN_SRC
- slave-to-slave$ time sudo mysql -u root < dump.sql
- real    394m40.050s
- user    22m49.640s
- sys     2m17.276s
-     #+END_SRC
+      #+END_SRC
+***** Import data to slave-to-slave instance
+      #+BEGIN_SRC
+  slave-to-slave$ time sudo mysql -u root < dump.sql
+  real    394m40.050s
+  user    22m49.640s
+  sys     2m17.276s
+      #+END_SRC
 *** Replication setup
 **** Create replication user on the slave node
      #+BEGIN_SRC
@@ -219,7 +234,7 @@ Deploy one empty MySQL instance in the new node and set the GTID_MODE and binlog
   [mysqld]
   server_id=10002
      #+END_SRC
-* Data comparison between master and slave-to-slave
+* Data comparison between master and slave-to-slave(optional)
   Make sure there are enough disk for data comparison in the both MySQL database which use tmpdir. This step is not mandatory for production. Recommend to diff in the test environment to make sure the process is correct.
 ** make sure the dir of tmpdir has enough disk
    #+BEGIN_SRC
@@ -577,7 +592,7 @@ A total of 9 table have been compared and all are equal.
 You can view the comparision details through './output/sync_diff.log'
     #+END_SRC
 
-* Todo
+* Todo(To remove)
 ** Data flow
    + Setup two ec2
    + Setup the mysql on the ec2
