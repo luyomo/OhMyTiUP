@@ -14,15 +14,12 @@
 package command
 
 import (
-	//"context"
-	"fmt"
 	"os"
 	"path"
 
 	"github.com/luyomo/OhMyTiUP/pkg/aws/manager"
-	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	//	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
@@ -67,7 +64,6 @@ func newAuroraDeploy() *cobra.Command {
 			if data, err := os.ReadFile(topoFile); err == nil {
 				teleTopology = string(data)
 			}
-			fmt.Printf("The command here is %v \n", teleCommand)
 
 			return cm.AuroraDeploy(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},

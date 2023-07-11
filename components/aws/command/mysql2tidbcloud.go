@@ -17,21 +17,21 @@ import (
 	//"context"
 
 	"os"
-	// "path"
+	"path"
 
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/manager"
+	"github.com/luyomo/OhMyTiUP/pkg/aws/manager"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	//	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
-	// "github.com/luyomo/OhMyTiUP/pkg/utils"
+	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )
 
 const (
-	TiDB2TiDBCloud = "ohmytiup-mysql2tidbcloud"
+	MySQL2TiDBCloud = "ohmytiup-mysql2tidbcloud"
 )
 
 func newMySQL2TiDBCloudCmd() *cobra.Command {
@@ -42,7 +42,7 @@ func newMySQL2TiDBCloudCmd() *cobra.Command {
 
 	cmd.AddCommand(
 		newMySQL2TiDBCloudDeploy(),
-		// newListAurora2TiDBCloudCmd(),
+		newListMySQL2TiDBCloudCmd(),
 		newDestroyMySQL2TiDBCloudCmd(),
 		// newVPCPeeringAurora2TiDBCloudCmd(),
 		// newVPCPeeringAcceptAurora2TiDBCloudCmd(),
@@ -76,40 +76,40 @@ func newMySQL2TiDBCloudDeploy() *cobra.Command {
 				teleTopology = string(data)
 			}
 
-			return cm.Mysql2TiDBCloudDeploy(clusterName, TiDB2TiDBCloud, topoFile, skipConfirm, gOpt)
+			return cm.Mysql2TiDBCloudDeploy(clusterName, MySQL2TiDBCloud, topoFile, skipConfirm, gOpt)
 		},
 	}
 
 	return cmd
 }
 
-// func newListAurora2TiDBCloudCmd() *cobra.Command {
-// 	opt := manager.DeployOptions{
-// 		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
-// 	}
-// 	cmd := &cobra.Command{
-// 		Use:   "list <cluster-name>",
-// 		Short: "List all clusters or cluster of aurora db",
-// 		RunE: func(cmd *cobra.Command, args []string) error {
-// 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			if !shouldContinue {
-// 				return nil
-// 			}
+func newListMySQL2TiDBCloudCmd() *cobra.Command {
+	opt := manager.DeployOptions{
+		IdentityFile: path.Join(utils.UserHome(), ".ssh", "id_rsa"),
+	}
+	cmd := &cobra.Command{
+		Use:   "list <cluster-name>",
+		Short: "List all clusters or cluster of aurora db",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
 
-// 			clusterName := args[0]
+			clusterName := args[0]
 
-// 			return cm.ListAurora2TiDBCloudCluster(clusterName, opt)
-// 		},
-// 	}
+			return cm.ListMySQL2TiDBCloudCluster(clusterName, MySQL2TiDBCloud, opt)
+		},
+	}
 
-// 	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
+	cmd.Flags().StringVarP(&opt.User, "user", "u", utils.CurrentUser(), "The user name to login via SSH. The user must has root (or sudo) privilege.")
 
-// 	//	fmt.Printf("The option is <%#v> \n", opt)
-// 	return cmd
-// }
+	//	fmt.Printf("The option is <%#v> \n", opt)
+	return cmd
+}
 
 // func newVPCPeeringAurora2TiDBCloudCmd() *cobra.Command {
 // 	cmd := &cobra.Command{
@@ -248,7 +248,7 @@ You can retain some nodes and roles data when destroy cluster, eg:
 				}
 			}
 
-			return cm.DestroyMySQL2TiDBCloudCluster(clusterName, TiDB2TiDBCloud, gOpt, destroyOpt, skipConfirm)
+			return cm.DestroyMySQL2TiDBCloudCluster(clusterName, MySQL2TiDBCloud, gOpt, destroyOpt, skipConfirm)
 		},
 	}
 

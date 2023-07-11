@@ -191,6 +191,7 @@ func init() {
 		newTiDB2Kafka2RedshiftCmd(),
 		newTiDB2Msk2RedshiftCmd(),
 		newPG2Kafka2TiDBCmd(),
+		newTiDB2S3DeltaLakeCmd(),
 		newAcceptTiDBCloudPeering(),
 		newPDNS(),
 		newOssInsightCmd(),

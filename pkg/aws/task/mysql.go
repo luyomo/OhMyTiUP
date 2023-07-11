@@ -84,9 +84,21 @@ func (c *DeployMySQL) Execute(ctx context.Context) error {
 
 	for _, mysqlNode := range (*mysqlInstances)["MySQLWorker"] {
 		fmt.Printf("mysql nodes: <%#v> \n\n\n", mysqlNode)
+		if err := c.workstation.FormatDisk(mysqlNode, "/var/lib/mysql"); err != nil {
+			return err
+		}
+
 		if err := c.workstation.InstallMySQLBinToWorker(mysqlNode); err != nil {
 			return err
 		}
+	}
+
+	if err := c.workstation.InstallSyncDiffInspector(c.version); err != nil {
+		return err
+	}
+
+	if err := c.workstation.InstallDumpling(c.version); err != nil {
+		return err
 	}
 	return nil
 	// fmt.Printf("DM instances: %#v \n\n\n\n\n\n", dmInstances)

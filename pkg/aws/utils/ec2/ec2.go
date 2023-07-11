@@ -78,7 +78,6 @@ func (e *EC2API) GetAvailabilitySubnet4EndpointService(serviceName string) (*[]s
 	if err != nil {
 		return nil, err
 	}
-	// fmt.Printf("The available zones are: %#v \n\n\n", availableZones)
 
 	filters := e.makeFilters()
 
@@ -128,6 +127,10 @@ func (e *EC2API) ExtractEC2Instances() (*map[string][]string, error) {
 
 	for _, reservation := range describeInstances.Reservations {
 		for _, instance := range reservation.Instances {
+			if instance.State.Name == types.InstanceStateNameTerminated {
+				continue
+			}
+
 			for _, tag := range instance.Tags {
 				switch {
 				case *tag.Key == "Component" && *tag.Value == "dm-master":
@@ -154,35 +157,11 @@ func (c *EC2API) makeTags() *[]types.Tag {
 		return &tags
 	}
 
-	// mapTag := map[string]string{
-	// 	"clusterName": "Name",
-	// 	"clusterType", "Cluster",
-	// 	"subClusterType": "Type",
-	// 	"scope":          "Scope",
-	// 	"component":      "Component",
-	// }
-
 	for key, tagName := range *(MapTag()) {
 		if tagValue, ok := (*c.mapArgs)[key]; ok {
 			tags = append(tags, types.Tag{Key: aws.String(tagName), Value: aws.String(tagValue)})
 		}
 	}
-
-	// if value, ok := *(c.mapArgs)["clusterType"]; ok {
-	// 	tags = append(tags, types.Tag{Key: aws.String("Cluster"), Value: aws.String(value)})
-	// }
-
-	// if *(c.mapArgs)["subClusterType"] != nil {
-	// 	tags = append(tags, types.Tag{Key: aws.String("Type"), Value: aws.String(*(c.mapArgs)["subClusterType"])})
-	// }
-
-	// if *(c.mapArgs)["scope"] != nil {
-	// 	tags = append(tags, types.Tag{Key: aws.String("Scope"), Value: aws.String(*(c.mapArgs)["scope"])})
-	// }
-
-	// if *(c.mapArgs)["component"] != nil {
-	// 	tags = append(tags, types.Tag{Key: aws.String("Component"), Value: aws.String(*(c.mapArgs)["component"])})
-	// }
 
 	return &tags
 }
@@ -193,39 +172,11 @@ func (c *EC2API) makeFilters() *[]types.Filter {
 		return &filters
 	}
 
-	// mapTag := map[string]string{
-	// 	"clusterName": "Name",
-	// 	"clusterType", "Cluster",
-	// 	"subClusterType": "Type",
-	// 	"scope":          "Scope",
-	// 	"component":      "Component",
-	// }
-
 	for key, tagName := range *(MapTag()) {
 		if tagValue, ok := (*c.mapArgs)[key]; ok {
 			filters = append(filters, types.Filter{Name: aws.String("tag:" + tagName), Values: []string{tagValue}})
 		}
 	}
-
-	// if *(c.mapArgs)["clusterName"] != nil {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{*(c.mapArgs)["clusterName"]}})
-	// }
-
-	// if *(c.mapArgs)["clusterType"] != nil {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{*(c.mapArgs)["clusterType"]}})
-	// }
-
-	// if *(c.mapArgs)["subClusterType"] != nil {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{*(c.mapArgs)["subClusterType"]}})
-	// }
-
-	// if *(c.mapArgs)["scope"] != nil {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{*(c.mapArgs)["scope"]}})
-	// }
-
-	// if *(c.mapArgs)["component"] != nil {
-	// 	filters = append(filters, types.Filter{Name: aws.String("tag:Component"), Values: []string{*(c.mapArgs)["component"]}})
-	// }
 
 	return &filters
 }

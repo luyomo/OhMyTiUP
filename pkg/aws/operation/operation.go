@@ -156,7 +156,8 @@ type (
 		RunCount       int
 		TransInterval  int
 
-		TiKVMode string
+		TiKVMode      string
+		IsolationMode string
 
 		SysbenchTargetInstance string
 		SysbenchDBName         string

@@ -35,9 +35,9 @@ import (
 	"github.com/luyomo/OhMyTiUP/embed"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"go.uber.org/zap"
-    awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 )
 
 type CreateWorkstation struct {
@@ -709,7 +709,7 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The security group is : <%s> \n\n\n", *securityGroupID)
+	fmt.Printf("The security group is : <%s> \n\n\n\n\n\n", *securityGroupID)
 	// ********** TODO: Replace below login by common function --------------------
 
 	/***************************************************************************************************************

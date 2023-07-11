@@ -14,7 +14,7 @@ then
         sleep 2
         mkfs.ext4 /dev/${dev}p1
         sleep 2
-        mount /dev/${dev}p1 /home/admin/tidb
+        mount /dev/${dev}p1 {{.MOUNT_DIR}}
 fi
 
 dev=xvdb
@@ -31,5 +31,5 @@ then
         sleep 2
         mkfs.ext4 /dev/${dev}1
         sleep 2
-        mount /dev/${dev}1 /home/admin/tidb
+        mount /dev/${dev}1 {{.MOUNT_DIR}}
 fi

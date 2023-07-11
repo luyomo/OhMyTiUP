@@ -35,6 +35,7 @@ import (
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 // DeployOptions contains the options for scale out.
@@ -108,13 +109,9 @@ func (m *Manager) AuroraDeploy(
 
 	var (
 		envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
-		//downloadCompTasks []*task.StepDisplay // tasks which are used to download components
-		//deployCompTasks   []*task.StepDisplay // tasks which are used to copy components to remote host
 	)
 
 	// Initialize environment
-	// uniqueHosts := make(map[string]hostInfo) // host -> ssh-port, os, arch
-	// noAgentHosts := set.NewStringSet()
 	globalOptions := base.GlobalOptions
 
 	// generate CA and client cert for TLS enabled cluster
@@ -136,21 +133,27 @@ func (m *Manager) AuroraDeploy(
 		}
 	}
 
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora")
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
+
 	timer.Take("Resource preparation")
 	if base.AwsAuroraConfigs.DBParameterFamilyGroup != "" {
 		var workstationInfo task.ClusterInfo
 		t5 := task.NewBuilder().
-			CreateTransitGateway(&sexecutor).
-			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
-			CreateTransitGatewayVpcAttachment(&sexecutor, "aurora", task.NetworkTypePrivate).
-			CreateAurora(&sexecutor, base.AwsAuroraConfigs).
-			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora"}).
-			CreateRouteTgw(&sexecutor, "aurora", []string{"workstation"}).
+			CreateTransitGateway(&m.localExe).
+			CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+			CreateTransitGatewayVpcAttachment(&m.localExe, "workstation", task.NetworkTypePublic).
+			CreateTransitGatewayVpcAttachment(&m.localExe, "aurora", task.NetworkTypePrivate).
+			CreateAurora(&m.localExe, base.AwsAuroraConfigs).
+			CreateRouteTgw(&m.localExe, "workstation", []string{"aurora"}).
+			CreateRouteTgw(&m.localExe, "aurora", []string{"workstation"}).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
 		envInitTasks = append(envInitTasks, t5)
 	}
@@ -164,8 +167,6 @@ func (m *Manager) AuroraDeploy(
 
 	t := builder.Build()
 
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora")
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.

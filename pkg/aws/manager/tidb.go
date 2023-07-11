@@ -43,18 +43,6 @@ import (
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
-// To resolve:
-// 1. Takes time to prepare aws resource, a lot of manual work
-// 2. Gather all the IP resources to make one tiup yaml file
-// 3. Hard to know what's the structure of TiDB Cluster
-// 4. Again, hard to scale out/in for the existing structure
-// 5. Hard to clean all the resources
-
-// Todo:
-// 1. Add monitoring to workstation
-// 2. Add port open on the security
-// 3. Added the version
-
 // DeployOptions contains the options for scale out.
 type TiDBDeployOptions struct {
 	User              string // username to login to the SSH server
@@ -134,7 +122,7 @@ func (m *Manager) TiDBDeploy(
 
 	paraTask001 := task.NewBuilder().
 		CreateTransitGateway(&m.localExe).
-		ParallelStep("+ Deploying all the sub components for kafka solution service", false, task001...).
+		ParallelStep("+ Deploying all the sub components", false, task001...).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb"}).
 		RunCommonWS(&m.wsExe, &[]string{"git"}).
 		DeployTiDB(&m.wsExe, "tidb", base.AwsWSConfigs, &workstationInfo).
@@ -160,6 +148,9 @@ func (m *Manager) TiDBDeploy(
 
 // DestroyCluster destroy the cluster.
 func (m *Manager) DestroyTiDBCluster(name, clusterType string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
 	_, err := m.meta(name)
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
 		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
@@ -168,23 +159,18 @@ func (m *Manager) DestroyTiDBCluster(name, clusterType string, gOpt operator.Opt
 		return err
 	}
 
-	// clusterType := "ohmytiup-tidb"
-
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err
 	}
 
 	t0 := task.NewBuilder().
-		DestroyTransitGateways(&sexecutor).
-		DestroyVpcPeering(&sexecutor, []string{"workstation"}).
+		DestroyTransitGateways(&m.localExe).
+		DestroyVpcPeering(&m.localExe, []string{"workstation"}).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
 
-	builder := task.NewBuilder().
-		ParallelStep("+ Destroying tidb solution service ... ...", false, t0)
+	builder := task.NewBuilder().ParallelStep("+ Destroying tidb solution service ... ...", false, t0)
 	t := builder.Build()
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
 	if err := t.Execute(ctxt.New(ctx, 1)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
@@ -195,33 +181,28 @@ func (m *Manager) DestroyTiDBCluster(name, clusterType string, gOpt operator.Opt
 
 	var destroyTasks []*task.StepDisplay
 
+	// TiDB Nodes
 	t1 := task.NewBuilder().
-		DestroyNAT(&sexecutor, "tidb").
-		DestroyEC2Nodes(&sexecutor, "tidb").
+		DestroyNAT(&m.localExe, "tidb").
+		DestroyEC2Nodes(&m.localExe, "tidb").
 		BuildAsStep(fmt.Sprintf("  - Destroying EC2 nodes cluster %s ", name))
-
 	destroyTasks = append(destroyTasks, t1)
 
+	// workstation
 	t4 := task.NewBuilder().
-		DestroyEC2Nodes(&sexecutor, "workstation").
+		DestroyEC2Nodes(&m.localExe, "workstation").
 		BuildAsStep(fmt.Sprintf("  - Destroying workstation cluster %s ", name))
-
 	destroyTasks = append(destroyTasks, t4)
 
+	// Cloudformation
 	t5 := task.NewBuilder().
-		DestroyCloudFormation(&sexecutor).
+		DestroyCloudFormation(&m.localExe).
 		BuildAsStep(fmt.Sprintf("  - Destroying cloudformation %s ", name))
-
 	destroyTasks = append(destroyTasks, t5)
 
-	builder = task.NewBuilder().
-		ParallelStep("+ Destroying all the componets", false, destroyTasks...)
-
+	builder = task.NewBuilder().ParallelStep("+ Destroying all the componets", false, destroyTasks...)
 	t = builder.Build()
-
-	tailctx := context.WithValue(context.Background(), "clusterName", name)
-	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
-	if err := t.Execute(ctxt.New(tailctx, 5)); err != nil {
+	if err := t.Execute(ctxt.New(ctx, 5)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
@@ -316,7 +297,7 @@ func (m *Manager) ListTiDBCluster(clusterName, clusterType string, opt DeployOpt
 	fmt.Printf("Resource ID  :      %s    State: %s \n", cyan.Sprint(transitGateway.TransitGatewayId), cyan.Sprint(transitGateway.State))
 	tui.PrintTable(tableTransitGatewayVpcAttachments, true)
 
-	fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(nlb.DNSName))
+	fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(*nlb.DNSName))
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 
@@ -460,19 +441,12 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		return err
 	}
 
-	// 02. Install the required package
-	// if _, _, err := m.wsExe.Execute(ctx, "apt-get install -y zip sysbench", true); err != nil {
-	// 	return err
-	// }
 	if err := m.workstation.InstallPackages(&[]string{"zip", "sysbench"}); err != nil {
 		return err
 	}
 
 	// 03. Create the necessary tidb resources
-	//     + database
-	//     + placement policy
 	var queries []string
-
 	if opt.TiKVMode == "partition" {
 		queries = []string{"drop database if exists latencytest", // Drop the latencytest if not exists(For batch)
 			fmt.Sprintf("drop database if exists %s", opt.SysbenchDBName),             // Drop the sbtest if not exists(fosysbench)
@@ -493,13 +467,19 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		}
 	}
 
+	queries = append(queries, "create user if not exists `batchusr`@`%` identified by \"1234Abcd\"",
+		"create user if not exists `onlineusr`@`%` identified by \"1234Abcd\"",
+		"grant all on *.* to `onlineusr`@`%` ",
+		"grant all on *.* to `batchusr`@`%` ",
+	)
+
 	for _, query := range queries {
 		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", query), false, 1*time.Hour); err != nil {
 			return err
 		}
 	}
 
-	// Create ontime table
+	// 04. Create ontime table to populate test data
 	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_from_file %s '%s'", "latencytest", "/opt/tidb/sql/ontime_tidb.ddl"), false, 1*time.Hour); err != nil {
 		return err
 	}
@@ -510,7 +490,7 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 
 	//  select DB_NAME, TABLE_NAME, STORE_ID, count(*) as cnt from TIKV_REGION_PEERS t1 inner join TIKV_REGION_STATUS t2 on t1.REGION_ID = t2.REGION_ID and t2.db_name in ('sbtest', 'latencytest') group by DB_NAME, TABLE_NAME, STORE_ID order by DB_NAME, TABLE_NAME, STORE_ID;
 
-	// - Data preparation
+	// 05. Data preparation from external
 	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh"} {
 		if err := task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
@@ -522,11 +502,7 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		return err
 	}
 
-	// 04. Fetch the TiDB connection info
-	// dbConnInfo, err := task.ReadTiDBConntionInfo(&m.wsExe, "tidb-db-info.yml")
-	// if err != nil {
-	// 	return err
-	// }
+	// 06. Get DB info
 	dbConnInfo, err := m.workstation.GetTiDBDBInfo()
 	if err != nil {
 		return err
@@ -535,8 +511,10 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	tplSysbenchParam := make(map[string]string)
 	tplSysbenchParam["TiDBHost"] = (*dbConnInfo).DBHost
 	tplSysbenchParam["TiDBPort"] = strconv.FormatInt(int64((*dbConnInfo).DBPort), 10) // fmt.Sprintf("%s", (*dbConnInfo).DBPort)
-	tplSysbenchParam["TiDBUser"] = (*dbConnInfo).DBUser
-	tplSysbenchParam["TiDBPassword"] = (*dbConnInfo).DBPassword
+	// tplSysbenchParam["TiDBUser"] = (*dbConnInfo).DBUser
+	// tplSysbenchParam["TiDBPassword"] = (*dbConnInfo).DBPassword
+	tplSysbenchParam["TiDBUser"] = "onlineusr"
+	tplSysbenchParam["TiDBPassword"] = "1234Abcd"
 	tplSysbenchParam["TiDBDBName"] = opt.SysbenchDBName
 	tplSysbenchParam["ExecutionTime"] = strconv.FormatInt(int64(opt.SysbenchExecutionTime), 10)
 	tplSysbenchParam["Thread"] = strconv.Itoa(opt.SysbenchThread)
@@ -576,15 +554,18 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 
 	for idx := 0; idx < opt.RunCount; idx++ {
 		for idxBatchSize, batchSize := range strings.Split(opt.BatchSizeArray, ",") {
+			// 01. Set the context
 			ctx, cancel = context.WithCancel(context.Background())
 			ctx = context.WithValue(ctx, "clusterName", clusterName)
 			ctx = context.WithValue(ctx, "clusterType", clusterType)
 
+			// 02. Prepare the task
 			var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
 			t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
 			envInitTasks = append(envInitTasks, t1)
 
+			// 03. If the batch size is not x, run the data batch insert
 			if batchSize != "x" {
 				opt.BatchSize, err = strconv.Atoi(batchSize)
 				if err != nil {
@@ -597,6 +578,7 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 				opt.BatchSize = 0
 			}
 
+			// 04. Run sysbench
 			builder := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %d th test for batch-size: %s", idx+1, idxBatchSize+1, batchSize), false, envInitTasks...)
 
 			t := builder.Build()

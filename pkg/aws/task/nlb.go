@@ -23,10 +23,8 @@ import (
 	nlb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	// "go.uber.org/zap"
 )
 
 /******************************************************************************/
@@ -36,7 +34,7 @@ func (b *Builder) CreateNLB(pexecutor *ctxt.Executor, subClusterType string) *Bu
 }
 
 func (b *Builder) ListNLB(pexecutor *ctxt.Executor, subClusterType string, nlb *types.LoadBalancer) *Builder {
-	b.tasks = append(b.tasks, &ListNLB{BaseNLB: BaseNLB{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}}})
+	b.tasks = append(b.tasks, &ListNLB{BaseNLB: BaseNLB{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType}}, nlb: nlb})
 	return b
 }
 
@@ -44,32 +42,6 @@ func (b *Builder) DestroyNLB(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyNLB{BaseNLB: BaseNLB{BaseTask: BaseTask{pexecutor: pexecutor}}})
 	return b
 }
-
-// func (b *Builder) CreateNLB(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-// 	b.tasks = append(b.tasks, &CreateNLB{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 		clusterInfo:    clusterInfo,
-// 	})
-// 	return b
-// }
-
-// func (b *Builder) ListNLB(pexecutor *ctxt.Executor, subClusterType string, nlb *elbtypes.LoadBalancer) *Builder {
-// 	b.tasks = append(b.tasks, &ListNLB{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 		nlb:            nlb,
-// 	})
-// 	return b
-// }
-
-// func (b *Builder) DestroyNLB(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-// 	b.tasks = append(b.tasks, &DestroyNLB{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 	})
-// 	return b
-// }
 
 /******************************************************************************/
 
@@ -214,21 +186,15 @@ type DestroyNLB struct {
 func (c *DestroyNLB) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** DestroyNLB ****** \n\n\n")
-
 	_id, err := c.ResourceData.GetResourceArn(ContinueIfNotExists)
 	if err != nil {
 		return err
 	}
 
 	if _id != nil {
-
-		if _, err = c.client.DeleteLoadBalancer(context.TODO(), &nlb.DeleteLoadBalancerInput{
-			LoadBalancerArn: _id,
-		}); err != nil {
+		if _, err = c.client.DeleteLoadBalancer(context.TODO(), &nlb.DeleteLoadBalancerInput{LoadBalancerArn: _id}); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
@@ -246,13 +212,24 @@ func (c *DestroyNLB) String() string {
 
 type ListNLB struct {
 	BaseNLB
+
+	nlb *types.LoadBalancer
 }
 
 // Execute implements the Task interface
 func (c *ListNLB) Execute(ctx context.Context) error {
 	c.init(ctx) // ClusterName/ClusterType and client initialization
 
-	fmt.Printf("***** ListNLB ****** \n\n\n")
+	// The judge must be after init because it has to be initialized.
+	if c.nlb == nil {
+		return nil
+	}
+
+	_data := c.ResourceData.GetData()
+	if len(_data) == 0 {
+		return nil
+	}
+	(*c.nlb) = _data[0].(types.LoadBalancer)
 
 	return nil
 }
@@ -265,4 +242,53 @@ func (c *ListNLB) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *ListNLB) String() string {
 	return fmt.Sprintf("Echo: List  ")
+}
+
+type RegisterTarget struct {
+	pexecutor      *ctxt.Executor
+	subClusterType string
+	clusterInfo    *ClusterInfo
+}
+
+// Execute implements the Task interface
+func (c *RegisterTarget) Execute(ctx context.Context) error {
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+	targetGroup, err := getTargetGroup(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	if err != nil {
+		return err
+	}
+
+	tidbNodes, err := getEC2Nodes(*c.pexecutor, ctx, clusterName, clusterType, "tidb")
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	clientElb := nlb.NewFromConfig(cfg)
+
+	var arrTargets []types.TargetDescription
+	for _, instance := range *tidbNodes {
+		arrTargets = append(arrTargets, types.TargetDescription{Id: &instance.InstanceId})
+	}
+
+	_, err = clientElb.RegisterTargets(context.TODO(), &nlb.RegisterTargetsInput{TargetGroupArn: targetGroup.TargetGroupArn, Targets: arrTargets})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *RegisterTarget) Rollback(ctx context.Context) error {
+	return ErrUnsupportedRollback
+}
+
+// String implements the fmt.Stringer interface
+func (c *RegisterTarget) String() string {
+	return fmt.Sprintf("Echo: Registering Target Group ")
 }

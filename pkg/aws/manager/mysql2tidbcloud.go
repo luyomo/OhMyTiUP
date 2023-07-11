@@ -23,7 +23,7 @@ import (
 	"sync"
 	// "time"
 
-	// "github.com/fatih/color"
+	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
@@ -145,6 +145,10 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 		return err
 	}
 
+	if err := m.workstation.InstallTiup(); err != nil {
+		return err
+	}
+
 	// // Fetch aurora db info and write it into workstation's aurora-db-info.yaml
 	// if err := m.workstation.DeployAuroraInfo(clusterType, name, base.AwsAuroraConfigs.DBPassword); err != nil {
 	// 	return err
@@ -155,7 +159,7 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 	// }
 
 	postTask := task.NewBuilder().
-		DeployMySQL(m.workstation, "mysql-worker", base.AwsTopoConfigs.General.TiDBVersion, &timer).
+		DeployMySQL(m.workstation, "mysql-worker", base.AwsMySQLConfigs.General.TiDBVersion, &timer).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
@@ -334,109 +338,109 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 	return nil
 }
 
-// // Cluster represents a clsuter
-// // ListCluster list the clusters.
-// func (m *Manager) ListAurora2TiDBCloudCluster(clusterName string, opt DeployOptions) error {
-// 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
+// Cluster represents a clsuter
+// ListCluster list the clusters.
+func (m *Manager) ListMySQL2TiDBCloudCluster(clusterName, clusterType string, opt DeployOptions) error {
+	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-// 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
-// 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora2tidbcloud")
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 
-// 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-// 	if err != nil {
-// 		return err
-// 	}
+	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	if err != nil {
+		return err
+	}
 
-// 	var accountID string
-// 	t0 := task.NewBuilder().ListAccount(&sexecutor, &accountID).BuildAsStep(fmt.Sprintf("  - List Account"))
-// 	listTasks = append(listTasks, t0)
+	var accountID string
+	t0 := task.NewBuilder().ListAccount(&sexecutor, &accountID).BuildAsStep(fmt.Sprintf("  - List Account"))
+	listTasks = append(listTasks, t0)
 
-// 	// 001. VPC listing
-// 	tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
-// 	t1 := task.NewBuilder().ListVPC(&sexecutor, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
-// 	listTasks = append(listTasks, t1)
+	// 001. VPC listing
+	// tableVPC := [][]string{{"Component Name", "VPC ID", "CIDR", "Status"}}
+	// t1 := task.NewBuilder().ListVPC(&sexecutor, &tableVPC).BuildAsStep(fmt.Sprintf("  - Listing VPC"))
+	// listTasks = append(listTasks, t1)
 
-// 	// 002. subnets
-// 	tableSubnets := [][]string{{"Component Name", "Zone", "Subnet ID", "CIDR", "State", "VPC ID"}}
-// 	t2 := task.NewBuilder().ListNetwork(&sexecutor, &tableSubnets).BuildAsStep(fmt.Sprintf("  - Listing Subnets"))
-// 	listTasks = append(listTasks, t2)
+	// 002. subnets
+	tableSubnets := [][]string{{"Component Name", "Zone", "Subnet ID", "CIDR", "State", "VPC ID"}}
+	t2 := task.NewBuilder().ListNetwork(&sexecutor, &tableSubnets).BuildAsStep(fmt.Sprintf("  - Listing Subnets"))
+	listTasks = append(listTasks, t2)
 
-// 	// 003. subnets
-// 	tableRouteTables := [][]string{{"Component Name", "Route Table ID", "DestinationCidrBlock", "TransitGatewayId", "GatewayId", "State", "Origin"}}
-// 	t3 := task.NewBuilder().ListRouteTable(&sexecutor, &tableRouteTables).BuildAsStep(fmt.Sprintf("  - Listing Route Tables"))
-// 	listTasks = append(listTasks, t3)
+	// 003. subnets
+	tableRouteTables := [][]string{{"Component Name", "Route Table ID", "DestinationCidrBlock", "TransitGatewayId", "GatewayId", "State", "Origin"}}
+	t3 := task.NewBuilder().ListRouteTable(&sexecutor, &tableRouteTables).BuildAsStep(fmt.Sprintf("  - Listing Route Tables"))
+	listTasks = append(listTasks, t3)
 
-// 	// 004. Security Groups
-// 	tableSecurityGroups := [][]string{{"Component Name", "Ip Protocol", "Source Ip Range", "From Port", "To Port"}}
-// 	t4 := task.NewBuilder().ListSecurityGroup(&sexecutor, &tableSecurityGroups).BuildAsStep(fmt.Sprintf("  - Listing Security Groups"))
-// 	listTasks = append(listTasks, t4)
+	// // 004. Security Groups
+	// tableSecurityGroups := [][]string{{"Component Name", "Ip Protocol", "Source Ip Range", "From Port", "To Port"}}
+	// t4 := task.NewBuilder().ListSecurityGroup(&sexecutor, &tableSecurityGroups).BuildAsStep(fmt.Sprintf("  - Listing Security Groups"))
+	// listTasks = append(listTasks, t4)
 
-// 	// 005. Transit gateway
-// 	var transitGateway task.TransitGateway
-// 	t5 := task.NewBuilder().ListTransitGateway(&sexecutor, &transitGateway).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway "))
-// 	listTasks = append(listTasks, t5)
+	// 005. Transit gateway
+	// var transitGateway task.TransitGateway
+	// t5 := task.NewBuilder().ListTransitGateway(&sexecutor, &transitGateway).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway "))
+	// listTasks = append(listTasks, t5)
 
-// 	// 006. Transit gateway vpc attachment
-// 	tableTransitGatewayVpcAttachments := [][]string{{"Component Name", "VPC ID", "State"}}
-// 	t6 := task.NewBuilder().ListTransitGatewayVpcAttachment(&sexecutor, &tableTransitGatewayVpcAttachments).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway vpc attachment"))
-// 	listTasks = append(listTasks, t6)
+	// 006. Transit gateway vpc attachment
+	tableTransitGatewayVpcAttachments := [][]string{{"Component Name", "VPC ID", "State"}}
+	t6 := task.NewBuilder().ListTransitGatewayVpcAttachment(&sexecutor, &tableTransitGatewayVpcAttachments).BuildAsStep(fmt.Sprintf("  - Listing Transit gateway vpc attachment"))
+	listTasks = append(listTasks, t6)
 
-// 	// 007. EC2
-// 	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Private IP", "Public IP", "Image ID"}}
-// 	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
-// 	listTasks = append(listTasks, t7)
+	// 007. EC2
+	tableECs := [][]string{{"Component Name", "Component Cluster", "State", "Instance ID", "Instance Type", "Private IP", "Public IP", "Image ID"}}
+	t7 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	listTasks = append(listTasks, t7)
 
-// 	// 008. NLB
-// 	var nlb elbtypes.LoadBalancer
-// 	t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
-// 	listTasks = append(listTasks, t8)
+	// 008. NLB
+	// var nlb elbtypes.LoadBalancer
+	// t8 := task.NewBuilder().ListNLB(&sexecutor, "tidb", &nlb).BuildAsStep(fmt.Sprintf("  - Listing Load Balancer "))
+	// listTasks = append(listTasks, t8)
 
-// 	// Todo: Replace with workstation.execute
-// 	// 009. Aurora
-// 	// tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
-// 	// t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
-// 	// listTasks = append(listTasks, t9)
+	// Todo: Replace with workstation.execute
+	// 009. Aurora
+	// tableAurora := [][]string{{"Physical Name", "Host Name", "Port", "DB User", "Engine", "Engine Version", "Instance Type", "Security Group"}}
+	// t9 := task.NewBuilder().ListAurora(&sexecutor, &tableAurora).BuildAsStep(fmt.Sprintf("  - Listing Aurora"))
+	// listTasks = append(listTasks, t9)
 
-// 	// *********************************************************************
-// 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
+	// *********************************************************************
+	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
 
-// 	t := builder.Build()
+	t := builder.Build()
 
-// 	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
-// 		return err
-// 	}
+	if err := t.Execute(ctxt.New(ctx, 10)); err != nil {
+		return err
+	}
 
-// 	titleFont := color.New(color.FgRed, color.Bold)
-// 	fmt.Printf("Account ID   :      %s\n", titleFont.Sprint(accountID))
-// 	fmt.Printf("Cluster Type :      %s\n", titleFont.Sprint("ohmytiup-aurora2tidbcloud"))
-// 	fmt.Printf("Cluster Name :      %s\n\n", titleFont.Sprint(clusterName))
+	titleFont := color.New(color.FgRed, color.Bold)
+	fmt.Printf("Account ID   :      %s\n", titleFont.Sprint(accountID))
+	fmt.Printf("Cluster Type :      %s\n", titleFont.Sprint(clusterType))
+	fmt.Printf("Cluster Name :      %s\n\n", titleFont.Sprint(clusterName))
 
-// 	cyan := color.New(color.FgCyan, color.Bold)
-// 	fmt.Printf("Resource Type:      %s\n", cyan.Sprint("VPC"))
-// 	tui.PrintTable(tableVPC, true)
+	cyan := color.New(color.FgCyan, color.Bold)
 
-// 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Subnet"))
-// 	tui.PrintTable(tableSubnets, true)
+	// fmt.Printf("Resource Type:      %s\n", cyan.Sprint("VPC"))
+	// tui.PrintTable(tableVPC, true)
 
-// 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Route Table"))
-// 	tui.PrintTable(tableRouteTables, true)
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Subnet"))
+	tui.PrintTable(tableSubnets, true)
 
-// 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Security Group"))
-// 	tui.PrintTable(tableSecurityGroups, true)
+	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Route Table"))
+	tui.PrintTable(tableRouteTables, true)
 
-// 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Transit Gateway"))
-// 	fmt.Printf("Resource ID  :      %s    State: %s \n", cyan.Sprint(transitGateway.TransitGatewayId), cyan.Sprint(transitGateway.State))
-// 	tui.PrintTable(tableTransitGatewayVpcAttachments, true)
+	// fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Security Group"))
+	// tui.PrintTable(tableSecurityGroups, true)
 
-// 	fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(nlb.DNSName))
-// 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
-// 	tui.PrintTable(tableECs, true)
+	// fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Transit Gateway"))
+	// fmt.Printf("Resource ID  :      %s    State: %s \n", cyan.Sprint(transitGateway.TransitGatewayId), cyan.Sprint(transitGateway.State))
+	// tui.PrintTable(tableTransitGatewayVpcAttachments, true)
 
-// 	// fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
-// 	// tui.PrintTable(tableAurora, true)
+	// fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(nlb.DNSName))
+	// fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
+	// tui.PrintTable(tableECs, true)
 
-// 	return nil
-// }
+	// fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("Aurora"))
+	// tui.PrintTable(tableAurora, true)
+
+	return nil
+}
 
 // func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt operator.Options) error {
 // 	clusterType := "ohmytiup-aurora2tidbcloud"

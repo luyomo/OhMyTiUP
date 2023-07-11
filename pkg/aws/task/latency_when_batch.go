@@ -52,15 +52,21 @@ func (c *RunOntimeBatchInsert) Execute(ctx context.Context) error {
 
 	ticker := time.NewTicker(time.Duration((*c.opt).TransInterval) * time.Millisecond)
 
+	idx := 0
 	for {
 		select {
 		case <-ticker.C:
-			_, _, err := (*c.pexecutor).Execute(context.Background(), fmt.Sprintf(`/opt/scripts/ontime_batch_insert.sh latencytest ontime01 ontime %d`, (*(c.opt)).BatchSize), false, 5*time.Hour)
+			fmt.Printf("Starting to copy data: %d \n\n\n", idx)
+			stdout, stderr, err := (*c.pexecutor).Execute(context.Background(), fmt.Sprintf(`/opt/scripts/ontime_batch_insert.sh latencytest ontime01 ontime %d`, (*(c.opt)).BatchSize), false, 5*time.Hour)
+			fmt.Printf("Completed to copy data: %d \n\n\n", idx)
 
 			if err != nil {
+				fmt.Printf("stdout: %s, stderr: %#v \n\n\n", string(stdout), string(stderr))
 				return err
 			}
+			idx = idx + 1
 		case <-ctx.Done():
+			fmt.Printf("Rows are inserted into batch table: %d and %d \n\n\n\n\n\n", idx, (*(c.opt)).BatchSize)
 			return nil
 		}
 

@@ -593,7 +593,7 @@ func (b *Builder) CreateMySQLNodes(pexecutor *ctxt.Executor, subClusterType stri
 		awsGeneralConfigs: &awsMySQLConfigs.General,
 		subClusterType:    subClusterType,
 		clusterInfo:       clusterInfo,
-		componentName:     "worker",
+		componentName:     "mysql-worker",
 	})
 	return b
 }
