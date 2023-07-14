@@ -1,9 +1,9 @@
 * Background
-  | Test Case                | Comment                                                                        |
-  |--------------------------+--------------------------------------------------------------------------------|
-  | sysbench                 | Run the select sysbench singlely                                               |
-  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000)                     |
-  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature |
+  | Test Case                | Comment                                                                                            |
+  |--------------------------+----------------------------------------------------------------------------------------------------|
+  | sysbench                 | Run the select sysbench singlely                                                                   |
+  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000)                                         |
+  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature                     |
   | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature. [Resource Control] |
   + Batch feature
     #+BEGIN_SRC
@@ -11,32 +11,147 @@ mysql> batch on source_table.id limit 2000 insert into target_table select * fro
 mysql> delete from target_table where date = '2020-01-01'
     #+END_SRC
 * Environment preparation
-* Comparison
-  | Case                    | Comment                                       |
-  |-------------------------+-----------------------------------------------|
-  | no batch                | sysbench only  (Check resource control)       |
-  | data insert             | sysbench + data insert  (No resource control) |
-  | batch                   | sysbench + data insert  (no resource control) |
-  | batch(resource control) | sysbench + data insert  (resource control)    |
-
-** Output
+** Cluster setup
    #+BEGIN_SRC
-mode            Resource Control  Batch size  reads   writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  start_time  end_time
---------------  ----------------  ----------  -----   ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  ----------  --------
-sysbench        No                0           210734  0       210734   210734  3512.13     210734   3512.13      0.70             1.14             214.38           1.55                      239923.78
-sysbench/insert No                50000       166439  0       166439   166439  2773.91     166439   2773.91      0.98             1.44             34.46            1.79                      239937.30
-sysbench/batch  No                0           156342  0       156342   156342  2605.61     156342   2605.61      1.09             1.53             58.18            1.79                      239939.80
-sysbench/batch  yes               50000       170698  0       170698   170698  2844.89     170698   2844.89      0.95             1.41             66.54            1.73                      239939.20
+admin@workstation:~$ more /tmp/aws-nodes-resourcecontrol.yaml
+workstation:
+  imageid: ami-01e5ff16fd6e8c542                  # Workstation EC2 instance
+  keyname: jay-us-east-01                         # Public key for workstation instance deployment
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+  volumeSize: 100                                 # disk size in the workstation
+  enable_monitoring: enabled                      # enable the moniroting on the workstation
+  instance_type: c5.2xlarge
+  cidr: 172.81.0.0/16
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-01e5ff16fd6e8c542                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem
+    cidr: 172.83.0.0/16
+    tidb_version: v7.0.0
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+  pd:
+    instance_type: c5.large
+    count: 3
+  tidb:
+    instance_type: c5.2xlarge
+    count: 1
+  tikv:
+    -
+      instance_type: t2.medium
+      count: 3
+      volumeSize: 300
+      volumeType: gp3
+      iops: 3000
+admin@workstation:~$ ./bin/aws tidb deploy placementruletest /tmp/aws-nodes-resourcecontrol.yaml
+Please confirm your topology:
+AWS Region:      
+Cluster type:    tidb
+Cluster name:    placementruletest
+Cluster version: v7.0.0
+User Name:       
+Key Name:        jay-us-east-01
+
+Component    # of nodes  Instance Type  Image Name             CIDR           User  Placement rule labels
+---------    ----------  -------------  ----------             ----           ----  ---------------------
+Workstation  1           c5.2xlarge     ami-01e5ff16fd6e8c542  172.81.0.0/16  admin
+TiDB         1           c5.2xlarge     ami-01e5ff16fd6e8c542  172.83.0.0/16  master
+PD           3           c5.large       ami-01e5ff16fd6e8c542  172.83.0.0/16  master
+TiKV         3           t2.medium      ami-01e5ff16fd6e8c542  172.83.0.0/16  master
+Attention:
+    1. If the topology is not what you expected, check your yaml file.
+    2. Please confirm there is no port/directory conflicts in same host.
+Do you want to continue? [y/N]: (default=N) y
+... ...
+
+   #+END_SRC
+** Cluster confirmation
+   #+BEGIN_SRC
+admin@workstation:~$ ./bin/aws tidb list placementruletest
+Cluster  Type:      ohmytiup-tidb
+Cluster Name :      placementruletest
+
+Resource Type:      VPC
+Component Name  VPC ID  CIDR  Status
+--------------  ------  ----  ------
+
+Resource Type:      Subnet
+Component Name  Zone        Subnet ID                 CIDR            State      VPC ID
+--------------  ----        ---------                 ----            -----      ------
+tidb            us-east-1a  subnet-00ce3622415d004ba  172.83.1.0/24   available  vpc-0be4bc95dce1820fa
+tidb            us-east-1b  subnet-0271a3a50f1a6cbaa  172.83.2.0/24   available  vpc-0be4bc95dce1820fa
+tidb            us-east-1c  subnet-0bdb9efc6e11d3748  172.83.3.0/24   available  vpc-0be4bc95dce1820fa
+tidb            us-east-1d  subnet-0f0b5192dcc9e4689  172.83.4.0/24   available  vpc-0be4bc95dce1820fa
+tidb            us-east-1f  subnet-0ceae420b2fc16082  172.83.5.0/24   available  vpc-0be4bc95dce1820fa
+workstation     us-east-1a  subnet-0e6e9d82df7453656  172.81.31.0/24  available  vpc-0ed2e7a786f749d80
+
+Resource Type:      Route Table
+Component Name  Route Table ID  DestinationCidrBlock  TransitGatewayId  GatewayId  State  Origin
+--------------  --------------  --------------------  ----------------  ---------  -----  ------
+
+Resource Type:      Security Group
+Component Name  Ip Protocol  Source Ip Range  From Port  To Port
+--------------  -----------  ---------------  ---------  -------
+
+Resource Type:      Transit Gateway
+Resource ID  :          State:  
+Component Name  VPC ID  State
+--------------  ------  -----
+
+Load Balancer:      placementruletest-8a18e26f8d132e80.elb.us-east-1.amazonaws.com
+Resource Type:      EC2
+Component Name  Component Cluster  State    Instance ID          Instance Type  Private IP     Public IP       Image ID
+--------------  -----------------  -----    -----------          -------------  ----------     ---------       --------
+pd              tidb               running  i-0b40e4fb99df8ff32  c5.large       172.83.3.177                   ami-01e5ff16fd6e8c542
+pd              tidb               running  i-09f35214d166acbba  c5.large       172.83.1.112                   ami-01e5ff16fd6e8c542
+pd              tidb               running  i-0bb78d1a6a7717fee  c5.large       172.83.4.51                    ami-01e5ff16fd6e8c542
+tidb            tidb               running  i-0a3e6d2d821fddda3  c5.2xlarge     172.83.4.170                   ami-01e5ff16fd6e8c542
+tikv            tidb               running  i-0a85763b8d40cc02b  t2.medium      172.83.1.113                   ami-01e5ff16fd6e8c542
+tikv            tidb               running  i-031c7d0cff5c73fed  t2.medium      172.83.4.137                   ami-01e5ff16fd6e8c542
+tikv            tidb               running  i-044f024f53054e9ad  t2.medium      172.83.5.134                   ami-01e5ff16fd6e8c542
+workstation     workstation        running  i-0826e96fbccd865fb  c5.2xlarge     172.81.31.248  100.26.245.103  ami-01e5ff16fd6e8c542
+   #+END_SRC
+* Test
+** Prepare test environment
+   + Download ontime data and import it to latencytest database
+   + Database and user preparation
+   + Resource Group preparation
+     | Parameter           | Value           | Comment                                           |
+     |---------------------+-----------------+---------------------------------------------------|
+     | sysbench-num-tables | 10              | number of table for sysbench                      |
+     | isolation-mode      | ResourceControl | Use resource control to do the resource isolation |
+   #+BEGIN_SRC
+admin@workstation:~$ ./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-num-tables 10 --isolation-mode ResourceControl
+... ...
+   #+END_SRC
+** Test run
+   #+BEGIN_SRC
+admin@workstation:~$
    #+END_SRC
 
 * Metrics
-    [[https://www.51yomo.net/static/doc/ResourceControl/001.png]]
-    [[https://www.51yomo.net/static/doc/ResourceControl/002.png]]
-    [[https://www.51yomo.net/static/doc/ResourceControl/003.png]]
-    [[https://www.51yomo.net/static/doc/ResourceControl/004.png]]
-    [[https://www.51yomo.net/static/doc/ResourceControl/005.png]]
-    [[https://www.51yomo.net/static/doc/ResourceControl/006.png]]
-    [[https://www.51yomo.net/static/doc/ResourceControl/007.png]]
+** Resource Control State
+   | Test Case                | Comment                                                                                            |
+   |--------------------------+----------------------------------------------------------------------------------------------------|
+   | sysbench                 | Run the select sysbench singlely                                                                   |
+   | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000)                                         |
+   | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature                     |
+   | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature. [Resource Control] |
+   [[https://www.51yomo.net/static/doc/ResourceControl/001.png]]
+   [[https://www.51yomo.net/static/doc/ResourceControl/002.png]]
+** sysbench Result
+   From the result, the batch impact the whole performance little. The batch rows decrease from case two. At the same time, the resource control totally controlled the batch process which decrease the inserted row to 1/8.
+   [[https://www.51yomo.net/static/doc/ResourceControl/003.png]]
+** RU metrics
+   [[https://www.51yomo.net/static/doc/ResourceControl/004.png]]
+** RU per query metrics
+   [[https://www.51yomo.net/static/doc/ResourceControl/005.png]]
+** Partition Query
+   [[https://www.51yomo.net/static/doc/ResourceControl/006.png]]
+** Latency metrics
+   [[https://www.51yomo.net/static/doc/ResourceControl/007.png]]
 
 ** Resource control
 ** Select Latency
