@@ -1,0 +1,44 @@
+* Background
+  | Test Case                | Comment                                                                        |
+  |--------------------------+--------------------------------------------------------------------------------|
+  | sysbench                 | Run the select sysbench singlely                                               |
+  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000)                     |
+  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature |
+  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature. [Resource Control] |
+  + Batch feature
+    #+BEGIN_SRC
+mysql> batch on source_table.id limit 2000 insert into target_table select * from source_table where date='2020-01-01'
+mysql> delete from target_table where date = '2020-01-01'
+    #+END_SRC
+* Environment preparation
+* Comparison
+  | Case                    | Comment                                       |
+  |-------------------------+-----------------------------------------------|
+  | no batch                | sysbench only  (Check resource control)       |
+  | data insert             | sysbench + data insert  (No resource control) |
+  | batch                   | sysbench + data insert  (no resource control) |
+  | batch(resource control) | sysbench + data insert  (resource control)    |
+
+** Output
+   #+BEGIN_SRC
+mode            Resource Control  Batch size  reads   writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  start_time  end_time
+--------------  ----------------  ----------  -----   ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  ----------  --------
+sysbench        No                0           210734  0       210734   210734  3512.13     210734   3512.13      0.70             1.14             214.38           1.55                      239923.78
+sysbench/insert No                50000       166439  0       166439   166439  2773.91     166439   2773.91      0.98             1.44             34.46            1.79                      239937.30
+sysbench/batch  No                0           156342  0       156342   156342  2605.61     156342   2605.61      1.09             1.53             58.18            1.79                      239939.80
+sysbench/batch  yes               50000       170698  0       170698   170698  2844.89     170698   2844.89      0.95             1.41             66.54            1.73                      239939.20
+   #+END_SRC
+
+* Metrics
+    [[https://www.51yomo.net/static/doc/ResourceControl/001.png]]
+    [[https://www.51yomo.net/static/doc/ResourceControl/002.png]]
+    [[https://www.51yomo.net/static/doc/ResourceControl/003.png]]
+    [[https://www.51yomo.net/static/doc/ResourceControl/004.png]]
+    [[https://www.51yomo.net/static/doc/ResourceControl/005.png]]
+    [[https://www.51yomo.net/static/doc/ResourceControl/006.png]]
+    [[https://www.51yomo.net/static/doc/ResourceControl/007.png]]
+
+** Resource control
+** Select Latency
+* TodoList
+** Add batch resource control mode
