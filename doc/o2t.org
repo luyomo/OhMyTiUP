@@ -1,0 +1,14 @@
+* Oracle local envoronment preparation
+  Go to https://www.oracle.com/database/technologies/oracle21c-linux-downloads.html to download the rpm.
+
+  sudo apt-get install alien
+  sudo alien -i oracle-database-ee-21c-1.0-1.ol8.x86_64.rpm
+  curl -o oracle-database-preinstall-19c-1.0-1.el7.x86_64.rpm https://yum.oracle.com/repo/OracleLinux/OL7/latest/x86_64/getPackage/oracle-database-preinstall-19c-1.0-1.el7.x86_64.rpm
+  yum -y localinstall oracle-database-preinstall-19c-1.0-1.el7.x86_64.rpm
+
+  sudo groupadd oracle
+  sudo useradd -m -g oracle -d /home/oracle -s /bin/bash oracle
+  sudo passwd oracle
+
+  
+   sudo chmod 666  platform_common

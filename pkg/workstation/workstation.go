@@ -15,6 +15,7 @@ package workstation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v3"
@@ -24,8 +25,6 @@ import (
 	"strings"
 	"time"
 
-	// "go.uber.org/zap"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -34,11 +33,19 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
+
+	elbutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/elb"
 )
 
 // Deploy Redshift Instance
 type Workstation struct {
 	executor *ctxt.Executor
+
+	mapRemoteNodes map[string]*ctxt.Executor
+
+	ipAddr       string
+	user         string
+	identityFile string
 
 	tiupCmdPath string
 }
@@ -86,8 +93,6 @@ type DBConnectInfo struct {
 
 func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, identityFile string, awsCliFlag INC_AWS_ENV_FLAG) (*Workstation, error) {
 	var configData ConfigData
-	// var user string
-	// var keyFile string
 
 	if localExe == nil {
 		return nil, errors.New("Invalid local executor")
@@ -174,7 +179,11 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 		return nil, err
 	}
 
-	return &Workstation{executor: &_executor, tiupCmdPath: "$HOME/.tiup/bin"}, nil
+	return &Workstation{executor: &_executor, tiupCmdPath: "$HOME/.tiup/bin", user: user, identityFile: identityFile, ipAddr: *describeInstances.Reservations[0].Instances[0].PublicIpAddress, mapRemoteNodes: make(map[string]*ctxt.Executor)}, nil
+}
+
+func (c *Workstation) GetIPAddr() string {
+	return c.ipAddr
 }
 
 // Execute implements the Task interface
@@ -182,6 +191,10 @@ func (c *Workstation) InstallPackages(packages *[]string) error {
 	ctx := context.Background()
 
 	if _, _, err := (*c.executor).Execute(ctx, "mkdir -p /opt/scripts", true); err != nil {
+		return err
+	}
+
+	if _, _, err := (*c.executor).Execute(ctx, "mkdir -p /opt/tidb/sql", true); err != nil {
 		return err
 	}
 
@@ -236,6 +249,52 @@ func (w *Workstation) DeployAuroraInfo(clusterType, clusterName, password string
 	}
 
 	err = (*w.executor).TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_mysql_from_file", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *Workstation) DeployTiDBInfo(clusterName string) error {
+	ctx := context.Background()
+
+	elbapi, err := elbutils.NewELBAPI(nil)
+	if err != nil {
+		return err
+	}
+	host, err := elbapi.GetNLB(clusterName)
+	if err != nil {
+		return err
+	}
+
+	dbInfo := make(map[string]string)
+	dbInfo["DBHost"] = *host
+	dbInfo["DBPort"] = "4000"
+	dbInfo["DBUser"] = "root"
+	dbInfo["DBPassword"] = ""
+
+	_, _, err = (*w.executor).Execute(ctx, "mkdir -p /opt/scripts", true)
+	if err != nil {
+		return err
+	}
+
+	err = (*w.executor).TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/tidb-db-info.yml", "0644", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = (*w.executor).TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_tidb_query", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = (*w.executor).TransferTemplate(ctx, "templates/scripts/run_mysql_shell_query.sh.tpl", "/opt/scripts/run_tidb_shell_query", "0755", dbInfo, true, 0)
+	if err != nil {
+		return err
+	}
+
+	err = (*w.executor).TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_tidb_from_file", "0755", dbInfo, true, 0)
 	if err != nil {
 		return err
 	}
@@ -375,7 +434,11 @@ func (w *Workstation) InstallMySQLShell() error {
 		return err
 	}
 
-	return w.RunSerialCmds([]string{`echo 'export PATH=/opt/mysql-shell/bin:$PATH' > ~/.profile.d/mysql-shell.sh`}, false)
+	if err := w.InstallPackages(&[]string{"jq"}); err != nil {
+		return err
+	}
+
+	return w.RunSerialCmds([]string{`mkdir -p ~/.profile.d`, `echo 'export PATH=/opt/mysql-shell/bin:$PATH' > ~/.profile.d/mysql-shell.sh`}, false)
 
 }
 
@@ -423,7 +486,8 @@ func (w *Workstation) InstallSyncDiffInspector(version string) error {
 			if err := w.RunSerialCmds([]string{
 				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", installerFileName),
 				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", installerFileName),
-				fmt.Sprintf("mv /tmp/%s/sync_diff_inspector %s/", installerFileName, w.tiupCmdPath),
+				// fmt.Sprintf("mv /tmp/%s/sync_diff_inspector %s/", installerFileName, w.tiupCmdPath),
+				fmt.Sprintf("sudo mv /tmp/%s/sync_diff_inspector /usr/local/bin", installerFileName),
 				fmt.Sprintf("rm -rf /tmp/%s", installerFileName),
 				fmt.Sprintf("rm /tmp/%s.tar.gz", installerFileName),
 			}, false); err != nil {
@@ -432,39 +496,52 @@ func (w *Workstation) InstallSyncDiffInspector(version string) error {
 		} else {
 			return err
 		}
-
 	}
 
 	return nil
 }
 
-func (w *Workstation) InstallMySQLBinToWorker(targetIP string) error {
-	// ctx := context.Background()
+func (w *Workstation) InstallDumpling(version string) error {
+	ctx := context.Background()
 
-	return w.RunSerialCmds([]string{
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt update -y"`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt install -y gnupg"`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 467B942D3A79BD29 "`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "wget -O /tmp/mysql-apt-config_0.8.18-1_all.deb https://dev.mysql.com/get/mysql-apt-config_0.8.18-1_all.deb"`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt update -y "`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo debconf-set-selections <<< 'mysql-server-5.7 mysql-server/root_password 1234Abcd 1234Abcd'"`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo debconf-set-selections <<< 'mysql-server-5.7 mysql-server/root_password_again 1234Abcd 1234Abcd'"`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo DEBIAN_FRONTEND=noninteractive dpkg -i /tmp/mysql-apt-config_0.8.18-1_all.deb"`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo apt update -y "`, targetIP),
-		fmt.Sprintf(`ssh %s -o StrictHostKeyChecking=no "sudo DEBIAN_FRONTEND=noninteractive apt install -y mysql-server"`, targetIP),
-	}, false)
+	installerFileName := fmt.Sprintf("tidb-community-toolkit-%s-linux-amd64", version)
 
-	// if _, _, err := (*w.executor).Execute(ctx, `chmod 600 ~/.ssh/id_rsa`, false); err != nil {
-	// 		return err
-	// 	}
+	_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/dumpling", w.tiupCmdPath), false)
+	if err != nil {
+		if strings.Contains(err.Error(), "cause: exit status 1") {
+			if err := w.RunSerialCmds([]string{
+				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", installerFileName),
+				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", installerFileName),
+				fmt.Sprintf("tar xvf /tmp/%s/dumpling-%s-linux-amd64.tar.gz -C /tmp", installerFileName, version),
+				// fmt.Sprintf("mv /tmp/dumpling-%s-linux-amd64/dumpling %s/", version, w.tiupCmdPath),
+				fmt.Sprintf("sudo mv /tmp/dumpling /usr/local/bin"),
+				fmt.Sprintf("rm -rf /tmp/%s", installerFileName),
+				fmt.Sprintf("rm -rf /tmp/dumpling-%s-linux-amd64", version),
+				fmt.Sprintf("rm /tmp/%s.tar.gz", installerFileName),
+			}, false); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
 
-	// 	return w.RunSerialCmds([]string{
-	// 		`echo "for i in ~/.profile.d/*.sh ; do
-	//     if [ -r "\$i" ]; then
-	//         . \$i
-	//     fi
-	// done" > ~/.bash_aliases`,
-	// 		"mkdir -p ~/.profile.d",
-	// 	}, false)
+	return nil
+}
+
+func (w *Workstation) QueryTiDB(dbName, query string) (*[]map[string]interface{}, error) {
+	ctx := context.Background()
+
+	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_shell_query %s '%s'", dbName, query), false, 1*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+
+	var objmap []map[string]interface{}
+	if err := json.Unmarshal(stdout, &objmap); err != nil {
+		return nil, err
+	}
+
+	return &objmap, nil
 
 }

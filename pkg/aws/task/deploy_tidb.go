@@ -16,6 +16,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	// "errors"
 	"fmt"
 	"os"
 	"path"
@@ -30,13 +31,28 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"go.uber.org/zap"
+
+	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
+
+func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo, workstation *ws.Workstation) *Builder {
+	b.tasks = append(b.tasks, &DeployTiDB{
+		pexecutor:      pexecutor,
+		awsWSConfigs:   awsWSConfigs,
+		subClusterType: subClusterType,
+		clusterInfo:    clusterInfo,
+		workstation:    workstation,
+	})
+	return b
+}
 
 type DeployTiDB struct {
 	pexecutor      *ctxt.Executor
 	awsWSConfigs   *spec.AwsWSConfigs
 	subClusterType string
 	clusterInfo    *ClusterInfo
+	workstation    *ws.Workstation
 }
 
 type TplTiKVData struct {
@@ -68,6 +84,82 @@ func (t TplTiupData) String() string {
 func (c *DeployTiDB) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
+
+	if err := c.workstation.InstallPackages(&[]string{"mariadb-client-10.5"}); err != nil {
+		return err
+	}
+
+	if err := c.workstation.InstallProfiles(c.awsWSConfigs.KeyFile); err != nil {
+		return err
+	}
+
+	mapArgs := make(map[string]string)
+	mapArgs["clusterName"] = clusterName
+	mapArgs["clusterType"] = clusterType
+	mapArgs["subClusterType"] = c.subClusterType
+
+	ec2api, err := ec2utils.NewEC2API(&mapArgs)
+	if err != nil {
+		return err
+	}
+	instances, err := ec2api.ExtractEC2Instances()
+	if err != nil {
+		return err
+	}
+
+	if c.awsWSConfigs.EnableMonitoring == "enabled" {
+		if len((*instances)["Grafana"]) == 0 {
+			(*instances)["Grafana"] = []string{c.workstation.GetIPAddr()}
+		}
+
+		if len((*instances)["Monitor"]) == 0 {
+			(*instances)["Monitor"] = []string{c.workstation.GetIPAddr()}
+		}
+	}
+
+	wsExe, err := c.workstation.GetExecutor()
+	if err != nil {
+		return err
+	}
+
+	if err := (*wsExe).TransferTemplate(ctx, "templates/config/cdc-task.toml.tpl", "/opt/tidb/cdc-task.toml", "0644", nil, true, 0); err != nil {
+		return err
+	}
+
+	if err := (*wsExe).TransferTemplate(ctx, "templates/config/tidb-cluster.yml.tpl", "/opt/tidb/tidb-cluster.yml", "0644", instances, true, 0); err != nil {
+		return err
+	}
+
+	sqlFiles := []string{"ontime_ms.ddl", "ontime_mysql.ddl", "ontime_tidb.ddl"}
+	for _, sqlFile := range sqlFiles {
+		err = (*wsExe).TransferTemplate(ctx, fmt.Sprintf("templates/sql/%s", sqlFile), fmt.Sprintf("/opt/tidb/sql/%s", sqlFile), "0644", nil, true, 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, tikvNode := range (*instances)["TiKV"] {
+		if err := c.workstation.FormatDisk(tikvNode, "/home/admin/tidb"); err != nil {
+			return err
+		}
+	}
+
+	for _, tiflashNode := range (*instances)["TiFlash"] {
+		if err := c.workstation.FormatDisk(tiflashNode, "/home/admin/tidb"); err != nil {
+			return err
+		}
+	}
+
+	// err = (*wsExe).Transfer(ctx, "embed/templates/config/limits.conf", "/etc/security/limits.conf", true, 0)
+	// if err != nil {
+	// 	return err
+	// }
+
+	if err := c.workstation.InstallTiup(); err != nil {
+		return err
+	}
+
+	return nil
 
 	wsInfo, err := GetWorkstation(*c.pexecutor, ctx)
 	if err != nil {
@@ -222,7 +314,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 
 	// 5. Render the ddl templates to tidb/aurora/sql server
-	sqlFiles := []string{"ontime_ms.ddl", "ontime_mysql.ddl", "ontime_tidb.ddl"}
+	sqlFiles = []string{"ontime_ms.ddl", "ontime_mysql.ddl", "ontime_tidb.ddl"}
 	for _, sqlFile := range sqlFiles {
 		err = (*workstation).Transfer(ctx, fmt.Sprintf("embed/templates/sql/%s", sqlFile), "/opt/tidb/sql/", false, 0)
 		if err != nil {

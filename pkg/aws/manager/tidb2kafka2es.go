@@ -29,11 +29,9 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
-	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 	perrs "github.com/pingcap/errors"
 
@@ -86,27 +84,19 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 		return err
 	}
 
-	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	// if err != nil {
-	// 	return err
-	// }
-
-	// var workstationInfo, clusterInfo, kafkaClusterInfo, eksClusterInfo task.ClusterInfo
-	// var workstationInfo, clusterInfo, _, eksClusterInfo task.ClusterInfo
 	var workstationInfo, clusterInfo, _, _ task.ClusterInfo
 
 	var mainTask []*task.StepDisplay // tasks which are used to initialize environment
-	// Task: ES on eks deployment. This is one separate process from start to end.
-	// esTask := task.NewBuilder().
-	// 	CreateEKSCluster(&m.localExe, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
-	// 	CreateK8SESCluster(&m.localExe, base.AwsWSConfigs, base.AwsESTopoConfigs, "es", &eksClusterInfo).
-	// 	BuildAsStep(fmt.Sprintf("  - Preparing eks servers"))
-	// mainTask = append(mainTask, esTask)
 
-	// Parallel task to create workstation, tidb, kafka resources and transit gateway.
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
-	t1 := task.NewBuilder().CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
+	t1 := task.NewBuilder().CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	task001 = append(task001, t1)
 
@@ -126,8 +116,8 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	// task002 = append(task002, t22)
 
 	t23 := task.NewBuilder().
-		DeployTiDB(&m.localExe, "tidb", base.AwsWSConfigs, &workstationInfo).
-		DeployTiDBInstance(&m.localExe, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+		DeployTiDB(&m.localExe, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
+		DeployTiDBInstance(&m.localExe, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo, &m.workstation).
 		BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
 	task002 = append(task002, t23)
 
@@ -327,27 +317,27 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
 	/* ********** ********** 004 Prepare insert query to /opt/kafka/query.sql **********/
 	strInsQuery := fmt.Sprintf("insert into test.test01(col02) values(1)")
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("echo \\\"%s\\\" > /tmp/query.sql", strInsQuery), true); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("echo \\\"%s\\\" > /tmp/query.sql", strInsQuery), true); err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, "mv /tmp/query.sql /opt/kafka/", true); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, "mv /tmp/query.sql /opt/kafka/", true); err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, "chmod 777 /opt/kafka/query.sql", true); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, "chmod 777 /opt/kafka/query.sql", true); err != nil {
 		return err
 	}
 
@@ -358,7 +348,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 	}
 
 	for _, command := range commands {
-		_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query test '%s'", command), false, 1*time.Hour)
+        _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query test '%s'", command), false, 1*time.Hour)
 		if err != nil {
 			return err
 		}
@@ -369,7 +359,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 	/* ********** ********** 007 Prepare kafka related objects  **********/
 
 	// 007.02 Script create topic for multiple partition in advanced.
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %s %d", "test_test01", perfOpt.Partitions), false, 1*time.Hour)
+    _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %s %d", "test_test01", perfOpt.Partitions), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -379,7 +369,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 	/* ********** ********** 008 Extract server info(ticdc/broker/schema registry/ connector)   **********/
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string
-	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	t1 := task.NewBuilder().ListEC(&m.localExe, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t1)
 
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
@@ -408,14 +398,14 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 
 	timer.Take("05. Get required info - pd/broker/schemaRegistry/connector")
 
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:9300 2>/dev/null", cdcIP), false)
+	stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:9300 2>/dev/null", cdcIP), false)
 	if err != nil {
 		return err
 	}
 
 	/* ********** ********** 009 Prepare TiCDC source changefeed   **********/
 	// 008.01 TiCDC source config file
-	if err = (*workstation).TransferTemplate(ctx, "templates/config/ticdc.source.toml.tpl", "/opt/kafka/source.toml", "0644", []string{}, true, 0); err != nil {
+	if err = m.wsExe.TransferTemplate(ctx, "templates/config/ticdc.source.toml.tpl", "/opt/kafka/source.toml", "0644", []string{}, true, 0); err != nil {
 		return err
 	}
 
@@ -446,12 +436,12 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 
 	// 009.03 Create changefeed if it does not exists
 	if changeFeedHasExisted == false {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed create --server http://%s:9300 --changefeed-id='%s' --sink-uri='kafka://%s:9092/%s?protocol=avro&replication-factor=3' --schema-registry=http://%s:8081 --config %s", cdcIP, "kafka-avro", brokerIP, "topic-name", schemaRegistryIP, "/opt/kafka/source.toml"), false); err != nil {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed create --server http://%s:9300 --changefeed-id='%s' --sink-uri='kafka://%s:9092/%s?protocol=avro&replication-factor=3' --schema-registry=http://%s:8081 --config %s", cdcIP, "kafka-avro", brokerIP, "topic-name", schemaRegistryIP, "/opt/kafka/source.toml"), false); err != nil {
 			return err
 		}
 	}
 
-	esHost, _, err := (*workstation).Execute(ctx, fmt.Sprintf("kubectl get service nginx-ingress-controller-ingress-nginx-controller-internal -o custom-columns=:.status.loadBalancer.ingress[0].hostname | awk '{printf $1}'"), false)
+	esHost, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("kubectl get service nginx-ingress-controller-ingress-nginx-controller-internal -o custom-columns=:.status.loadBalancer.ingress[0].hostname | awk '{printf $1}'"), false)
 	if err != nil {
 		return err
 	}
@@ -464,11 +454,11 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 	esConfig["ES_Password"] = "1234Abcd"
 	esConfig["SchemaRegistry"] = schemaRegistryIP
 	esConfig["TopicName"] = "test_test01"
-	if err = (*workstation).TransferTemplate(ctx, "templates/config/tidb2kafka2es/kafka.sink.json", "/opt/kafka/es.sink.json", "0644", esConfig, true, 0); err != nil {
+	if err = m.wsExe.TransferTemplate(ctx, "templates/config/tidb2kafka2es/kafka.sink.json", "/opt/kafka/es.sink.json", "0644", esConfig, true, 0); err != nil {
 		return err
 	}
 
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/es.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("curl -d @'/opt/kafka/es.sink.json' -H 'Content-Type: application/json' -X POST http://%s:8083/connectors", connectorIP), false); err != nil {
 		return err
 	}
 	timer.Take("07. Create the kafka sink to postgres")
@@ -487,18 +477,18 @@ func (m *Manager) PerfTiDB2Kafka2ES(clusterName, clusterType string, perfOpt Kaf
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
 	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// 02. Get the TiDB connection info
-	if err = (*workstation).Transfer(ctx, "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
+    if err := m.wsExe.Transfer(ctx, "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
 		return err
 	}
 	type TiDBConnectInfo struct {
@@ -521,30 +511,30 @@ func (m *Manager) PerfTiDB2Kafka2ES(clusterName, clusterType string, perfOpt Kaf
 	}
 	timer.Take("TiDB Conn info")
 
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "drop database if exists mysqlslap"), false, 1*time.Hour)
+	_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", "drop database if exists mysqlslap"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 
 	// 03. Prepare the query to insert data into TiDB
-	_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "truncate table test01"), false, 1*time.Hour)
+	_, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "truncate table test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "truncate table  test01"), false, 1*time.Hour)
+	stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "truncate table  test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("mysqlslap --no-defaults -h %s -P %d --user=%s --query=/opt/kafka/query.sql --concurrency=%d --iterations=%d --number-of-queries=%d --create='drop database if exists test02;create schema test02' --no-drop", tidbConnectInfo.TiDBHost, tidbConnectInfo.TiDBPort, tidbConnectInfo.TiDBUser, 10, 1, perfOpt.NumOfRecords), true, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("mysqlslap --no-defaults -h %s -P %d --user=%s --query=/opt/kafka/query.sql --concurrency=%d --iterations=%d --number-of-queries=%d --create='drop database if exists test02;create schema test02' --no-drop", tidbConnectInfo.TiDBHost, tidbConnectInfo.TiDBPort, tidbConnectInfo.TiDBUser, 10, 1, perfOpt.NumOfRecords), true, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 	timer.Take("mysqlslap running")
 
 	// 04. Wait the data sync to postgres
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -552,7 +542,7 @@ func (m *Manager) PerfTiDB2Kafka2ES(clusterName, clusterType string, perfOpt Kaf
 
 	for cnt := 0; cnt < 20; cnt++ {
 		time.Sleep(10 * time.Second)
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
+		stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
 		if err != nil {
 			return err
 		}
@@ -566,25 +556,25 @@ func (m *Manager) PerfTiDB2Kafka2ES(clusterName, clusterType string, perfOpt Kaf
 	timer.Take("Wait until data sync completion")
 
 	// 05. Calculate the QPS and latency
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*) from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 	cnt := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*)/(EXTRACT(EPOCH FROM max(tidb_timestamp) - min(tidb_timestamp))::int + 1) from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select count(*)/(EXTRACT(EPOCH FROM max(tidb_timestamp) - min(tidb_timestamp))::int + 1) from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 	tidbQPS := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select EXTRACT(EPOCH FROM (sum(pg_timestamp - tidb_timestamp)/count(*)))::int  from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select EXTRACT(EPOCH FROM (sum(pg_timestamp - tidb_timestamp)/count(*)))::int  from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
 	latency := strings.Trim(strings.Trim(string(stdout), "\n"), " ")
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select (count(*)/EXTRACT(EPOCH FROM max(pg_timestamp) - min(tidb_timestamp)))::int as min_pg from test01"), false, 1*time.Hour)
+	stdout, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_pg_query %s '%s'", "test", "select (count(*)/EXTRACT(EPOCH FROM max(pg_timestamp) - min(tidb_timestamp)))::int as min_pg from test01"), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -604,20 +594,20 @@ func (m *Manager) PerfCleanTiDB2Kafka2ES(clusterName, clusterType string, gOpt o
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	// Get executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Get server info
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 	var tableECs [][]string
-	t1 := task.NewBuilder().ListEC(&sexecutor, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
+	t1 := task.NewBuilder().ListEC(&m.localExe, &tableECs).BuildAsStep(fmt.Sprintf("  - Listing EC2"))
 	listTasks = append(listTasks, t1)
 
 	builder := task.NewBuilder().ParallelStep("+ Listing aws resources", false, listTasks...)
@@ -644,12 +634,12 @@ func (m *Manager) PerfCleanTiDB2Kafka2ES(clusterName, clusterType string, gOpt o
 	}
 
 	// Remove the sink connector
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8083/connectors/%s", connectorIP, "ESSINK"), false); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("curl -X DELETE http://%s:8083/connectors/%s", connectorIP, "ESSINK"), false); err != nil {
 		return err
 	}
 
 	// Remove the changefeed
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:9300 2>/dev/null", cdcIP), false)
+	stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed list --server http://%s:9300 2>/dev/null", cdcIP), false)
 	if err != nil {
 		return err
 	}
@@ -658,24 +648,24 @@ func (m *Manager) PerfCleanTiDB2Kafka2ES(clusterName, clusterType string, gOpt o
 		return err
 	}
 	if changeFeedExist == true {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed remove --server http://%s:9300 --changefeed-id='%s'", cdcIP, "kafka-avro"), false); err != nil {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup cdc cli changefeed remove --server http://%s:9300 --changefeed-id='%s'", cdcIP, "kafka-avro"), false); err != nil {
 			return err
 		}
 	}
 
 	// Remove the topic
 
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl stop confluent-schema-registry"), false, 600*time.Second); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl stop confluent-schema-registry"), false, 600*time.Second); err != nil {
 		return err
 	}
 
 	for _, topicName := range []string{"topic-name", "test_test01", "_schemas"} {
-		if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka-util.sh remove-topic %s", topicName), false); err != nil {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka-util.sh remove-topic %s", topicName), false); err != nil {
 			logger.OutputDebugLog(err.Error())
 			//return err
 		}
 	}
-	if _, _, err := (*workstation).Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl start confluent-schema-registry"), false, 600*time.Second); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf(`ssh -o "StrictHostKeyChecking no" %s "%s"`, schemaRegistryIP, "sudo systemctl start confluent-schema-registry"), false, 600*time.Second); err != nil {
 		return err
 	}
 

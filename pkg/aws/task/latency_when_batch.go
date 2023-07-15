@@ -22,6 +22,26 @@ import (
 	"time"
 )
 
+func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, insertMode string) *Builder {
+	b.tasks = append(b.tasks, &RunOntimeBatchInsert{
+		pexecutor:  pexecutor,
+		opt:        opt,
+		insertMode: insertMode,
+	})
+	return b
+}
+
+func (b *Builder) RunSysbench(pexecutor *ctxt.Executor, sysbenchConfigFile string, sysbenchResult *[][]string, opt *operator.LatencyWhenBatchOptions, cancelCtx *context.CancelFunc) *Builder {
+	b.tasks = append(b.tasks, &RunSysbench{
+		pexecutor:          pexecutor,
+		opt:                opt,
+		sysbenchConfigFile: sysbenchConfigFile,
+		sysbenchResult:     sysbenchResult,
+		cancelCtx:          cancelCtx,
+	})
+	return b
+}
+
 type MetricsOfLatencyWhenBatch struct {
 	TransRow             int64
 	TotalExecutionTime   int64
@@ -36,40 +56,42 @@ type MetricsOfLatencyWhenBatch struct {
 type RunOntimeBatchInsert struct {
 	pexecutor *ctxt.Executor
 	// gOpt      *operator.Options
-	opt *operator.LatencyWhenBatchOptions
+	opt        *operator.LatencyWhenBatchOptions
+	insertMode string
 }
 
 // Execute implements the Task interface
 func (c *RunOntimeBatchInsert) Execute(ctx context.Context) error {
-	// clusterName := ctx.Value("clusterName").(string)
-	// clusterType := ctx.Value("clusterType").(string)
-
-	// // 1. Get all the workstation nodes
-	// workstation, err := GetWSExecutor(*c.pexecutor, ctx, clusterName, clusterType, (*(c.gOpt)).SSHUser, (*(c.gOpt)).IdentityFile)
-	// if err != nil {
-	// 	return err
-	// }
-
 	ticker := time.NewTicker(time.Duration((*c.opt).TransInterval) * time.Millisecond)
 
 	idx := 0
 	for {
 		select {
+		case <-ctx.Done(): // Signal from another thread that it has completed.
+			fmt.Printf("Rows are inserted into batch table: %d and %d \n\n\n\n\n\n", idx, (*(c.opt)).BatchSize)
+			return nil
 		case <-ticker.C:
-			fmt.Printf("Starting to copy data: %d \n\n\n", idx)
-			stdout, stderr, err := (*c.pexecutor).Execute(context.Background(), fmt.Sprintf(`/opt/scripts/ontime_batch_insert.sh latencytest ontime01 ontime %d`, (*(c.opt)).BatchSize), false, 5*time.Hour)
-			fmt.Printf("Completed to copy data: %d \n\n\n", idx)
+			// fmt.Printf("Starting to copy data: %d \n\n\n", idx)
+			command := ""
+			// insert / batch / partition
+			switch c.insertMode {
+			case "partition":
+				command = fmt.Sprintf(`/opt/scripts/ontime_shard_batch_insert.sh latencytest ontime01 ontime %s`, c.insertMode)
+			case "batch":
+				command = fmt.Sprintf(`/opt/scripts/ontime_shard_batch_insert.sh latencytest ontime01 ontime %s`, c.insertMode)
+			case "insert":
+				command = fmt.Sprintf(`/opt/scripts/ontime_batch_insert.sh latencytest ontime01 ontime %d`, (*(c.opt)).BatchSize)
+			}
 
+			stdout, stderr, err := (*c.pexecutor).Execute(context.Background(), command, false, 5*time.Hour)
+			// fmt.Printf("Completed to copy data: %d \n\n\n", idx)
 			if err != nil {
 				fmt.Printf("stdout: %s, stderr: %#v \n\n\n", string(stdout), string(stderr))
 				return err
 			}
-			idx = idx + 1
-		case <-ctx.Done():
-			fmt.Printf("Rows are inserted into batch table: %d and %d \n\n\n\n\n\n", idx, (*(c.opt)).BatchSize)
-			return nil
-		}
 
+			idx = idx + 1
+		}
 	}
 
 	return nil
@@ -97,7 +119,10 @@ type RunSysbench struct {
 
 // Execute implements the Task interface
 func (c *RunSysbench) Execute(ctx context.Context) error {
+	startTime := time.Now()
+
 	stdout, _, err := (*c.pexecutor).Execute(context.Background(), fmt.Sprintf(`sysbench --config-file=%s %s --tables=%d --table-size=%d run`, c.sysbenchConfigFile, (*c.opt).SysbenchPluginName, (*c.opt).SysbenchNumTables, (*c.opt).SysbenchNumRows), false, 5*time.Hour)
+	endTime := time.Now()
 
 	if err != nil {
 		return err
@@ -130,10 +155,17 @@ func (c *RunSysbench) Execute(ctx context.Context) error {
 
 			arrData := strings.Split(line, ",")
 			if len(*c.sysbenchResult) > 0 {
-				arrData = append([]string{fmt.Sprintf("%d", c.opt.BatchSize)}, arrData...)
+				// arrData = append([]string{fmt.Sprintf("%d", c.opt.BatchSize)}, arrData...)
+				arrData = append(arrData, startTime.Format("15:04:05"))
+				arrData = append(arrData, endTime.Format("15:04:05"))
 				*c.sysbenchResult = append(*c.sysbenchResult, arrData)
+
 			} else {
-				arrData = append([]string{"Batch size"}, arrData...)
+				// Todo : make compatible for two different cases
+				// arrData = append([]string{"Batch size"}, arrData[:len(arrData)-1]...)
+				arrData = append([]string{"Rows Inserted"}, arrData[:len(arrData)-1]...)
+				arrData = append(arrData, "Start Time")
+				arrData = append(arrData, "End Time")
 				*c.sysbenchResult = append(*c.sysbenchResult, arrData)
 			}
 		}
@@ -144,6 +176,8 @@ func (c *RunSysbench) Execute(ctx context.Context) error {
 		return err
 	}
 	(*c.cancelCtx)()
+	fmt.Printf("The process has been completed. \n\n\n\n\n\n")
+	fmt.Printf("The data: <%#v> \n\n\n\n\n\n", *c.sysbenchResult)
 
 	return nil
 }

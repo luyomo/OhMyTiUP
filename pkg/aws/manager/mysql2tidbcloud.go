@@ -15,13 +15,10 @@ package manager
 
 import (
 	"context"
-	// "encoding/json"
 	"errors"
 	"fmt"
-	// "strconv"
 	"strings"
 	"sync"
-	// "time"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -30,10 +27,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
-	// "github.com/luyomo/OhMyTiUP/pkg/crypto"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
-	// "github.com/luyomo/OhMyTiUP/pkg/logger"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
@@ -41,7 +36,6 @@ import (
 
 	"github.com/manifoldco/promptui"
 
-	// elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
@@ -98,9 +92,15 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 	// 	BuildAsStep(fmt.Sprintf("  - Preparing aurora service ... ..."))
 	// task001 = append(task001, auroraTask)
 
+    fpMakeWSContext := func() error {
+        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+            return err
+        }
+        return nil
+    }
 	var workstationInfo task.ClusterInfo
 	wsTask := task.NewBuilder().
-		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation ... ..."))
 	task001 = append(task001, wsTask)
 
@@ -159,7 +159,7 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 	// }
 
 	postTask := task.NewBuilder().
-		DeployMySQL(m.workstation, "mysql-worker", base.AwsMySQLConfigs.General.TiDBVersion, &timer).
+		DeployMySQL(&m.workstation, "mysql-worker", base.AwsMySQLConfigs.General.TiDBVersion, &timer).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
@@ -321,11 +321,11 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 
 	postTask = task.NewBuilder().
 		CreateKMS("s3").                                                                          // 01. Make KMS for data excryption of data export
-		AuroraSnapshotTaken(m.workstation, &timer).                                               // 02. Take snapshot from aurora
-		AuroraSnapshotExportS3(m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).      // 03. Export data from snapshot to S3. -> task 01/02
-		MakeRole4ExternalAccess(m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID, &timer). // 04. Make role for TiDB Cloud import -> task 03
+		AuroraSnapshotTaken(&m.workstation, &timer).                                               // 02. Take snapshot from aurora
+		AuroraSnapshotExportS3(&m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).      // 03. Export data from snapshot to S3. -> task 01/02
+		MakeRole4ExternalAccess(&m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID, &timer). // 04. Make role for TiDB Cloud import -> task 03
 		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import", &timer).      // 05. Import data into TiDB Cloud from S3 -> task 04
-		DeployDM(m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion, &timer).
+		DeployDM(&m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion, &timer).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {

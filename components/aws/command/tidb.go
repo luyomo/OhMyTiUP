@@ -241,6 +241,7 @@ func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
 
 	// One parameter to decide the test case - TiKV partition/Simple
 	cmd.Flags().StringVarP(&opt.TiKVMode, "tikv-mode", "m", "simple", "simple: No partition for TiKV nodes.  partition: Group the TiKV to online/batch. Batch query to batch TiKV nodes, sysbench to online TiKV nodes")
+	cmd.Flags().StringVarP(&opt.IsolationMode, "isolation-mode", "i", "PlacementRule", "PlacementRule: Use placement rule to isolate resource between Online and Batch.  ResourceControl: Use resource and batch to isolate resource between Online and Batch")
 	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
 	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
 	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")
@@ -278,6 +279,7 @@ func newTiDBLatencyMeasurementRunCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&opt.BatchSizeArray, "batch-size", "s", "x,10000", "Batch size: x,5000,10000,25000,50000 -> Loop the test as <no batch -> 5000 -> 10000 -> 25000 -> 50000>")
+	cmd.Flags().StringVarP(&opt.IsolationMode, "isolation-mode", "i", "PlacementRule", "PlacementRule: Use placement rule to isolate resource between Online and Batch.  ResourceControl: Use resource and batch to isolate resource between Online and Batch")
 	cmd.Flags().IntVar(&opt.RunCount, "repeats", 1, "Count to loop the test")
 	cmd.Flags().IntVar(&opt.TransInterval, "trans-interval", 2, "The interval to insert the transaction")
 
@@ -377,7 +379,8 @@ func newTiDBPerfRecursiveCmd() *cobra.Command {
 func newTiDBPerfRecursivePrepareCmd() *cobra.Command {
 
 	opt := operator.LatencyWhenBatchOptions{
-		TiKVMode: "simple",
+		TiKVMode:      "simple",
+		IsolationMode: "PlacementRule",
 	}
 
 	cmd := &cobra.Command{
@@ -399,7 +402,7 @@ func newTiDBPerfRecursivePrepareCmd() *cobra.Command {
 	}
 
 	// One parameter to decide the test case - TiKV partition/Simple
-	cmd.Flags().StringVarP(&opt.TiKVMode, "tikv-mode", "m", "simple", "simple: No partition for TiKV nodes.  partition: Group the TiKV to online/batch. Batch query to batch TiKV nodes, sysbench to online TiKV nodes")
+	cmd.Flags().StringVarP(&opt.TiKVMode, "tikv-mode", "m", "simple", "simple: No partition for TiKV nodes.  partition: Group the TiKV to online/batch. Batch query to batch TiKV nodes, sysbench to online TiKV nodes. It is only useful to PlacementRule mode")
 	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
 	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
 	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")

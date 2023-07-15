@@ -35,6 +35,7 @@ import (
 	"os"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 // DeployOptions contains the options for scale out.
@@ -144,12 +145,20 @@ func (m *Manager) TiDB2OraDeploy(
 		return err
 	}
 	clusterType := "ohmytiup-tidb2ora"
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	var workstationInfo, clusterInfo task.ClusterInfo
 
 	// Workstation preparation
 	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		fpMakeWSContext := func() error {
+			if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+				return err
+			}
+			return nil
+		}
+		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 
 		envInitTasks = append(envInitTasks, t1)
@@ -163,7 +172,7 @@ func (m *Manager) TiDB2OraDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 		envInitTasks = append(envInitTasks, t2)
 	}
@@ -182,8 +191,6 @@ func (m *Manager) TiDB2OraDeploy(
 
 	t := builder.Build()
 
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
@@ -200,8 +207,8 @@ func (m *Manager) TiDB2OraDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "oracle", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "tidb", []string{"oracle"}).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
+			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo, &m.workstation).
 			InstallOracleClient(&sexecutor, base.AwsWSConfigs).
 			InstallTiDB(&sexecutor, base.AwsWSConfigs).
 			DeployDrainConfig(&sexecutor, base.AwsOracleConfigs, base.AwsWSConfigs, base.DrainerReplicate).

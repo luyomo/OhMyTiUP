@@ -15,7 +15,6 @@ package manager
 
 import (
 	"context"
-	//	"errors"
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -23,7 +22,6 @@ import (
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
-	//	"github.com/luyomo/OhMyTiUP/pkg/crypto"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
@@ -31,9 +29,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
-	//	"go.uber.org/zap"
 	"os"
-	//"strings"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 // DeployOptions contains the options for scale out.
@@ -109,6 +106,10 @@ func (m *Manager) TiDB2MSDeploy(
 		}
 	}
 
+	clusterType := "ohmytiup-tidb2ms"
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
 	if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
 		return errorx.InitializationFailed.
 			Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
@@ -123,12 +124,17 @@ func (m *Manager) TiDB2MSDeploy(
 	if err != nil {
 		return err
 	}
-	clusterType := "ohmytiup-tidb2ms"
 
 	var workstationInfo, clusterInfo, msInfo, dmsInfo task.ClusterInfo
 
 	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		fpMakeWSContext := func() error {
+			if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+				return err
+			}
+			return nil
+		}
+		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 
 		envInitTasks = append(envInitTasks, t1)
@@ -167,8 +173,6 @@ func (m *Manager) TiDB2MSDeploy(
 
 	t := builder.Build()
 
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
@@ -192,8 +196,8 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
 			CreateRouteTgw(&sexecutor, "tidb", []string{"aurora"}).
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
+			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo, &m.workstation).
 			//CreateTiDBNLB(&sexecutor, "tidb", &clusterInfo).
 			//MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
 			DeployTiCDC(&sexecutor, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
@@ -208,7 +212,7 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
+			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
 			CreateDMSTask(&sexecutor, "dmsservice", &dmsInfo).
 			MakeDBObjects(&sexecutor, "tidb", &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))

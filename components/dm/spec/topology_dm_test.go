@@ -21,7 +21,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 	. "github.com/pingcap/check"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type metaSuiteDM struct {

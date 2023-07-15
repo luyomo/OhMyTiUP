@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 
-	//	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -34,14 +33,10 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
 	"go.uber.org/zap"
 
-	//	"github.com/luyomo/OhMyTiUP/pkg/environment"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	//	"github.com/luyomo/OhMyTiUP/pkg/meta"
-	//	"github.com/luyomo/OhMyTiUP/pkg/repository"
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
-	//	perrs "github.com/pingcap/errors"
 )
 
 // DeployOptions contains the options for scale out.
@@ -247,7 +242,7 @@ func (m *Manager) Deploy(
 				CreateDMWorkerNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiCDCNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				//CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &clusterInfo).
+				DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &clusterInfo, &m.workstation).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

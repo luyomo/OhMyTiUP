@@ -18,10 +18,6 @@ import (
 	"errors"
 	"fmt"
 
-	// "strconv"
-	// "strings"
-	// "time"
-
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
@@ -33,13 +29,13 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
 
-	// "github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
-	// "os"
+
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 // To resolve:
@@ -168,7 +164,13 @@ func (m *Manager) WorkstationDeploy(
 		return errors.New("No workstation instance is specified")
 	}
 
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+    fpMakeWSContext := func() error {
+        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+            return err
+        }
+        return nil
+    }
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 

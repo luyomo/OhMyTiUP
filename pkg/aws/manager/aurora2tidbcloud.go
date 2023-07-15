@@ -98,8 +98,14 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 	task001 = append(task001, auroraTask)
 
 	var workstationInfo task.ClusterInfo
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
 	wsTask := task.NewBuilder().
-		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation ... ..."))
 	task001 = append(task001, wsTask)
 
@@ -305,11 +311,11 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 
 	postTask := task.NewBuilder().
 		CreateKMS("s3").                                                                          // 01. Make KMS for data excryption of data export
-		AuroraSnapshotTaken(m.workstation, &timer).                                               // 02. Take snapshot from aurora
-		AuroraSnapshotExportS3(m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).      // 03. Export data from snapshot to S3. -> task 01/02
-		MakeRole4ExternalAccess(m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID, &timer). // 04. Make role for TiDB Cloud import -> task 03
+		AuroraSnapshotTaken(&m.workstation, &timer).                                               // 02. Take snapshot from aurora
+		AuroraSnapshotExportS3(&m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).      // 03. Export data from snapshot to S3. -> task 01/02
+		MakeRole4ExternalAccess(&m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID, &timer). // 04. Make role for TiDB Cloud import -> task 03
 		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import", &timer).      // 05. Import data into TiDB Cloud from S3 -> task 04
-		DeployDM(m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion, &timer).
+		DeployDM(&m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion, &timer).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
@@ -438,12 +444,12 @@ func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt oper
 		return err
 	}
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
+	stdout, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
 	var displayDMCluster task.DisplayDMCluster
 	if err = json.Unmarshal(stdout, &displayDMCluster); err != nil {
 		return err
@@ -470,7 +476,7 @@ func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt oper
 			Worker string `json:"worker"`
 		} `json:"sources"`
 	}
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s operate-source show", masterNode), false)
+	stdout, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s operate-source show", masterNode), false)
 	if err != nil {
 		return err
 	}
@@ -489,7 +495,7 @@ func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt oper
 		}
 	}
 	if existSource == false {
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s operate-source create /opt/tidb/dm-source.yml", masterNode), false)
+		stdout, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s operate-source create /opt/tidb/dm-source.yml", masterNode), false)
 		if err != nil {
 			return err
 		}
@@ -505,7 +511,7 @@ func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt oper
 			Sources    []string `json:"sources"`
 		} `json:"tasks"`
 	}
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status", masterNode), false)
+	stdout, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status", masterNode), false)
 	if err != nil {
 		return err
 	}
@@ -523,7 +529,7 @@ func (m *Manager) StartSyncAurora2TiDBCloudCluster(clusterName string, gOpt oper
 		}
 	}
 	if existTask == false {
-		stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s start-task /opt/tidb/dm-task.yml", masterNode), false)
+		stdout, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s start-task /opt/tidb/dm-task.yml", masterNode), false)
 		if err != nil {
 			return err
 		}
@@ -599,8 +605,8 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 	}
 
 	t0 := task.NewBuilder().
-		DestroyTiDBCloud(m.workstation).
-		DeleteS3Folder(m.workstation).
+		DestroyTiDBCloud(&m.workstation).
+		DeleteS3Folder(&m.workstation).
 		DestroyTransitGateways(&sexecutor).
 		DestroyVpcPeering(&sexecutor, []string{"workstation", "dm", "aurora"}).
 		BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))
@@ -621,7 +627,7 @@ func (m *Manager) DestroyAurora2TiDBCloudCluster(name string, gOpt operator.Opti
 
 	t1 := task.NewBuilder().
 		DestroyAurora(&sexecutor).
-		DeleteAuroraSnapshots(m.workstation).
+		DeleteAuroraSnapshots(&m.workstation).
 		BuildAsStep(fmt.Sprintf("  - Destroying aurora nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)
@@ -663,18 +669,18 @@ func (m *Manager) Aurora2TiDBCloudPrepareCluster(clusterName string, opt operato
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// 01. Install the required package
-	if _, _, err := (*workstation).Execute(ctx, "apt-get install -y sysbench", true); err != nil {
+	if _, _, err :=  m.wsExe.Execute(ctx, "apt-get install -y sysbench", true); err != nil {
 		return err
 	}
 
@@ -685,7 +691,7 @@ func (m *Manager) Aurora2TiDBCloudPrepareCluster(clusterName string, opt operato
 	}
 
 	for _, query := range queries {
-		if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/opt/scripts/run_mysql_query mysql '%s'", query), false, 1*time.Hour); err != nil {
+        if _, _, err :=  m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_mysql_query mysql '%s'", query), false, 1*time.Hour); err != nil {
 			return err
 		}
 	}
@@ -716,50 +722,21 @@ func (m *Manager) Aurora2TiDBCloudPrepareCluster(clusterName string, opt operato
 	tplSysbenchParam["Thread"] = strconv.Itoa(opt.SysbenchThread)
 	tplSysbenchParam["ReportInterval"] = strconv.Itoa(opt.SysbenchReportInterval)
 
-	// Set sysbench file for TiDB Cloud
-	// Fetch the TiDB connection info
-	// dbConnInfo, err := task.ReadTiDBConntionInfo(workstation, "tidbcloud-info.yml")
-	// if err != nil {
-	// 	return err
-	// }
 
-	// tplSysbenchParam := TplSysbenchParam{
-	// 	TiDBHost:       (*dbConnInfo).DBHost,
-	// 	TiDBPort:       (*dbConnInfo).DBPort,
-	// 	TiDBUser:       (*dbConnInfo).DBUser,
-	// 	TiDBPassword:   (*dbConnInfo).DBPassword,
-	// 	TiDBDBName:     opt.SysbenchDBName,
-	// 	ExecutionTime:  opt.SysbenchExecutionTime,
-	// 	Thread:         opt.SysbenchThread,
-	// 	ReportInterval: opt.SysbenchReportInterval,
-	// }
-
-	if err = task.TransferToWorkstation(workstation, "templates/config/sysbench.toml.tpl", "/opt/tidbcloud-sysbench.toml", "0644", tplSysbenchParam); err != nil {
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/sysbench.toml.tpl", "/opt/tidbcloud-sysbench.toml", "0644", tplSysbenchParam); err != nil {
 		return err
 	}
 
-	// Set the sysbench file for aurora
-	// Fetch the TiDB connection info
-	// dbConnInfo, err = task.ReadTiDBConntionInfo(workstation, "db-info.yml")
-	// if err != nil {
-	// 	return err
-	// }
-
-	// tplSysbenchParam.TiDBHost = (*dbConnInfo).DBHost
-	// tplSysbenchParam.TiDBPort = (*dbConnInfo).DBPort
-	// tplSysbenchParam.TiDBUser = (*dbConnInfo).DBUser
-	// tplSysbenchParam.TiDBPassword = (*dbConnInfo).DBPassword
-
-	if err = task.TransferToWorkstation(workstation, "templates/config/sysbench.toml.tpl", "/opt/aurora-sysbench.toml", "0644", tplSysbenchParam); err != nil {
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/sysbench.toml.tpl", "/opt/aurora-sysbench.toml", "0644", tplSysbenchParam); err != nil {
 		return err
 	}
 
-	if _, _, err = (*workstation).Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/aurora-sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
+	if _, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/aurora-sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
 		return err
 	}
 
 	for _, file := range []string{"tidb_common.lua", "tidb_oltp_insert.lua", "tidb_oltp_point_select.lua", "tidb_oltp_read_write.lua", "tidb_oltp_insert_simple.lua", "tidb_oltp_point_select_simple.lua", "tidb_oltp_read_write_simple.lua"} {
-		if err = task.TransferToWorkstation(workstation, fmt.Sprintf("templates/scripts/sysbench/%s", file), fmt.Sprintf("/usr/share/sysbench/%s", file), "0644", []string{}); err != nil {
+		if err = task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/sysbench/%s", file), fmt.Sprintf("/usr/share/sysbench/%s", file), "0644", []string{}); err != nil {
 			return err
 		}
 	}
@@ -984,17 +961,17 @@ func (m *Manager) QuerySyncStatusAurora2TiDBCloudCluster(clusterName string, gOp
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
 	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
+	stdout, _, err :=  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
 	var displayDMCluster task.DisplayDMCluster
 	if err = json.Unmarshal(stdout, &displayDMCluster); err != nil {
 		return err
@@ -1017,7 +994,7 @@ func (m *Manager) QuerySyncStatusAurora2TiDBCloudCluster(clusterName string, gOp
 
 	var dmTaskDetail task.DMTaskDetail
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
+	stdout, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
 	if err != nil {
 		return err
 	}
@@ -1055,17 +1032,17 @@ func (m *Manager) StopSyncTaskAurora2TiDBCloudCluster(clusterName string, gOpt o
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
 	// 01. Get the workstation executor
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
-		return err
-	}
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
 
-	workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
-	if err != nil {
-		return err
-	}
+	// workstation, err := task.GetWSExecutor(sexecutor, ctx, clusterName, clusterType, gOpt.SSHUser, gOpt.IdentityFile)
+	// if err != nil {
+	// 	return err
+	// }
 
-	stdout, _, err := (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
+	stdout, _, err :=  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dm display %s --format json ", clusterName), false)
 	var displayDMCluster task.DisplayDMCluster
 	if err = json.Unmarshal(stdout, &displayDMCluster); err != nil {
 		return err
@@ -1088,7 +1065,7 @@ func (m *Manager) StopSyncTaskAurora2TiDBCloudCluster(clusterName string, gOpt o
 
 	var dmTaskDetail task.DMTaskDetail
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
+	stdout, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
 	if err != nil {
 		return err
 	}
@@ -1099,11 +1076,11 @@ func (m *Manager) StopSyncTaskAurora2TiDBCloudCluster(clusterName string, gOpt o
 	for _, source := range dmTaskDetail.Sources {
 		tableSourceStatus = append(tableSourceStatus, []string{source.SourceStatus.Source, source.SourceStatus.Worker})
 		for _, subTaskStatus := range source.SubTaskStatus {
-			_, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr=%s stop-task %s ", masterNode, subTaskStatus.Name), false)
+			_, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr=%s stop-task %s ", masterNode, subTaskStatus.Name), false)
 		}
 	}
 
-	stdout, _, err = (*workstation).Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
+	stdout, _, err =  m.wsExe.Execute(ctx, fmt.Sprintf("/home/admin/.tiup/bin/tiup dmctl --master-addr %s query-status %s", masterNode, clusterName), false)
 	if err != nil {
 		return err
 	}

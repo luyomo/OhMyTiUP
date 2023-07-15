@@ -1,10 +1,11 @@
 * Oh My TiUP
   [[https://luyomo.github.io/OhMyTiUP/index.html][gitee]]
 ** Contents
-  - [[./README.org#Replication][Replication]]
+  - [[./README.org#Replication to TiDB][Replication to TiDB]]
+  - [[./README.org#Replication to TiDB][Replication from TiDB]]
   - [[./README.org#Others][Others]]
 
-** Replication
+** Replication to TiDB
   + [[./doc/tidb2oracle.msk.org][TiDB to Oracle(MSK/Glue)]] - Data replication from TiDB to Oracle through TiCDC, MSK(confluent jdbc sink) and Glue schema registry
   + [[./doc/tidb2oracle.s3.org][TiDB to Oracle(S3)]] - Data replication from TiDB to Oracle through TiCDC, S3 (CSV files)
   + [[./doc/tidb2kafka2pg.org][TiDB to Postgres]] - Data replication from TiDB to Postgres through TiCDC and kafka(debezium source and confluent jdbc sink)
@@ -12,9 +13,12 @@
   + [[./doc/tidb2es.msk.org][TiDB to Elasticsearch(MSK/Glue)]] - Data replication from TiDB to Elasticsearch through TiCDC, MSK(debezium sink) and Glue schema registry
   + [[./doc/tidb2kafka2redshift.org][TiDB to Redshift]] - Data replication from TiDB to redshift through TiCDC, Kafka(confluent redshift)
   + [[./doc/tidb2kafka2redshift.msk.org][TiDB to Redshift(MSK/Glue)]] - Data replication from TiDB to redshift through TiCDC, MSK(confluent redshift) and Glue schema registry
+
+** Replication to TiDB
   + [[./doc/mongo2kafka2TiDB.org][Mongo to TiDB]] - Data replication from MongoDB to TiDB through kafka(debezium mongo source and customized jdbc sink)
   + [[./doc/aurora2tidbcloud.org][Aurora to TiDBCloud]] - Data replication from Aurora to TiDB through DM
   + [[./doc/aurora2tidbcloud-api.org][Aurora to TiDBCloud with TiDB Cloud API]]- Data replication from Aurora to TiDB through DM with TiDB Cloud API which makes the process much more easy
+  + [[./doc/mysql2tidb.org][MySQL to TiDBCloud]] - Data migration from MySQL on EC2 to TiDB Cloud which use DM on cloud
     
 ** Integration
   + [[./doc/glue-etl.org][TiDB data transfer to S3 with Glue ETL]] - Use Glue ETL to transfer the data from TiDB to AWS S3. 

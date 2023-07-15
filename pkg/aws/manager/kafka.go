@@ -39,6 +39,7 @@ import (
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 // DeployOptions contains the options for scale out.
@@ -80,6 +81,10 @@ func (m *Manager) KafkaDeploy(
 		return err
 	}
 
+	clusterType := "ohmytiup-kafka"
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
 	// Setup the execution plan
 	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
@@ -90,12 +95,16 @@ func (m *Manager) KafkaDeploy(
 		return err
 	}
 
-	clusterType := "ohmytiup-kafka"
-
 	var workstationInfo, clusterInfo task.ClusterInfo
 
 	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		fpMakeWSContext := func() error {
+			if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+				return err
+			}
+			return nil
+		}
+		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 		envInitTasks = append(envInitTasks, t1)
 	}
@@ -108,9 +117,6 @@ func (m *Manager) KafkaDeploy(
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, envInitTasks...)
 
 	t := builder.Build()
-
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
@@ -392,8 +398,17 @@ func (m *Manager) KafkaScale(
 	// var workstationInfo, clusterInfo task.ClusterInfo
 	var workstationInfo task.ClusterInfo
 
+	tailctx := context.WithValue(context.Background(), "clusterName", name)
+	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
+
 	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		fpMakeWSContext := func() error {
+			if err := m.makeExeContext(tailctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+				return err
+			}
+			return nil
+		}
+		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 
 		envInitTasks = append(envInitTasks, t1)
@@ -422,8 +437,6 @@ func (m *Manager) KafkaScale(
 		ScaleTiDB(&sexecutor, "tidb", base.AwsWSConfigs, base.AwsTopoConfigs).
 		BuildAsStep(fmt.Sprintf("  - Prepare Ec2  resources %s:%d", globalOptions.Host, 22))
 
-	tailctx := context.WithValue(context.Background(), "clusterName", name)
-	tailctx = context.WithValue(tailctx, "clusterType", clusterType)
 	builder = task.NewBuilder().
 		ParallelStep("+ Initialize target host environments", false, t5)
 	t = builder.Build()

@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -112,8 +113,15 @@ func (m *Manager) TiDBDeploy(
 
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+
+		return nil
+	}
 	t1 := task.NewBuilder().
-		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	task001 = append(task001, t1)
 
@@ -125,8 +133,8 @@ func (m *Manager) TiDBDeploy(
 		ParallelStep("+ Deploying all the sub components", false, task001...).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb"}).
 		RunCommonWS(&m.wsExe, &[]string{"git"}).
-		DeployTiDB(&m.wsExe, "tidb", base.AwsWSConfigs, &workstationInfo).
-		DeployTiDBInstance(&m.wsExe, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+		DeployTiDB(&m.wsExe, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
+		DeployTiDBInstance(&m.wsExe, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &clusterInfo, &m.workstation).
 		BuildAsStep("Parallel Main step")
 
 	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
@@ -136,6 +144,14 @@ func (m *Manager) TiDBDeploy(
 		}
 		return err
 	}
+
+	// if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+	// 	return err
+	// }
+
+	// if err := m.workstation.InstallProfiles(base.AwsWSConfigs.KeyFile); err != nil {
+	// 	return err
+	// }
 
 	timer.Take("Execution")
 
@@ -372,19 +388,25 @@ func (m *Manager) TiDBScale(
 		return err
 	}
 	// clusterType := "ohmytiup-tidb"
-
-	var workstationInfo, clusterInfo task.ClusterInfo
-
-	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
-			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
-
-		envInitTasks = append(envInitTasks, t1)
-	}
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 	ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
 	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
+
+	var workstationInfo, clusterInfo task.ClusterInfo
+
+	if base.AwsWSConfigs.InstanceType != "" {
+		fpMakeWSContext := func() error {
+			if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+				return err
+			}
+			return nil
+		}
+		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
+			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
+
+		envInitTasks = append(envInitTasks, t1)
+	}
 
 	cntEC2Nodes := base.AwsTopoConfigs.PD.Count + base.AwsTopoConfigs.TiDB.Count + base.AwsTopoConfigs.TiKV[0].Count + base.AwsTopoConfigs.DMMaster.Count + base.AwsTopoConfigs.DMWorker.Count + base.AwsTopoConfigs.TiCDC.Count
 	if cntEC2Nodes > 0 {
@@ -473,6 +495,14 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		"grant all on *.* to `batchusr`@`%` ",
 	)
 
+	if opt.IsolationMode == "ResourceControl" {
+		queries = append(queries, "create resource group if not exists sg_online ru_per_sec=15000 priority = high burstable",
+			"create resource group if not exists sg_batch ru_per_sec=2000 priority = low",
+			"alter user `onlineusr`@`%` resource group sg_online",
+			"alter user `batchusr`@`%` resource group sg_batch",
+		)
+	}
+
 	for _, query := range queries {
 		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", query), false, 1*time.Hour); err != nil {
 			return err
@@ -491,7 +521,7 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	//  select DB_NAME, TABLE_NAME, STORE_ID, count(*) as cnt from TIKV_REGION_PEERS t1 inner join TIKV_REGION_STATUS t2 on t1.REGION_ID = t2.REGION_ID and t2.db_name in ('sbtest', 'latencytest') group by DB_NAME, TABLE_NAME, STORE_ID order by DB_NAME, TABLE_NAME, STORE_ID;
 
 	// 05. Data preparation from external
-	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh"} {
+	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh", "ontime_shard_batch_insert.sh"} {
 		if err := task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
 		}
@@ -553,44 +583,199 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 	var sysbenchResult [][]string
 
 	for idx := 0; idx < opt.RunCount; idx++ {
-		for idxBatchSize, batchSize := range strings.Split(opt.BatchSizeArray, ",") {
-			// 01. Set the context
-			ctx, cancel = context.WithCancel(context.Background())
-			ctx = context.WithValue(ctx, "clusterName", clusterName)
-			ctx = context.WithValue(ctx, "clusterType", clusterType)
+		if opt.IsolationMode == "ResourceControl" {
+			// 01. Sinlge sysbench
+			_data, err := m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+			if err != nil {
+				return err
+			}
+			originalCnt := (*_data)[0]["ontime_cnt"].(float64)
+			fmt.Printf("The rows 001: %f \n\n\n", originalCnt)
 
-			// 02. Prepare the task
+			ctx01, cancel01 := context.WithCancel(context.Background())
+			ctx01 = context.WithValue(ctx01, "clusterName", clusterName)
+			ctx01 = context.WithValue(ctx01, "clusterType", clusterType)
+
 			var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-			t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+			t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel01).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
 			envInitTasks = append(envInitTasks, t1)
 
-			// 03. If the batch size is not x, run the data batch insert
-			if batchSize != "x" {
-				opt.BatchSize, err = strconv.Atoi(batchSize)
-				if err != nil {
-					return err
-				}
+			t := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %s th test", idx+1, "sysbench"), false, envInitTasks...).Build()
 
-				t2 := task.NewBuilder().RunOntimeBatchInsert(&m.wsExe, &opt, &gOpt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
-				envInitTasks = append(envInitTasks, t2)
-			} else {
-				opt.BatchSize = 0
-			}
-
-			// 04. Run sysbench
-			builder := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %d th test for batch-size: %s", idx+1, idxBatchSize+1, batchSize), false, envInitTasks...)
-
-			t := builder.Build()
-
-			if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
+			if err := t.Execute(ctxt.New(ctx01, 2)); err != nil {
 				if errorx.Cast(err) != nil {
 					return err
 				}
 				return err
 			}
 
-			time.Sleep(20 * time.Second)
+			_data, err = m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+			if err != nil {
+				return err
+			}
+			cnt := (*_data)[0]["ontime_cnt"].(float64) - originalCnt
+			originalCnt = (*_data)[0]["ontime_cnt"].(float64)
+			fmt.Printf("The rows 002: %f \n\n\n", originalCnt)
+			lastItem := sysbenchResult[len(sysbenchResult)-1]
+			lastItem = append([]string{fmt.Sprintf("%d", int(math.Round(cnt)))}, lastItem...)
+			sysbenchResult = append(sysbenchResult[:len(sysbenchResult)-1], lastItem)
+
+			time.Sleep(30 * time.Second)
+
+			// 02. sysbench + insert
+			if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "mysql", "alter resource group sg_batch ru_per_sec=2000 priority=high burstable"), false, 1*time.Hour); err != nil {
+				return err
+			}
+
+			ctx02, cancel02 := context.WithCancel(context.Background())
+			ctx02 = context.WithValue(ctx02, "clusterName", clusterName)
+			ctx02 = context.WithValue(ctx02, "clusterType", clusterType)
+
+			envInitTasks = []*task.StepDisplay{}
+
+			t1 = task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel02).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+			envInitTasks = append(envInitTasks, t1)
+
+			t2 := task.NewBuilder().RunOntimeBatchInsert(&m.wsExe, &opt, &gOpt, "batch").BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+			envInitTasks = append(envInitTasks, t2)
+
+			t = task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %s th test", idx+1, "sysbench"), false, envInitTasks...).Build()
+
+			if err := t.Execute(ctxt.New(ctx02, 2)); err != nil {
+				if errorx.Cast(err) != nil {
+					return err
+				}
+				return err
+			}
+
+			_data, err = m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+			if err != nil {
+				return err
+			}
+			cnt = (*_data)[0]["ontime_cnt"].(float64) - originalCnt
+			originalCnt = (*_data)[0]["ontime_cnt"].(float64)
+			fmt.Printf("The rows 003: %f \n\n\n", originalCnt)
+			lastItem = sysbenchResult[len(sysbenchResult)-1]
+			lastItem = append([]string{fmt.Sprintf("%d", int(math.Round(cnt)))}, lastItem...)
+			sysbenchResult = append(sysbenchResult[:len(sysbenchResult)-1], lastItem)
+
+			time.Sleep(30 * time.Second)
+
+			// 03. sysbench + batch
+			if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "mysql", "alter resource group sg_batch ru_per_sec=2000 priority=high burstable"), false, 1*time.Hour); err != nil {
+				return err
+			}
+
+			ctx03, cancel03 := context.WithCancel(context.Background())
+			ctx03 = context.WithValue(ctx03, "clusterName", clusterName)
+			ctx03 = context.WithValue(ctx03, "clusterType", clusterType)
+
+			envInitTasks = []*task.StepDisplay{}
+
+			t1 = task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel03).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+			envInitTasks = append(envInitTasks, t1)
+
+			t2 = task.NewBuilder().RunOntimeBatchInsert(&m.wsExe, &opt, &gOpt, "partition").BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+			envInitTasks = append(envInitTasks, t2)
+
+			t = task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %s th test", idx+1, "sysbench"), false, envInitTasks...).Build()
+
+			if err := t.Execute(ctxt.New(ctx03, 2)); err != nil {
+				if errorx.Cast(err) != nil {
+					return err
+				}
+				return err
+			}
+
+			_data, err = m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+			if err != nil {
+				return err
+			}
+			cnt = (*_data)[0]["ontime_cnt"].(float64) - originalCnt
+			originalCnt = (*_data)[0]["ontime_cnt"].(float64)
+			fmt.Printf("The rows 004: %f \n\n\n", originalCnt)
+			lastItem = sysbenchResult[len(sysbenchResult)-1]
+			lastItem = append([]string{fmt.Sprintf("%d", int(math.Round(cnt)))}, lastItem...)
+			sysbenchResult = append(sysbenchResult[:len(sysbenchResult)-1], lastItem)
+			time.Sleep(30 * time.Second)
+
+			// 04. sysbench + batch(resource control)
+			if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "mysql", "alter resource group sg_batch ru_per_sec=2000 priority=low"), false, 1*time.Hour); err != nil {
+				return err
+			}
+			ctx04, cancel04 := context.WithCancel(context.Background())
+			ctx04 = context.WithValue(ctx04, "clusterName", clusterName)
+			ctx04 = context.WithValue(ctx04, "clusterType", clusterType)
+
+			envInitTasks = []*task.StepDisplay{}
+
+			t1 = task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel04).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+			envInitTasks = append(envInitTasks, t1)
+
+			t2 = task.NewBuilder().RunOntimeBatchInsert(&m.wsExe, &opt, &gOpt, "partition").BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+			envInitTasks = append(envInitTasks, t2)
+
+			t = task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %s th test", idx+1, "sysbench"), false, envInitTasks...).Build()
+
+			if err := t.Execute(ctxt.New(ctx04, 2)); err != nil {
+				if errorx.Cast(err) != nil {
+					return err
+				}
+				return err
+			}
+
+			_data, err = m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+			if err != nil {
+				return err
+			}
+			cnt = (*_data)[0]["ontime_cnt"].(float64) - originalCnt
+			originalCnt = (*_data)[0]["ontime_cnt"].(float64)
+			fmt.Printf("The rows 005: %f \n\n\n", originalCnt)
+			lastItem = sysbenchResult[len(sysbenchResult)-1]
+			lastItem = append([]string{fmt.Sprintf("%d", int(math.Round(cnt)))}, lastItem...)
+			sysbenchResult = append(sysbenchResult[:len(sysbenchResult)-1], lastItem)
+
+		} else {
+			for idxBatchSize, batchSize := range strings.Split(opt.BatchSizeArray, ",") {
+				// 01. Set the context
+				ctx, cancel = context.WithCancel(context.Background())
+				ctx = context.WithValue(ctx, "clusterName", clusterName)
+				ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+				// 02. Prepare the task
+				var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+				t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+				envInitTasks = append(envInitTasks, t1)
+
+				// 03. If the batch size is not x, run the data batch insert
+				if batchSize != "x" {
+					opt.BatchSize, err = strconv.Atoi(batchSize)
+					if err != nil {
+						return err
+					}
+
+					t2 := task.NewBuilder().RunOntimeBatchInsert(&m.wsExe, &opt, &gOpt, "insert").BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+					envInitTasks = append(envInitTasks, t2)
+				} else {
+					opt.BatchSize = 0
+				}
+
+				// 04. Run sysbench
+				builder := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %d th test for batch-size: %s", idx+1, idxBatchSize+1, batchSize), false, envInitTasks...)
+
+				t := builder.Build()
+
+				if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
+					if errorx.Cast(err) != nil {
+						return err
+					}
+					return err
+				}
+
+				time.Sleep(20 * time.Second)
+			}
 		}
 	}
 

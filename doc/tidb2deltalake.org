@@ -1,0 +1,43 @@
+* Todolist
+** TODO Setup environment
+   TiDB -> TiCDC -> S3
+   tidb2kafka2es
+** TODO Setup databricks workspace
+** TODO Read csv data from S3 and save it into delta lake
+** Fixed the doc of tidb2ora(s3)
+   The documentation is not complete. Difficult to reproduce the use case.
+
+* Databricks
+** Table creation
+   #+BEGIN_SRC
+-- create database tidb;
+-- "I","test09","test",439583334100369414,102,102,102
+
+create table tidb.test09(row_type varchar(32), table_name varchar(32),dbname varchar(32), tso varchar(128), col01 varchar(32), col02 varchar(32), col03 varchar(32) ) USING delta;
+
+create table tidb.test09_staging(row_type varchar(32), table_name varchar(32),dbname varchar(32), tso varchar(128), col01 varchar(32), col02 varchar(32), col03 varchar(32) ) USING delta;
+
+merge into tidb.test09 as t1 using tidb.test09_staging as t2
+on t1.col01 = t2.col02
+when matched THEN UPDATE SET *
+;
+
+COPY INTO tidb.test09_staging
+FROM 's3://databricks-workspace-stack-02d8f-metastore-bucket/data/CDC000001.csv' WITH (
+  CREDENTIAL (AWS_ACCESS_KEY = 'ASIA2TXTRGT4ZNFY7JWK', AWS_SECRET_KEY = 'U02kiVee9oKqBUF22waMRF73t/FCoPBPjWj1KX31', AWS_SESSION_TOKEN = 'IQoJb3JpZ2luX2VjEDYaDmFwLW5vcnRoZWFzdC0xIkcwRQIgE24x8oET5KxKjet8kBfXo/NJOWcdFnSrl3tT7PX23IYCIQC2w+pytr0QQzBIpiCvW2ccaBAxUdxVxmy5GwKcAkuUPyqdAwif//////////8BEAEaDDcyOTU4MTQzNDEwNSIMuAgb+flRj1DuU6a0KvECgAl1nzDNS/ti4GAj4Nyc40cyxdw3G5Ngf1kNFe69JootXxbmx9cEDdZangRdhm1K+58z8+Sqtk+RrTTzA7kPT/ZlHZFv9MK4eF1WQBkLWysZ3X8fspouHA/N80sBWwkWaO9TXd5h850mWhvmOBBEWFS5smzE/H/CtU+Wp4oV8GTbIE9rr5689WoeZb9teyucTYnudi49Tg8vKHYp4f6DQgC2gBE0WCGgqj6LBA6n85eROL4jRrvxT1GSJvCRX8V6k/a1dSYJLSQPwPWf/0GS6jznPCS+oQTwGeGdwDvjrSXu6C5TEqFH8zGu7OydUeg2TTx0O/bRn0kOkwA29WTFiE2lwP6ddA/E8xBJdc8hPC7JzCRBXlRYgaU/eMl5g5F8Qpl3sGhIjm/xp+NmCEDZvq2l6ZEJCb+5kevS1JHglKkvE4UiltHJHzv0z7yy3Eaov5XG1URh1L+UAPKt50QfwnzA+EF2qL/Y8WSRshXruRy4MK/j+aQGOqYB/MlHw0DhjkjYwofXgtRsYBVwOAdKne3ZOY9kzi8Osa9ocDwqp6pwSnc11c/2oOQcRywBVoFCf5P6s8XjFPLTcxWiX3As5NNiqS+Jmp89CicNLHL1rX3jmhJnwaVnD39GCsTcZcCYnivT+a0RtL9nLixZ9JbI/MjXCw1aDFE6Es2fKrFjUl20AP9zJCRJ/FiGcI82efdxfcrptQ6YPqZpQifYKYh4CQ==')
+)
+FILEFORMAT = CSV
+FORMAT_OPTIONS ('mergeSchema' = 'true',
+                  'header' = 'true')
+COPY_OPTIONS ('mergeSchema' = 'true');
+
+
+COPY INTO tidb.test09_staging
+FROM 's3://databricks-workspace-stack-02d8f-metastore-bucket/data/CDC000001.csv' WITH (
+  CREDENTIAL (AWS_ACCESS_KEY = 'ASIA2TXTRGT4ZNFY7JWK', AWS_SECRET_KEY = 'U02kiVee9oKqBUF22waMRF73t/FCoPBPjWj1KX31', AWS_SESSION_TOKEN = 'IQoJb3JpZ2luX2VjEDYaDmFwLW5vcnRoZWFzdC0xIkcwRQIgE24x8oET5KxKjet8kBfXo/NJOWcdFnSrl3tT7PX23IYCIQC2w+pytr0QQzBIpiCvW2ccaBAxUdxVxmy5GwKcAkuUPyqdAwif//////////8BEAEaDDcyOTU4MTQzNDEwNSIMuAgb+flRj1DuU6a0KvECgAl1nzDNS/ti4GAj4Nyc40cyxdw3G5Ngf1kNFe69JootXxbmx9cEDdZangRdhm1K+58z8+Sqtk+RrTTzA7kPT/ZlHZFv9MK4eF1WQBkLWysZ3X8fspouHA/N80sBWwkWaO9TXd5h850mWhvmOBBEWFS5smzE/H/CtU+Wp4oV8GTbIE9rr5689WoeZb9teyucTYnudi49Tg8vKHYp4f6DQgC2gBE0WCGgqj6LBA6n85eROL4jRrvxT1GSJvCRX8V6k/a1dSYJLSQPwPWf/0GS6jznPCS+oQTwGeGdwDvjrSXu6C5TEqFH8zGu7OydUeg2TTx0O/bRn0kOkwA29WTFiE2lwP6ddA/E8xBJdc8hPC7JzCRBXlRYgaU/eMl5g5F8Qpl3sGhIjm/xp+NmCEDZvq2l6ZEJCb+5kevS1JHglKkvE4UiltHJHzv0z7yy3Eaov5XG1URh1L+UAPKt50QfwnzA+EF2qL/Y8WSRshXruRy4MK/j+aQGOqYB/MlHw0DhjkjYwofXgtRsYBVwOAdKne3ZOY9kzi8Osa9ocDwqp6pwSnc11c/2oOQcRywBVoFCf5P6s8XjFPLTcxWiX3As5NNiqS+Jmp89CicNLHL1rX3jmhJnwaVnD39GCsTcZcCYnivT+a0RtL9nLixZ9JbI/MjXCw1aDFE6Es2fKrFjUl20AP9zJCRJ/FiGcI82efdxfcrptQ6YPqZpQifYKYh4CQ==')
+)
+FILEFORMAT = CSV
+FORMAT_OPTIONS ('mergeSchema' = 'true',
+                  'header' = 'true')
+COPY_OPTIONS ('mergeSchema' = 'true');
+   #+END_SRC

@@ -40,6 +40,32 @@ import (
 	"go.uber.org/zap"
 )
 
+func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo, wsExe *ctxt.Executor, gOpt *operator.Options, cbMakeWSContext func() error) *Builder {
+	clusterInfo.cidr = awsWSConfigs.CIDR
+	clusterInfo.subnetsNum = 1
+
+	b.tasks = append(b.tasks, &CreateWorkstation{
+		pexecutor:       pexecutor,
+		awsWSConfigs:    awsWSConfigs,
+		subClusterType:  subClusterType,
+		clusterInfo:     clusterInfo,
+		wsExe:           wsExe,
+		gOpt:            gOpt,
+		cbMakeWSContext: cbMakeWSContext,
+	})
+	return b
+}
+
+func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo, wsExe *ctxt.Executor, gOpt *operator.Options, cbMakeWSContext func() error) *Builder {
+	clusterInfo.cidr = awsWSConfigs.CIDR
+	clusterInfo.keyFile = awsWSConfigs.KeyFile
+
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "public", clusterInfo, []int{22, 80, 3000, 4000}).Build()).
+		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo, wsExe, gOpt, cbMakeWSContext).Build())
+
+	return b
+}
+
 type CreateWorkstation struct {
 	pexecutor      *ctxt.Executor
 	awsWSConfigs   *spec.AwsWSConfigs
@@ -47,6 +73,8 @@ type CreateWorkstation struct {
 	clusterInfo    *ClusterInfo
 	wsExe          *ctxt.Executor
 	gOpt           *operator.Options
+
+	cbMakeWSContext func() error
 }
 
 func (c *CreateWorkstation) instanceIsAvailable(ctx context.Context, client *ec2.Client, instanceStateName []string, checkStatus bool) (bool, error) {
@@ -118,9 +146,13 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	instanceExist, err := c.instanceIsAvailable(ctx, client, []string{"pending", "running", "stopping", "stopped"}, false)
 
 	if instanceExist == true {
-		if *c.wsExe, err = GetWSExecutor03(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil); err != nil {
+		if err := c.cbMakeWSContext(); err != nil {
 			return err
 		}
+
+		// if *c.wsExe, err = GetWSExecutor03(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil); err != nil {
+		// 	return err
+		// }
 		return nil
 	}
 
@@ -206,9 +238,13 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if *c.wsExe, err = GetWSExecutor03(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil); err != nil {
+	if err := c.cbMakeWSContext(); err != nil {
 		return err
 	}
+
+	// if *c.wsExe, err = GetWSExecutor03(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

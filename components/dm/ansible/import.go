@@ -32,8 +32,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/pingcap/errors"
 	"github.com/relex/aini"
-	"gopkg.in/ini.v1"
-	"gopkg.in/yaml.v2"
+	ini "gopkg.in/ini.v1"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // ref https://docs.ansible.com/ansible/latest/reference_appendices/config.html#the-configuration-file

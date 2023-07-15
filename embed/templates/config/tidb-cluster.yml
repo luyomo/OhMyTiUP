@@ -39,7 +39,16 @@ tiflash_servers:
 {{- if (and (.TiKV) (gt (len .TiKV) 0)) }}
 tikv_servers:
   {{- range .TiKV }}
-  - host: {{. }}
+  - host: {{.IPAddress }}
+    {{ if gt (len .Labels) 0 -}}
+    config:
+      server.labels:
+      {{- range .Labels }}
+        {{- range $k, $v := . }}
+        {{ $k }}: {{ $v }}
+	    {{- end -}} 
+      {{- end }}
+    {{ end }}
   {{- end }}
 {{ end  }}
 {{- if (and (.TiCDC) (gt (len .TiCDC) 0)) }}

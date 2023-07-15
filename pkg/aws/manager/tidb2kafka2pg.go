@@ -37,6 +37,7 @@ import (
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 // DeployOptions contains the options for scale out.
@@ -90,10 +91,18 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 		return err
 	}
 
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+    fpMakeWSContext := func() error {
+        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+            return err
+        }
+        return nil
+    }
 	var workstationInfo, clusterInfo, kafkaClusterInfo, pgClusterInfo task.ClusterInfo
 	// var workstationInfo, clusterInfo task.ClusterInfo
 
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 
@@ -118,8 +127,6 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 
 	t := builder.Build()
 
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
@@ -140,8 +147,8 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "postgres"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "postgres"}).
 		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
-		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).
+		DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
+		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo, &m.workstation).
 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
 
 	builder = task.NewBuilder().

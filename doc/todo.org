@@ -9,3 +9,5 @@
 * mock data preparation
   + Keep inserting data into TiDB Cloud: insert query
   + prepare csv data and call import task to import data
+  + dbgen
+    https://docs.deistercloud.com/content/Databases.30/TPCH%20Benchmark.90/Data%20generation%20tool.30.xml?embedded=true

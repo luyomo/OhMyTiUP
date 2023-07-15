@@ -19,10 +19,24 @@ import (
 	"fmt"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	// "github.com/luyomo/OhMyTiUP/pkg/executor"
 	"go.uber.org/zap"
 	"time"
+
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
+
+func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, subClusterType, tidbVersion string, clusterInfo *ClusterInfo, workstation *ws.Workstation) *Builder {
+	b.tasks = append(b.tasks, &DeployTiDBInstance{
+		pexecutor:      pexecutor,
+		subClusterType: subClusterType,
+		awsWSConfigs:   awsWSConfigs,
+		tidbVersion:    tidbVersion,
+		clusterInfo:    clusterInfo,
+		workstation:    workstation,
+	})
+	return b
+}
 
 type TiDBClusterInfo struct {
 	Name       string `json:"name"`
@@ -66,8 +80,11 @@ type TiDBClusterDetail struct {
 }
 
 type DeployTiDBInstance struct {
-	pexecutor      *ctxt.Executor
-	awsWSConfigs   *spec.AwsWSConfigs
+	pexecutor    *ctxt.Executor
+	awsWSConfigs *spec.AwsWSConfigs
+
+	workstation *ws.Workstation
+
 	subClusterType string
 	tidbVersion    string
 	clusterInfo    *ClusterInfo
@@ -76,48 +93,53 @@ type DeployTiDBInstance struct {
 // Execute implements the Task interface
 func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
-	clusterType := ctx.Value("clusterType").(string)
+	// clusterType := ctx.Value("clusterType").(string)
 
-	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", clusterName, clusterType)
-	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	// command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", clusterName, clusterType)
+	// zap.L().Debug("Command", zap.String("describe-instance", command))
+	// stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// var reservations Reservations
+	// if err = json.Unmarshal(stdout, &reservations); err != nil {
+	// 	zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+	// 	return err
+	// }
+
+	// var theInstance EC2
+	// cntInstance := 0
+	// for _, reservation := range reservations.Reservations {
+	// 	for _, instance := range reservation.Instances {
+	// 		cntInstance++
+	// 		theInstance = instance
+	// 	}
+	// }
+
+	// command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName)
+	// zap.L().Debug("Command", zap.String("describe-instance", command))
+	// stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if err = json.Unmarshal(stdout, &reservations); err != nil {
+	// 	zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
+	// 	return err
+	// }
+
+	// wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: c.awsWSConfigs.UserName, KeyFile: c.clusterInfo.keyFile}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
+
+	wsExe, err := c.workstation.GetExecutor()
 	if err != nil {
 		return err
 	}
 
-	var reservations Reservations
-	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return err
-	}
-
-	var theInstance EC2
-	cntInstance := 0
-	for _, reservation := range reservations.Reservations {
-		for _, instance := range reservation.Instances {
-			cntInstance++
-			theInstance = instance
-		}
-	}
-
-	command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName)
-	zap.L().Debug("Command", zap.String("describe-instance", command))
-	stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	if err != nil {
-		return err
-	}
-
-	if err = json.Unmarshal(stdout, &reservations); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-		return err
-	}
-
-	wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: c.awsWSConfigs.UserName, KeyFile: c.clusterInfo.keyFile}, []string{})
-	if err != nil {
-		return err
-	}
-
-	stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster list --format json `, c.awsWSConfigs.UserName), false)
+	stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster list --format json `, c.awsWSConfigs.UserName), false)
 	if err != nil {
 		return err
 	}
@@ -138,17 +160,17 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	if clusterExists == false {
 
-		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster deploy %s %s /opt/tidb/tidb-cluster.yml -y`, c.awsWSConfigs.UserName, clusterName, c.tidbVersion), false, 300*time.Second)
+		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster deploy %s %s /opt/tidb/tidb-cluster.yml -y`, c.awsWSConfigs.UserName, clusterName, c.tidbVersion), false, 300*time.Second)
 		if err != nil {
 			return err
 		}
 
-		stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s`, c.awsWSConfigs.UserName, clusterName), false, 300*time.Second)
+		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s`, c.awsWSConfigs.UserName, clusterName), false, 300*time.Second)
 		if err != nil {
 			return err
 		}
 	} else {
-		stdout, _, err := wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster display %s --format json `, c.awsWSConfigs.UserName, clusterName), false)
+		stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster display %s --format json `, c.awsWSConfigs.UserName, clusterName), false)
 		if err != nil {
 			return err
 		}
@@ -160,7 +182,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		}
 		for _, component := range tidbClusterDetail.Instances {
 			if component.Status != "Up" {
-				stdout, _, err = wsexecutor.Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s --node %s `, c.awsWSConfigs.UserName, clusterName, component.Id), false)
+				stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s --node %s `, c.awsWSConfigs.UserName, clusterName, component.Id), false)
 				if err != nil {
 					return err
 				}
@@ -169,35 +191,43 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	}
 
-	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
-	if err != nil {
+	// nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	// if err != nil {
+	// 	return err
+	// }
+
+	if err := c.workstation.InstallMySQLShell(); err != nil {
 		return err
 	}
 
-	var dbInfo DBInfo
-	dbInfo.DBHost = *(*nlb).DNSName
-	dbInfo.DBPort = 4000
-	dbInfo.DBUser = "root"
-
-	_, _, err = wsexecutor.Execute(ctx, "mkdir -p /opt/scripts", true)
-	if err != nil {
+	if err := c.workstation.DeployTiDBInfo(clusterName); err != nil {
 		return err
 	}
 
-	err = wsexecutor.TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/tidb-db-info.yml", "0644", dbInfo, true, 0)
-	if err != nil {
-		return err
-	}
+	// var dbInfo DBInfo
+	// dbInfo.DBHost = *(*nlb).DNSName
+	// dbInfo.DBPort = 4000
+	// dbInfo.DBUser = "root"
 
-	err = wsexecutor.TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_tidb_query", "0755", dbInfo, true, 0)
-	if err != nil {
-		return err
-	}
+	// _, _, err = wsexecutor.Execute(ctx, "mkdir -p /opt/scripts", true)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = wsexecutor.TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_tidb_from_file", "0755", dbInfo, true, 0)
-	if err != nil {
-		return err
-	}
+	// err = wsexecutor.TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/tidb-db-info.yml", "0644", dbInfo, true, 0)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// err = wsexecutor.TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_tidb_query", "0755", dbInfo, true, 0)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// err = wsexecutor.TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_tidb_from_file", "0755", dbInfo, true, 0)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

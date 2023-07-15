@@ -34,6 +34,8 @@ import (
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 // DeployOptions contains the options for scale out.
@@ -140,12 +142,22 @@ func (m *Manager) PostgresDeploy(
 	if err != nil {
 		return err
 	}
+
+	ctx := context.WithValue(context.Background(), "clusterName", name)
+	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-postgres")
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	timer.Take("Resource preparation")
 	if base.AwsPostgresConfigs.DBParameterFamilyGroup != "" {
 		var workstationInfo task.ClusterInfo
 		t5 := task.NewBuilder().
 			CreateTransitGateway(&sexecutor).
-			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+			CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "postgres", task.NetworkTypePrivate).
 			CreatePostgres(&sexecutor, base.AwsWSConfigs, base.AwsPostgresConfigs, &clusterInfo).
@@ -164,8 +176,6 @@ func (m *Manager) PostgresDeploy(
 
 	t := builder.Build()
 
-	ctx := context.WithValue(context.Background(), "clusterName", name)
-	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-postgres")
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.

@@ -689,35 +689,10 @@ func (b *Builder) WrapCreateEC2Nodes(pexecutor *ctxt.Executor, subClusterType st
 	return b
 }
 
-func (b *Builder) CreateWorkstation(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo, wsExe *ctxt.Executor, gOpt *operator.Options) *Builder {
-	clusterInfo.cidr = awsWSConfigs.CIDR
-	clusterInfo.subnetsNum = 1
-
-	b.tasks = append(b.tasks, &CreateWorkstation{
-		pexecutor:      pexecutor,
-		awsWSConfigs:   awsWSConfigs,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-		wsExe:          wsExe,
-		gOpt:           gOpt,
-	})
-	return b
-}
-
 func (b *Builder) AcceptVPCPeering(pexecutor *ctxt.Executor, listComponent []string) *Builder {
 	b.tasks = append(b.tasks, &AcceptVPCPeering{
 		pexecutor:     pexecutor,
 		listComponent: listComponent,
-	})
-	return b
-}
-
-func (b *Builder) DeployTiDB(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &DeployTiDB{
-		pexecutor:      pexecutor,
-		awsWSConfigs:   awsWSConfigs,
-		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
 	})
 	return b
 }
@@ -864,17 +839,6 @@ func (b *Builder) CreateMS(pexecutor *ctxt.Executor, subClusterType string, awsM
 		pexecutor:      pexecutor,
 		awsMSConfigs:   awsMSConfigs,
 		subClusterType: subClusterType,
-		clusterInfo:    clusterInfo,
-	})
-	return b
-}
-
-func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, subClusterType, tidbVersion string, clusterInfo *ClusterInfo) *Builder {
-	b.tasks = append(b.tasks, &DeployTiDBInstance{
-		pexecutor:      pexecutor,
-		subClusterType: subClusterType,
-		awsWSConfigs:   awsWSConfigs,
-		tidbVersion:    tidbVersion,
 		clusterInfo:    clusterInfo,
 	})
 	return b
@@ -1099,16 +1063,6 @@ func (b *Builder) CreateBasicResource(pexecutor *ctxt.Executor, subClusterType s
 	if network == NetworkTypeNAT {
 		b.CreateNAT(pexecutor, subClusterType, clusterInfo)
 	}
-
-	return b
-}
-
-func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterType string, awsWSConfigs *spec.AwsWSConfigs, clusterInfo *ClusterInfo, wsExe *ctxt.Executor, gOpt *operator.Options) *Builder {
-	clusterInfo.cidr = awsWSConfigs.CIDR
-	clusterInfo.keyFile = awsWSConfigs.KeyFile
-
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "public", clusterInfo, []int{22, 80, 3000, 4000}).Build()).
-		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo, wsExe, gOpt).Build())
 
 	return b
 }
@@ -1544,25 +1498,6 @@ func (b *Builder) ListVpcPeering(pexecutor *ctxt.Executor, subClusterTypes []str
 		pexecutor:           pexecutor,
 		subClusterTypes:     subClusterTypes,
 		tableVpcPeeringInfo: tableVpcPeeringInfo,
-	})
-	return b
-}
-
-func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options) *Builder {
-	b.tasks = append(b.tasks, &RunOntimeBatchInsert{
-		pexecutor: pexecutor,
-		opt:       opt,
-	})
-	return b
-}
-
-func (b *Builder) RunSysbench(pexecutor *ctxt.Executor, sysbenchConfigFile string, sysbenchResult *[][]string, opt *operator.LatencyWhenBatchOptions, cancelCtx *context.CancelFunc) *Builder {
-	b.tasks = append(b.tasks, &RunSysbench{
-		pexecutor:          pexecutor,
-		opt:                opt,
-		sysbenchConfigFile: sysbenchConfigFile,
-		sysbenchResult:     sysbenchResult,
-		cancelCtx:          cancelCtx,
 	})
 	return b
 }

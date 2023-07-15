@@ -1,0 +1,9 @@
+* Setup
+** Setup the web for google login
+   https://github.com/google/google-api-javascript-client/blob/master/samples/authSample.html
+** Add logic for aws web identity
+   https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/EC2.html#runInstances-property
+* Reference
+
+** Policy to limit the instance type
+https://blog.vizuri.com/limiting-allowed-aws-instance-type-with-iam-policy

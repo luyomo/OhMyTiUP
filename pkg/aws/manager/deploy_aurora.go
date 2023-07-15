@@ -38,7 +38,7 @@ import (
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
-// DeployOptions contains the options for scale out.
+// DeployOptions contains the options for scale out
 type AuroraDeployOptions struct {
 	User              string // username to login to the SSH server
 	IdentityFile      string // path to the private key file
@@ -143,12 +143,19 @@ func (m *Manager) AuroraDeploy(
 		return err
 	}
 
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	timer.Take("Resource preparation")
 	if base.AwsAuroraConfigs.DBParameterFamilyGroup != "" {
 		var workstationInfo task.ClusterInfo
 		t5 := task.NewBuilder().
 			CreateTransitGateway(&m.localExe).
-			CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+			CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 			CreateTransitGatewayVpcAttachment(&m.localExe, "workstation", task.NetworkTypePublic).
 			CreateTransitGatewayVpcAttachment(&m.localExe, "aurora", task.NetworkTypePrivate).
 			CreateAurora(&m.localExe, base.AwsAuroraConfigs).

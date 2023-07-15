@@ -17,10 +17,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	// "gopkg.in/yaml.v3"
-	// "io/ioutil"
-	// "strings"
-	// "time"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -37,6 +33,7 @@ import (
 	perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
 // DeployOptions contains the options for scale out.
@@ -100,7 +97,13 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 	// Prepare parallel task to generate TiDB, kafka and mongo db cluster
 	var workstationInfo, clusterInfo, kafkaClusterInfo, mongoClusterInfo task.ClusterInfo
 
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt).
+    fpMakeWSContext := func() error {
+        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+            return err
+        }
+        return nil
+    }
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 
@@ -134,8 +137,8 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 	var taskDeployment []task.Task
 	taskDeployment = append(taskDeployment, task.NewBuilder().DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).Build())
 	taskDeployment = append(taskDeployment, task.NewBuilder().DeployMongo(&sexecutor, base.AwsWSConfigs, "mongo", &workstationInfo).Build())
-	taskDeployment = append(taskDeployment, task.NewBuilder().DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo).
-		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo).Build())
+	taskDeployment = append(taskDeployment, task.NewBuilder().DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
+		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo, &m.workstation).Build())
 
 	parallelVpcAttachment := task.NewBuilder().Parallel(false, taskVpcAttachment...).Build()
 

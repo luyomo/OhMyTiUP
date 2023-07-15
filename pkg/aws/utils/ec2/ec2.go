@@ -15,20 +15,10 @@ package ec2
 
 import (
 	"context"
-	// "encoding/json"
 	"errors"
-	// "fmt"
-	// "os"
-	// "path"
-	// "sort"
-	// "strings"
-	// "text/template"
-	// "time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	// "github.com/aws/aws-sdk-go-v2/service/autoscaling"
-	// astypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	// "github.com/aws/smithy-go"
@@ -143,6 +133,28 @@ func (e *EC2API) ExtractEC2Instances() (*map[string][]string, error) {
 					mapInstances["AlertManager"] = append(mapInstances["AlertManager"], *instance.PrivateIpAddress)
 				case *tag.Key == "Component" && *tag.Value == "mysql-worker":
 					mapInstances["MySQLWorker"] = append(mapInstances["MySQLWorker"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "pd":
+					mapInstances["PD"] = append(mapInstances["PD"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "tidb":
+					mapInstances["TiDB"] = append(mapInstances["TiDB"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "tiflash":
+					mapInstances["TiFlash"] = append(mapInstances["TiFlash"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "ticdc":
+					mapInstances["TiCDC"] = append(mapInstances["TiCDC"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "dm":
+					mapInstances["DM"] = append(mapInstances["DM"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "pump":
+					mapInstances["Pump"] = append(mapInstances["Pump"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "drainer":
+					mapInstances["Drainer"] = append(mapInstances["Drainer"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "monitor":
+					mapInstances["Monitor"] = append(mapInstances["Monitor"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "grafana":
+					mapInstances["Grafana"] = append(mapInstances["Grafana"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "alert-manager":
+					mapInstances["AlertManager"] = append(mapInstances["AlertManager"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "tikv":
+					mapInstances["TiKV"] = append(mapInstances["TiKV"], *instance.PrivateIpAddress)
 				}
 			}
 		}

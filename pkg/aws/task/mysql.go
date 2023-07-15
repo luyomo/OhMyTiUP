@@ -15,19 +15,12 @@ package task
 
 import (
 	"context"
-	// "errors"
 	"fmt"
-	// "net/url"
-	// "strings"
 	"time"
 
-	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
 
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
-	// kmsapi "github.com/luyomo/OhMyTiUP/pkg/aws/utils/kms"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/utils/s3"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/utils/tidbcloud"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 

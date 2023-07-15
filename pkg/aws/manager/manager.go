@@ -17,13 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	// "gopkg.in/yaml.v3"
-	// "io/ioutil"
-	// "os"
 	"strconv"
 	"strings"
-
-	// "github.com/aws/aws-sdk-go-v2/config"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
@@ -58,7 +53,7 @@ type Manager struct {
 	bindVersion spec.BindVersion
 	wsExe       ctxt.Executor
 	localExe    ctxt.Executor
-	workstation *ws.Workstation
+	workstation ws.Workstation
 }
 
 type INC_WS_FLAG bool
@@ -481,10 +476,12 @@ func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt 
 		return nil
 	}
 
-	m.workstation, err = ws.NewAWSWorkstation(&m.localExe, clusterName, clusterType, (*gOpt).SSHUser, (*gOpt).IdentityFile, awsCliFlag)
+	pWS, err := ws.NewAWSWorkstation(&m.localExe, clusterName, clusterType, (*gOpt).SSHUser, (*gOpt).IdentityFile, awsCliFlag)
 	if err != nil {
 		return err
 	}
+
+	m.workstation = *pWS
 
 	pWsExe, err := m.workstation.GetExecutor()
 	if err != nil {
