@@ -196,8 +196,8 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb", "aurora", "sqlserver", "dmsservice"}).
 			CreateRouteTgw(&sexecutor, "tidb", []string{"aurora"}).
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
-			DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo, &m.workstation).
+			DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
+			DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
 			//CreateTiDBNLB(&sexecutor, "tidb", &clusterInfo).
 			//MakeDBObjects(globalOptions.User, "127.0.0.1", name, clusterType, "tidb", &workstationInfo).
 			DeployTiCDC(&sexecutor, "tidb", &workstationInfo). // - Set the TiCDC for data sync between TiDB and Aurora
@@ -212,7 +212,7 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
+			DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
 			CreateDMSTask(&sexecutor, "dmsservice", &dmsInfo).
 			MakeDBObjects(&sexecutor, "tidb", &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))

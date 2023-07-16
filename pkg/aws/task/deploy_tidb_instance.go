@@ -18,22 +18,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	// "github.com/luyomo/OhMyTiUP/pkg/executor"
 	"go.uber.org/zap"
 	"time"
 
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
-func (b *Builder) DeployTiDBInstance(pexecutor *ctxt.Executor, awsWSConfigs *spec.AwsWSConfigs, subClusterType, tidbVersion string, clusterInfo *ClusterInfo, workstation *ws.Workstation) *Builder {
+func (b *Builder) DeployTiDBInstance(awsWSConfigs *spec.AwsWSConfigs, subClusterType, tidbVersion string, workstation *ws.Workstation) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDBInstance{
-		pexecutor:      pexecutor,
+		// pexecutor:      pexecutor,
 		subClusterType: subClusterType,
 		awsWSConfigs:   awsWSConfigs,
 		tidbVersion:    tidbVersion,
-		clusterInfo:    clusterInfo,
-		workstation:    workstation,
+		// clusterInfo:    clusterInfo,
+		workstation: workstation,
 	})
 	return b
 }
@@ -80,7 +78,7 @@ type TiDBClusterDetail struct {
 }
 
 type DeployTiDBInstance struct {
-	pexecutor    *ctxt.Executor
+	// pexecutor    *ctxt.Executor
 	awsWSConfigs *spec.AwsWSConfigs
 
 	workstation *ws.Workstation

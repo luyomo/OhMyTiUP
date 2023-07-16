@@ -242,7 +242,7 @@ func (m *Manager) Deploy(
 				CreateDMWorkerNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				CreateTiCDCNodes(&sexecutor, "tidb", base.AwsTopoConfigs, &clusterInfo).
 				//CreateVpcPeering(globalOptions.User, inst.GetHost(), name, clusterType, "tidb", base.AwsTopoConfigs, &clusterInfo).
-				DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &clusterInfo, &m.workstation).
+				DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
 				BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", inst.GetHost(), inst.GetSSHPort()))
 			envInitTasks = append(envInitTasks, t)
 		}

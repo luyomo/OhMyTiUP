@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
@@ -77,11 +76,11 @@ func (c *DeployMySQL) Execute(ctx context.Context) error {
 
 	for _, mysqlNode := range (*mysqlInstances)["MySQLWorker"] {
 		fmt.Printf("mysql nodes: <%#v> \n\n\n", mysqlNode)
-		if err := c.workstation.FormatDisk(mysqlNode, "/var/lib/mysql"); err != nil {
+		if err := c.workstation.FormatDisk(mysqlNode.(string), "/var/lib/mysql"); err != nil {
 			return err
 		}
 
-		if err := c.workstation.InstallMySQLBinToWorker(mysqlNode); err != nil {
+		if err := c.workstation.InstallMySQLBinToWorker(mysqlNode.(string)); err != nil {
 			return err
 		}
 	}

@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
@@ -31,6 +32,31 @@ type ScaleTiDB struct {
 	awsWSConfigs   *spec.AwsWSConfigs
 	awsTopoConfig  *spec.AwsTopoConfigs
 	subClusterType string
+}
+
+type TplTiKVData struct {
+	IPAddress string
+	Labels    []map[string]string
+}
+
+type TplTiupData struct {
+	PD           []string
+	TiDB         []string
+	TiFlash      []string
+	TiKV         []TplTiKVData
+	TiCDC        []string
+	DM           []string
+	Monitor      []string
+	Grafana      []string
+	AlertManager []string
+	Pump         []string
+	Drainer      []string
+
+	Labels []string
+}
+
+func (t TplTiupData) String() string {
+	return fmt.Sprintf("PD: %s  |  TiDB: %s | TiFlash: %s   |  TiCDC: %s  |  DM: %s  |  Pump:%s  | Drainer: %s  | Monitor:%s | Grafana: %s | AlertManager: %s", strings.Join(t.PD, ","), strings.Join(t.TiDB, ","), strings.Join(t.TiFlash, ","), strings.Join(t.TiCDC, ","), strings.Join(t.DM, ","), strings.Join(t.Pump, ","), strings.Join(t.Drainer, ","), strings.Join(t.Monitor, ","), strings.Join(t.Grafana, ","), strings.Join(t.AlertManager, ","))
 }
 
 // Execute implements the Task interface

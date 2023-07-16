@@ -133,8 +133,8 @@ func (m *Manager) TiDBDeploy(
 		ParallelStep("+ Deploying all the sub components", false, task001...).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb"}).
 		RunCommonWS(&m.wsExe, &[]string{"git"}).
-		DeployTiDB(&m.wsExe, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
-		DeployTiDBInstance(&m.wsExe, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &clusterInfo, &m.workstation).
+		DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
+		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
 		BuildAsStep("Parallel Main step")
 
 	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {

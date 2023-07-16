@@ -16,6 +16,8 @@ package ec2
 import (
 	"context"
 	"errors"
+	// "fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -104,7 +106,7 @@ func (e *EC2API) getEndpointServiceAvailabilityZones(serviceName string) (*[]str
 	return &resp.ServiceDetails[0].AvailabilityZones, nil
 }
 
-func (e *EC2API) ExtractEC2Instances() (*map[string][]string, error) {
+func (e *EC2API) ExtractEC2Instances() (*map[string][]interface{}, error) {
 
 	filters := e.makeFilters()
 
@@ -113,13 +115,17 @@ func (e *EC2API) ExtractEC2Instances() (*map[string][]string, error) {
 		return nil, err
 	}
 
-	mapInstances := make(map[string][]string)
+	mapInstances := make(map[string][]interface{})
 
 	for _, reservation := range describeInstances.Reservations {
 		for _, instance := range reservation.Instances {
 			if instance.State.Name == types.InstanceStateNameTerminated {
 				continue
 			}
+
+			// Only usful for TiKV nodes
+			mapTiKVData := make(map[string]interface{})
+			mapTiKVData["Labels"] = make(map[string]string)
 
 			for _, tag := range instance.Tags {
 				switch {
@@ -153,10 +159,29 @@ func (e *EC2API) ExtractEC2Instances() (*map[string][]string, error) {
 					mapInstances["Grafana"] = append(mapInstances["Grafana"], *instance.PrivateIpAddress)
 				case *tag.Key == "Component" && *tag.Value == "alert-manager":
 					mapInstances["AlertManager"] = append(mapInstances["AlertManager"], *instance.PrivateIpAddress)
+				// Below two are used for tikv and labels
 				case *tag.Key == "Component" && *tag.Value == "tikv":
-					mapInstances["TiKV"] = append(mapInstances["TiKV"], *instance.PrivateIpAddress)
+					mapTiKVData["IPAddress"] = *instance.PrivateIpAddress
+				case strings.Contains(*tag.Key, "label:"):
+					tagKey := strings.Replace(*tag.Key, "label:", "", 1)
+					mapTiKVData["Labels"].(map[string]string)[tagKey] = *tag.Value
+
+					// Labels is used to confiure the replication.location-labels under pd config
+					existsInArray := false
+					for _, element := range mapInstances["Labels"] {
+						if element == tagKey {
+							existsInArray = true
+						}
+					}
+					if existsInArray == false {
+						mapInstances["Labels"] = append(mapInstances["Labels"], tagKey)
+					}
 				}
 			}
+			if _, ok := mapTiKVData["IPAddress"]; ok {
+				mapInstances["TiKV"] = append(mapInstances["TiKV"], mapTiKVData)
+			}
+
 		}
 	}
 

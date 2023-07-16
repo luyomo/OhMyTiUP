@@ -43,9 +43,10 @@ type Workstation struct {
 
 	mapRemoteNodes map[string]*ctxt.Executor
 
-	ipAddr       string
-	user         string
-	identityFile string
+	ipAddr        string
+	privateIPAddr string
+	user          string
+	identityFile  string
 
 	tiupCmdPath string
 }
@@ -179,11 +180,11 @@ func NewAWSWorkstation(localExe *ctxt.Executor, clusterName, clusterType, user, 
 		return nil, err
 	}
 
-	return &Workstation{executor: &_executor, tiupCmdPath: "$HOME/.tiup/bin", user: user, identityFile: identityFile, ipAddr: *describeInstances.Reservations[0].Instances[0].PublicIpAddress, mapRemoteNodes: make(map[string]*ctxt.Executor)}, nil
+	return &Workstation{executor: &_executor, tiupCmdPath: "$HOME/.tiup/bin", user: user, identityFile: identityFile, ipAddr: *describeInstances.Reservations[0].Instances[0].PublicIpAddress, mapRemoteNodes: make(map[string]*ctxt.Executor), privateIPAddr: *describeInstances.Reservations[0].Instances[0].PrivateIpAddress}, nil
 }
 
 func (c *Workstation) GetIPAddr() string {
-	return c.ipAddr
+	return c.privateIPAddr
 }
 
 // Execute implements the Task interface

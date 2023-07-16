@@ -60,7 +60,7 @@ func (w *Workstation) GetDMCluster(clusterName string) (*map[string]interface{},
 	return nil, nil
 }
 
-func (w *Workstation) DeployDMCluster(clusterName, clusterVersion string, mapDBInstances *map[string][]string) error {
+func (w *Workstation) DeployDMCluster(clusterName, clusterVersion string, mapDBInstances *map[string][]interface{}) error {
 	ctx := context.Background()
 
 	dmCluster, err := w.GetDMCluster(clusterName)

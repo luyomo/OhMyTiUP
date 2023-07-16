@@ -137,8 +137,8 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 	var taskDeployment []task.Task
 	taskDeployment = append(taskDeployment, task.NewBuilder().DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).Build())
 	taskDeployment = append(taskDeployment, task.NewBuilder().DeployMongo(&sexecutor, base.AwsWSConfigs, "mongo", &workstationInfo).Build())
-	taskDeployment = append(taskDeployment, task.NewBuilder().DeployTiDB(&sexecutor, "tidb", base.AwsWSConfigs, &workstationInfo, &m.workstation).
-		DeployTiDBInstance(&sexecutor, base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &workstationInfo, &m.workstation).Build())
+	taskDeployment = append(taskDeployment, task.NewBuilder().DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
+		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).Build())
 
 	parallelVpcAttachment := task.NewBuilder().Parallel(false, taskVpcAttachment...).Build()
 
