@@ -141,9 +141,9 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 		return err
 	}
 
-	if err := m.workstation.InstallProfiles(base.AwsWSConfigs.KeyFile); err != nil {
-		return err
-	}
+	// if err := m.workstation.InstallProfiles(base.AwsWSConfigs.KeyFile); err != nil {
+	// 	return err
+	// }
 
 	if err := m.workstation.InstallTiup(); err != nil {
 		return err

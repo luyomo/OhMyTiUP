@@ -403,9 +403,9 @@ func (w *Workstation) GetExecutor() (*ctxt.Executor, error) {
 	return w.executor, nil
 }
 
-func (w *Workstation) InstallProfiles(localKeyFile string) error {
+func (w *Workstation) InstallProfiles() error {
 	ctx := context.Background()
-	if err := (*w.executor).Transfer(ctx, localKeyFile, "~/.ssh/id_rsa", false, 0); err != nil {
+	if err := (*w.executor).Transfer(ctx, w.identityFile, "~/.ssh/id_rsa", false, 0); err != nil {
 		return err
 	}
 

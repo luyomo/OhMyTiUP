@@ -16,19 +16,13 @@ package ec2
 import (
 	"context"
 	"errors"
-	// "fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	// "github.com/aws/smithy-go"
-	// "github.com/luyomo/OhMyTiUP/embed"
-	// operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
-	// "go.uber.org/zap"
 )
 
 func MapTag() *map[string]string {

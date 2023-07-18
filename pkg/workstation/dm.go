@@ -278,7 +278,7 @@ func (w *Workstation) SyncDiffInspector(clusterName, databases string) error {
 		return err
 	}
 
-	stdout, _, err = (*w.executor).Execute(ctx, fmt.Sprintf("%s/sync_diff_inspector --config /opt/tidb/sync_diff_inspector.toml", w.tiupCmdPath), false, 1*time.Minute)
+	stdout, _, err = (*w.executor).Execute(ctx, fmt.Sprintf("/usr/local/bin/sync_diff_inspector --config /opt/tidb/sync_diff_inspector.toml"), false, 1*time.Minute)
 	if err != nil {
 		fmt.Printf("The out data is <%s> \n\n\n", string(stdout))
 		return err

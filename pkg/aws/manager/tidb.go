@@ -313,7 +313,11 @@ func (m *Manager) ListTiDBCluster(clusterName, clusterType string, opt DeployOpt
 	fmt.Printf("Resource ID  :      %s    State: %s \n", cyan.Sprint(transitGateway.TransitGatewayId), cyan.Sprint(transitGateway.State))
 	tui.PrintTable(tableTransitGatewayVpcAttachments, true)
 
-	fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(*nlb.DNSName))
+	if nlb.DNSName != nil {
+		fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(*nlb.DNSName))
+	} else {
+		fmt.Printf("\nLoad Balancer:      %s", cyan.Sprint(""))
+	}
 	fmt.Printf("\nResource Type:      %s\n", cyan.Sprint("EC2"))
 	tui.PrintTable(tableECs, true)
 

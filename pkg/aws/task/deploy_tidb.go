@@ -60,9 +60,9 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.workstation.InstallProfiles(c.awsWSConfigs.KeyFile); err != nil {
-		return err
-	}
+	// if err := c.workstation.InstallProfiles(c.awsWSConfigs.KeyFile); err != nil {
+	// 	return err
+	// }
 
 	mapArgs := make(map[string]string)
 	mapArgs["clusterName"] = clusterName

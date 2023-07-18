@@ -489,5 +489,9 @@ func (m *Manager) makeExeContext(ctx context.Context, topo *spec.Topology, gOpt 
 	}
 	m.wsExe = *pWsExe
 
+	if err := m.workstation.InstallProfiles(); err != nil {
+		return err
+	}
+
 	return nil
 }

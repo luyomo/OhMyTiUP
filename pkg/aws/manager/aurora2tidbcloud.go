@@ -147,9 +147,9 @@ func (m *Manager) Aurora2TiDBCloudDeploy(
 		return err
 	}
 
-	if err := m.workstation.InstallProfiles(base.AwsWSConfigs.KeyFile); err != nil {
-		return err
-	}
+	// if err := m.workstation.InstallProfiles(base.AwsWSConfigs.KeyFile); err != nil {
+	// 	return err
+	// }
 
 	// // Fetch aurora db info and write it into workstation's aurora-db-info.yaml
 	if err := m.workstation.DeployAuroraInfo(clusterType, name, base.AwsAuroraConfigs.DBPassword); err != nil {
@@ -887,7 +887,7 @@ func (m *Manager) Aurora2TiDBCloudRunCluster(clusterName string, opt operator.La
 		// fmt.Printf("The syncd flag is <%#v>\n", hasSynced)
 
 		cyan := color.New(color.FgCyan, color.Bold)
-		stdout, _, err = m.wsExe.Execute(ctx, "/home/admin/.tiup/bin/sync_diff_inspector --config=/opt/dm-sync-diff-check.toml ", false)
+		stdout, _, err = m.wsExe.Execute(ctx, "/usr/local/bin/sync_diff_inspector --config=/opt/dm-sync-diff-check.toml ", false)
 		if err != nil {
 			fmt.Printf("Data comparison:      %s\n", cyan.Sprint("Different"))
 			fmt.Printf("Data comparison:      %s\n", "Please check the log /tmp/output/sync_diff.log")
