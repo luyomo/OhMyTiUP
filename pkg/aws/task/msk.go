@@ -26,8 +26,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kafka/types"
 	// "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
-    awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 )
 
 func (b *Builder) CreateMSKCluster(pexecutor *ctxt.Executor, subClusterType string, awsMSKTopoConfigs *spec.AwsMSKTopoConfigs, clusterInfo *ClusterInfo) *Builder {

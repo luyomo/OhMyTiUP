@@ -215,7 +215,7 @@ func (c *CreateNATGateway) Execute(ctx context.Context) error {
 			SubnetId:     aws.String((*clusterSubnets)[0]),
 			AllocationId: elasticAddress,
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeNatgateway,
 					Tags:         *tags,
 				},

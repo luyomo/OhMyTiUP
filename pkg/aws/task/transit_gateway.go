@@ -232,7 +232,7 @@ func (c *CreateTransitGateway) Execute(ctx context.Context) error {
 
 		if _, err = c.client.CreateTransitGateway(context.TODO(), &ec2.CreateTransitGatewayInput{
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeTransitGateway,
 					Tags:         *tags,
 				},

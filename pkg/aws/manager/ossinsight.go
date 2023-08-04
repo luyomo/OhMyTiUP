@@ -565,7 +565,7 @@ func (m *Manager) DestroyOssInsight(name string, gOpt operator.Options, destroyO
 	var destroyTasks []*task.StepDisplay
 
 	t1 := task.NewBuilder().
-		DestroyAurora(/* &sexecutor */).
+		DestroyAurora().
 		BuildAsStep(fmt.Sprintf("  - Destroying aurora nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)

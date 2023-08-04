@@ -16,6 +16,7 @@ package ec2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -98,6 +99,124 @@ func (e *EC2API) getEndpointServiceAvailabilityZones(serviceName string) (*[]str
 	}
 
 	return &resp.ServiceDetails[0].AvailabilityZones, nil
+}
+
+func (e *EC2API) GetVpcId() (*types.Vpc, error) {
+	filters := e.makeFilters()
+
+	describeVpc, err := e.client.DescribeVpcs(context.TODO(), &ec2.DescribeVpcsInput{Filters: *filters})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(describeVpc.Vpcs) > 1 {
+		return nil, errors.New(fmt.Sprintf("Multiple VPCs found: %#v", describeVpc))
+	}
+
+	if len(describeVpc.Vpcs) == 0 {
+		return nil, nil
+	}
+
+	return &(describeVpc.Vpcs[0]), nil
+
+}
+
+func (e *EC2API) GetRouteTable() (*types.RouteTable, error) {
+	filters := e.makeFilters()
+
+	describeRouteTables, err := e.client.DescribeRouteTables(context.TODO(), &ec2.DescribeRouteTablesInput{Filters: *filters})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(describeRouteTables.RouteTables) > 1 {
+		return nil, errors.New(fmt.Sprintf("Multiple VPCs found: %#v", describeRouteTables))
+	}
+
+	if len(describeRouteTables.RouteTables) == 0 {
+		return nil, nil
+	}
+
+	return &describeRouteTables.RouteTables[0], nil
+}
+
+func (e *EC2API) GetTransitGateway() (*types.TransitGateway, error) {
+	filters := e.makeFilters()
+
+	*filters = append(*filters, types.Filter{Name: aws.String("state"), Values: []string{"available"}})
+
+	describeTransitGateways, err := e.client.DescribeTransitGateways(context.TODO(), &ec2.DescribeTransitGatewaysInput{Filters: *filters})
+	if err != nil {
+		return nil, err
+	}
+
+	// fmt.Printf("Transit gateways : %#v \n\n\n", describeTransitGateways)
+
+	if len(describeTransitGateways.TransitGateways) > 1 {
+		return nil, errors.New(fmt.Sprintf("Multiple transit gateways found: %#v", describeTransitGateways))
+	}
+
+	if len(describeTransitGateways.TransitGateways) == 0 {
+		return nil, nil
+	}
+
+	return &describeTransitGateways.TransitGateways[0], nil
+
+}
+
+/*
+Input: filters
+
+	target vpc's cidr block
+	transitgatewayid
+*/
+func (e *EC2API) CreateRoute(cidr, transitGatewayId string) error {
+	routeTable, err := e.GetRouteTable()
+	if err != nil {
+		return err
+	}
+	if routeTable == nil {
+		return errors.New("No source route table found.")
+	}
+
+	routeHasExists, err := e.routeHasExists(routeTable, cidr, transitGatewayId)
+	if err != nil {
+		return err
+	}
+
+	if routeHasExists == true {
+		return nil
+	}
+
+	_, err = e.client.CreateRoute(context.TODO(), &ec2.CreateRouteInput{RouteTableId: routeTable.RouteTableId,
+		DestinationCidrBlock: aws.String(cidr),
+		TransitGatewayId:     aws.String(transitGatewayId)})
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (e *EC2API) routeHasExists(routeTable *types.RouteTable, cidr, transitGatewayId string) (bool, error) {
+
+	for _, route := range routeTable.Routes {
+		if route.TransitGatewayId != nil && *route.TransitGatewayId == transitGatewayId && cidr == *route.DestinationCidrBlock {
+			if route.State == "blackhole" {
+
+				_, err := e.client.DeleteRoute(context.TODO(), &ec2.DeleteRouteInput{RouteTableId: routeTable.RouteTableId, DestinationCidrBlock: aws.String(cidr)})
+				if err != nil {
+					return false, err
+				}
+				return false, nil
+			}
+
+			return true, nil
+
+		}
+	}
+
+	return false, nil
 }
 
 func (e *EC2API) ExtractEC2Instances() (*map[string][]interface{}, error) {

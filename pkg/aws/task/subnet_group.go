@@ -242,7 +242,7 @@ func (c *CreateSubnets) Execute(ctx context.Context) error {
 			AvailabilityZone: zone.ZoneName,
 			CidrBlock:        aws.String(_cidrBlock),
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeSubnet,
 					Tags:         *tags,
 				},
@@ -370,9 +370,9 @@ type ListSubnets struct {
 
 // Execute implements the Task interface
 func (c *ListSubnets) Execute(ctx context.Context) error {
-    if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
-        return err
-    }
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
+	}
 
 	return nil
 }

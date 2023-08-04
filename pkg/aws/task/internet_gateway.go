@@ -178,7 +178,7 @@ func (c *CreateInternetGateway) Execute(ctx context.Context) error {
 
 		if _, err = c.client.CreateInternetGateway(context.TODO(), &ec2.CreateInternetGatewayInput{
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeSecurityGroup,
 					Tags:         *tags,
 				},

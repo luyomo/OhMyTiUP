@@ -148,7 +148,7 @@ func (m *Manager) TiDB2MSDeploy(
 	}
 
 	if base.AwsAuroraConfigs.InstanceType != "" {
-		t3 := task.NewBuilder().CreateAurora(/* &sexecutor, */ base.AwsAuroraConfigs).
+		t3 := task.NewBuilder().CreateAurora( /* &sexecutor, */ base.AwsAuroraConfigs).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora instance"))
 		envInitTasks = append(envInitTasks, t3)
 	}
@@ -159,11 +159,11 @@ func (m *Manager) TiDB2MSDeploy(
 		envInitTasks = append(envInitTasks, t4)
 	}
 
-	if base.AwsCloudFormationConfigs.TemplateBodyFilePath != "" || base.AwsCloudFormationConfigs.TemplateURL != "" {
-		t5 := task.NewBuilder().CreateCloudFormation(&sexecutor, base.AwsCloudFormationConfigs, "", &clusterInfo).
-			BuildAsStep(fmt.Sprintf("  - Preparing cloud formation"))
-		envInitTasks = append(envInitTasks, t5)
-	}
+	// 	if base.AwsCloudFormationConfigs.TemplateBodyFilePath != "" || base.AwsCloudFormationConfigs.TemplateURL != "" {
+	// 		t5 := task.NewBuilder().CreateCloudFormation(&sexecutor, base.AwsCloudFormationConfigs, "", &clusterInfo).
+	// 			BuildAsStep(fmt.Sprintf("  - Preparing cloud formation"))
+	// 		envInitTasks = append(envInitTasks, t5)
+	// 	}
 
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for tidb2ms solution service", false, envInitTasks...)
 

@@ -164,13 +164,13 @@ func (m *Manager) WorkstationDeploy(
 		return errors.New("No workstation instance is specified")
 	}
 
-    fpMakeWSContext := func() error {
-        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
-            return err
-        }
-        return nil
-    }
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 

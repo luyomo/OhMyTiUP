@@ -25,11 +25,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 )
 
-func (b *Builder) CreateAurora( /* pexecutor *ctxt.Executor, */ awsAuroraConfigs *spec.AwsAuroraConfigs) *Builder {
+func (b *Builder) CreateAurora(awsAuroraConfigs *spec.AwsAuroraConfigs) *Builder {
 	var parameters []types.Parameter
 	parameters = append(parameters, types.Parameter{ParameterKey: aws.String("Username"), ParameterValue: aws.String(awsAuroraConfigs.DBUserName)})
 	parameters = append(parameters, types.Parameter{ParameterKey: aws.String("PubliclyAccessibleFlag"), ParameterValue: aws.String(strconv.FormatBool(awsAuroraConfigs.PubliclyAccessibleFlag))})
@@ -54,22 +53,35 @@ func (b *Builder) CreateAurora( /* pexecutor *ctxt.Executor, */ awsAuroraConfigs
 		parameters = append(parameters, types.Parameter{ParameterKey: aws.String("InstanceType"), ParameterValue: aws.String(awsAuroraConfigs.InstanceType)})
 	}
 
+	return b.CreateCloudFormation("embed/templates/cloudformation/aurora.yaml", &parameters, &[]types.Tag{
+		{Key: aws.String("Type"), Value: aws.String("aurora")},
+		{Key: aws.String("Scope"), Value: aws.String("private")},
+	})
+}
+
+func (b *Builder) DestroyAurora() *Builder {
+	b.tasks = append(b.tasks, &DestroyCloudFormationV2{ /* BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}}*/ })
+	return b
+}
+
+func (b *Builder) CreateCloudFormation(templateFile string, parameters *[]types.Parameter, tags *[]types.Tag) *Builder {
 	b.tasks = append(b.tasks, &CreateCloudFormationV2{
-		// BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}},
-		templateFile: "embed/templates/cloudformation/aurora.yaml",
-		parameters:   &parameters,
-		tags: &[]types.Tag{
-			{Key: aws.String("Type"), Value: aws.String("aurora")},
-			{Key: aws.String("Scope"), Value: aws.String("private")},
-		},
+		templateFile: templateFile,
+		parameters:   parameters,
+		tags:         tags,
 	})
 	return b
 }
 
-func (b *Builder) DestroyAurora( /* pexecutor *ctxt.Executor*/ ) *Builder {
-	b.tasks = append(b.tasks, &DestroyCloudFormationV2{ /* BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}}*/ })
-	return b
-}
+// func (b *Builder) ListCloudFormationV2(pexecutor *ctxt.Executor, transitGateway *TransitGateway) *Builder {
+// 	b.tasks = append(b.tasks, &ListTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}, transitGateway: transitGateway})
+// 	return b
+// }
+
+// func (b *Builder) DestroyTransitGatewayV2(pexecutor *ctxt.Executor) *Builder {
+// 	b.tasks = append(b.tasks, &DestroyTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
+// 	return b
+// }
 
 /* **************************************************************************** */
 type CloudFormationStatus_Process types.StackStatus
@@ -124,33 +136,6 @@ func (p CloudFormationStatus_Process) isAfterDestroyState() bool {
 func (p CloudFormationStatus_Process) isOKState() bool {
 	return p.isBeforeCreateState()
 }
-
-/******************************************************************************/
-
-// type TransitGateway struct {
-// 	TransitGatewayId  string `json:"TransitGatewayId"`
-// 	TransitGatewayArn string `json:"TransitGatewayArn`
-// 	State             string `json:"State"`
-// }
-
-// type TransitGateways struct {
-// 	TransitGateways []TransitGateway `json:"TransitGateways"`
-// }
-
-// func (b *Builder) CreateCloudFormationV2(pexecutor *ctxt.Executor) *Builder {
-// 	b.tasks = append(b.tasks, &CreateTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
-// 	return b
-// }
-
-// func (b *Builder) ListCloudFormationV2(pexecutor *ctxt.Executor, transitGateway *TransitGateway) *Builder {
-// 	b.tasks = append(b.tasks, &ListTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}, transitGateway: transitGateway})
-// 	return b
-// }
-
-// func (b *Builder) DestroyTransitGatewayV2(pexecutor *ctxt.Executor) *Builder {
-// 	b.tasks = append(b.tasks, &DestroyTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
-// 	return b
-// }
 
 /******************************************************************************/
 
@@ -225,7 +210,7 @@ func (b *BaseCloudFormation) readResources(mode ReadResourceMode) error {
 
 	for _, stackSummary := range resp.StackSummaries {
 		_state := CloudFormationStatus_Process(stackSummary.StackStatus)
-		if _state.isState(mode) == true {
+		if _state.isState(mode) == true && *stackSummary.StackName == b.clusterName {
 			b.ResourceData.Append(stackSummary)
 		}
 	}
@@ -344,25 +329,3 @@ func (c *DestroyCloudFormationV2) Rollback(ctx context.Context) error {
 func (c *DestroyCloudFormationV2) String() string {
 	return fmt.Sprintf("Echo: Destroying CloudFormation")
 }
-
-// type ListTransitGateway struct {
-// 	BaseTransitGateway
-
-// 	transitGateway *TransitGateway
-// }
-
-// // Execute implements the Task interface
-// func (c *ListTransitGateway) Execute(ctx context.Context) error {
-// 	c.init(ctx, ReadResourceModeCommon) // ClusterName/ClusterType and client initialization
-// 	return nil
-// }
-
-// // Rollback implements the Task interface
-// func (c *ListTransitGateway) Rollback(ctx context.Context) error {
-// 	return ErrUnsupportedRollback
-// }
-
-// // String implements the fmt.Stringer interface
-// func (c *ListTransitGateway) String() string {
-// 	return fmt.Sprintf("Echo: List  ")
-// }

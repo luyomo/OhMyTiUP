@@ -80,13 +80,13 @@ func (m *Manager) TiDB2S3DeltaLakeDeploy(
 	// Parallel task to create workstation, tidb, kafka resources and transit gateway.
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
-    fpMakeWSContext := func() error {
-        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
-            return err
-        }
-        return nil
-    }
-	t1 := task.NewBuilder().CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
+	t1 := task.NewBuilder().CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	task001 = append(task001, t1)
 

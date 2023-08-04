@@ -13,8 +13,6 @@
 
 package workstation
 
-import ()
-
 type RedshiftDBInfo struct {
 	Host     string `yaml:"host"`
 	Port     int32  `yaml:"port"`

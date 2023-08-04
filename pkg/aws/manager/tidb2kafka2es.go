@@ -96,7 +96,7 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 		}
 		return nil
 	}
-	t1 := task.NewBuilder().CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
+	t1 := task.NewBuilder().CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	task001 = append(task001, t1)
 
@@ -348,7 +348,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 	}
 
 	for _, command := range commands {
-        _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query test '%s'", command), false, 1*time.Hour)
+		_, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query test '%s'", command), false, 1*time.Hour)
 		if err != nil {
 			return err
 		}
@@ -359,7 +359,7 @@ func (m *Manager) PerfPrepareTiDB2Kafka2ES(clusterName, clusterType string, perf
 	/* ********** ********** 007 Prepare kafka related objects  **********/
 
 	// 007.02 Script create topic for multiple partition in advanced.
-    _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %s %d", "test_test01", perfOpt.Partitions), false, 1*time.Hour)
+	_, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/kafka/perf/kafka.create.topic.sh %s %d", "test_test01", perfOpt.Partitions), false, 1*time.Hour)
 	if err != nil {
 		return err
 	}
@@ -488,7 +488,7 @@ func (m *Manager) PerfTiDB2Kafka2ES(clusterName, clusterType string, perfOpt Kaf
 	// }
 
 	// 02. Get the TiDB connection info
-    if err := m.wsExe.Transfer(ctx, "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
+	if err := m.wsExe.Transfer(ctx, "/opt/tidb-db-info.yml", "/tmp/tidb-db-info.yml", true, 1024); err != nil {
 		return err
 	}
 	type TiDBConnectInfo struct {

@@ -101,17 +101,17 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 	mainTask = append(mainTask, glueTask)
 	// }
 
-    fpMakeWSContext := func() error {
-        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
-            return err
-        }
-        return nil
-    }
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
 	// Parallel task to create workstation, tidb, kafka resources and transit gateway.
 	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
 	t1 := task.NewBuilder().
-		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	task001 = append(task001, t1)
 
@@ -497,8 +497,8 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 		CreatePerfTables(&m.wsExe, "embed/templates/config/tidb2kafka2redshift/ColumnMapping.yml", strings.Split("BOOL,TINYINT,SMALLINT", ",")).
 		CreateChangefeed(&m.wsExe, mskEndpoints).
 		CreateWorkerConfiguration().
-		CreateServiceIamPolicy("glue",  policy).
-		CreateServiceIamRole("glue",  assumeRolePolicyDocument).
+		CreateServiceIamPolicy("glue", policy).
+		CreateServiceIamRole("glue", assumeRolePolicyDocument).
 		CreateMskConnect(&m.wsExe, &task.CreateMskConnectInput{
 			RedshiftDBInfo:     redshiftDBInfo,
 			MskEndpoints:       mskEndpoints,

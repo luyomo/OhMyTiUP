@@ -159,7 +159,7 @@ func (c *CreateElasticAddress) Execute(ctx context.Context) error {
 		if _, err = c.client.AllocateAddress(context.TODO(), &ec2.AllocateAddressInput{
 			NetworkBorderGroup: c.region,
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeElasticIp,
 					Tags:         *tags,
 				},

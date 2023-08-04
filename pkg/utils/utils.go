@@ -14,9 +14,9 @@
 package utils
 
 import (
+	"sort"
 	"strconv"
 	"strings"
-    "sort"
 
 	"github.com/spf13/pflag"
 )
@@ -49,10 +49,10 @@ func MustAtoI(a string) int {
 }
 
 func Includes(s []string, searchterm string) bool {
-    if len(s) == 0 {
-        return false
-    }
-    i := sort.SearchStrings(s, searchterm)
+	if len(s) == 0 {
+		return false
+	}
+	i := sort.SearchStrings(s, searchterm)
 
-    return i < len(s) && s[i] == searchterm
+	return i < len(s) && s[i] == searchterm
 }

@@ -185,7 +185,7 @@ func (c *CreateSecurityGroup) Execute(ctx context.Context) error {
 			GroupName: aws.String(fmt.Sprintf("%s-%s", c.clusterName, c.scope)),
 			VpcId:     vpcId,
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeSecurityGroup,
 					Tags:         *tags,
 				},

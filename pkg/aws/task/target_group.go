@@ -242,9 +242,9 @@ type ListTargetGroup struct {
 
 // Execute implements the Task interface
 func (c *ListTargetGroup) Execute(ctx context.Context) error {
-    if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
-        return err
-    }
+	if err := c.init(ctx); err != nil { // ClusterName/ClusterType and client initialization
+		return err
+	}
 
 	return nil
 }

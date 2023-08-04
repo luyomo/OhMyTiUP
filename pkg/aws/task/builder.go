@@ -1102,7 +1102,7 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	// for _, tikvGroup := range awsTopoConfigs.TiKV {
 	// 	parallelTasks = append(parallelTasks, NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &tikvGroup, &awsTopoConfigs.General, clusterInfo, "tikv").Build())
 	// }
-	for idx, _ := range awsTopoConfigs.TiKV {
+	for idx := range awsTopoConfigs.TiKV {
 		tikvGroup := awsTopoConfigs.TiKV[idx]
 		parallelTasks = append(parallelTasks, NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &tikvGroup, &awsTopoConfigs.General, clusterInfo, "tikv").Build())
 	}
@@ -1391,26 +1391,26 @@ func (b *Builder) CreateTiDBNLB(pexecutor *ctxt.Executor, subClusterType string,
 	return b
 }
 
-func (b *Builder) CreateCloudFormation(pexecutor *ctxt.Executor, awsCloudFormationConfigs *spec.AwsCloudFormationConfigs, cloudFormationType string, clusterInfo *ClusterInfo) *Builder {
+// func (b *Builder) CreateCloudFormation(pexecutor *ctxt.Executor, awsCloudFormationConfigs *spec.AwsCloudFormationConfigs, cloudFormationType string, clusterInfo *ClusterInfo) *Builder {
 
-	b.tasks = append(b.tasks, &CreateCloudFormationV2{
-		BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}},
-		templateFile:       awsCloudFormationConfigs.TemplateURL,
-		// parameters:         &awsCloudFormationConfigs.Parameters,
-		// tags: &[]types.Tag{
-		// 	{Key: aws.String("Type"), Value: aws.String("aurora")},
-		// 	{Key: aws.String("Scope"), Value: aws.String("private")},
-		// },
-	})
+// 	b.tasks = append(b.tasks, &CreateCloudFormationV2{
+// 		BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}},
+// 		templateFile:       awsCloudFormationConfigs.TemplateURL,
+// 		// parameters:         &awsCloudFormationConfigs.Parameters,
+// 		// tags: &[]types.Tag{
+// 		// 	{Key: aws.String("Type"), Value: aws.String("aurora")},
+// 		// 	{Key: aws.String("Scope"), Value: aws.String("private")},
+// 		// },
+// 	})
 
-	// b.tasks = append(b.tasks, &CreateCloudFormation{
-	// 	pexecutor:                pexecutor,
-	// 	awsCloudFormationConfigs: awsCloudFormationConfigs,
-	// 	cloudFormationType:       cloudFormationType,
-	// 	clusterInfo:              clusterInfo,
-	// })
-	return b
-}
+// 	// b.tasks = append(b.tasks, &CreateCloudFormation{
+// 	// 	pexecutor:                pexecutor,
+// 	// 	awsCloudFormationConfigs: awsCloudFormationConfigs,
+// 	// 	cloudFormationType:       cloudFormationType,
+// 	// 	clusterInfo:              clusterInfo,
+// 	// })
+// 	return b
+// }
 
 func (b *Builder) DestroyCloudFormation(pexecutor *ctxt.Executor) *Builder {
 	b.tasks = append(b.tasks, &DestroyCloudFormationV2{BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}}})

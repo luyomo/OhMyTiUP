@@ -92,15 +92,15 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 	// 	BuildAsStep(fmt.Sprintf("  - Preparing aurora service ... ..."))
 	// task001 = append(task001, auroraTask)
 
-    fpMakeWSContext := func() error {
-        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
-            return err
-        }
-        return nil
-    }
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
 	var workstationInfo task.ClusterInfo
 	wsTask := task.NewBuilder().
-		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation ... ..."))
 	task001 = append(task001, wsTask)
 
@@ -320,11 +320,11 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 	timer.Take("DB Resource creation")
 
 	postTask = task.NewBuilder().
-		CreateKMS("s3").                                                                          // 01. Make KMS for data excryption of data export
+		CreateKMS("s3").                                                                           // 01. Make KMS for data excryption of data export
 		AuroraSnapshotTaken(&m.workstation, &timer).                                               // 02. Take snapshot from aurora
 		AuroraSnapshotExportS3(&m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).      // 03. Export data from snapshot to S3. -> task 01/02
 		MakeRole4ExternalAccess(&m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID, &timer). // 04. Make role for TiDB Cloud import -> task 03
-		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import", &timer).      // 05. Import data into TiDB Cloud from S3 -> task 04
+		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import", &timer).       // 05. Import data into TiDB Cloud from S3 -> task 04
 		DeployDM(&m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion, &timer).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {

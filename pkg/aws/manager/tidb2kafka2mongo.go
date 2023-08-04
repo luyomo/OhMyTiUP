@@ -97,13 +97,13 @@ func (m *Manager) TiDB2Kafka2MongoDeploy(
 	// Prepare parallel task to generate TiDB, kafka and mongo db cluster
 	var workstationInfo, clusterInfo, kafkaClusterInfo, mongoClusterInfo task.ClusterInfo
 
-    fpMakeWSContext := func() error {
-        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
-            return err
-        }
-        return nil
-    }
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 

@@ -224,7 +224,7 @@ func (c *CreateLaunchTemplate) Execute(ctx context.Context) error {
 			LaunchTemplateName: aws.String(templateName),
 			LaunchTemplateData: &requestLaunchTemplateData,
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{ResourceType: types.ResourceTypeLaunchTemplate, Tags: *tags},
+				{ResourceType: types.ResourceTypeLaunchTemplate, Tags: *tags},
 			},
 		}
 

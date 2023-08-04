@@ -18,10 +18,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 )
 
@@ -34,93 +32,60 @@ type CreateRouteTgw struct {
 
 // Execute implements the Task interface
 func (c *CreateRouteTgw) Execute(ctx context.Context) error {
+
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return err
-	}
-	c.client = ec2.NewFromConfig(cfg)
+	mapArgs := make(map[string]string)
+	mapArgs["clusterName"] = clusterName
+	mapArgs["clusterType"] = clusterType
 
-	sourceVpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: c.subClusterType})
-
-	if err != nil {
-        if err.Error() == "getVPCInfo: No VPC found" {
-			return nil
-		}
-		return err
-	}
-	if sourceVpcInfo == nil {
-		return nil
-	}
-
-	routeTable, err := getRouteTable(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	// 01. Get the instance info using AWS SDK
+	ec2api, err := ec2utils.NewEC2API(&mapArgs)
 	if err != nil {
 		return err
 	}
 
-	transitGateway, err := getTransitGateway(*c.pexecutor, ctx, clusterName, clusterType)
+	transitGateway, err := ec2api.GetTransitGateway()
 	if err != nil {
 		return err
 	}
 	if transitGateway == nil {
-		return errors.New("No transit gateway found")
+		return errors.New("No transit gateway found.")
 	}
 
-	sourceRouteTables, err := c.FetchRouteTables(clusterName, clusterType, c.subClusterType)
+	mapArgs["subClusterType"] = c.subClusterType
+
+	sourceVpcInfo, err := ec2api.GetVpcId()
 	if err != nil {
 		return err
 	}
 
+	if sourceVpcInfo == nil {
+		return errors.New("No source vpc info found.")
+	}
+
 	for _, targetSubClusterType := range c.subClusterTypes {
-		vpcInfo, err := getVPCInfo(*c.pexecutor, ctx, ResourceTag{clusterName: clusterName, clusterType: clusterType, subClusterType: targetSubClusterType})
-		if err != nil {
-            if err.Error() == "getVPCInfo: No VPC found" {
-				continue
-			}
-			return err
-		}
-		if vpcInfo == nil {
-			continue
-		}
+		mapArgs["subClusterType"] = targetSubClusterType
 
-		routeHasExisted, err := c.RouteHasExists(sourceRouteTables, routeTable.RouteTableId, (*vpcInfo).CidrBlock, transitGateway.TransitGatewayId)
-		if err != nil {
-			return err
-		}
-		if routeHasExisted == false {
-
-			command := fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", routeTable.RouteTableId, (*vpcInfo).CidrBlock, transitGateway.TransitGatewayId)
-			_, _, err = (*c.pexecutor).Execute(ctx, command, false)
-			if err != nil {
-				return err
-			}
-		}
-
-		targetRouteTable, err := getRouteTable(*c.pexecutor, ctx, clusterName, clusterType, targetSubClusterType)
+		targetVpcInfo, err := ec2api.GetVpcId()
 		if err != nil {
 			return err
 		}
 
-		targetRouteTables, err := c.FetchRouteTables(clusterName, clusterType, targetSubClusterType)
-		if err != nil {
+		if targetVpcInfo == nil {
+			return errors.New("No target vpc info found.")
+		}
+
+		mapArgs["subClusterType"] = c.subClusterType // It will be used to search the routes
+		if err := ec2api.CreateRoute(*targetVpcInfo.CidrBlock, *transitGateway.TransitGatewayId); err != nil {
 			return err
 		}
 
-		routeHasExisted, err = c.RouteHasExists(targetRouteTables, targetRouteTable.RouteTableId, (*sourceVpcInfo).CidrBlock, transitGateway.TransitGatewayId)
-		if err != nil {
+		mapArgs["subClusterType"] = targetSubClusterType
+		if err := ec2api.CreateRoute(*sourceVpcInfo.CidrBlock, *transitGateway.TransitGatewayId); err != nil {
 			return err
 		}
-		if routeHasExisted == false {
-			command := fmt.Sprintf("aws ec2 create-route --route-table-id %s --destination-cidr-block %s --transit-gateway-id %s", targetRouteTable.RouteTableId, (*sourceVpcInfo).CidrBlock, transitGateway.TransitGatewayId)
-
-			_, _, err = (*c.pexecutor).Execute(ctx, command, false)
-			if err != nil {
-				return err
-			}
-		}
-
 	}
 
 	return nil
@@ -134,43 +99,4 @@ func (c *CreateRouteTgw) Rollback(ctx context.Context) error {
 // String implements the fmt.Stringer interface
 func (c *CreateRouteTgw) String() string {
 	return fmt.Sprintf("Echo: Creating route tgw ")
-}
-
-// If the transit gateway is removed, need to check the status and remove to re-add it.
-func (c *CreateRouteTgw) RouteHasExists(routeTables *[]types.RouteTable, routeTableId, cidr, transitGatewayId string) (bool, error) {
-	for _, routeTable := range *routeTables {
-		for _, route := range routeTable.Routes {
-			if route.TransitGatewayId != nil {
-
-				if routeTableId == *routeTable.RouteTableId && cidr == *route.DestinationCidrBlock {
-					if route.State == "blackhole" {
-
-						_, err := c.client.DeleteRoute(context.TODO(), &ec2.DeleteRouteInput{RouteTableId: aws.String(routeTableId), DestinationCidrBlock: aws.String(cidr)})
-						if err != nil {
-							return false, err
-						}
-						return false, nil
-					}
-
-					return true, nil
-				}
-			}
-		}
-	}
-	return false, nil
-}
-
-func (c *CreateRouteTgw) FetchRouteTables(clusterName, clusterType, subClusterType string) (*[]types.RouteTable, error) {
-
-	var filters []types.Filter
-	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{subClusterType}})
-
-	describeRouteTables, err := c.client.DescribeRouteTables(context.TODO(), &ec2.DescribeRouteTablesInput{Filters: filters})
-	if err != nil {
-		return nil, err
-	}
-	return &describeRouteTables.RouteTables, nil
-
 }

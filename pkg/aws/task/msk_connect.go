@@ -329,7 +329,7 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 			},
 			KafkaConnectVersion: aws.String("2.7.1"),
 			Plugins: []types.Plugin{
-				types.Plugin{
+				{
 					CustomPlugin: &types.CustomPlugin{
 						CustomPluginArn: pluginArn,
 						Revision:        1,

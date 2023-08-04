@@ -186,7 +186,7 @@ func (c *CreateNLBListener) Execute(ctx context.Context) error {
 			Port:            aws.Int32(4000),
 			Protocol:        types.ProtocolEnumTcp,
 			DefaultActions: []types.Action{
-				types.Action{
+				{
 					Type:           types.ActionTypeEnumForward,
 					TargetGroupArn: targetGroupArn,
 				},

@@ -231,16 +231,16 @@ func (m *Manager) TiDBCloudScale(
 	ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
 	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
 
-    fpMakeWSContext := func() error {
-        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
-            return err
-        }
-        return nil
-    }
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
 	var workstationInfo, clusterInfo task.ClusterInfo
 
 	if base.AwsWSConfigs.InstanceType != "" {
-		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
+		t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 			BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 
 		envInitTasks = append(envInitTasks, t1)

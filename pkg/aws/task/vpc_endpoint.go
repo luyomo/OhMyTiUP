@@ -242,7 +242,7 @@ func (c *CreateVpcEndpoint) Execute(ctx context.Context) error {
 			VpcEndpointType:  types.VpcEndpointTypeInterface,
 
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeVpcEndpoint,
 					Tags:         *tags,
 				},

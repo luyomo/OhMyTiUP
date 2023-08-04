@@ -279,7 +279,7 @@ func (c *CreateTransitGatewayVpcAttachment) Execute(ctx context.Context) error {
 			SubnetIds:        *clusterSubnets,
 			TransitGatewayId: transitGatewayID,
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeTransitGatewayAttachment,
 					Tags:         *tags,
 				},

@@ -93,16 +93,16 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
-    fpMakeWSContext := func() error {
-        if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
-            return err
-        }
-        return nil
-    }
+	fpMakeWSContext := func() error {
+		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+			return err
+		}
+		return nil
+	}
 	var workstationInfo, clusterInfo, kafkaClusterInfo, pgClusterInfo task.ClusterInfo
 	// var workstationInfo, clusterInfo task.ClusterInfo
 
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext ).
+	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
 	envInitTasks = append(envInitTasks, t1)
 
@@ -126,7 +126,6 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 	builder := task.NewBuilder().ParallelStep("+ Deploying all the sub components for kafka solution service", false, envInitTasks...)
 
 	t := builder.Build()
-
 
 	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
 		if errorx.Cast(err) != nil {

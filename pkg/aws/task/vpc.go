@@ -190,7 +190,7 @@ func (c *CreateVPC) Execute(ctx context.Context) error {
 		if _, err = c.client.CreateVpc(context.TODO(), &ec2.CreateVpcInput{
 			CidrBlock: aws.String(c.clusterInfo.cidr),
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeVpc,
 					Tags:         *tags,
 				},

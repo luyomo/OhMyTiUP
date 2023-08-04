@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
+	// "github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
-	"github.com/luyomo/OhMyTiUP/pkg/crypto"
+	// "github.com/luyomo/OhMyTiUP/pkg/crypto"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
@@ -55,23 +55,9 @@ func (m *Manager) AuroraDeploy(
 	skipConfirm bool,
 	gOpt operator.Options,
 ) error {
-	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
-		return err
-	}
+
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
-
-	exist, err := m.specManager.Exist(name)
-	if err != nil {
-		return err
-	}
-
-	if exist {
-		// FIXME: When change to use args, the suggestion text need to be updatem.
-		return errDeployNameDuplicate.
-			New("Cluster name '%s' is duplicated", name).
-			WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
-	}
 
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
@@ -88,55 +74,9 @@ func (m *Manager) AuroraDeploy(
 	}
 
 	var (
-		sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-		sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	)
-	if gOpt.SSHType != executor.SSHTypeNone {
-		var err error
-		if sshConnProps, err = tui.ReadIdentityFileOrPassword(opt.IdentityFile, opt.UsePassword); err != nil {
-			return err
-		}
-		if len(gOpt.SSHProxyHost) != 0 {
-			if sshProxyProps, err = tui.ReadIdentityFileOrPassword(gOpt.SSHProxyIdentity, gOpt.SSHProxyUsePassword); err != nil {
-				return err
-			}
-		}
-	}
-
-	if err := m.fillHostArch(sshConnProps, sshProxyProps, topo, &gOpt, opt.User); err != nil {
-		return err
-	}
-
-	var (
 		envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
 	)
 
-	// Initialize environment
-	globalOptions := base.GlobalOptions
-
-	// generate CA and client cert for TLS enabled cluster
-	var ca *crypto.CertificateAuthority
-	if globalOptions.TLSEnabled {
-		// generate CA
-		tlsPath := m.specManager.Path(name, spec.TLSCertKeyDir)
-		if err := utils.CreateDir(tlsPath); err != nil {
-			return err
-		}
-		ca, err = genAndSaveClusterCA(name, tlsPath)
-		if err != nil {
-			return err
-		}
-
-		// generate client cert
-		if err = genAndSaveClientCert(ca, name, tlsPath); err != nil {
-			return err
-		}
-	}
-
-	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	// if err != nil {
-	// 	return err
-	// }
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", "ohmytiup-aurora")
 	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
@@ -156,9 +96,9 @@ func (m *Manager) AuroraDeploy(
 		t5 := task.NewBuilder().
 			CreateTransitGateway(&m.localExe).
 			CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
+			CreateAurora(base.AwsAuroraConfigs).
 			CreateTransitGatewayVpcAttachment(&m.localExe, "workstation", task.NetworkTypePublic).
 			CreateTransitGatewayVpcAttachment(&m.localExe, "aurora", task.NetworkTypePrivate).
-			CreateAurora(/* &m.localExe, */ base.AwsAuroraConfigs).
 			CreateRouteTgw(&m.localExe, "workstation", []string{"aurora"}).
 			CreateRouteTgw(&m.localExe, "aurora", []string{"workstation"}).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
@@ -321,7 +261,7 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 	var destroyTasks []*task.StepDisplay
 
 	t1 := task.NewBuilder().
-		DestroyAurora(/* &sexecutor */ ).
+		DestroyAurora().
 		BuildAsStep(fmt.Sprintf("  - Destroying aurora nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)

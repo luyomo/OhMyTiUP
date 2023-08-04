@@ -177,7 +177,7 @@ func (c *CreateRouteTable) Execute(ctx context.Context) error {
 		if _, err = c.client.CreateRouteTable(context.TODO(), &ec2.CreateRouteTableInput{
 			VpcId: vpcId,
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeRouteTable,
 					Tags:         *tags,
 				},
@@ -247,7 +247,7 @@ func (c *CreateRouteTable) CreateInternetGateway() error {
 	if len(resp.InternetGateways) == 0 {
 		if _, err := c.client.CreateInternetGateway(context.TODO(), &ec2.CreateInternetGatewayInput{
 			TagSpecifications: []types.TagSpecification{
-				types.TagSpecification{
+				{
 					ResourceType: types.ResourceTypeInternetGateway,
 					Tags:         *tags,
 				},
