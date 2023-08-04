@@ -73,6 +73,15 @@ func (b *Builder) CreateCloudFormation(templateFile string, parameters *[]types.
 	return b
 }
 
+func (b *Builder) CreateCloudFormationByS3URL(templateURL string, parameters *[]types.Parameter, tags *[]types.Tag) *Builder {
+	b.tasks = append(b.tasks, &CreateCloudFormationV2{
+		templateURL: templateURL,
+		parameters:  parameters,
+		tags:        tags,
+	})
+	return b
+}
+
 // func (b *Builder) ListCloudFormationV2(pexecutor *ctxt.Executor, transitGateway *TransitGateway) *Builder {
 // 	b.tasks = append(b.tasks, &ListTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}, transitGateway: transitGateway})
 // 	return b
@@ -238,6 +247,7 @@ type CreateCloudFormationV2 struct {
 	BaseCloudFormation
 
 	templateFile string
+	templateURL  string
 	parameters   *[]types.Parameter
 	tags         *[]types.Tag
 }
@@ -254,23 +264,39 @@ func (c *CreateCloudFormationV2) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		content, _ := ioutil.ReadFile(c.templateFile)
-		templateBody := string(content)
-
 		*c.parameters = append(*c.parameters, types.Parameter{ParameterKey: aws.String("ClusterName"), ParameterValue: aws.String(c.clusterName)})
 
 		*c.tags = append(*c.tags, types.Tag{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)})
 		*c.tags = append(*c.tags, types.Tag{Key: aws.String("Name"), Value: aws.String(c.clusterName)})
 
-		stackInput := &cloudformation.CreateStackInput{
-			StackName:    aws.String(c.clusterName),
-			TemplateBody: aws.String(templateBody),
-			Parameters:   *c.parameters,
-			Tags:         *c.tags,
-		}
+		if c.templateURL != "" {
+			stackInput := &cloudformation.CreateStackInput{
+				StackName:   aws.String(c.clusterName),
+				TemplateURL: aws.String(c.templateURL),
+				Parameters:  *c.parameters,
+				Tags:        *c.tags,
+			}
 
-		if _, err = c.client.CreateStack(context.TODO(), stackInput); err != nil {
-			return err
+			if _, err = c.client.CreateStack(context.TODO(), stackInput); err != nil {
+				return err
+			}
+		} else {
+			content, err := ioutil.ReadFile(c.templateFile)
+			if err != nil {
+				return err
+			}
+			templateBody := string(content)
+
+			stackInput := &cloudformation.CreateStackInput{
+				StackName:    aws.String(c.clusterName),
+				TemplateBody: aws.String(templateBody),
+				Parameters:   *c.parameters,
+				Tags:         *c.tags,
+			}
+
+			if _, err = c.client.CreateStack(context.TODO(), stackInput); err != nil {
+				return err
+			}
 		}
 
 		if err := c.waitUntilResouceAvailable(0, 0, 1, func() error {

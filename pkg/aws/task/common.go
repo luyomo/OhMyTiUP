@@ -490,68 +490,6 @@ func LookupAptLock(appName string, inStr []byte) (bool, error) {
 	return false, nil
 }
 
-func getTransitGateway(executor ctxt.Executor, ctx context.Context, clusterName, clusterType string) (*TransitGateway, error) {
-	command := fmt.Sprintf("aws ec2 describe-transit-gateways --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=state,Values=available,modifying,pending\"", clusterName, clusterType)
-	stdout, _, err := executor.Execute(ctx, command, false)
-	if err != nil {
-		return nil, err
-	} else {
-		var transitGateways TransitGateways
-		if err = json.Unmarshal(stdout, &transitGateways); err != nil {
-			return nil, err
-		}
-		for _, transitGateway := range transitGateways.TransitGateways {
-			return &transitGateway, nil
-		}
-	}
-	return nil, nil
-}
-
-func getRouteTable(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*RouteTable, error) {
-	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Scope,Values=private\"", clusterName, clusterType, subClusterType), false)
-	if err != nil {
-		return nil, err
-	}
-
-	var routeTables RouteTables
-	if err = json.Unmarshal(stdout, &routeTables); err != nil {
-		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
-		return nil, err
-	}
-
-	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
-	if len(routeTables.RouteTables) == 1 {
-		return &routeTables.RouteTables[0], nil
-
-	}
-
-	if len(routeTables.RouteTables) > 1 {
-		return nil, errors.New("Multiple route tables found 01")
-	}
-
-	stdout, _, err = executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Type,Values=%s\" \"Name=tag:Scope,Values=public\"", clusterName, clusterType, subClusterType), false)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = json.Unmarshal(stdout, &routeTables); err != nil {
-		zap.L().Error("Failed to parse the route table", zap.String("describe-route-table", string(stdout)))
-		return nil, err
-	}
-
-	zap.L().Debug("Print the route tables", zap.String("routeTables", routeTables.String()))
-	if len(routeTables.RouteTables) == 1 {
-		return &routeTables.RouteTables[0], nil
-
-	}
-
-	if len(routeTables.RouteTables) > 1 {
-		return nil, errors.New("Multiple route tables found 01")
-	}
-
-	return nil, errors.New("No route table found")
-}
-
 func getRouteTableByVPC(executor ctxt.Executor, ctx context.Context, clusterName, vpcID string) (*RouteTable, error) {
 	stdout, _, err := executor.Execute(ctx, fmt.Sprintf("aws ec2 describe-route-tables --filters \"Name=tag:Name,Values=%s\" \"Name=vpc-id,Values=%s\" ", clusterName, vpcID), false)
 	if err != nil {
