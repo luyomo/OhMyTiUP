@@ -29,8 +29,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
-	"os"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
+	"os"
 )
 
 // DeployOptions contains the options for scale out.
@@ -148,7 +148,7 @@ func (m *Manager) TiDB2MSDeploy(
 	}
 
 	if base.AwsAuroraConfigs.InstanceType != "" {
-		t3 := task.NewBuilder().CreateAurora(&sexecutor, base.AwsAuroraConfigs).
+		t3 := task.NewBuilder().CreateAurora(/* &sexecutor, */ base.AwsAuroraConfigs).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora instance"))
 		envInitTasks = append(envInitTasks, t3)
 	}

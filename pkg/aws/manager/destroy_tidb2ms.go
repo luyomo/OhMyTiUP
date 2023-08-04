@@ -80,7 +80,7 @@ func (m *Manager) DestroyTiDB2MSCluster(name string, gOpt operator.Options, dest
 	destroyTasks = append(destroyTasks, t1)
 
 	t2 := task.NewBuilder().
-		DestroyAurora(&sexecutor).
+		DestroyAurora(/* &sexecutor */ ).
 		BuildAsStep(fmt.Sprintf("  - Destroying aurora db cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t2)

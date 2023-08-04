@@ -158,7 +158,7 @@ func (m *Manager) AuroraDeploy(
 			CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 			CreateTransitGatewayVpcAttachment(&m.localExe, "workstation", task.NetworkTypePublic).
 			CreateTransitGatewayVpcAttachment(&m.localExe, "aurora", task.NetworkTypePrivate).
-			CreateAurora(&m.localExe, base.AwsAuroraConfigs).
+			CreateAurora(/* &m.localExe, */ base.AwsAuroraConfigs).
 			CreateRouteTgw(&m.localExe, "workstation", []string{"aurora"}).
 			CreateRouteTgw(&m.localExe, "aurora", []string{"workstation"}).
 			BuildAsStep(fmt.Sprintf("  - Preparing aurora ... ..."))
@@ -321,7 +321,7 @@ func (m *Manager) DestroyAuroraCluster(name string, gOpt operator.Options, destr
 	var destroyTasks []*task.StepDisplay
 
 	t1 := task.NewBuilder().
-		DestroyAurora(&sexecutor).
+		DestroyAurora(/* &sexecutor */ ).
 		BuildAsStep(fmt.Sprintf("  - Destroying aurora nodes cluster %s ", name))
 
 	destroyTasks = append(destroyTasks, t1)

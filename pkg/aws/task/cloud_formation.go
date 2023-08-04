@@ -25,11 +25,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 )
 
-func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, awsAuroraConfigs *spec.AwsAuroraConfigs) *Builder {
+func (b *Builder) CreateAurora( /* pexecutor *ctxt.Executor, */ awsAuroraConfigs *spec.AwsAuroraConfigs) *Builder {
 	var parameters []types.Parameter
 	parameters = append(parameters, types.Parameter{ParameterKey: aws.String("Username"), ParameterValue: aws.String(awsAuroraConfigs.DBUserName)})
 	parameters = append(parameters, types.Parameter{ParameterKey: aws.String("PubliclyAccessibleFlag"), ParameterValue: aws.String(strconv.FormatBool(awsAuroraConfigs.PubliclyAccessibleFlag))})
@@ -55,9 +55,9 @@ func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, awsAuroraConfigs *spec.
 	}
 
 	b.tasks = append(b.tasks, &CreateCloudFormationV2{
-		BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}},
-		templateFile:       "embed/templates/cloudformation/aurora.yaml",
-		parameters:         &parameters,
+		// BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}},
+		templateFile: "embed/templates/cloudformation/aurora.yaml",
+		parameters:   &parameters,
 		tags: &[]types.Tag{
 			{Key: aws.String("Type"), Value: aws.String("aurora")},
 			{Key: aws.String("Scope"), Value: aws.String("private")},
@@ -66,8 +66,8 @@ func (b *Builder) CreateAurora(pexecutor *ctxt.Executor, awsAuroraConfigs *spec.
 	return b
 }
 
-func (b *Builder) DestroyAurora(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &DestroyCloudFormationV2{BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}}})
+func (b *Builder) DestroyAurora( /* pexecutor *ctxt.Executor*/ ) *Builder {
+	b.tasks = append(b.tasks, &DestroyCloudFormationV2{ /* BaseCloudFormation: BaseCloudFormation{BaseTask: BaseTask{pexecutor: pexecutor}}*/ })
 	return b
 }
 
@@ -137,20 +137,20 @@ func (p CloudFormationStatus_Process) isOKState() bool {
 // 	TransitGateways []TransitGateway `json:"TransitGateways"`
 // }
 
-func (b *Builder) CreateCloudFormationV2(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &CreateTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
-	return b
-}
+// func (b *Builder) CreateCloudFormationV2(pexecutor *ctxt.Executor) *Builder {
+// 	b.tasks = append(b.tasks, &CreateTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
+// 	return b
+// }
 
-func (b *Builder) ListCloudFormationV2(pexecutor *ctxt.Executor, transitGateway *TransitGateway) *Builder {
-	b.tasks = append(b.tasks, &ListTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}, transitGateway: transitGateway})
-	return b
-}
+// func (b *Builder) ListCloudFormationV2(pexecutor *ctxt.Executor, transitGateway *TransitGateway) *Builder {
+// 	b.tasks = append(b.tasks, &ListTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}, transitGateway: transitGateway})
+// 	return b
+// }
 
-func (b *Builder) DestroyTransitGatewayV2(pexecutor *ctxt.Executor) *Builder {
-	b.tasks = append(b.tasks, &DestroyTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
-	return b
-}
+// func (b *Builder) DestroyTransitGatewayV2(pexecutor *ctxt.Executor) *Builder {
+// 	b.tasks = append(b.tasks, &DestroyTransitGateway{BaseTransitGateway: BaseTransitGateway{BaseTask: BaseTask{pexecutor: pexecutor}}})
+// 	return b
+// }
 
 /******************************************************************************/
 
