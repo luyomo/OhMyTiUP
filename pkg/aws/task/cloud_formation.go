@@ -264,7 +264,7 @@ func (c *CreateCloudFormationV2) Execute(ctx context.Context) error {
 	}
 
 	if clusterExistFlag == false {
-		*c.parameters = append(*c.parameters, types.Parameter{ParameterKey: aws.String("ClusterName"), ParameterValue: aws.String(c.clusterName)})
+		// *c.parameters = append(*c.parameters, types.Parameter{ParameterKey: aws.String("ClusterName"), ParameterValue: aws.String(c.clusterName)})
 
 		*c.tags = append(*c.tags, types.Tag{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)})
 		*c.tags = append(*c.tags, types.Tag{Key: aws.String("Name"), Value: aws.String(c.clusterName)})
