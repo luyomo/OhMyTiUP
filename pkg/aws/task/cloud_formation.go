@@ -271,10 +271,11 @@ func (c *CreateCloudFormationV2) Execute(ctx context.Context) error {
 
 		if c.templateURL != "" {
 			stackInput := &cloudformation.CreateStackInput{
-				StackName:   aws.String(c.clusterName),
-				TemplateURL: aws.String(c.templateURL),
-				Parameters:  *c.parameters,
-				Tags:        *c.tags,
+				StackName:    aws.String(c.clusterName),
+				TemplateURL:  aws.String(c.templateURL),
+				Capabilities: []types.Capability{types.CapabilityCapabilityIam},
+				Parameters:   *c.parameters,
+				Tags:         *c.tags,
 			}
 
 			if _, err = c.client.CreateStack(context.TODO(), stackInput); err != nil {
@@ -290,6 +291,7 @@ func (c *CreateCloudFormationV2) Execute(ctx context.Context) error {
 			stackInput := &cloudformation.CreateStackInput{
 				StackName:    aws.String(c.clusterName),
 				TemplateBody: aws.String(templateBody),
+				Capabilities: []types.Capability{types.CapabilityCapabilityIam},
 				Parameters:   *c.parameters,
 				Tags:         *c.tags,
 			}
