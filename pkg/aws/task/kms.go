@@ -119,9 +119,9 @@ func (b *BaseKMS) readResources() error {
 	if err != nil {
 		return err
 	}
-	// if kmsKeys == nil {
-	// 	return errors.New("No KMS key found")
-	// }
+	if kmsKeys == nil {
+		return nil
+	}
 
 	for _, kmsKey := range *kmsKeys {
 		b.ResourceData.Append(kmsKey)
