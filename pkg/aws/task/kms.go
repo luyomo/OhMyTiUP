@@ -119,42 +119,14 @@ func (b *BaseKMS) readResources() error {
 	if err != nil {
 		return err
 	}
-	if kmsKeys == nil {
-		return errors.New("No KMS key found")
-	}
+	// if kmsKeys == nil {
+	// 	return errors.New("No KMS key found")
+	// }
 
 	for _, kmsKey := range *kmsKeys {
 		b.ResourceData.Append(kmsKey)
 	}
 
-	// resp, err := b.client.ListKeys(context.TODO(), &kms.ListKeysInput{})
-	// if err != nil {
-	// 	return err
-	// }
-
-	// for _, key := range resp.Keys {
-	// 	keyResp, err := b.client.ListResourceTags(context.TODO(), &kms.ListResourceTagsInput{KeyId: key.KeyId})
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	matchedTag := 3
-	// 	for _, tag := range keyResp.Tags {
-	// 		switch {
-	// 		case *tag.TagKey == "Name" && *tag.TagValue == b.clusterName:
-	// 			matchedTag = matchedTag - 1
-	// 		case *tag.TagKey == "Cluster" && *tag.TagValue == b.clusterType:
-	// 			matchedTag = matchedTag - 1
-	// 		case *tag.TagKey == "Type" && *tag.TagValue == b.subClusterType:
-	// 			matchedTag = matchedTag - 1
-	// 		}
-	// 	}
-
-	// 	if matchedTag == 0 {
-	// 		b.ResourceData.Append(key)
-	// 	}
-
-	// }
 	return nil
 }
 
