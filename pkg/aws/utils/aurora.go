@@ -157,6 +157,10 @@ func ExtractInstanceRDSInfo(name, cluster, clusterType string) (*[]RDSInstanceIn
 	return &rdsInstanceInfos, nil
 }
 
+// 1. Get the RDS Cluster information
+// 2. Make the tag with binlog file name and position
+// 3. Make the snapshot name with [name-binlogfile-binlogpos]
+// 4. Create the snapshot and wait it to complete
 func RDSSnapshotTaken(name, file string, position float64) (*string, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {

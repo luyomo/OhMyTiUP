@@ -320,11 +320,11 @@ func (m *Manager) Mysql2TiDBCloudDeploy(
 	timer.Take("DB Resource creation")
 
 	postTask = task.NewBuilder().
-		CreateKMS("s3").                                                                           // 01. Make KMS for data excryption of data export
-		AuroraSnapshotTaken(&m.workstation, &timer).                                               // 02. Take snapshot from aurora
-		AuroraSnapshotExportS3(&m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).      // 03. Export data from snapshot to S3. -> task 01/02
-		MakeRole4ExternalAccess(&m.workstation, base.TiDBCloudConfigs.TiDBCloudProjectID, &timer). // 04. Make role for TiDB Cloud import -> task 03
-		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import", &timer).       // 05. Import data into TiDB Cloud from S3 -> task 04
+		CreateKMS("s3").                                                                                                 // 01. Make KMS for data excryption of data export
+		AuroraSnapshotTaken(&m.workstation, &timer).                                                                     // 02. Take snapshot from aurora
+		AuroraSnapshotExportS3(&m.workstation, base.AwsAuroraConfigs.S3BackupFolder, &timer).                            // 03. Export data from snapshot to S3. -> task 01/02
+		MakeRole4ExternalAccess(base.TiDBCloudConfigs.TiDBCloudProjectID, base.AwsAuroraConfigs.S3BackupFolder, &timer). // 04. Make role for TiDB Cloud import -> task 03
+		CreateTiDBCloudImport(base.TiDBCloudConfigs.TiDBCloudProjectID, "s3import", &timer).                             // 05. Import data into TiDB Cloud from S3 -> task 04
 		DeployDM(&m.workstation, "dm", base.AwsTopoConfigs.General.TiDBVersion, &timer).
 		BuildAsStep("Parallel Main step")
 	if err := postTask.Execute(ctxt.New(ctx, 10)); err != nil {

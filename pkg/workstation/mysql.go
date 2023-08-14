@@ -16,21 +16,7 @@ package workstation
 import (
 	"context"
 	"encoding/json"
-	// "errors"
 	"fmt"
-	// "gopkg.in/yaml.v3"
-	// "io/ioutil"
-	// "os"
-	// "path/filepath"
-	// "go.uber.org/zap"
-	// "github.com/aws/aws-sdk-go-v2/aws"
-	// "github.com/aws/aws-sdk-go-v2/config"
-	// "github.com/aws/aws-sdk-go-v2/service/ec2"
-	// "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	// awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
-	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
-	// "github.com/luyomo/OhMyTiUP/pkg/executor"
-	// "github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 
 func (w *Workstation) ReadMySQLBinPos() (*[]map[string]interface{}, error) {

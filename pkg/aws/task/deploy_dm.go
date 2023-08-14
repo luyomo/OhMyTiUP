@@ -55,19 +55,11 @@ func (c AuroraSnapshotTaken) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("The bionlog position: %#v \n\n\n", *binlogPos)
-
-	// earliestBinlogPos, err := c.workstation.ReadMySQLEarliestBinPos() // Get [show master status]
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("The bionlog position: %#v \n\n\n", (*earliestBinlogPos)[0])
 
 	snapshotARN, err := awsutils.GetSnapshot(clusterName)
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("---------- The snapshot arn : %s \n\n\n", *snapshotARN)
 
 	if *snapshotARN == "" {
 		snapshotARN, err = awsutils.RDSSnapshotTaken(clusterName, (*binlogPos)[0]["File"].(string), (*binlogPos)[0]["Position"].(float64))
@@ -177,8 +169,11 @@ func (c AuroraSnapshotExportS3) Execute(ctx context.Context) error {
 
 /* ***************************************************************************** */
 
-func (b *Builder) MakeRole4ExternalAccess(workstation *ws.Workstation, projectId string, timer *awsutils.ExecutionTimer) *Builder {
-	b.tasks = append(b.tasks, &MakeRole4ExternalAccess{BaseWSTask: BaseWSTask{workstation: workstation, barMessage: "Making role for external access ... ... ", timer: timer}, tidbProjectId: projectId})
+func (b *Builder) MakeRole4ExternalAccess(projectId string, s3url string, timer *awsutils.ExecutionTimer) *Builder {
+	b.tasks = append(b.tasks, &MakeRole4ExternalAccess{BaseWSTask: BaseWSTask{barMessage: "Making role for external access ... ... ", timer: timer},
+		tidbProjectId: projectId,
+		s3url:         s3url,
+	})
 	return b
 }
 
@@ -186,6 +181,7 @@ type MakeRole4ExternalAccess struct {
 	BaseWSTask
 
 	tidbProjectId string
+	s3url         string
 }
 
 // 09. Create import role
@@ -212,6 +208,11 @@ func (c MakeRole4ExternalAccess) Execute(ctx context.Context) error {
 	}
 	if kmsKeys == nil {
 		return errors.New("No KMS key found")
+	}
+
+	parsedS3Url, err := url.Parse(c.s3url)
+	if err != nil {
+		return err
 	}
 
 	importPolicy := fmt.Sprintf(`{
@@ -244,7 +245,7 @@ func (c MakeRole4ExternalAccess) Execute(ctx context.Context) error {
             "Resource": "%s"
         }
     ]
-}`, "jay-data", "jay-data", *(*kmsKeys)[0].KeyArn)
+}`, parsedS3Url.Host, parsedS3Url.Host, *(*kmsKeys)[0].KeyArn)
 
 	tidbcloudApi, err := tidbcloud.NewTiDBCloudAPI(c.tidbProjectId, clusterName, nil)
 	if err != nil {
