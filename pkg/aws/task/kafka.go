@@ -130,11 +130,10 @@ func (c *DeployKafka) Execute(ctx context.Context) error {
 
 		commands := []string{
 			"sudo apt-get update -y 1>/dev/null",
-			"sudo apt-get install -y gnupg2 software-properties-common openjdk-11-jdk jq 1>/dev/null 2>/dev/null",
-			"wget https://packages.confluent.io/deb/7.1/archive.key -P /tmp/",
-			"sudo apt-key add /tmp/archive.key",
-			`sudo add-apt-repository 'deb [arch=amd64] https://packages.confluent.io/deb/7.1 stable main'`,
-			`sudo add-apt-repository 'deb https://packages.confluent.io/clients/deb '$(lsb_release -cs)' main'`,
+			"sudo apt-get install -y gnupg2 software-properties-common openjdk-11-jdk jq 1>/dev/null 2>/dev/null", // Upgrade from 11 to 17
+			"wget -qO - https://packages.confluent.io/deb/7.4/archive.key | sudo apt-key add -",
+			`sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/7.4 stable main"`,
+			`sudo add-apt-repository "deb https://packages.confluent.io/clients/deb $(lsb_release -cs) main"`,
 			"sudo apt-get update -y 1>/dev/null",
 			"sudo apt-get install -y confluent-platform confluent-security confluent-community-2.13  1>/dev/null 2>/dev/null",
 		}
@@ -362,10 +361,9 @@ func (c *KafkaInstallPkgTask) Execute(ctx context.Context) error {
 	commands := []string{
 		"sudo apt-get update -y 1>/dev/null",
 		"sudo apt-get install -y gnupg2 software-properties-common openjdk-11-jdk jq 1>/dev/null 2>/dev/null",
-		"wget https://packages.confluent.io/deb/7.1/archive.key -P /tmp/",
-		"sudo apt-key add /tmp/archive.key",
-		`sudo add-apt-repository 'deb [arch=amd64] https://packages.confluent.io/deb/7.1 stable main'`,
-		`sudo add-apt-repository 'deb https://packages.confluent.io/clients/deb '$(lsb_release -cs)' main'`,
+		"wget -qO - https://packages.confluent.io/deb/7.4/archive.key | sudo apt-key add -",
+		`sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/7.4 stable main"`,
+		`sudo add-apt-repository "deb https://packages.confluent.io/clients/deb $(lsb_release -cs) main"`,
 		"sudo apt-get update -y 1>/dev/null",
 		"sudo apt-get install -y confluent-platform confluent-security confluent-community-2.13  1>/dev/null 2>/dev/null",
 	}

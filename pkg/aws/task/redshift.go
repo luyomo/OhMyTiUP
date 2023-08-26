@@ -240,10 +240,17 @@ func (c *CreateRedshiftCluster) Execute(ctx context.Context) error {
 		return err
 	}
 
+	owner, _, err := GetCallerUser()
+	if err != nil {
+		return err
+	}
+
 	tags := []types.Tag{
 		{Key: aws.String("Cluster"), Value: aws.String(c.clusterType)},
 		{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},
 		{Key: aws.String("Name"), Value: aws.String(c.clusterName)},
+		{Key: aws.String("Project"), Value: aws.String(c.clusterName)},
+		{Key: aws.String("Owner"), Value: aws.String(owner)},
 	}
 
 	clusterSubnetGroupNameExistFlag, err := c.ClusterSubnetGroupNameExist( /*client, clusterName*/ )
@@ -511,7 +518,7 @@ func (c *DeployRedshiftInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if _, _, err := (*c.wsExe).Execute(ctx, "apt-get install -y postgresql-client-11", true); err != nil {
+	if _, _, err := (*c.wsExe).Execute(ctx, "apt-get install -y postgresql-client", true); err != nil {
 		return err
 	}
 

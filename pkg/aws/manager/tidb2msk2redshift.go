@@ -116,30 +116,29 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 	task001 = append(task001, t1)
 
 	//Setup the kafka cluster
-	// if 1 == 0 {
 	t2 := task.NewBuilder().CreateMSKCluster(&m.localExe, "msk", base.AwsMSKTopoConfigs, &mskClusterInfo).
 		BuildAsStep(fmt.Sprintf("  - Preparing kafka servers"))
 	task001 = append(task001, t2)
 
 	t3 := task.NewBuilder().CreateTiDBCluster(&m.localExe, "tidb", base.AwsTopoConfigs, &clusterInfo).BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 	task001 = append(task001, t3)
-	// }
-
-	// t4 := task.NewBuilder().CreateTransitGateway(&m.localExe).BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
-	// task001 = append(task001, t4)
 
 	// Parallel task to create tidb and kafka instances
 	var task002 []*task.StepDisplay // tasks which are used to initialize environment
 
-	// if 1 == 0 {
-	t23 := task.NewBuilder().
+	// t23 := task.NewBuilder().
+	// 	DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
+	// 	DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
+	// 	CreateTiCDCGlue(&m.wsExe).
+	// 	BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
+	// task002 = append(task002, t23)
+
+	// Put TiDB and kafka to avoid apt-get confilict.
+	// apt-get update is easy to occur: Could not get lock /var/lib/apt/lists/lock - open (11: Resource temporarily unavailable
+	t24 := task.NewBuilder().
 		DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
 		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
 		CreateTiCDCGlue(&m.wsExe).
-		BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
-	task002 = append(task002, t23)
-
-	t24 := task.NewBuilder().
 		DeployKafka(&m.localExe, base.AwsWSConfigs, "msk", &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Deploying kafka instance ... "))
 	task002 = append(task002, t24)
@@ -153,10 +152,6 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 		CreateMSKConnectPlugin(&m.localExe, &m.wsExe, base.AwsMSKConnectPluginTopoConfigs).
 		BuildAsStep(fmt.Sprintf("  - Preparing msk connect plugin ... ... "))
 	task002 = append(task002, t26)
-	// }
-
-	// t4 := task.NewBuilder().CreateTransitGateway(&m.localExe).BuildAsStep(fmt.Sprintf("  - Preparing the transit gateway"))
-	// task001 = append(task001, t4)
 
 	// The es might be lag behind the tidb/kafka cluster
 	// Cluster generation -> transit gateway setup -> instance deployment
@@ -223,8 +218,8 @@ func (m *Manager) DestroyTiDB2Msk2RedshiftCluster(name, clusterType string, gOpt
 	destroyTasks = append(destroyTasks, t5)
 
 	t3 := task.NewBuilder().
-		// DestroyNATGateway(&m.localExe, "msk").
-		// DestroyElasticAddress(&m.localExe, "msk").
+		DestroyNATGateway(&m.localExe, "msk").
+		DestroyElasticAddress(&m.localExe, "msk").
 		DestroyMskConnect(&m.localExe).
 		DestroyEC2Nodes(&m.localExe, "msk").
 		BuildAsStep(fmt.Sprintf("  - Destroying kafka nodes cluster %s ", name))
@@ -440,7 +435,7 @@ func (m *Manager) PerfPrepareTiDB2MSK2Redshift(clusterName, clusterType string, 
 		return err
 	}
 
-	_, accountID, err := task.GetCallerUser(ctx)
+	_, accountID, err := task.GetCallerUser()
 	if err != nil {
 		return err
 	}

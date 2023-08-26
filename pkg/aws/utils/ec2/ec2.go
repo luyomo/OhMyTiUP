@@ -40,6 +40,8 @@ type EC2API struct {
 	client *ec2.Client
 
 	mapArgs *map[string]string
+
+	newMapArgs map[string]string
 }
 
 func NewEC2API(mapArgs *map[string]string) (*EC2API, error) {
@@ -47,6 +49,24 @@ func NewEC2API(mapArgs *map[string]string) (*EC2API, error) {
 
 	if mapArgs != nil {
 		ec2api.mapArgs = mapArgs
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+
+	client := ec2.NewFromConfig(cfg)
+	ec2api.client = client
+
+	return &ec2api, nil
+}
+
+func NewEC2API02(mapArgs map[string]string) (*EC2API, error) {
+	ec2api := EC2API{}
+
+	if mapArgs != nil {
+		ec2api.newMapArgs = mapArgs
 	}
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -110,6 +130,9 @@ func (e *EC2API) GetVpcId() (*types.Vpc, error) {
 	}
 
 	if len(describeVpc.Vpcs) > 1 {
+		for _, _vpc := range describeVpc.Vpcs {
+			fmt.Printf("The VPC is: %#v \n\n\n\n\n\n", _vpc)
+		}
 		return nil, errors.New(fmt.Sprintf("Multiple VPCs found: %#v", describeVpc))
 	}
 
@@ -130,7 +153,15 @@ func (e *EC2API) GetRouteTable() (*types.RouteTable, error) {
 	}
 
 	if len(describeRouteTables.RouteTables) > 1 {
-		return nil, errors.New(fmt.Sprintf("Multiple VPCs found: %#v", describeRouteTables))
+		// fmt.Printf("Filters: <%#v> \n\n\n", filters)
+		strFilters := e.makeFiltersString()
+		var strTags []string
+		for _, routeTable := range describeRouteTables.RouteTables {
+			strTag := e.makeTagsString(&routeTable.Tags)
+			strTags = append(strTags, *strTag)
+		}
+
+		return nil, errors.New(fmt.Sprintf("Multiple route tables found. Filters: %s, Found tags: %s", *strFilters, strings.Join(strTags, " ")))
 	}
 
 	if len(describeRouteTables.RouteTables) == 0 {
@@ -176,7 +207,8 @@ func (e *EC2API) CreateRoute(cidr, transitGatewayId string) error {
 		return err
 	}
 	if routeTable == nil {
-		return errors.New("No source route table found.")
+		return nil
+		// return errors.New("No source route table found.")
 	}
 
 	routeHasExists, err := e.routeHasExists(routeTable, cidr, transitGatewayId)
@@ -321,12 +353,68 @@ func (c *EC2API) makeFilters() *[]types.Filter {
 	if c.mapArgs == nil {
 		return &filters
 	}
-
+	// fmt.Printf("*** mapsArgs: %#v \n\n\n", *c.mapArgs)
+	// fmt.Printf("*** maptag: %#v \n\n\n", MapTag())
 	for key, tagName := range *(MapTag()) {
+		// fmt.Printf("*** tag mapping: %s -> %s \n\n\n", key, tagName)
 		if tagValue, ok := (*c.mapArgs)[key]; ok {
 			filters = append(filters, types.Filter{Name: aws.String("tag:" + tagName), Values: []string{tagValue}})
+			// fmt.Printf("*** tagName: %s, tagValue: %s \n\n\n", tagName, tagValue)
 		}
 	}
 
 	return &filters
+}
+
+func (c *EC2API) makeFiltersString() *string {
+	var filters []string
+	if c.mapArgs == nil {
+		return aws.String("")
+	}
+
+	for key, tagName := range *(MapTag()) {
+		if tagValue, ok := (*c.mapArgs)[key]; ok {
+			filters = append(filters, fmt.Sprintf("tag:%s->%s", tagName, tagValue))
+		}
+	}
+
+	return aws.String(strings.Join(filters, ","))
+}
+
+// func (c *EC2API) MakeFiltersString() *string {
+// 	var filters []string
+// 	if c.mapArgs == nil {
+// 		return aws.String("")
+// 	}
+
+// 	for key, tagName := range *(MapTag()) {
+// 		if tagValue, ok := (*c.mapArgs)[key]; ok {
+// 			filters = append(filters, fmt.Sprintf("tag:%s->%s", tagName, tagValue))
+// 		}
+// 	}
+
+// 	return aws.String(strings.Join(filters, ","))
+// }
+
+// func (c *EC2API) MakeFiltersString02() *string {
+// 	var filters []string
+// 	if c.newMapArgs == nil {
+// 		return aws.String("")
+// 	}
+
+// 	for key, tagName := range *(MapTag()) {
+// 		if tagValue, ok := (c.newMapArgs)[key]; ok {
+// 			filters = append(filters, fmt.Sprintf("tag:%s->%s", tagName, tagValue))
+// 		}
+// 	}
+
+// 	return aws.String(strings.Join(filters, ","))
+// }
+
+func (c *EC2API) makeTagsString(tags *[]types.Tag) *string {
+	var tagsStr []string
+	for _, tag := range *tags {
+		tagsStr = append(tagsStr, fmt.Sprintf("%s->%s", *tag.Key, *tag.Value))
+	}
+	return aws.String(strings.Join(tagsStr, ","))
 }

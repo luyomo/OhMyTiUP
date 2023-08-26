@@ -66,7 +66,9 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 	}
 
 	for _, targetSubClusterType := range c.subClusterTypes {
+
 		mapArgs["subClusterType"] = targetSubClusterType
+		delete(mapArgs, "scope")
 
 		targetVpcInfo, err := ec2api.GetVpcId()
 		if err != nil {
@@ -77,14 +79,24 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 			return errors.New("No target vpc info found.")
 		}
 
+		// Create either of private and public route table to target cidr. Need to improve this logic. It's not easy to understand.
 		mapArgs["subClusterType"] = c.subClusterType // It will be used to search the routes
-		if err := ec2api.CreateRoute(*targetVpcInfo.CidrBlock, *transitGateway.TransitGatewayId); err != nil {
-			return err
+		for _, scope := range []string{"private", "public"} {
+			// mapArgs["scope"] = "private"
+			mapArgs["scope"] = scope
+			if err := ec2api.CreateRoute(*targetVpcInfo.CidrBlock, *transitGateway.TransitGatewayId); err != nil {
+				return err
+			}
 		}
 
-		mapArgs["subClusterType"] = targetSubClusterType
-		if err := ec2api.CreateRoute(*sourceVpcInfo.CidrBlock, *transitGateway.TransitGatewayId); err != nil {
-			return err
+		fmt.Printf("----- Target sub couster type: %s \n\n\n", targetSubClusterType)
+		for _, scope := range []string{"private", "public"} {
+			mapArgs["subClusterType"] = targetSubClusterType
+			// mapArgs["scope"] = "private"
+			mapArgs["scope"] = scope
+			if err := ec2api.CreateRoute(*sourceVpcInfo.CidrBlock, *transitGateway.TransitGatewayId); err != nil {
+				return err
+			}
 		}
 	}
 

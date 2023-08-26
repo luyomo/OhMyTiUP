@@ -301,15 +301,19 @@ type CreateMSKCluster struct {
 
 // Execute implements the Task interface
 func (c *CreateMSKCluster) Execute(ctx context.Context) error {
+
 	if err := c.init(ctx); err != nil {
 		return err
 	}
 
-	// tags := []types.Tag{
-	// 	{Key: aws.String("Cluster"), Value: aws.String(clusterType)},
-	// 	{Key: aws.String("Type"), Value: aws.String("redshift")},
-	// 	{Key: aws.String("Name"), Value: aws.String(clusterName)},
-	// }
+	tags := make(map[string]string)
+	tags["Project"] = c.clusterName
+	owner, _, err := GetCallerUser()
+	if err != nil {
+		return err
+	}
+
+	tags["Owner"] = owner
 
 	configurationExist, err := c.ConfigurationExist()
 	if err != nil {
@@ -349,16 +353,10 @@ zookeeper.session.timeout.ms=18000`),
 	/*
 	   BadRequestException: Specify either two or three client subnets.
 	*/
-	// var clusterSubnets []string
-	// for idx := 0; idx < 3; idx++ {
-	// 	clusterSubnets = append(clusterSubnets, c.clusterInfo.privateSubnets[idx])
-	// }
-
 	clusterSubnets, err := c.GetSubnetsInfo(3)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("The subnets for msk is <%#v> \n\n\n\n\n\n", clusterSubnets)
 
 	securityGroup, err := c.GetSecurityGroup(ThrowErrorIfNotExists)
 	if err != nil {
@@ -373,6 +371,7 @@ zookeeper.session.timeout.ms=18000`),
 		fmt.Printf("configuration arn: <%#v> \n\n\n\n\n\n", *configuratinArn)
 		_, err = c.client.CreateClusterV2(context.TODO(), &kafka.CreateClusterV2Input{
 			ClusterName: aws.String(c.clusterName),
+			Tags:        tags,
 			Provisioned: &types.ProvisionedRequest{
 				KafkaVersion: aws.String("3.3.2"),
 				BrokerNodeGroupInfo: &types.BrokerNodeGroupInfo{

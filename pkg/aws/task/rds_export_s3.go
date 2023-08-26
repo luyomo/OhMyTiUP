@@ -143,13 +143,6 @@ func (c *CreateRDSExportS3) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// baseServiceIamRole := BaseServiceIamRole{BaseTask: BaseTask{subClusterType: c.subClusterType, component: c.subClusterType}}
-	// baseServiceIamRole.init(ctx)
-	// roleArn, err := baseServiceIamRole.ResourceData.GetResourceArn(ThrowErrorIfNotExists)
-	// if err != nil {
-	// 	return err
-	// }
-
 	if clusterExistFlag == false {
 		// TODO: Add resource preparation
 		// tags := c.MakeEC2Tags()

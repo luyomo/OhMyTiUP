@@ -86,6 +86,7 @@ func (b *BaseServiceIamRole) init(ctx context.Context) error {
 	b.clusterName = ctx.Value("clusterName").(string)
 	b.clusterType = ctx.Value("clusterType").(string)
 
+	fmt.Printf("Searching role name: %s.%s \n\n\n", b.clusterName, b.subClusterType)
 	b.roleName = fmt.Sprintf("%s.%s", b.clusterName, b.subClusterType)
 
 	// Client initialization

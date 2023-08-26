@@ -256,7 +256,7 @@ func (c *CreateMskConnect) Execute(ctx context.Context) error {
 			return err
 		}
 
-		listServiceIamRole := &ListServiceIamRole{BaseServiceIamRole: BaseServiceIamRole{BaseTask: BaseTask{pexecutor: c.pexecutor, clusterName: c.clusterName}}}
+		listServiceIamRole := &ListServiceIamRole{BaseServiceIamRole: BaseServiceIamRole{BaseTask: BaseTask{pexecutor: c.pexecutor, clusterName: c.clusterName, subClusterType: "glue"}}}
 		if err := listServiceIamRole.Execute(ctx); err != nil {
 			return err
 		}

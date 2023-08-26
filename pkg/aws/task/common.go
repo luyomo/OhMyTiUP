@@ -1054,10 +1054,7 @@ func InitClientInstance() error {
 }
 
 // Get the user from increntials for resource tag addition
-func GetCallerUser(ctx context.Context) (string, string, error) {
-	if ctx.Value("tagOwner") != nil && ctx.Value("tagOwner") != "" {
-		return ctx.Value("tagOwner").(string), "", nil
-	}
+func GetCallerUser() (string, string, error) {
 
 	_ctx := context.TODO()
 	cfg, err := config.LoadDefaultConfig(_ctx)
@@ -1069,9 +1066,18 @@ func GetCallerUser(ctx context.Context) (string, string, error) {
 
 	var _getCallerIdentityInput *sts.GetCallerIdentityInput
 
-	_caller, err := _client.GetCallerIdentity(ctx, _getCallerIdentityInput)
+	_caller, err := _client.GetCallerIdentity(_ctx, _getCallerIdentityInput)
 
-	return strings.Split((*_caller.Arn), "/")[1], *_caller.Account, nil
+	callerInfo := strings.Split((*_caller.Arn), "/")
+	if len(callerInfo) == 2 {
+		return callerInfo[1], *_caller.Account, nil
+	} else if len(callerInfo) == 3 {
+		return callerInfo[2], *_caller.Account, nil
+	}
+
+	return "", *_caller.Account, nil
+
+	// return strings.Split((*_caller.Arn), "/")[1], *_caller.Account, nil
 }
 
 // func GetAWSCrential(ctx context.Context) (*aws.Credentials, error) {
@@ -1579,6 +1585,13 @@ func (b *BaseTask) MakeEC2Tags() *[]ec2types.Tag {
 	if b.component != "" {
 		tags = append(tags, ec2types.Tag{Key: aws.String("Component"), Value: aws.String(b.component)})
 	}
+	tags = append(tags, ec2types.Tag{Key: aws.String("Project"), Value: aws.String(b.clusterName)})
+
+	owner, _, err := GetCallerUser()
+	if err != nil {
+		fmt.Printf("Failed to fetch the caller \n\n\n")
+	}
+	tags = append(tags, ec2types.Tag{Key: aws.String("Owner"), Value: aws.String(owner)})
 
 	return &tags
 }
@@ -1587,6 +1600,7 @@ func (b *BaseTask) MakeASTags() *[]astypes.Tag {
 	var tags []astypes.Tag
 	tags = append(tags, astypes.Tag{Key: aws.String("Name"), Value: aws.String(b.clusterName)})
 	tags = append(tags, astypes.Tag{Key: aws.String("Cluster"), Value: aws.String(b.clusterType)})
+	tags = append(tags, astypes.Tag{Key: aws.String("Project"), Value: aws.String(b.clusterName)})
 
 	// If the subClusterType is not specified, it is called from destroy to remove all the security group
 	if b.subClusterType != "" {
@@ -1600,6 +1614,11 @@ func (b *BaseTask) MakeASTags() *[]astypes.Tag {
 	if b.component != "" {
 		tags = append(tags, astypes.Tag{Key: aws.String("Component"), Value: aws.String(b.component)})
 	}
+	owner, _, err := GetCallerUser()
+	if err != nil {
+		fmt.Printf("Failed to fetch the caller \n\n\n")
+	}
+	tags = append(tags, astypes.Tag{Key: aws.String("Owner"), Value: aws.String(owner)})
 
 	return &tags
 }

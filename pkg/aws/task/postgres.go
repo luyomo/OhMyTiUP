@@ -224,7 +224,7 @@ func (c *CreatePostgres) Install(ctx context.Context) error {
 		return err
 	}
 
-	_, _, err = (*workstation).Execute(ctx, "apt-get install -y postgresql-client-11", true)
+	_, _, err = (*workstation).Execute(ctx, "apt-get install -y postgresql-client", true)
 	if err != nil {
 		return err
 	}

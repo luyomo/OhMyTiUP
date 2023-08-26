@@ -152,22 +152,10 @@ func (c *CreateTiDBCloudImport) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// Skipped the
-	// clusterExist, err := c.ResourceExist()
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if clusterExist == true {
-	// 	return nil
-	// }
-
 	clusterId, err := c.GetClusterID()
 	if err != nil {
 		return err
 	}
-
-	// // 02. Create the cluster
 
 	// Search for the valid S3 backup to import.
 	exportTasks, err := awsutils.GetValidBackupS3(c.clusterName)

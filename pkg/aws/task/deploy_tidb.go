@@ -56,7 +56,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
-	if err := c.workstation.InstallPackages(&[]string{"mariadb-client-10.5"}); err != nil {
+	if err := c.workstation.InstallPackages(&[]string{"mariadb-client"}); err != nil {
 		return err
 	}
 

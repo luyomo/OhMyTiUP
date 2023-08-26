@@ -145,45 +145,6 @@ func (c *CreateServiceIamPolicy) Execute(ctx context.Context) error {
 			{Key: aws.String("Type"), Value: aws.String(c.subClusterType)},
 		}
 
-		// 		policy := `{
-		//     "Version": "2012-10-17",
-		//     "Statement": [
-		//         {
-		//             "Sid": "VisualEditor0",
-		//             "Effect": "Allow",
-		//             "Action": [
-		//                 "glue:ListSchemaVersions",
-		//                 "glue:GetRegistry",
-		//                 "glue:QuerySchemaVersionMetadata",
-		//                 "glue:GetSchemaVersionsDiff",
-		//                 "glue:ListSchemas",
-		//                 "glue:UntagResource",
-		//                 "glue:GetSchema",
-		//                 "glue:TagResource",
-		//                 "glue:GetSchemaByDefinition"
-		//             ],
-		//             "Resource": [
-		//                 "arn:aws:glue:*:%s:schema/*",
-		//                 "arn:aws:glue:*:%s:registry/*"
-		//             ]
-		//         },
-		//         {
-		//             "Sid": "VisualEditor1",
-		//             "Effect": "Allow",
-		//             "Action": [
-		//                 "glue:GetSchemaVersion",
-		//                 "glue:ListRegistries"
-		//             ],
-		//             "Resource": "*"
-		//         }
-		//     ]
-		// }`
-
-		// _, accountID, err := GetCallerUser(ctx)
-		// if err != nil {
-		// 	return err
-		// }
-
 		if _, err = c.client.CreatePolicy(context.TODO(), &iam.CreatePolicyInput{
 			PolicyName:     aws.String(c.policyName),
 			Tags:           tags,

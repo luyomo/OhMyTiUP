@@ -129,7 +129,7 @@ func (c *CreateWorkstation) instanceIsAvailable(ctx context.Context, client *ec2
 // Execute implements the Task interface
 func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	tagProject := GetProject(ctx)
-	tagOwner, _, err := GetCallerUser(ctx)
+	tagOwner, _, err := GetCallerUser()
 	if err != nil {
 		return err
 	}
@@ -665,8 +665,8 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	combinedName := fmt.Sprintf("%s.%s.%s.%s", clusterType, clusterName, c.subClusterType, c.componentName)
 
 	// Two tags to resource to show the project and owner
-	tagProject := GetProject(ctx)          // Project name(tag): tidb-cluster
-	tagOwner, _, err := GetCallerUser(ctx) // Owner(default): aws user
+	tagProject := GetProject(ctx)       // Project name(tag): tidb-cluster
+	tagOwner, _, err := GetCallerUser() // Owner(default): aws user
 	if err != nil {
 		return err
 	}

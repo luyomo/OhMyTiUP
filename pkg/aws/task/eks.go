@@ -48,7 +48,7 @@ func (c *DeployEKS) Execute(ctx context.Context) error {
 	clusterType := ctx.Value("clusterType").(string)
 
 	tagProject := GetProject(ctx)
-	tagOwner, tagAccountID, err := GetCallerUser(ctx)
+	tagOwner, tagAccountID, err := GetCallerUser()
 	if err != nil {
 		return err
 	}
