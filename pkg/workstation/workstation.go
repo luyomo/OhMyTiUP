@@ -199,8 +199,23 @@ func (c *Workstation) InstallPackages(packages *[]string) error {
 		return err
 	}
 
-	if _, _, err := (*c.executor).Execute(ctx, "apt-get update -y", true); err != nil {
-		return err
+	if stdout, _, err := (*c.executor).Execute(ctx, "apt-get update -y", true); err != nil {
+		if strings.Contains(string(stdout), "The following signatures couldn't be verified because the public key is not available:") {
+			if _, _, err := (*c.executor).Execute(ctx, "apt-get install -y aptitude", true); err != nil {
+				return err
+			}
+
+			if _, _, err := (*c.executor).Execute(ctx, "aptitude install -y debian-archive-keyring", true); err != nil {
+				return err
+			}
+
+			if _, _, err := (*c.executor).Execute(ctx, "apt-get update -y", true); err != nil {
+				return err
+			}
+
+		} else {
+			return err
+		}
 	}
 
 	if packages != nil {

@@ -15,7 +15,7 @@ package manager
 
 import (
 	"context"
-	"errors"
+	// "errors"
 	"fmt"
 	"math"
 	"os"
@@ -34,12 +34,12 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	"github.com/luyomo/OhMyTiUP/pkg/meta"
+	// "github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
-	perrs "github.com/pingcap/errors"
+	// perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
@@ -166,14 +166,6 @@ func (m *Manager) TiDBDeploy(
 func (m *Manager) DestroyTiDBCluster(name, clusterType string, gOpt operator.Options, destroyOpt operator.Options, skipConfirm bool) error {
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
-
-	_, err := m.meta(name)
-	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
-		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
-		!errors.Is(perrs.Cause(err), spec.ErrMultipleTiSparkMaster) &&
-		!errors.Is(perrs.Cause(err), spec.ErrMultipleTisparkWorker) {
-		return err
-	}
 
 	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
 		return err

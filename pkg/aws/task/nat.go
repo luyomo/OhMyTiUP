@@ -247,8 +247,8 @@ func (c *DestroyNAT) Execute(ctx context.Context) error {
 	var filters []types.Filter
 	filters = append(filters, types.Filter{Name: aws.String("tag:Name"), Values: []string{clusterName}})
 	filters = append(filters, types.Filter{Name: aws.String("tag:Cluster"), Values: []string{clusterType}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Component"), Values: []string{c.subClusterType}})
-	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{"nat"}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Type"), Values: []string{c.subClusterType}})
+	filters = append(filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{"nat"}})
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
