@@ -136,8 +136,8 @@ func (m *Manager) TiDB2Msk2RedshiftDeploy(
 	// Put TiDB and kafka to avoid apt-get confilict.
 	// apt-get update is easy to occur: Could not get lock /var/lib/apt/lists/lock - open (11: Resource temporarily unavailable
 	t24 := task.NewBuilder().
-		DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
-		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
+		DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog,  &m.workstation).
+		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 		CreateTiCDCGlue(&m.wsExe).
 		DeployKafka(&m.localExe, base.AwsWSConfigs, "msk", &workstationInfo).
 		BuildAsStep(fmt.Sprintf("  - Deploying kafka instance ... "))

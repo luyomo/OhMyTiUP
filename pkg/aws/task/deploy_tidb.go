@@ -15,31 +15,25 @@ package task
 
 import (
 	"context"
-	// "encoding/json"
-	// "errors"
 	"fmt"
-	// "os"
-	// "path"
 	"strconv"
 	"strings"
-	// "text/template"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	// "github.com/luyomo/OhMyTiUP/embed"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	// "github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
-	// "go.uber.org/zap"
 
 	ec2utils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/ec2"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
-func (b *Builder) DeployTiDB(subClusterType string, awsWSConfigs *spec.AwsWSConfigs, workstation *ws.Workstation) *Builder {
+func (b *Builder) DeployTiDB(subClusterType string, awsWSConfigs *spec.AwsWSConfigs, tidbVersion string, enableAuditLog bool, workstation *ws.Workstation) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDB{
 		awsWSConfigs:   awsWSConfigs,
 		subClusterType: subClusterType,
+		enableAuditLog: enableAuditLog,
+		tidbVersion:    tidbVersion,
 		workstation:    workstation,
 	})
 	return b
@@ -48,6 +42,9 @@ func (b *Builder) DeployTiDB(subClusterType string, awsWSConfigs *spec.AwsWSConf
 type DeployTiDB struct {
 	awsWSConfigs   *spec.AwsWSConfigs
 	subClusterType string
+
+	tidbVersion    string
+	enableAuditLog bool
 	workstation    *ws.Workstation
 }
 
@@ -59,10 +56,6 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	if err := c.workstation.InstallPackages(&[]string{"mariadb-client"}); err != nil {
 		return err
 	}
-
-	// if err := c.workstation.InstallProfiles(c.awsWSConfigs.KeyFile); err != nil {
-	// 	return err
-	// }
 
 	mapArgs := make(map[string]string)
 	mapArgs["clusterName"] = clusterName
@@ -76,6 +69,12 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	instances, err := ec2api.ExtractEC2Instances()
 	if err != nil {
 		return err
+	}
+	tidbConfig := make(map[string]interface{})
+	tidbConfig["Servers"] = instances
+	if c.enableAuditLog == true {
+		tidbConfig["AuditLog"] = "whitelist-1,audit-1"
+		tidbConfig["PluginDir"] = "/home/admin/tidb/tidb-deploy/tidb-4000/plugin"
 	}
 
 	if c.awsWSConfigs.EnableMonitoring == "enabled" {
@@ -99,7 +98,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if err := (*wsExe).TransferTemplate(ctx, "templates/config/tidb-cluster.yml.tpl", "/opt/tidb/tidb-cluster.yml", "0644", instances, true, 0); err != nil {
+	if err := (*wsExe).TransferTemplate(ctx, "templates/config/tidb-cluster.yml.tpl", "/opt/tidb/tidb-cluster.yml", "0644", tidbConfig, true, 0); err != nil {
 		return err
 	}
 
@@ -123,13 +122,14 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		}
 	}
 
-	// err = (*wsExe).Transfer(ctx, "embed/templates/config/limits.conf", "/etc/security/limits.conf", true, 0)
-	// if err != nil {
-	// 	return err
-	// }
-
-	if err := c.workstation.InstallTiup(); err != nil {
-		return err
+	if c.enableAuditLog == true {
+		if err := c.workstation.InstallEnterpriseTiup(c.tidbVersion); err != nil {
+			return err
+		}
+	} else {
+		if err := c.workstation.InstallTiup(); err != nil {
+			return err
+		}
 	}
 
 	return nil

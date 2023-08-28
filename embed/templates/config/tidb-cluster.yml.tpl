@@ -4,7 +4,7 @@ global:
   deploy_dir: "/home/admin/tidb/tidb-deploy"
   data_dir: "/home/admin/tidb/tidb-data"
 server_configs: 
-{{- if (and (.TiCDC) (gt (len .TiCDC) 0)) }}
+{{- if (and (.Servers.TiCDC) (gt (len .Servers.TiCDC) 0)) }}
   cdc:
     per-table-memory-quota: 20971520
 {{- end }}
@@ -14,31 +14,36 @@ server_configs:
   pd:
     replication.location-labels: [ {{ range .Labels -}} "{{. }}" {{- end }} ]
 {{ end }}
-{{- if (and (.Pump) (gt (len .Pump) 0)) }}
+{{- if (and (.Servers.Pump) (gt (len .Servers.Pump) 0)) }}
     binlog.enable: true
     binlog.ignore-error: false
 {{ end  -}}
-{{- if (and (.PD) (gt (len .PD) 0)) }}
+{{- if (and (.Servers.PD) (gt (len .Servers.PD) 0)) }}
 pd_servers:
-  {{- range .PD }}
+  {{- range .Servers.PD }}
   - host: {{. }}
   {{- end }}
 {{ end }}
-{{- if (and (.TiDB) (gt (len .TiDB) 0)) }}
+{{- if (and (.Servers.TiDB) (gt (len .Servers.TiDB) 0)) }}
 tidb_servers:
-  {{- range .TiDB }}
+  {{- range .Servers.TiDB }}
   - host: {{. }}
+    {{- if $.AuditLog }}
+    config:
+      plugin.dir: {{ $.PluginDir }}
+      plugin.load: {{ $.AuditLog }}
+    {{- end }}
   {{- end }}
 {{ end }}
-{{- if (and (.TiFlash) (gt (len .TiFlash) 0)) }}
+{{- if (and (.Servers.TiFlash) (gt (len .Servers.TiFlash) 0)) }}
 tiflash_servers:
-  {{- range .TiFlash }}
+  {{- range .Servers.TiFlash }}
   - host: {{. }}
   {{- end }}
 {{ end }}
-{{- if (and (.TiKV) (gt (len .TiKV) 0)) }}
+{{- if (and (.Servers.TiKV) (gt (len .Servers.TiKV) 0)) }}
 tikv_servers:
-  {{- range .TiKV }}
+  {{- range .Servers.TiKV }}
   - host: {{.IPAddress }}
     {{ if gt (len .Labels) 0 -}}
     config:
@@ -49,34 +54,34 @@ tikv_servers:
     {{ end }}
   {{- end }}
 {{ end  }}
-{{- if (and (.TiCDC) (gt (len .TiCDC) 0)) }}
+{{- if (and (.Servers.TiCDC) (gt (len .Servers.TiCDC) 0)) }}
 cdc_servers:
-  {{- range .TiCDC }}
+  {{- range .Servers.TiCDC }}
   - host: {{. }}
   {{- end }}
 {{ end  }}
-{{- if (and (.Pump) (gt (len .Pump) 0)) }}
+{{- if (and (.Servers.Pump) (gt (len .Servers.Pump) 0)) }}
 pump_servers:
-  {{- range .Pump }}
+  {{- range .Servers.Pump }}
   - host: {{. }}
   {{- end }}
 {{ end }}
-{{- if (and (.Monitor) (gt (len .Monitor) 0)) }}
+{{- if (and (.Servers.Monitor) (gt (len .Servers.Monitor) 0)) }}
 monitoring_servers:
-  {{- range .Monitor }}
+  {{- range .Servers.Monitor }}
   - host: {{. }}
   {{- end }}
 {{- end }}
-{{- if (and (.Grafana) (gt (len .Grafana) 0)) }}
+{{- if (and (.Servers.Grafana) (gt (len .Servers.Grafana) 0)) }}
 grafana_servers:
-  {{- range .Grafana }}
+  {{- range .Servers.Grafana }}
   - host: {{. }}
   {{- end }}
 {{- end }}
-{{- if (and (.AlertManager) (gt (len .AlertManager) 0)) }}
+{{- if (and (.Servers.AlertManager) (gt (len .Servers.AlertManager) 0)) }}
 grafana_servers:
 alertmanager_servers:
-  {{- range .AlertManager }}
+  {{- range .Servers.AlertManager }}
   - host: {{. }}
   {{- end }}
 {{ end  }}

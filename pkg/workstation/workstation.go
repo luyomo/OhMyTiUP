@@ -491,6 +491,52 @@ func (w *Workstation) InstallTiup() error {
 	return nil
 }
 
+func (w *Workstation) InstallEnterpriseTiup(tidbVersion string) error {
+	ctx := context.Background()
+
+	_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/tiup", w.tiupCmdPath), false)
+	if err != nil {
+		if strings.Contains(err.Error(), "cause: exit status 1") {
+			// Need to uncomment after test.
+			binTiDB := fmt.Sprintf("tidb-enterprise-server-%s-linux-amd64", tidbVersion)
+			binPlugin := fmt.Sprintf("enterprise-plugin-%s-linux-amd64", tidbVersion)
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binTiDB), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binPlugin), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", binTiDB), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("mkdir /tmp/%s", binPlugin), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp/%s", binPlugin, binPlugin), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("/tmp/%s/local_install.sh", binTiDB), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			_, _, err = (*w.executor).Execute(ctx, "which $HOME/.tiup/bin/tiup", false)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
 func (w *Workstation) InstallSyncDiffInspector(version string) error {
 	ctx := context.Background()
 
@@ -548,7 +594,7 @@ func (w *Workstation) InstallDumpling(version string) error {
 func (w *Workstation) QueryTiDB(dbName, query string) (*[]map[string]interface{}, error) {
 	ctx := context.Background()
 
-	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_shell_query %s '%s'", dbName, query), false, 1*time.Hour)
+	stdout, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_shell_query %s \"%s\"", dbName, query), false, 1*time.Hour)
 	if err != nil {
 		return nil, err
 	}
@@ -560,4 +606,15 @@ func (w *Workstation) QueryTiDB(dbName, query string) (*[]map[string]interface{}
 
 	return &objmap, nil
 
+}
+
+func (w *Workstation) ExecuteTiDB(dbName, query string) error {
+	ctx := context.Background()
+
+	_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s \"%s\"", dbName, query), false, 1*time.Hour)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

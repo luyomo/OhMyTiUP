@@ -146,8 +146,8 @@ func (m *Manager) TiDB2Kafka2PgDeploy(
 		CreateRouteTgw(&sexecutor, "workstation", []string{"kafka", "tidb", "postgres"}).
 		CreateRouteTgw(&sexecutor, "kafka", []string{"tidb", "postgres"}).
 		DeployKafka(&sexecutor, base.AwsWSConfigs, "kafka", &workstationInfo).
-		DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
-		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
+		DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
+		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 		BuildAsStep(fmt.Sprintf("  - Prepare network resources %s:%d", globalOptions.Host, 22))
 
 	builder = task.NewBuilder().

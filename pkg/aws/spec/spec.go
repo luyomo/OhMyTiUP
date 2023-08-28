@@ -153,19 +153,20 @@ type (
 	}
 
 	AwsTopoConfigsGeneral struct {
-		ImageId      string   `yaml:"imageid,omitempty"`
-		Region       string   `yaml:"region,omitempty"`
-		Name         string   `yaml:"name,omitempty"`
-		KeyName      string   `yaml:"keyname,omitempty"`
-		KeyFile      string   `yaml:"keyfile,omitempty"`
-		CIDR         string   `yaml:"cidr,omitempty"`
-		InstanceType string   `yaml:"instance_type,omitempty"`
-		TiDBVersion  string   `yaml:"tidb_version"`
-		ExcludedAZ   []string `yaml:"excluded_az,omitempty"`
-		IncludedAZ   []string `yaml:"included_az,omitempty"`
-		SubnetsNum   int      `yaml:"subnet_num,omitempty" default: 3`
-		NetworkType  string   `yaml:"network_type" default:"private"`    // private/public/nat
-		EnableThanos string   `yaml:"enable_thanos", default:"disabled"` // enabled/disabled
+		ImageId        string   `yaml:"imageid,omitempty"`
+		Region         string   `yaml:"region,omitempty"`
+		Name           string   `yaml:"name,omitempty"`
+		KeyName        string   `yaml:"keyname,omitempty"`
+		KeyFile        string   `yaml:"keyfile,omitempty"`
+		CIDR           string   `yaml:"cidr,omitempty"`
+		InstanceType   string   `yaml:"instance_type,omitempty"`
+		TiDBVersion    string   `yaml:"tidb_version"`
+		EnableAuditLog bool     `yaml:"enable_audit_log" default:false`
+		ExcludedAZ     []string `yaml:"excluded_az,omitempty"`
+		IncludedAZ     []string `yaml:"included_az,omitempty"`
+		SubnetsNum     int      `yaml:"subnet_num,omitempty" default: 3`
+		NetworkType    string   `yaml:"network_type" default:"private"`    // private/public/nat
+		EnableThanos   string   `yaml:"enable_thanos", default:"disabled"` // enabled/disabled
 	}
 
 	AwsNodeVolume struct {

@@ -15,7 +15,6 @@ package manager
 
 import (
 	"context"
-	// "errors"
 	"fmt"
 	"math"
 	"os"
@@ -34,12 +33,10 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/executor"
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	// "github.com/luyomo/OhMyTiUP/pkg/meta"
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
-	// perrs "github.com/pingcap/errors"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
@@ -65,21 +62,21 @@ func (m *Manager) TiDBDeploy(
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
-		return err
-	}
+	// if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
+	// 	return err
+	// }
 
-	exist, err := m.specManager.Exist(name)
-	if err != nil {
-		return err
-	}
+	// exist, err := m.specManager.Exist(name)
+	// if err != nil {
+	// 	return err
+	// }
 
-	if exist {
-		// FIXME: When change to use args, the suggestion text need to be updatem.
-		return errDeployNameDuplicate.
-			New("Cluster name '%s' is duplicated", name).
-			WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
-	}
+	// if exist {
+	// 	// FIXME: When change to use args, the suggestion text need to be updatem.
+	// 	return errDeployNameDuplicate.
+	// 		New("Cluster name '%s' is duplicated", name).
+	// 		WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
+	// }
 
 	// 02. Get the topo file and parse it
 	metadata := m.specManager.NewMetadata()
@@ -133,8 +130,8 @@ func (m *Manager) TiDBDeploy(
 		ParallelStep("+ Deploying all the sub components", false, task001...).
 		CreateRouteTgw(&m.localExe, "workstation", []string{"tidb"}).
 		RunCommonWS(&m.wsExe, &[]string{"git"}).
-		DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
-		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
+		DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
+		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 		BuildAsStep("Parallel Main step")
 
 	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {

@@ -16,6 +16,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	// "errors"
 	"fmt"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"go.uber.org/zap"
@@ -24,14 +25,13 @@ import (
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
-func (b *Builder) DeployTiDBInstance(awsWSConfigs *spec.AwsWSConfigs, subClusterType, tidbVersion string, workstation *ws.Workstation) *Builder {
+func (b *Builder) DeployTiDBInstance(awsWSConfigs *spec.AwsWSConfigs, subClusterType, tidbVersion string, enableAuditLog bool, workstation *ws.Workstation) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDBInstance{
-		// pexecutor:      pexecutor,
 		subClusterType: subClusterType,
 		awsWSConfigs:   awsWSConfigs,
 		tidbVersion:    tidbVersion,
-		// clusterInfo:    clusterInfo,
-		workstation: workstation,
+		enableAuditLog: enableAuditLog,
+		workstation:    workstation,
 	})
 	return b
 }
@@ -78,59 +78,18 @@ type TiDBClusterDetail struct {
 }
 
 type DeployTiDBInstance struct {
-	// pexecutor    *ctxt.Executor
 	awsWSConfigs *spec.AwsWSConfigs
-
-	workstation *ws.Workstation
+	workstation  *ws.Workstation
 
 	subClusterType string
 	tidbVersion    string
+	enableAuditLog bool
 	clusterInfo    *ClusterInfo
 }
 
 // Execute implements the Task interface
 func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
-	// clusterType := ctx.Value("clusterType").(string)
-
-	// command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Type\" \"Name=tag-value,Values=%s\" \"Name=tag-key,Values=Component\" \"Name=tag-value,Values=workstation\" \"Name=instance-state-code,Values=16\"", clusterName, clusterType)
-	// zap.L().Debug("Command", zap.String("describe-instance", command))
-	// stdout, _, err := (*c.pexecutor).Execute(ctx, command, false)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// var reservations Reservations
-	// if err = json.Unmarshal(stdout, &reservations); err != nil {
-	// 	zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-	// 	return err
-	// }
-
-	// var theInstance EC2
-	// cntInstance := 0
-	// for _, reservation := range reservations.Reservations {
-	// 	for _, instance := range reservation.Instances {
-	// 		cntInstance++
-	// 		theInstance = instance
-	// 	}
-	// }
-
-	// command = fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag-key,Values=Name\" \"Name=tag-value,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName)
-	// zap.L().Debug("Command", zap.String("describe-instance", command))
-	// stdout, _, err = (*c.pexecutor).Execute(ctx, command, false)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if err = json.Unmarshal(stdout, &reservations); err != nil {
-	// 	zap.L().Debug("Json unmarshal", zap.String("describe-instances", string(stdout)))
-	// 	return err
-	// }
-
-	// wsexecutor, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: theInstance.PublicIpAddress, User: c.awsWSConfigs.UserName, KeyFile: c.clusterInfo.keyFile}, []string{})
-	// if err != nil {
-	// 	return err
-	// }
 
 	wsExe, err := c.workstation.GetExecutor()
 	if err != nil {
@@ -163,6 +122,25 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 			return err
 		}
 
+		if c.enableAuditLog == true {
+			binPlugin := fmt.Sprintf("enterprise-plugin-%s-linux-amd64", c.tidbVersion)
+
+			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster exec %s --command "mkdir {{.DeployDir}}/plugin"`, c.awsWSConfigs.UserName, clusterName), false, 300*time.Second)
+			if err != nil {
+				return err
+			}
+
+			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster push %s /tmp/%s/bin/audit-1.so {{.DeployDir}}/plugin/audit-1.so`, c.awsWSConfigs.UserName, clusterName, binPlugin), false, 300*time.Second)
+			if err != nil {
+				return err
+			}
+
+			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster push %s /tmp/%s/bin/whitelist-1.so {{.DeployDir}}/plugin/whitelist-1.so`, c.awsWSConfigs.UserName, clusterName, binPlugin), false, 300*time.Second)
+			if err != nil {
+				return err
+			}
+		}
+
 		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s`, c.awsWSConfigs.UserName, clusterName), false, 300*time.Second)
 		if err != nil {
 			return err
@@ -189,11 +167,6 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	}
 
-	// nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
-	// if err != nil {
-	// 	return err
-	// }
-
 	if err := c.workstation.InstallMySQLShell(); err != nil {
 		return err
 	}
@@ -202,30 +175,27 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// var dbInfo DBInfo
-	// dbInfo.DBHost = *(*nlb).DNSName
-	// dbInfo.DBPort = 4000
-	// dbInfo.DBUser = "root"
+	if c.enableAuditLog == true {
+		res, err := c.workstation.QueryTiDB("mysql", "select count(*) cnt from mysql.tidb_audit_table_access where user = '.*' and db = '.*' and tbl = '.*'")
+		if err != nil {
+			return err
+		}
 
-	// _, _, err = wsexecutor.Execute(ctx, "mkdir -p /opt/scripts", true)
-	// if err != nil {
-	// 	return err
-	// }
+		fmt.Printf("The data: <%#v>", *res)
+		if int((*res)[0]["cnt"].(float64)) == 0 {
+			if err := c.workstation.ExecuteTiDB("mysql", "insert into mysql.tidb_audit_table_access (user, db, tbl, access_type) values ('.*', '.*', '.*', '')"); err != nil {
+				return err
+			}
 
-	// err = wsexecutor.TransferTemplate(ctx, "templates/config/db-info.yml.tpl", "/opt/tidb-db-info.yml", "0644", dbInfo, true, 0)
-	// if err != nil {
-	// 	return err
-	// }
+			if err := c.workstation.ExecuteTiDB("mysql", "admin plugins enable whitelist"); err != nil {
+				return err
+			}
 
-	// err = wsexecutor.TransferTemplate(ctx, "templates/scripts/run_mysql_query.sh.tpl", "/opt/scripts/run_tidb_query", "0755", dbInfo, true, 0)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = wsexecutor.TransferTemplate(ctx, "templates/scripts/run_mysql_from_file.sh.tpl", "/opt/scripts/run_tidb_from_file", "0755", dbInfo, true, 0)
-	// if err != nil {
-	// 	return err
-	// }
+			if err := c.workstation.ExecuteTiDB("mysql", "admin plugins enable audit"); err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }

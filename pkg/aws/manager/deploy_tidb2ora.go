@@ -172,7 +172,7 @@ func (m *Manager) TiDB2OraDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "workstation", task.NetworkTypePublic).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"tidb"}).
-			DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
+			DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 			BuildAsStep(fmt.Sprintf("  - Preparing tidb servers"))
 		envInitTasks = append(envInitTasks, t2)
 	}
@@ -207,8 +207,8 @@ func (m *Manager) TiDB2OraDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "tidb", task.NetworkTypePrivate).
 			CreateTransitGatewayVpcAttachment(&sexecutor, "oracle", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "tidb", []string{"oracle"}).
-			DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
-			DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
+			DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
+			DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 			InstallOracleClient(&sexecutor, base.AwsWSConfigs).
 			InstallTiDB(&sexecutor, base.AwsWSConfigs).
 			DeployDrainConfig(&sexecutor, base.AwsOracleConfigs, base.AwsWSConfigs, base.DrainerReplicate).

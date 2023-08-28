@@ -116,8 +116,8 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	// task002 = append(task002, t22)
 
 	t23 := task.NewBuilder().
-		DeployTiDB("tidb", base.AwsWSConfigs, &m.workstation).
-		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, &m.workstation).
+		DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog,  &m.workstation).
+		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 		BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
 	task002 = append(task002, t23)
 

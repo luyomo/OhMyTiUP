@@ -846,7 +846,6 @@ func (b *Builder) CreateMS(pexecutor *ctxt.Executor, subClusterType string, awsM
 
 func (b *Builder) ScaleTiDBInstance(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
 	b.tasks = append(b.tasks, &DeployTiDBInstance{
-		// pexecutor:      pexecutor,
 		subClusterType: subClusterType,
 		clusterInfo:    clusterInfo,
 	})
