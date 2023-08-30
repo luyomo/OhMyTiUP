@@ -72,7 +72,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	}
 	tidbConfig := make(map[string]interface{})
 	tidbConfig["Servers"] = instances
-	if c.enableAuditLog == true {
+	if c.enableAuditLog == true && c.tidbVersion < "v7.1.0" {
 		tidbConfig["AuditLog"] = "whitelist-1,audit-1"
 		tidbConfig["PluginDir"] = "/home/admin/tidb/tidb-deploy/tidb-4000/plugin"
 	}

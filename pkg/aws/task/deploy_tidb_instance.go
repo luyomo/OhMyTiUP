@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"go.uber.org/zap"
+	"regexp"
 	"time"
 
+	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
@@ -96,7 +98,9 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster list --format json `, c.awsWSConfigs.UserName), false)
+	tiupClusterCmd := fmt.Sprintf("/home/%s/.tiup/bin/tiup cluster", c.awsWSConfigs.UserName)
+
+	stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`%s list --format json `, tiupClusterCmd), false)
 	if err != nil {
 		return err
 	}
@@ -117,36 +121,64 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 
 	if clusterExists == false {
 
-		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster deploy %s %s /opt/tidb/tidb-cluster.yml -y`, c.awsWSConfigs.UserName, clusterName, c.tidbVersion), false, 300*time.Second)
+		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s deploy %s %s /opt/tidb/tidb-cluster.yml -y`, tiupClusterCmd, clusterName, c.tidbVersion), false, 300*time.Second)
 		if err != nil {
 			return err
 		}
 
-		if c.enableAuditLog == true {
+		if c.enableAuditLog == true && c.tidbVersion < "v7.1.0" {
 			binPlugin := fmt.Sprintf("enterprise-plugin-%s-linux-amd64", c.tidbVersion)
 
-			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster exec %s --command "mkdir {{.DeployDir}}/plugin"`, c.awsWSConfigs.UserName, clusterName), false, 300*time.Second)
+			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s exec %s --command "mkdir {{.DeployDir}}/plugin"`, tiupClusterCmd, clusterName), false, 300*time.Second)
 			if err != nil {
 				return err
 			}
 
-			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster push %s /tmp/%s/bin/audit-1.so {{.DeployDir}}/plugin/audit-1.so`, c.awsWSConfigs.UserName, clusterName, binPlugin), false, 300*time.Second)
+			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s push %s /tmp/%s/bin/audit-1.so {{.DeployDir}}/plugin/audit-1.so`, tiupClusterCmd, clusterName, binPlugin), false, 300*time.Second)
 			if err != nil {
 				return err
 			}
 
-			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster push %s /tmp/%s/bin/whitelist-1.so {{.DeployDir}}/plugin/whitelist-1.so`, c.awsWSConfigs.UserName, clusterName, binPlugin), false, 300*time.Second)
+			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s push %s /tmp/%s/bin/whitelist-1.so {{.DeployDir}}/plugin/whitelist-1.so`, tiupClusterCmd, clusterName, binPlugin), false, 300*time.Second)
 			if err != nil {
 				return err
 			}
 		}
 
-		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s`, c.awsWSConfigs.UserName, clusterName), false, 300*time.Second)
+		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s start %s`, tiupClusterCmd, clusterName), false, 300*time.Second)
 		if err != nil {
 			return err
 		}
+
+		if err = awsutils.WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
+			stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`%s display %s --format json `, tiupClusterCmd, clusterName), false)
+			if err != nil {
+				return false, err
+			}
+
+			var tidbClusterDetail TiDBClusterDetail
+			if err = json.Unmarshal(stdout, &tidbClusterDetail); err != nil {
+				zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
+				return false, err
+			}
+
+			for _, component := range tidbClusterDetail.Instances {
+				matched, err := regexp.MatchString(`^Up.*`, component.Status)
+				if err != nil {
+					return false, err
+				}
+
+				if matched == false {
+					return false, nil
+				}
+			}
+			return true, nil
+		}); err != nil {
+			return err
+		}
+
 	} else {
-		stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster display %s --format json `, c.awsWSConfigs.UserName, clusterName), false)
+		stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`%s display %s --format json `, tiupClusterCmd, clusterName), false)
 		if err != nil {
 			return err
 		}
@@ -158,7 +190,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		}
 		for _, component := range tidbClusterDetail.Instances {
 			if component.Status != "Up" {
-				stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`/home/%s/.tiup/bin/tiup cluster start %s --node %s `, c.awsWSConfigs.UserName, clusterName, component.Id), false)
+				stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s start %s --node %s `, tiupClusterCmd, clusterName, component.Id), false)
 				if err != nil {
 					return err
 				}
@@ -175,13 +207,14 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if c.enableAuditLog == true {
+	// The audit log feature is merged into the TiDB bin after v7.1.0.
+	// If the version is before v7.1.0, to use the audit log, the plugins set must be set.
+	if c.enableAuditLog == true && c.tidbVersion < "v7.1.0" {
 		res, err := c.workstation.QueryTiDB("mysql", "select count(*) cnt from mysql.tidb_audit_table_access where user = '.*' and db = '.*' and tbl = '.*'")
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("The data: <%#v>", *res)
 		if int((*res)[0]["cnt"].(float64)) == 0 {
 			if err := c.workstation.ExecuteTiDB("mysql", "insert into mysql.tidb_audit_table_access (user, db, tbl, access_type) values ('.*', '.*', '.*', '')"); err != nil {
 				return err

@@ -1959,7 +1959,6 @@ func (c *RunCommonWS) Execute(ctx context.Context) error {
 
 	if stdout, _, err := (*c.wsExe).Execute(ctx, "apt-get update -y", true); err != nil {
 		if strings.Contains(string(stdout), "The following signatures couldn't be verified because the public key is not available:") {
-			fmt.Printf("Fixing the public key error \n\n\n")
 			if _, _, err := (*c.wsExe).Execute(ctx, "apt-get install -y aptitude", true); err != nil {
 				return err
 			}

@@ -89,7 +89,6 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 			}
 		}
 
-		fmt.Printf("----- Target sub couster type: %s \n\n\n", targetSubClusterType)
 		for _, scope := range []string{"private", "public"} {
 			mapArgs["subClusterType"] = targetSubClusterType
 			// mapArgs["scope"] = "private"

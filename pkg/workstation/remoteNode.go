@@ -25,7 +25,6 @@ import (
 
 func (w *Workstation) getRemoteExecutor(targetIP string) (*ctxt.Executor, error) {
 	if w.mapRemoteNodes[targetIP] == nil {
-		fmt.Printf("Starting to get the executor ... ... \n\n\n")
 		_remoteNode, err := executor.New(executor.SSHTypeSystem, false, executor.SSHConfig{Host: targetIP, User: w.user, KeyFile: w.identityFile, Proxy: &executor.SSHConfig{Host: w.ipAddr, User: w.user, Port: 22, KeyFile: w.identityFile}}, []string{})
 		if err != nil {
 			return nil, err
