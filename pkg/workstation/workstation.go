@@ -500,7 +500,40 @@ func (w *Workstation) InstallEnterpriseTiup(tidbVersion string) error {
 			// Need to uncomment after test.
 			binTiDB := fmt.Sprintf("tidb-enterprise-server-%s-linux-amd64", tidbVersion)
 			binPlugin := fmt.Sprintf("enterprise-plugin-%s-linux-amd64", tidbVersion)
+			binTool := fmt.Sprintf("tidb-enterprise-toolkit-%s-linux-amd64", tidbVersion)
+
 			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binTiDB), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binTool), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			// https://download.pingcap.org/tidb-enterprise-toolkit-v7.1.0-linux-amd64.tar.gz
+			// https://docs.pingcap.com/tidb/stable/upgrade-tidb-using-tiup#upgrade-tiup-offline-mirror
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", binTiDB), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", binTool), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("sh /tmp/%s/local_install.sh", binTiDB), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("cp -rp /tmp/%s/keys $HOME/.tiup/", binTiDB), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("$HOME/.tiup/bin/tiup mirror merge /tmp/%s", binTool), false, 600*time.Second); err != nil {
+				return err
+			}
+
+			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("mkdir -p /tmp/%s", binPlugin), false, 600*time.Second); err != nil {
 				return err
 			}
 
@@ -508,19 +541,7 @@ func (w *Workstation) InstallEnterpriseTiup(tidbVersion string) error {
 				return err
 			}
 
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", binTiDB), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("mkdir /tmp/%s", binPlugin), false, 600*time.Second); err != nil {
-				return err
-			}
-
 			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp/%s", binPlugin, binPlugin), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("/tmp/%s/local_install.sh", binTiDB), false, 600*time.Second); err != nil {
 				return err
 			}
 

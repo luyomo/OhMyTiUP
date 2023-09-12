@@ -129,7 +129,7 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		if c.enableAuditLog == true && c.tidbVersion < "v7.1.0" {
 			binPlugin := fmt.Sprintf("enterprise-plugin-%s-linux-amd64", c.tidbVersion)
 
-			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s exec %s --command "mkdir {{.DeployDir}}/plugin"`, tiupClusterCmd, clusterName), false, 300*time.Second)
+			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s exec %s --command "mkdir -p {{.DeployDir}}/plugin"`, tiupClusterCmd, clusterName), false, 300*time.Second)
 			if err != nil {
 				return err
 			}
