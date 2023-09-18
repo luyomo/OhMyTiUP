@@ -1,0 +1,9 @@
+* Background
+This article introduce how to deploy one tidb cluster on the aks and the rolling update on the AKS.
+  + Install below clients on the workstation
+    - helm install
+    - az cli install
+  + Use terraform to install aks
+  + Run aks command to update nodepool to enable EnableAzureDiskFileCSIDriver (So far the terraform does not the config)
+  + Install tidb operator  -> with terraform
+  + Install tidb cluster   -> with terraform
