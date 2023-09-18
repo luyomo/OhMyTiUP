@@ -7,3 +7,38 @@ This article introduce how to deploy one tidb cluster on the aks and the rolling
   + Run aks command to update nodepool to enable EnableAzureDiskFileCSIDriver (So far the terraform does not the config)
   + Install tidb operator  -> with terraform
   + Install tidb cluster   -> with terraform
+* Deployment
+  #+BEGIN_SRC
+$ terraform apply
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions: 
+... ...
+Apply complete! Resources: 11 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+client_certificate = <sensitive>
+client_key = <sensitive>
+cluster_ca_certificate = <sensitive>
+cluster_password = <sensitive>
+cluster_username = <sensitive>
+host = <sensitive>
+key_data = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDZQVYHQaWhMZNxX+96CernO4UXm4rX+HuhPOE3R9B6JLG7j5aPGQaY7q2kBNlO4P8xy9MP7spM9Go2tbPBSJyr3lx2eId1vaibHz2mpSf4q1IIukmOYOSippOgVxXaNdDFf
+xu51klFUWu0ezAL4Q2JOHJw89bfSXEBxMwTRyEtp/294DyPUOTB9RKR+2aWMrXcXakLl4W8tpTIYYYv0FWx2LksSeraTx4fv9mamw4afqPfch3umtyg16w3LKNQKFZiQXeGC0mE5YV6LBMm/2gY41vNk+2ckM0K63WgIEtZiH3XW3y59z9lPG
+igc/yCDv0jur8y43HDvmpdawz8ebrHUp9tVmTucEe5m5rhK6BTbDR8a0Bnl57xxwlz25BJE8BvLY5qFtxHPqEBxx9Ri4/Gg+WybWHnxMtGML6SQc0v2zDsscmxaXY89M84dXQrfr57vvn2gESJbHHYk4FscETw8if4njvonv7+Du/+8xcY7yn
+T7oPlN5guHuIRwbLiM4E= generated-by-azure"
+kube_config = <sensitive>
+kubernetes_cluster_name = "cluster-glad-satyr"
+resource_group_name = "rg-splendid-doe"
+test = {
+  "id" = "/subscriptions/8183d3d9-47ac-46a0-8f86-e9413fb6e035/resourceGroups/rg-splendid-doe"
+  "location" = "eastus"
+  "managed_by" = ""
+  "name" = "rg-splendid-doe"
+  "tags" = tomap(null) /* of string */
+  "timeouts" = null /* object */
+}
+  #+END_SRC
