@@ -1,0 +1,169 @@
+* Environment Preparation
+** helm install
+   Please find the link [[https://helm.sh/docs/intro/install/][helm install]]
+   #+BEGIN_SRC
+workstation$ wget https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz
+workstation$ tar xvf helm-v3.12.3-linux-amd64.tar.gz
+workstation$ sudo mv linux-amd64/helm /usr/local/bin/
+   #+END_SRC
+** az cli install
+   Please find the link for [[https://learn.microsoft.com/en-us/cli/azure/install-azure-cli][az cli install]] 
+   #+BEGIN_SRC
+workstation$ curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+workstation$ az login --scope https://management.core.windows.net//.default
+   #+END_SRC
+** Kubectl install
+  #+BEGIN_SRC
+workstation$sudo az aks install-cli
+  #+END_SRC
+* AKS Deployment with terraform
+  Please find the link for [[./terraform/tidb-on-aks/README.org][reference]]
+** Setup the kubectl credentials
+   #+BEGIN_SRC
+tidb-on-aks$ echo "$(terraform output kube_config)" > /tmp/azurek8s
+tidb-on-aks$ # Remove the EOF in the head and tail of /tmp/azurek8s
+tidb-on-aks$ export KUBECONFIG=/tmp/azurek8s
+   #+END_SRC
+
+* TiDB Cluster Deployment
+** operator preparation
+   #+BEGIN_SRC
+workstation$ kubectl create -f https://raw.githubusercontent.com/pingcap/tidb-operator/v1.5.0/manifests/crd.yaml
+workstation$ helm repo add pingcap https://charts.pingcap.org/
+workstation$ kubectl create namespace tidb-admin
+workstation$ helm install --namespace tidb-admin tidb-operator pingcap/tidb-operator --version v1.5.0
+workstation$ kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
+NAME                                       READY   STATUS    RESTARTS   AGE
+tidb-controller-manager-67d678dc64-b6r55   1/1     Running   0          12s
+tidb-scheduler-68555ffd4-7rmxh             2/2     Running   0          12s
+   #+END_SRC
+** namespace prepatation
+   #+BEGIN_SRC
+workstation$ kubectl create namespace tidb-cluster
+   #+END_SRC
+** Cluster deployment
+  Get the base tidb-cluster.yaml from [[https://github.com/pingcap/tidb-operator/blob/master/examples/aks/tidb-cluster.yaml][link]]
+  #+BEGIN_SRC
+apiVersion: pingcap.com/v1alpha1                                                                                                                                             [0/4962]
+kind: TidbCluster
+metadata:
+  name: basic
+spec:
+  version: v6.5.0
+  timezone: UTC
+  ... ...
+  pd:
+    baseImage: pingcap/pd
+    maxFailoverCount: 0
+    replicas: 3
+    requests:
+      storage: "10Gi"
+# Added the storageClassName to specify the storageclass
+    storageClassName: managed-csi
+    ... ...
+  tikv:
+    baseImage: pingcap/tikv
+    maxFailoverCount: 0
+    replicas: 3
+    requests:
+      storage: "100Gi"
+# Added the storageClassName to specify the storageclass
+    storageClassName: managed-csi
+    ... ...
+  tidb:
+    baseImage: pingcap/tidb
+    maxFailoverCount: 0
+    replicas: 2
+    service:
+# Need to comment out to export the TiDB through loadbalancer
+#   annotations:
+#     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    exposeStatus: true
+    externalTrafficPolicy: Local
+      type: LoadBalancer
+    config: |
+    ... ...
+  #+END_SRC
+*** Create K8S resources
+    #+BEGIN_SRC
+workstation$ kubectl apply -f /tmp/tidb-cluster.yaml -n tidb-cluster
+tidbcluster.pingcap.com/jaytest created
+workstation$ kubectl get tc -n tidb-cluster
+NAME      READY   PD    STORAGE   READY   DESIRE   TIKV   STORAGE   READY   DESIRE   TIDB   READY   DESIRE   AGE
+jaytest   False         10Gi              3               100Gi             3                       2        55s
+    #+END_SRC
+* Full baclup to Azure BLOB
+  Please find the [[https://docs.pingcap.com/tidb-in-kubernetes/stable/backup-to-azblob-using-br][Link]] for install instruction.
+** Register application preparation
+** Blob preparation
+   Set [Register application] as the Storage BLOB contributor in the IAM
+** rbac deployment
+   Download backup-rbac.yaml to /tmp
+   #+BEGIN_SRC
+tidb-on-aks$ kubectl apply -f /tmp/backup-rbac.yaml -n backup-test
+   #+END_SRC
+** Create secret in the backup-test and tidb-cluster
+   #+BEGIN_SRC
+tidb-on-aks$ kubectl create namespace backup-test
+tidb-on-aks$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID={REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID={AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET={SECRET_VALUE} --namespace=backup-test
+tidb-on-aks$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID={REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID={AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET={SECRET_VALUE} --namespace=tidb-cluster
+tidb-on-aks$ tidb-on-aks$ kubectl get pod -n tidb-cluster 
+NAME                                READY   STATUS    RESTARTS        AGE
+jaytest-discovery-667c68959-8m8gt   1/1     Running   0               5m9s
+jaytest-pd-0                        1/1     Running   1 (4m34s ago)   5m8s
+jaytest-pd-1                        1/1     Running   0               5m8s
+jaytest-pd-2                        1/1     Running   0               5m8s
+jaytest-tidb-0                      2/2     Running   0               3m48s
+jaytest-tidb-1                      2/2     Running   0               3m48s
+jaytest-tikv-0                      1/1     Running   0               4m29s
+jaytest-tikv-1                      1/1     Running   0               4m29s
+jaytest-tikv-2                      1/1     Running   0               4m29s
+
+tidb-on-aks$ kubectl exec jaytest-tikv-0 -n tidb-cluster  -- env | grep AZURE
+tidb-on-aks$ # Check all the env on the tikv nodes(jaytest-tikv-0/jaytest-tikv-1/jaytest-tikv-2)
+workstation$ more /tmp/merge.json
+{"spec":{"tikv":{"envFrom":[{"secretRef":{"name":"azblob-secret-ad"}}]}}}
+workstation$ kubectl patch tc jaytest -n tidb-cluster --type merge --patch-file /tmp/merge.json
+Run the patch and wait until the TiKV restart
+tidb-on-aks$ kubectl exec jaytest-tikv-1 -n tidb-cluster  -- env | grep AZURE
+AZURE_CLIENT_ID=11111111-11d1-1cf1-a111-a111af11dc1f
+AZURE_CLIENT_SECRET=.3r8Q~ddddddddddCQ3xPxHdddddddddd2y9ca8g
+AZURE_STORAGE_ACCOUNT=jays3
+AZURE_TENANT_ID=1d111a11-2ee2-1111-abcd-1a1c11bbb11a
+
+   #+END_SRC
+** Run the backup
+   #+BEGIN_SRC
+tidb-on-aks$ more /tmp/full-backup-azblob.yaml 
+---
+apiVersion: pingcap.com/v1alpha1
+kind: Backup
+metadata:
+  name: demo1-full-backup-azblob-001
+  namespace: backup-test
+spec:
+  backupType: full
+  br:
+    cluster: jaytest
+    clusterNamespace: tidb-cluster
+    sendCredToTikv: false
+  azblob:
+    secretName: azblob-secret-ad
+    container: brbackup
+    prefix: my-full-backup-folder/001
+    accessTier: Cool
+tidb-on-aks$ kubectl apply -f /tmp/full-backup-azblob.yaml -n backup-test
+backup.pingcap.com/demo1-full-backup-azblob-001 created
+tidb-on-aks$ kubectl get backup -n backup-test
+NAME                           TYPE   MODE       STATUS     BACKUPPATH                                    BACKUPSIZE   COMMITTS             LOGTRUNCATEUNTIL   TIMETAKEN   AGE
+demo1-full-backup-azblob-001   full   snapshot   Complete   azure://brbackup/my-full-backup-folder/001/   334 kB       444344893678551043                      7s          114s
+   #+END_SRC
+
+** Full backup verification
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-on-aks/001.png]]
+** Run log
+   #+BEGIN_SRC
+workstation$ kubectl apply -f /tmp/log-backup-azblob.yaml -n backup-test
+   #+END_SRC
+
