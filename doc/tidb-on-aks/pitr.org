@@ -42,7 +42,7 @@ jaytest-tikv-peer    ClusterIP      None          <none>         20160/TCP      
 
 tidb-on-aks$ kubectl run -it br --image=pingcap/br:v7.1.0 -n tidb-cluster
 
-br$ /br log status --pd "10.0.164.9:2379"
+[root@br /]$ /br log status --pd "10.0.164.9:2379"
 ● Total 1 Tasks.
 > #1 <
               name: demo1-log-backup-azblob
@@ -57,9 +57,10 @@ checkpoint[global]: 2023-09-20 04:29:09.878 +0000; gap=49s
 Detail BR log in /tmp/br.log.2023-09-20T04.33.54Z 
 [2023/09/20 04:33:54.860 +00:00] [INFO] [collector.go:77] ["log stop"] [streamTaskInfo="{taskName=demo1-log-backup-azblob,startTs=444381364559020046,endTS=999999999999999999,tableFilter=*.*}"]
 [2023/09/20 04:33:57.088 +00:00] [INFO] [collector.go:77] ["log stop success summary"] [total-ranges=0] [ranges-succeed=0] [ranges-failed=0] [total-take=2.446224878s]
-[root@test /]# 
+[root@br /]$  
 
- /br log status --pd "10.0.164.9:2379"
+
+[root@br /]$ /br log status --pd "10.0.164.9:2379"
 Detail BR log in /tmp/br.log.2023-09-20T04.34.16Z 
 ○ No Task Yet.
 #+END_SRC
