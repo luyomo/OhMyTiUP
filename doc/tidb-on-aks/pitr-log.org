@@ -1,0 +1,31 @@
+* PITR
+#+BEGIN_SRC
+tidb-on-aks$ kubectl create namespace backup-test
+tidb-on-aks$ kubectl apply -f /tmp/backup-rbac.yaml -n backup-test
+tidb-on-aks$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID={REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID={AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET={SECRET_VALUE} --namespace=backup-test
+tidb-on-aks$ more /tmp/log-backup-azblob.yaml
+---
+apiVersion: pingcap.com/v1alpha1
+kind: Backup
+metadata:
+  name: demo1-log-backup-azblob
+  namespace: backup-test
+spec:
+  backupMode: log
+  br:
+    cluster: jaytest
+    clusterNamespace: tidb-cluster
+    sendCredToTikv: false
+  azblob:
+    secretName: azblob-secret-ad
+    container: brbackup
+    prefix: my-log-backup-folder/log
+    #accessTier: Hot
+tidb-on-aks$ kubectl apply -f /tmp/log-backup-azblob.yaml -n backup-test
+
+tidb-on-aks$ kubectl get backup -n backup-test
+NAME                           TYPE   MODE       STATUS     BACKUPPATH                                    BACKUPSIZE   COMMITTS             LOGTRUNCATEUNTIL   TIMETAKEN   AGE
+demo1-full-backup-azblob-001   full   snapshot   Complete   azure://brbackup/my-full-backup-folder/001/   334 kB       444344893678551043                      7s          119m
+demo1-log-backup-azblob               log        Running    azure://brbackup/my-log-backup-folder/log/                 444346763145117698                                  34s
+  #+END_SRC
+  [[https://www.51yomo.net/static/doc/tidb-on-aks/001.png]]

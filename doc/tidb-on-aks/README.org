@@ -1,9 +1,9 @@
 * TiDB On AKS
 ** Backup & Restore
    + [[./fullbackup.org][Full Backup]] - Take full data backup to Azure BLOB with registered application and certificate
-   + Restore full backup - Restore backup from BLOB to new TiDB Cluster
-   + Take PITR log - Take PITR jobs
-   + PITR recovery
+   + [[./restore-snapshot.org][Restore full backup]] - Restore backup from BLOB to new TiDB Cluster
+   + [[./pitr-log.org][Take PITR log]] - Take PITR jobs
+   + [[./pitr.org][PITR recovery]] - Run the PITR restore
 ** Tools
    + TiCDC
    + lightning

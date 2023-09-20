@@ -1,0 +1,36 @@
+* Install
+#+BEGIN_SRC
+tidb-on-aks$ kubectl create namespace -n restore-test
+tidb-on-aks$ kubectl apply -f /tmp/backup-rbac.yaml -n restore-test
+tidb-on-aks$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID={REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID={AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET={SECRET_VALUE} --namespace=restore-test
+tidb-on-aks$ more /tmp/restore-point-azblob.yaml 
+---
+apiVersion: pingcap.com/v1alpha1
+kind: Restore
+metadata:
+  name: demo3-restore-azblob
+  namespace: restore-test
+spec:
+  restoreMode: pitr
+  br:
+    cluster: jaytest
+    clusterNamespace: tidb-cluster
+  azblob:
+    secretName: azblob-secret-ad
+    container: brbackup
+    prefix: my-log-backup-folder/log
+  pitrRestoredTs: "2023-09-19T10:52:37+09:00"
+  pitrFullBackupStorageProvider:
+    azblob:
+      secretName: azblob-secret-ad
+      container: brbackup
+      prefix: my-full-backup-folder/002
+tidb-on-aks$ kubectl apply -f /tmp/restore-point-azblob.yaml -n restore-test
+#+END_SRC
+
+* Reference
+#+BEGIN_SRC
+it has gap between full backup ts:444344893678551043(2023-09-18 12:47:30.91 +0000 UTC) and log backup ts:444346763145117698(2023-09-18 14:46:22.359 +0000 UTC).
+#+END_SRC
+
+https://docs.pingcap.com/tidb-in-kubernetes/dev/restore-from-azblob-using-br
