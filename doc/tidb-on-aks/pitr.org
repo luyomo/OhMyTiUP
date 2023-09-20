@@ -28,6 +28,42 @@ spec:
 tidb-on-aks$ kubectl apply -f /tmp/restore-point-azblob.yaml -n restore-test
 #+END_SRC
 
+* Stop PITR task 
+#+BEGIN_SRC
+tidb-on-aks$ kubectl get service -n tidb-cluster 
+NAME                 TYPE           CLUSTER-IP    EXTERNAL-IP    PORT(S)                          AGE
+jaytest-discovery    ClusterIP      10.0.80.155   <none>         10261/TCP,10262/TCP              4h13m
+jaytest-pd           ClusterIP      10.0.164.9    <none>         2379/TCP                         4h13m
+jaytest-pd-peer      ClusterIP      None          <none>         2380/TCP,2379/TCP                4h13m
+jaytest-ticdc-peer   ClusterIP      None          <none>         8301/TCP                         4h11m
+jaytest-tidb         LoadBalancer   10.0.42.115   40.88.196.39   4000:30259/TCP,10080:30437/TCP   4h11m
+jaytest-tidb-peer    ClusterIP      None          <none>         10080/TCP                        4h11m
+jaytest-tikv-peer    ClusterIP      None          <none>         20160/TCP                        4h11m
+
+tidb-on-aks$ kubectl run -it br --image=pingcap/br:v7.1.0 -n tidb-cluster
+
+br$ /br log status --pd "10.0.164.9:2379"
+● Total 1 Tasks.
+> #1 <
+              name: demo1-log-backup-azblob
+            status: NORMAL
+             start: 2023-09-20 03:26:16.278 +0000
+               end: 2090-11-18 14:07:45.624 +0000
+           storage: azure://brbackup/my-log-backup-folder/log02
+       speed(est.): 0.00 ops/s
+checkpoint[global]: 2023-09-20 04:29:09.878 +0000; gap=49s
+
+/br log stop --task-name demo1-log-backup-azblob --pd "10.0.164.9:2379"
+Detail BR log in /tmp/br.log.2023-09-20T04.33.54Z 
+[2023/09/20 04:33:54.860 +00:00] [INFO] [collector.go:77] ["log stop"] [streamTaskInfo="{taskName=demo1-log-backup-azblob,startTs=444381364559020046,endTS=999999999999999999,tableFilter=*.*}"]
+[2023/09/20 04:33:57.088 +00:00] [INFO] [collector.go:77] ["log stop success summary"] [total-ranges=0] [ranges-succeed=0] [ranges-failed=0] [total-take=2.446224878s]
+[root@test /]# 
+
+ /br log status --pd "10.0.164.9:2379"
+Detail BR log in /tmp/br.log.2023-09-20T04.34.16Z 
+○ No Task Yet.
+#+END_SRC
+
 * Reference
 #+BEGIN_SRC
 it has gap between full backup ts:444344893678551043(2023-09-18 12:47:30.91 +0000 UTC) and log backup ts:444346763145117698(2023-09-18 14:46:22.359 +0000 UTC).
