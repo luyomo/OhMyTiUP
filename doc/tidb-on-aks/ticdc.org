@@ -1,0 +1,98 @@
+* TiDB Cluster setup with TiCDC
+#+BEGIN_SRC
+tidb-on-aks$ more /tmp/tidb-cluster-ticdc.org
+... ...
+  ticdc:
+    baseImage: pingcap/ticdc
+    replicas: 3
+    requests:
+      storage: "100Gi"
+    storageClassName: managed-csi
+    config: {}
+    nodeSelector:
+      dedicated: ticdc
+    tolerations:
+    - effect: NoSchedule
+      key: dedicated
+      operator: Equal
+      value: ticdc
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - ticdc
+          topologyKey: kubernetes.io/hostname
+tidb-on-aks$ kubectl apply -f /tmp/tidb-cluster-ticdc.org
+tidb-on-aks$ kubectl get pods -n tidb-cluster
+NAME                                READY   STATUS    RESTARTS   AGE
+jaytest-discovery-667c68959-dvd44   1/1     Running   0          95m
+jaytest-pd-0                        1/1     Running   0          95m
+jaytest-pd-1                        1/1     Running   0          95m
+jaytest-pd-2                        1/1     Running   0          95m
+jaytest-ticdc-0                     1/1     Running   0          93m
+jaytest-ticdc-1                     1/1     Running   0          93m
+jaytest-ticdc-2                     1/1     Running   0          93m
+jaytest-tidb-0                      2/2     Running   0          93m
+jaytest-tidb-1                      2/2     Running   0          93m
+jaytest-tikv-0                      1/1     Running   0          49m
+jaytest-tikv-1                      1/1     Running   0          51m
+jaytest-tikv-2                      1/1     Running   0          51m
+
+tidb-on-aks$ kubectl exec -it jaytest-ticdc-0 -n tidb-cluster -- sh
+sh-5.1# /cdc cli capture list --server=http://127.0.0.1:8301  
+[
+  {
+    "id": "9e2212a3-8904-4e9a-9eeb-e5fae50c8716",
+    "is-owner": true,
+    "address": "jaytest-ticdc-1.jaytest-ticdc-peer.tidb-cluster.svc:8301",
+    "cluster-id": "default"
+  },
+  {
+    "id": "fece0163-7db8-4a28-b8de-dd04f83ca92c",
+    "is-owner": false,
+    "address": "jaytest-ticdc-0.jaytest-ticdc-peer.tidb-cluster.svc:8301",
+    "cluster-id": "default"
+  },
+  {
+    "id": "e43c55d8-a375-4465-8b50-c44520029d56",
+    "is-owner": false,
+    "address": "jaytest-ticdc-2.jaytest-ticdc-peer.tidb-cluster.svc:8301",
+    "cluster-id": "default"
+  }
+]
+
+#+END_SRC
+
+* Create changefeed
+#+BEGIN_SRC
+cdc$ /cdc cli changefeed create --server=http://127.0.0.1:8301 --sink-uri="mysql://root@4.156.188.45:4000/" --changefeed-id="simple-replication-task"
+cdc$ /cdc cli changefeed list --server=http://127.0.0.1:8301 
+[
+  {
+    "id": "simple-replication-task",
+    "namespace": "default",
+    "summary": {
+      "state": "normal",
+      "tso": 444379986743263241,
+      "checkpoint": "2023-09-20 01:58:40.328",
+      "error": null
+    }
+  }
+]
+
+cdc$ /cdc cli changefeed query -s --server=http://127.0.0.1:8301 --changefeed-id=simple-replication-task
+{
+  "upstream_id": 7280695618509706848,
+  "namespace": "default",
+  "id": "simple-replication-task",
+  "state": "normal",
+  "checkpoint_tso": 444380004359602186,
+  "checkpoint_time": "2023-09-20 01:59:47.529",
+  "error": null
+}
+
+#+END_SRC
