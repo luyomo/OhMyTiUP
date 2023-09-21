@@ -5,7 +5,7 @@
    + [[./pitr-log.org][Take PITR log]] - Take PITR jobs
    + [[./pitr.org][PITR recovery]] - Run the PITR restore
 ** Tools
-   + TiCDC
+   + [[./ticdc.org][TiCDC]] - Setup TiCDC between TiDB Master and slave for replication
    + lightning
 ** AKS patch
    + AKS upgrade using TiCDC - Setup blue green structure to upgrade AKS version
