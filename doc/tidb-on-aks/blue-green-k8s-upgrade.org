@@ -1,0 +1,333 @@
+* Diagram
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-on-aks/blue-green-k8s-upgrade.png]]
+* Blue green k8s upgrade process
+** Setup Master Node
+   #+BEGIN_SRC
+ workstation$ terraform apply
+ workstation$ $ kubectl get nodes
+ NAME                                STATUS   ROLES   AGE     VERSION
+ aks-agentpool-11156861-vmss000000   Ready    agent   4h37m   v1.25.11
+ aks-pd-33082745-vmss000000          Ready    agent   4h34m   v1.25.11
+ aks-pd-33082745-vmss000001          Ready    agent   4h34m   v1.25.11
+ aks-pd-33082745-vmss000002          Ready    agent   4h34m   v1.25.11
+ aks-ticdc-25143246-vmss000000       Ready    agent   4h34m   v1.25.11
+ aks-ticdc-25143246-vmss000001       Ready    agent   4h34m   v1.25.11
+ aks-ticdc-25143246-vmss000002       Ready    agent   4h34m   v1.25.11
+ aks-tidb-19522914-vmss000000        Ready    agent   4h34m   v1.25.11
+ aks-tidb-19522914-vmss000001        Ready    agent   4h34m   v1.25.11
+ aks-tikv-93942736-vmss000000        Ready    agent   4h34m   v1.25.11
+ aks-tikv-93942736-vmss000001        Ready    agent   4h34m   v1.25.11
+ aks-tikv-93942736-vmss000002        Ready    agent   4h34m   v1.25.11
+
+ workstation$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster
+ workstation$ kubectl get tc -n tidb-cluster 
+ NAME         READY   PD                  STORAGE   READY   DESIRE   TIKV                  STORAGE   READY   DESIRE   TIDB                  READY   DESIRE   AGE
+ jaytest001   False   pingcap/pd:v6.5.4   10Gi      3       3        pingcap/tikv:v6.5.4   100Gi     2       3        pingcap/tidb:v6.5.4   2       2        4m27s
+ workstation$ kubectl get service -n tidb-cluster 
+ NAME                   TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)                          AGE
+ jaytest001-discovery   ClusterIP      10.0.87.253    <none>          10261/TCP,10262/TCP              4m55s
+ jaytest001-pd          ClusterIP      10.0.162.221   <none>          2379/TCP                         4m55s
+ jaytest001-pd-peer     ClusterIP      None           <none>          2380/TCP,2379/TCP                4m55s
+ jaytest001-tidb        LoadBalancer   10.0.18.163    4.236.209.214   4000:31406/TCP,10080:32689/TCP   3m28s
+ jaytest001-tidb-peer   ClusterIP      None           <none>          10080/TCP                        3m28s
+ jaytest001-tikv-peer   ClusterIP      None           <none>          20160/TCP                        4m21s
+   #+END_SRC
+** Insert test data before enable PITR log
+   Please refer to the link for [[https://www.kaggle.com/datasets/camnugent/sandp500][data]]
+   #+BEGIN_SRC
+ workstation$ mysql -h 4.236.209.214 -u root -P 4000 test
+ mysql> create table test01 (col01 int primary key, col02 int );
+ mysql> insert into test01 values(1,1);
+ mysql> insert into test01 values(2,2);
+ mysql> insert into test01 values(3,3);
+ mysql> insert into test01 values(4,4);
+ mysql> insert into test01 values(5,5);
+   #+END_SRC
+** PITR log enable
+*** Create backup namespace
+    #+BEGIN_SRC
+ workstation$ kubectl create namespace backup-test
+ workstation$ export SECRET_VALUE="god8Q~4YXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+ workstation$ export REGISTER_APP_CLIENT_ID=1111111-dddd-4dd3-a111-a419af05dc0f
+ workstation$ export AD_TENANT_ID=1c111c11-1ff1-4792-bbca-8c9d15efb29d
+ workstation$ kubectl apply -f /tmp/backup-rbac.yaml -n backup-test
+ workstation$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID=${REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID=${AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET=${SECRET_VALUE} --namespace=backup-test
+ workstation$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID=${REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID=${AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET=${SECRET_VALUE} --namespace=tidb-cluster
+ workstation$ more /tmp/merge.json
+ {"spec":{"tikv":{"envFrom":[{"secretRef":{"name":"azblob-secret-ad"}}]}}}
+ workstation$ kubectl patch tc jaytest001 -n tidb-cluster --type merge --patch-file /tmp/merge.json 
+ tidbcluster.pingcap.com/jaytest001 patched
+ workstation$ kubectl exec jaytest001-tikv-0 -n tidb-cluster  -- env | grep AZURE 
+ AZURE_STORAGE_ACCOUNT=jays3
+ AZURE_TENANT_ID=1c111c11-1ff1-4792-bbca-8c9d15efb29d
+ AZURE_CLIENT_ID=1111111-dddd-4dd3-a111-a419af05dc0f
+ AZURE_CLIENT_SECRET=god8Q~4YXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ workstation$ # Check the jaytest001/jaytest002 as well to make the variables has been patched into the pod
+
+    #+END_SRC
+*** Enable PITR log
+    #+BEGIN_SRC
+ workstation$ more /tmp/log-backup-azblob.yaml 
+ ---
+ apiVersion: pingcap.com/v1alpha1
+ kind: Backup
+ metadata:
+   name: demo1-log-backup-azblob
+   namespace: backup-test
+ spec:
+   backupMode: log
+   br:
+     cluster: jaytest001
+     clusterNamespace: tidb-cluster
+     sendCredToTikv: false
+   azblob:
+     secretName: azblob-secret-ad
+     container: brbackup
+     prefix: my-log-backup-folder/log
+     #accessTier: Hot
+
+ workstation$ kubectl apply -f /tmp/log-backup-azblob.yaml -n backup-test
+ backup.pingcap.com/demo1-log-backup-azblob created
+ workstation$ kubectl get backup -n backup-test 
+ NAME                      TYPE   MODE   STATUS    BACKUPPATH                                   BACKUPSIZE   COMMITTS             LOGTRUNCATEUNTIL   TIMETAKEN   AGE
+ demo1-log-backup-azblob          log    Running   azure://brbackup/my-log-backup-folder/log/                444610775806377986                                  41s
+
+ workstation$ kubectl get pod -n backup-test 
+ NAME                                             READY   STATUS      RESTARTS   AGE
+ backup-demo1-log-backup-azblob-log-start-kbjdz   0/1     Completed   0          48s
+    #+END_SRC
+** Insert Data after enabling PITR log
+   #+BEGIN_SRC
+ workstation$ insert into test01 select col01 + 5, col02 from test01;
+ workstation$ insert into test01 select col01 + 10, col02 from test01;
+ workstation$ insert into test01 select col01 + 20, col02 from test01;
+ workstation$ insert into test01 select col01 + 40, col02 from test01;
+ workstation$ insert into test01 select col01 + 80, col02 from test01;
+   #+END_SRC
+** Take snapshot backup
+   #+BEGIN_SRC
+ workstation$ more /tmp/full-backup-azblob.yaml 
+ ---
+ apiVersion: pingcap.com/v1alpha1
+ kind: Backup
+ metadata:
+   name: demo1-full-backup-azblob
+   namespace: backup-test
+ spec:
+   backupType: full
+   br:
+     cluster: jaytest001
+     clusterNamespace: tidb-cluster
+     sendCredToTikv: false
+   azblob:
+     secretName: azblob-secret-ad
+     container: brbackup
+     prefix: my-full-backup-folder/001
+     #accessTier: Cool
+ workstation$ kubectl apply -f /tmp/full-backup-azblob.yaml -n backup-test
+ backup.pingcap.com/demo1-full-backup-azblob created
+
+ workstation$ kubectl get backup -n backup-test
+ NAME                       TYPE   MODE       STATUS     BACKUPPATH                                    BACKUPSIZE   COMMITTS             LOGTRUNCATEUNTIL   TIMETAKEN   AGE
+ demo1-full-backup-azblob   full   snapshot   Complete   azure://brbackup/my-full-backup-folder/001/   272 kB       444610868343472129                      7s          14s
+ demo1-log-backup-azblob           log        Running    azure://brbackup/my-log-backup-folder/log/                 444610775806377986                                  6m24s
+
+ workstation$ kubectl get pod -n backup-test 
+ NAME                                             READY   STATUS      RESTARTS   AGE
+ backup-demo1-full-backup-azblob-lgf4z            0/1     Completed   0          41s
+ backup-demo1-log-backup-azblob-log-start-kbjdz   0/1     Completed   0          6m50s
+   #+END_SRC
+** Setup Slave TiDB Cluster
+   #+BEGIN_SRC
+ workstation$ terraform apply
+ workstation$ kubectl get nodes
+ NAME                                STATUS   ROLES   AGE     VERSION
+ aks-agentpool-11156861-vmss000000   Ready    agent   4h37m   v1.25.11
+ aks-pd-33082745-vmss000000          Ready    agent   4h34m   v1.25.11
+ aks-pd-33082745-vmss000001          Ready    agent   4h34m   v1.25.11
+ aks-pd-33082745-vmss000002          Ready    agent   4h34m   v1.25.11
+ aks-ticdc-25143246-vmss000000       Ready    agent   4h34m   v1.25.11
+ aks-ticdc-25143246-vmss000001       Ready    agent   4h34m   v1.25.11
+ aks-ticdc-25143246-vmss000002       Ready    agent   4h34m   v1.25.11
+ aks-tidb-19522914-vmss000000        Ready    agent   4h34m   v1.25.11
+ aks-tidb-19522914-vmss000001        Ready    agent   4h34m   v1.25.11
+ aks-tikv-93942736-vmss000000        Ready    agent   4h34m   v1.25.11
+ aks-tikv-93942736-vmss000001        Ready    agent   4h34m   v1.25.11
+ aks-tikv-93942736-vmss000002        Ready    agent   4h34m   v1.25.11
+ workstation$ kubectl apply -f tidb-cluster-slave.yaml -n tidb-cluster
+ tidbcluster.pingcap.com/jaytest002 created
+ workstation$ kubectl get tc -n tidb-cluster 
+ NAME         READY   PD                  STORAGE   READY   DESIRE   TIKV                  STORAGE   READY   DESIRE   TIDB                  READY   DESIRE   AGE
+ jaytest002   True    pingcap/pd:v6.5.4   10Gi      3       3        pingcap/tikv:v6.5.4   100Gi     3       3        pingcap/tidb:v6.5.4   2       2        117s
+ workstation$ kubectl get service -n tidb-cluster 
+ NAME                   TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                          AGE
+ jaytest002-discovery   ClusterIP      10.0.98.93     <none>           10261/TCP,10262/TCP              2m29s
+ jaytest002-pd          ClusterIP      10.0.223.238   <none>           2379/TCP                         2m29s
+ jaytest002-pd-peer     ClusterIP      None           <none>           2380/TCP,2379/TCP                2m29s
+ jaytest002-tidb        LoadBalancer   10.0.75.144    20.241.138.186   4000:31781/TCP,10080:30617/TCP   65s
+ jaytest002-tidb-peer   ClusterIP      None           <none>           10080/TCP                        65s
+ jaytest002-tikv-peer   ClusterIP      None           <none>           20160/TCP                        109s
+   #+END_SRC
+** Recover data from Backup and PITR log
+*** Before recovery
+    #+BEGIN_SRC
+ workstation$ mysql -h 20.241.138.186 -u root -P 4000 test
+ <secondary> MySQL [test]> show tables; 
+ Empty set (0.002 sec)
+    #+END_SRC
+*** Recovery
+    #+BEGIN_SRC
+ workstation$ kubectl create namespace restore-test 
+ namespace/restore-test created
+ workstation$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID=${REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID=${AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET=${SECRET_VALUE} --namespace=restore-test 
+ secret/azblob-secret-ad created
+ workstation$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID=${REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID=${AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET=${SECRET_VALUE} --namespace=tidb-cluster
+ secret/azblob-secret-ad created
+ workstation$ kubectl patch tc jaytest002 -n tidb-cluster --type merge --patch-file /tmp/merge.json
+ tidbcluster.pingcap.com/jaytest001 patched
+ workstation$ kubectl exec jaytest001-tikv-0 -n tidb-cluster  -- env | grep AZURE 
+ AZURE_STORAGE_ACCOUNT=jays3
+ AZURE_TENANT_ID=1c111c11-1ff1-4792-bbca-8c9d15efb29d
+ AZURE_CLIENT_ID=1111111-dddd-4dd3-a111-a419af05dc0f
+ AZURE_CLIENT_SECRET=god8Q~4YXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ workstation$ kubectl apply -f /tmp/backup-rbac.yaml -n restore-test 
+ role.rbac.authorization.k8s.io/tidb-backup-manager created
+ serviceaccount/tidb-backup-manager created
+ rolebinding.rbac.authorization.k8s.io/tidb-backup-manager created
+
+ workstation$ more /tmp/restore-point-azblob.yaml
+ ---
+ apiVersion: pingcap.com/v1alpha1
+ kind: Restore
+ metadata:
+   name: demo3-restore-azblob
+   namespace: restore-test
+ spec:
+   restoreMode: pitr
+   br:
+     cluster: jaytest001
+     clusterNamespace: tidb-cluster
+     sendCredToTikv: false
+   azblob:
+     secretName: azblob-secret-ad
+     container: brbackup
+     prefix: my-log-backup-folder/log
+   pitrRestoredTs: "2023-09-30 08:18:15.737"
+   pitrFullBackupStorageProvider:
+     azblob:
+       secretName: azblob-secret-ad
+       container: brbackup
+       prefix: my-full-backup-folder/001
+ workstation$ kubectl get restore -n restore-test 
+ NAME                   STATUS     TIMETAKEN   COMMITTS   AGE
+ demo3-restore-azblob   Complete   7s          0          60s
+
+    #+END_SRC
+*** After Recovery
+    #+BEGIN_SRC
+ <master> MySQL [test]> show tables;
+ +----------------+
+ | Tables_in_test |
+ +----------------+
+ | test01         |
+ +----------------+
+ 1 row in set (0.002 sec)
+ <master> MySQL [test]> select count(*) from test01;
+ +----------+
+ | count(*) |
+ +----------+
+ |      160 |
+ +----------+
+ 1 row in set (0.010 sec)
+
+   
+ <secondary> MySQL [test]> show tables;
+ +----------------+
+ | Tables_in_test |
+ +----------------+
+ | test01         |
+ +----------------+
+ 1 row in set (0.002 sec)
+ <secondary> MySQL [test]> select count(*) from test01;
+ +----------+
+ | count(*) |
+ +----------+
+ |      160 |
+ +----------+
+ 1 row in set (0.010 sec)
+    #+END_SRC
+** Insert third round data into Master TiDB after recovery
+   #+BEGIN_SRC
+ <master> MySQL [test]> create table test02 (col01 int primary key, col02 int);
+ <master> MySQL [test]> insert into test02 select * from test01;
+ Query OK, 160 rows affected (0.028 sec)
+ Records: 160  Duplicates: 0  Warnings: 0
+ <master> MySQL [test]> show tables;
+ +----------------+
+ | Tables_in_test |
+ +----------------+
+ | test01         |
+ | test02         |
+ +----------------+
+ 2 rows in set (0.001 sec)
+ <master> MySQL [test]>select count(*) from test02;
+ +----------+
+ | count(*) |
+ +----------+
+ |      160 |
+ +----------+
+ 1 row in set (0.005 sec)
+ <secondary> MySQL [test]> show tables;
+ +----------------+
+ | Tables_in_test |
+ +----------------+
+ | test01         |
+ +----------------+
+ 1 row in set (0.002 sec)
+   #+END_SRC
+** Recover third round data into Secondary TiDB
+*** Recover PITR log
+    #+BEGIN_SRC
+ workstation$ kubectl run br-container -it --image pingcap/br:v6.5.4 -n restore-test  -- sh
+ If you don't see a command prompt, try pressing enter.
+ / # export AZURE_CLIENT_ID=1111111-dddd-4dd3-a111-a419af05dc0f
+ / # export AZURE_TENANT_ID=1c111c11-1ff1-4792-bbca-8c9d15efb29d
+ / # export AZURE_CLIENT_SECRET="god8Q~4YXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+ / # /br restore point --pd "10.244.6.2:2379" --storage "azure://brbackup/my-log-backup-folder/log" --restored-ts "2023-09-30T12:25:00.166+00:00" --start-ts "2023-09-30 08:18:15.737+00:00" --azblob.account-name jays3
+ Detail BR log in /tmp/br.log.2023-09-30T12.30.51Z 
+ Restore Meta Files <--------------------------------------------------------------------------------------------------------------------------------------------------------> 100.00%
+ Restore KV Files <----------------------------------------------------------------------------------------------------------------------------------------------------------> 100.00%
+ [2023/09/30 12:30:54.382 +00:00] [INFO] [collector.go:73] ["restore log success summary"] [total-take=2.135571179s] [restore-from=444612449596080128] [restore-to=444616330488315904] [restore-from="2023-09-30 08:18:15.737 +0000"] [restore-to="2023-09-30 12:25:00.166 +0000"] [total-kv-count=164] [total-size=13.89kB] [average-speed=6.502kB/s]
+ / #
+
+ <secondary> MySQL [test]> show tables; 
+ +----------------+
+ | Tables_in_test |
+ +----------------+
+ | test01         |
+ | test02         |
+ +----------------+
+ 2 rows in set (0.001 sec)
+
+ <secondary> MySQL [test]> select count(*) from test02; 
+ +----------+
+ | count(*) |
+ +----------+
+ |      160 |
+ +----------+
+ 1 row in set (0.003 sec)
+
+    #+END_SRC
+* Todo
+** TiDB Operator - Restore no start-ts support
+   Currently the TiDB Restore Operator does not start-ts.
+  #+BEGIN_SRC
+workstation$ kubectl run br-container -it --image pingcap/br:v6.5.4 -n restore-test  -- sh
+br$ export AZURE_CLIENT_ID=36836816-67d1-4cf3-a926-a419af05dc0f
+br$ export AZURE_TENANT_ID=6c865c34-8ff8-4792-bbca-8c9d15efb29d
+br$ export AZURE_CLIENT_SECRET="god8Q~4YYVQNLBVqzKIxBkoZ7dO2zfEV6mPMKdzJ"
+
+  #+END_SRC
+** Terraform helm does not support TiDB version
+   Failed to test. Need to check what's the issue.
