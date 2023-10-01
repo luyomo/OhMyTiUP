@@ -1,4 +1,6 @@
 * Diagram
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-on-aks/k8s-upgrade.gif]]
 * Process
 ** TiDB Cluster setup
    #+BEGIN_SRC

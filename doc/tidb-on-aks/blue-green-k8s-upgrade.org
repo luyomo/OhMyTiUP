@@ -5,7 +5,7 @@
 ** Setup Master Node
    #+BEGIN_SRC
  workstation$ terraform apply
- workstation$ $ kubectl get nodes
+ workstation$ kubectl get nodes
  NAME                                STATUS   ROLES   AGE     VERSION
  aks-agentpool-11156861-vmss000000   Ready    agent   4h37m   v1.25.11
  aks-pd-33082745-vmss000000          Ready    agent   4h34m   v1.25.11
@@ -143,18 +143,16 @@
  workstation$ terraform apply
  workstation$ kubectl get nodes
  NAME                                STATUS   ROLES   AGE     VERSION
- aks-agentpool-11156861-vmss000000   Ready    agent   4h37m   v1.25.11
- aks-pd-33082745-vmss000000          Ready    agent   4h34m   v1.25.11
- aks-pd-33082745-vmss000001          Ready    agent   4h34m   v1.25.11
- aks-pd-33082745-vmss000002          Ready    agent   4h34m   v1.25.11
- aks-ticdc-25143246-vmss000000       Ready    agent   4h34m   v1.25.11
- aks-ticdc-25143246-vmss000001       Ready    agent   4h34m   v1.25.11
- aks-ticdc-25143246-vmss000002       Ready    agent   4h34m   v1.25.11
- aks-tidb-19522914-vmss000000        Ready    agent   4h34m   v1.25.11
- aks-tidb-19522914-vmss000001        Ready    agent   4h34m   v1.25.11
- aks-tikv-93942736-vmss000000        Ready    agent   4h34m   v1.25.11
- aks-tikv-93942736-vmss000001        Ready    agent   4h34m   v1.25.11
- aks-tikv-93942736-vmss000002        Ready    agent   4h34m   v1.25.11
+ aks-agentpool-26297668-vmss000000   Ready    agent   7m29s   v1.26.3
+ aks-pd-22100860-vmss000000          Ready    agent   5m15s   v1.26.3
+ aks-pd-22100860-vmss000001          Ready    agent   5m10s   v1.26.3
+ aks-pd-22100860-vmss000002          Ready    agent   5m8s    v1.26.3
+ aks-tidb-35137660-vmss000000        Ready    agent   5m12s   v1.26.3
+ aks-tidb-35137660-vmss000001        Ready    agent   4m36s   v1.26.3
+ aks-tikv-14636811-vmss000000        Ready    agent   5m9s    v1.26.3
+ aks-tikv-14636811-vmss000001        Ready    agent   5m3s    v1.26.3
+ aks-tikv-14636811-vmss000002        Ready    agent   5m8s    v1.26.3
+
  workstation$ kubectl apply -f tidb-cluster-slave.yaml -n tidb-cluster
  tidbcluster.pingcap.com/jaytest002 created
  workstation$ kubectl get tc -n tidb-cluster 
