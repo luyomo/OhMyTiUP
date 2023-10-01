@@ -1,6 +1,6 @@
 * Diagram
   #+attr_html: :width 800px
-  [[https://www.51yomo.net/static/doc/tidb-on-aks/blue-green-upgrade-ticdc]]
+  [[https://www.51yomo.net/static/doc/tidb-on-aks/blue-green-upgrade-ticdc.png]]
 * Process
 ** Setup Master Node
    #+BEGIN_SRC
