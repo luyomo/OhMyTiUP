@@ -7,9 +7,10 @@
 ** Tools
    + [[./ticdc.org][TiCDC]] - Setup TiCDC between TiDB Master and slave for replication
    + lightning
-** AKS patch
-   + AKS upgrade using TiCDC - Setup blue green structure to upgrade AKS version
-   + AKS rolling upgrade
+** AKS version upgrade
+   + [[./blue-green-ticdc-k8s-upgrade.org][AKS upgrade using TiCDC]] - Setup blue green structure to upgrade AKS version with TiCDC
+   + [[./blue-green-k8s-upgrade.org][AKS upgrade using PITR]]  - Setup blue green structure to upgrade AKS version with PITR
+   + [[./k8s-rolling-upgrade.org][AKS rolling upgrade]]     - Move pod to new version nodepool
 ** Others
    + Performance test
    + Scaling out/in
