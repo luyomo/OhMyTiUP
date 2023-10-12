@@ -8,12 +8,12 @@ workstation$ tiup cdc cli changefeed create --server 172.83.4.61:8300  --sink-ur
   It's not workable using session token.
   #+BEGIN_SRC
 tiup br backup full --pd "172.83.2.199:2379" \
---storage 's3://jay-data/br/full-backup/snapshop?access-key="ASIA2TXTRGT4RVSRIGEB"&secret-access-key="8OczUsaflFCryBgYom1ArKIX1OWTx6C+Z+rdIFPw"&session-token="IQoJb3JpZ2luX2VjEPD//////////wEaDmFwLW5vcnRoZWFzdC0xIkcwRQIgXAyPw5QU7htFplcvc63Oi92uilGfpsvF4bY/IVDrSiMCIQDPUUvBrClE71BtGATNBAEEL05UtFYclJGn4tMIWUUYWCqdAwjJ//////////8BEAEaDDcyOTU4MTQzNDEwNSIMkZjwEMZzJHTOYrBuKvEC7mKmOwOV4faKPLzZAeyLKs10GZIOm2Np3OJJ43pT/n35Dtzdb+JT56GyTxq4upW7H+CduQLrNbW2odkm7L3NJNoTxVRgnyvr/ToSrl2UJFB4/cJtJbGEYP3QXEXuOP70Re8udqXBOXGaj8ZSKhKauWBv74RzE+sHIfcvsfRDRxqaNeBiMc+gsjJ/IAA4r29Y0p1JWdCQjpdmRtfhDWEkj1Y2xmth3+l9/6qZxsq3MF5tVGY3zddZn0ykJdGlE6li5BcGkDBvDD4t1cJT8W+cnFvqL73PnvLlRRjakIF07Z5D2Cis2/87hmPlM122wM6YHWNTQSnlnkfOyrKh4GOHhvoSzLTpP+lv22t2jKWzF4YRBxKKoMd1xt0jMix/uub2iwQuNGj/192T1R9c/9KrZ5HjXsF7IGRGQ1rZYKnpBdEOrCg/3XHSlLek/a8kDg+RgSNCiiChmWjvG49hOq8btV/wgvKrW4sVWU1T0YmV5vHKMNeJ9KcGOqYBiORaYT77XIFxz9tDCcRh/x/Eyd5t5v3fsv9rXVEW6ps1h6hTQ1YLzWmXaKrol8AuXcrzJG7HpvPHz4CgHmEF7UnwkbcCf/T+ey8JEh8hGDhWszMUTnickBRjwYxoWrda0CrpV51uX6OkTN67GhpVM62tqX3kFPrhwVlItwIIffKj/TOoN6ncmPfitYf6ZluwUC7kWcdyo+R0hiqdpLK1D4fq5oZIPXA=="'
+--storage 's3://jay-data/br/full-backup/snapshop?access-key="{access-key}"&secret-access-key="{secret-access-key}"&session-token="{session-token}"'
   #+END_SRC
 
-export AWS_ACCESS_KEY_ID="ASIA2TXTRGT4XAHKHPLQ"
-export AWS_SECRET_ACCESS_KEY="5vUH8DlTphi9tglkjHV0zyUmiKrnwTaqP18/YKf6"
-export AWS_SESSION_TOKEN="IQoJb3JpZ2luX2VjEOb//////////wEaDmFwLW5vcnRoZWFzdC0xIkYwRAIgHONTEaqcDNh8tdyULMHEVdL4iBaXL+gnTFPGLbISxgACIElkVMkjSSOj1SUew6X9v1GKIuq0xRUrG8A9kchGBu65Kp0DCL///////////wEQARoMNzI5NTgxNDM0MTA1Igxml3A4FSNZXn3lDLMq8QJiDDsKf3LWFqFlls0sjKjQfjS5kOr2TvVCL+4gtDLXyRyUO77DJdtVr57MOr+J6B4AQC5A2XxO7fIg10aQtwBVQstceGrYMLrvBzeHnBD0tOn4KriqD3rfe+QJCJ7t4daooE3/3C2mc0E/xqH1NzRnm9wZzIM6fop7PbuSMNv+ZAzc0WRt8fp1wEhLjXb12NPbSp0UzLcMtV1QFER7cCnoY88pF78L35mYPVvq9fd+yoM0srLtO3TwJwAOHLElVc/W+l7/An0StUBIUjGSFfQ9FhZrSEbhv225WmTTYCUaFF5JmuLTU8gwhotYNjASGDyeERDNISNusAqJijT2DDt8gR4KiSBMPTIlYbdv9DLgBi5bRGNy889LWzqJrfIz8Jd41qQ+zYBW4f2pxcxQX+Ix1HLb7rr+NlLZFx9M5MjuoeIv4WI23HPrCgRNtghRH7TNe1s1f2N/HXmymbIP2ORZY9LRUJzjuRWUl1DwBuVlQdow7fzxpwY6pwEkOvMSIW/eJ1PYCpSZNccxU3M6nwzsnQYSS39af4RGMIpZBhguUglNJyXwQFwKMtNZetkvuX0Spq8PAL2b4+Zgw8TXEGfXCkInSyQ9/81s9ifgdBt3oXgQh/+1wWKXl+7zUXi92oK0QAbFtNXDCCKwuURHclUcdFmoyy1iTgb5Dj7vH+M58NHfSf/T3i6cQ02ykrLjs+/TKdgDCKA3SW+k337m9EURSA=="
+export AWS_ACCESS_KEY_ID="{access-key}"
+export AWS_SECRET_ACCESS_KEY="{secret-access-key}"
+export AWS_SESSION_TOKEN="{session-token}"
 
 
 
@@ -21,9 +21,9 @@ export AWS_SESSION_TOKEN="IQoJb3JpZ2luX2VjEOb//////////wEaDmFwLW5vcnRoZWFzdC0xIk
 tiup br backup full --pd "${PD_IP}:2379" \
 --storage 's3://backup-101/snapshot-${date}?access-key=${access-key}&secret-access-key=${secret-access-key}"'
 
-export AWS_ACCESS_KEY_ID="ASIA2TXTRGT4RVSRIGEB"
-export AWS_SECRET_ACCESS_KEY="8OczUsaflFCryBgYom1ArKIX1OWTx6C+Z+rdIFPw"
-export AWS_SESSION_TOKEN="IQoJb3JpZ2luX2VjEPD//////////wEaDmFwLW5vcnRoZWFzdC0xIkcwRQIgXAyPw5QU7htFplcvc63Oi92uilGfpsvF4bY/IVDrSiMCIQDPUUvBrClE71BtGATNBAEEL05UtFYclJGn4tMIWUUYWCqdAwjJ//////////8BEAEaDDcyOTU4MTQzNDEwNSIMkZjwEMZzJHTOYrBuKvEC7mKmOwOV4faKPLzZAeyLKs10GZIOm2Np3OJJ43pT/n35Dtzdb+JT56GyTxq4upW7H+CduQLrNbW2odkm7L3NJNoTxVRgnyvr/ToSrl2UJFB4/cJtJbGEYP3QXEXuOP70Re8udqXBOXGaj8ZSKhKauWBv74RzE+sHIfcvsfRDRxqaNeBiMc+gsjJ/IAA4r29Y0p1JWdCQjpdmRtfhDWEkj1Y2xmth3+l9/6qZxsq3MF5tVGY3zddZn0ykJdGlE6li5BcGkDBvDD4t1cJT8W+cnFvqL73PnvLlRRjakIF07Z5D2Cis2/87hmPlM122wM6YHWNTQSnlnkfOyrKh4GOHhvoSzLTpP+lv22t2jKWzF4YRBxKKoMd1xt0jMix/uub2iwQuNGj/192T1R9c/9KrZ5HjXsF7IGRGQ1rZYKnpBdEOrCg/3XHSlLek/a8kDg+RgSNCiiChmWjvG49hOq8btV/wgvKrW4sVWU1T0YmV5vHKMNeJ9KcGOqYBiORaYT77XIFxz9tDCcRh/x/Eyd5t5v3fsv9rXVEW6ps1h6hTQ1YLzWmXaKrol8AuXcrzJG7HpvPHz4CgHmEF7UnwkbcCf/T+ey8JEh8hGDhWszMUTnickBRjwYxoWrda0CrpV51uX6OkTN67GhpVM62tqX3kFPrhwVlItwIIffKj/TOoN6ncmPfitYf6ZluwUC7kWcdyo+R0hiqdpLK1D4f5oZIPXA=="
+export AWS_ACCESS_KEY_ID="{access-key}"
+export AWS_SECRET_ACCESS_KEY="{secret-access-key}"
+export AWS_SESSION_TOKEN="{secret-access-key}"
 
 ** Role(Unavailable on 6.5.4v which does not support session token)
 *** Policy
