@@ -36,3 +36,4 @@ docker/secret/
 *__failpoint_stash__
 **/.terraform*
 **/*.tfstate
+**/*.html
