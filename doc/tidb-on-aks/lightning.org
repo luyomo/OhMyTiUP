@@ -1,0 +1,124 @@
+* Data preparation
+** Table preparation
+   #+BEGIN_SRC
+MySQL$ create table test.data_import_test(
+  col01 int primary key,
+  col02 char,
+  col03 varchar(32),
+  col04 json);
+   #+END_SRC
+** Data preparation
+   #+BEGIN_SRC
+workstation$ more test.data_import_test.csv
+1,"a","This is the test 01","{\"key01\":\"value01\",\"key02\":\"value02\"}"
+2,"b","This is the test 02","{\"key01\":\"value11\",\"key02\":\"value12\"}"
+   #+END_SRC
+** Upload CSV file to BLOB
+   #+BEGIN_SRC
+workstation$ az storage blob upload -f test.data_import_test.csv -c brbackup -n csvdata/test.data_import_test.csv --account-name jays3 --account-key sezfo9.......................zA==
+   #+END_SRC
+* POD workstation in the tidb-cluster(tidb cluster's namespace)
+  #+BEGIN_SRC
+workstation$ kubectl run my-shell --rm -i --tty --image ubuntu -- bash
+pod$ apt-get update -y
+pod$ apt-get install -y curl wget vim
+pod$ curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+pod$ mkdir -p /tmp/import01
+pod$ az storage blob directory download --recursive -c brbackup --account-name jays3 -s "csvdata" -d "/tmp/import01" --account-key sezfo9.......................zA==
+The command requires the extension storage-preview. Do you want to install it now? The command will continue to run after the extension is installed. (Y/n): Y
+  #+END_SRC
+* lightning install inside the pod
+  #+BEGIN_SRC
+pod$ wget https://download.pingcap.org/tidb-community-toolkit-v7.1.1-linux-amd64.tar.gz
+pod$ tar xvf tidb-community-toolkit-v7.1.1-linux-amd64.tar.gz
+pod$ cd tidb-community-toolkit-v7.1.1-linux-amd64
+pod$ tar xvf tidb-lightning-v7.1.1-linux-amd64.tar.gz
+  #+END_SRC
+* Data import inside pod
+** tidb cluster info
+   #+BEGIN_SRC
+workstation$ kubectl get service -n tidb-cluster 
+NAME                    TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)                          AGE
+jaytest001-discovery    ClusterIP      10.0.150.218   <none>         10261/TCP,10262/TCP              51m
+jaytest001-pd           ClusterIP      10.0.35.240    <none>         2379/TCP                         51m
+jaytest001-pd-peer      ClusterIP      None           <none>         2380/TCP,2379/TCP                51m                                                                            
+jaytest001-ticdc-peer   ClusterIP      None           <none>         8301/TCP                         50m
+jaytest001-tidb         LoadBalancer   10.0.239.238   4.157.199.60   4000:31517/TCP,10080:31919/TCP   50m
+jaytest001-tidb-peer    ClusterIP      None           <none>         10080/TCP                        50m
+jaytest001-tikv-peer    ClusterIP      None           <none>         20160/TCP                        51m
+   #+END_SRC
+** config file preparation
+   #+BEGIN_SRC
+pod$ more /tmp/tidb-lightning.toml 
+[mydumper]
+data-source-dir = '/tmp/import01/csvdata'
+no-schema = true
+
+[mydumper.csv]
+separator = ','
+delimiter = '"'
+header = false
+not-null = true
+null = '\N'
+backslash-escape = true
+trim-last-separator = false
+[lightning]
+level = "info"
+file = "tidb-lightning.log"
+
+[tikv-importer]
+backend = "local"
+sorted-kv-dir = "/tmp/sorted-kv-dir"
+
+[tidb]
+host = "10.0.239.238"
+port = 4000
+user = "root"
+password = ""
+status-port = 10080
+pd-addr = "10.0.35.240:2379"
+
+pod$ ./tidb-lightning --config=/tmp/tidb-lightning.toml
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  # | CHECK ITEM                                                                                                                 | TYPE        | PASSED |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  1 | Source csv files size is proper                                                                                            | performance | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  2 | the checkpoints are valid                                                                                                  | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  3 | table schemas are valid                                                                                                    | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  4 | all importing tables on the target are empty                                                                               | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  5 | the config [mydumper.csv.header] is set to false, and CSV header lines are really not detected in the data files           | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  6 | Cluster version check passed                                                                                               | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  7 | Lightning has the correct storage permission                                                                               | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  8 | sorted-kv-dir:/tmp/sorted-kv-dir and data-source-dir:/tmp/import01/csvdata are in the same disk, may slow down performance | performance | false  |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+|  9 | local disk resources are rich, estimate sorted data size 45B, local available is 97.91GiB                                  | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+| 10 | The storage space is rich, which TiKV/Tiflash is 290.1GiB/0B. The estimated storage space is 135B/0B.                      | performance | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+| 11 | Cluster doesn't have too many empty regions                                                                                | performance | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+| 12 | Cluster region distribution is balanced                                                                                    | performance | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+| 13 | no CDC or PiTR task found                                                                                                  | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+
+   #+END_SRC
+** Imported data check
+   #+BEGIN_SRC
+MySQL [test]> select * from data_import_test; 
++-------+-------+---------------------+------------------------------------------+
+| col01 | col02 | col03               | col04                                    |
++-------+-------+---------------------+------------------------------------------+
+|     1 | a     | This is the test 01 | {"key01": "value01", "key02": "value02"} |
+|     2 | b     | This is the test 02 | {"key01": "value11", "key02": "value12"} |
++-------+-------+---------------------+------------------------------------------+
+2 rows in set (0.004 sec)
+   #+END_SRC
+

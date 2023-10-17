@@ -6,7 +6,7 @@
    + [[./pitr.org][PITR recovery]] - Run the PITR restore
 ** Tools
    + [[./ticdc.org][TiCDC]] - Setup TiCDC between TiDB Master and slave for replication
-   + lightning
+   + [[./lightning.org][lightning]] - Use lighting to import data by local mode
 ** AKS version upgrade
    + [[./blue-green-ticdc-k8s-upgrade.org][AKS upgrade using TiCDC]] - Setup blue green structure to upgrade AKS version with TiCDC
    + [[./blue-green-k8s-upgrade.org][AKS upgrade using PITR]]  - Setup blue green structure to upgrade AKS version with PITR
