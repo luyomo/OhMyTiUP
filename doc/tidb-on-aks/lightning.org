@@ -307,9 +307,11 @@ spec:
         mountOptions: 'dir_mode=0777,file_mode=0777,cache=strict,actimeo=30,nosharesock'  # optional
    #+END_SRC
 ** lightning install inside the pod
+Same to ssd disk's process
 ** Data import inside pod
+Same to ssd disk's process
 ** Imported data check
-
+Same to ssd disk's process
 * BLOB
 ** BLOB preparation
    Prepare the BLOB
@@ -320,10 +322,6 @@ Same to ssd disk's data preparation
 workstation$ az storage blob upload -f test.data_import_test.csv -c brbackup -n csvdata/test.data_import_test.csv --account-name jays3 --account-key sezfo9.......................zA==
    #+END_SRC
 
-* Data preparation
-** Table preparation
-
-** Data preparation
 
 
 
