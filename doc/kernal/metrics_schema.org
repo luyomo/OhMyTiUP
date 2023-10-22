@@ -1,0 +1,154 @@
+* Flow
+  ./pkg/executor/builder.go: Build
+    ./pkg/executor/builder.go: buildMemTable
+      ./pkg/executor/metrics_reader.go: queryMetric
+        -> pkg/domain/infosync/info.go: GetPrometheusAddr
+           Get the prometheus addr
+           -> getGlobalInfoSyncer
+             -> getPrometheusAddr
+               -> getPrometheusAddrFromEtcd
+        -> pkg/infoschema/metrics_schema.go: GenPromQL
+           Generate the PromQL from the schema
+           -> pkg/infoschema/metric_table_def.go
+* Investigation
+** Set prometheus endpoint in the PD
+   #+BEGIN_SRC
+workstation$ ETCDCTL_API=3 etcdctl get "/topology/prometheus" --endpoints 172.83.3.176:12379
+MySQL [metrics_schema]> select * from uptime order by time desc limit 10; 
++----------------------------+--------------------+-------------------+-------------------+
+| time                       | instance           | job               | value             |
++----------------------------+--------------------+-------------------+-------------------+
+| 2023-10-22 05:02:14.671000 | 172.83.4.163:12379 | pd                |  832370.990999937 |
+| 2023-10-22 05:02:14.671000 | 172.83.4.221:10081 | tidb              | 831217.7709999084 |
+| 2023-10-22 05:02:14.671000 | 172.83.1.241:10081 | tidb              | 832367.2109999657 |
+| 2023-10-22 05:02:14.671000 | 172.83.3.176:19100 | overwritten-nodes | 832353.8310000896 |
+| 2023-10-22 05:02:14.671000 | 172.83.3.176:12379 | pd                | 832370.6410000324 |
+| 2023-10-22 05:02:14.671000 | 172.83.4.163:19100 | overwritten-nodes | 832354.1809999943 |
+| 2023-10-22 05:02:14.671000 | 172.83.1.60:12379  | pd                | 832371.1210000515 |
+| 2023-10-22 05:02:14.671000 | 172.83.3.101:20181 | tikv              | 832370.6710000038 |
+| 2023-10-22 05:02:14.671000 | 172.83.4.221:19100 | overwritten-nodes | 831216.2809998989 |
+| 2023-10-22 05:02:14.671000 | 172.83.3.101:19100 | overwritten-nodes | 832353.4010000229 |
++----------------------------+--------------------+-------------------+-------------------+
+10 rows in set (0.015 sec)
+workstation$ ETCDCTL_API=3 etcdctl put "/topology/prometheus" '{"ip":"172.82.31.122","port":9090,"deploy_path":"/home/admin/tidb/tidb-deploy/prometheus-9090"}' --endpoints 172.83.3.176:12379
+MySQL [metrics_schema]> select * from uptime order by time desc limit 10; 
++----------------------------+--------------------+-------------------+-------------------+
+| time                       | instance           | job               | value             |
++----------------------------+--------------------+-------------------+-------------------+
+| 2023-10-22 05:01:29.308000 | 172.83.4.163:2379  | pd                | 772678.8680000305 |
+| 2023-10-22 05:01:29.308000 | 172.83.4.221:10080 | tidb              |  772674.128000021 |
+| 2023-10-22 05:01:29.308000 | 172.83.1.241:10080 | tidb              | 772673.9380002022 |
+| 2023-10-22 05:01:29.308000 | 172.83.3.176:9100  | overwritten-nodes | 772669.7180001736 |
+| 2023-10-22 05:01:29.308000 | 172.83.3.176:2379  | pd                | 772678.4880001545 |
+| 2023-10-22 05:01:29.308000 | 172.83.4.163:9100  | overwritten-nodes | 772670.0580000877 |
+| 2023-10-22 05:01:29.308000 | 172.83.1.60:2379   | pd                |  772678.978000164 |
+| 2023-10-22 05:01:29.308000 | 172.83.3.101:9100  | overwritten-nodes |  772669.248000145 |
+| 2023-10-22 05:01:29.308000 | 172.83.4.221:9100  | overwritten-nodes |   772669.60800004 |
+| 2023-10-22 05:01:29.308000 | 172.83.3.101:20180 | tikv              | 772678.3080000877 |
++----------------------------+--------------------+-------------------+-------------------+
+10 rows in set (0.014 sec)
+   #+END_SRC
+** Check whether prometheus mestrics has cluster id (NO)
+   #+BEGIN_SRC
+curl http://172.82.31.122:19090/api/v1/query -d 'query=tikv_threads_state{instance="172.83.4.198:20181"}'  | jq
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {
+          "__name__": "tikv_threads_state",
+          "instance": "172.83.4.198:20181",
+          "job": "tikv",
+          "state": "R"
+        },
+        "value": [
+          1697983948.865,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "tikv_threads_state",
+          "instance": "172.83.4.198:20181",
+          "job": "tikv",
+          "state": "S"
+        },
+        "value": [
+          1697983948.865,
+          "104"
+        ]
+      }
+    ]
+  }
+}
+   #+END_SRC
+** Dashboard is not sharable
+Check TiDB Cloud's dashboard that each cluster has its prometheus. The prometheus is not shared by all the instances. The remote write should be used to sync to one instance to open the service with additional cluster id. Need to confirm to R&D team.
+** Where the metrics_schema is used in the TiDB
+*** [[https://docs.pingcap.com/tidb/stable/sql-statement-calibrate-resource][calibrate resource]] - executor/calibrate_resource.go
+    + SELECT SUM(value) FROM METRICS_SCHEMA.tikv_cpu_quota GROUP BY time ORDER BY time desc limit 1
+    + SELECT SUM(value) FROM METRICS_SCHEMA.tidb_server_maxprocs GROUP BY time ORDER BY time desc limit 1
+    + SELECT value FROM METRICS_SCHEMA.resource_manager_resource_unit where time >= '%s' and time <= '%s' ORDER BY time desc
+    + SELECT sum(value) FROM METRICS_SCHEMA.process_cpu_usage where time >= '%s' and time <= '%s' and job like '%%%s' GROUP BY time ORDER BY time desc
+*** [[https://docs.pingcap.com/tidb/stable/information-schema-inspection-result][inspection result]] - executor/inspection_result.go
+    + select instance, value from metrics_schema.node_total_memory where time=now()
+    + select instance, max(value) as max_usage from metrics_schema.node_memory_usage %s group by instance having max_usage >= 70
+    + select instance, max(value) as max_used from metrics_schema.node_memory_swap_used %s group by instance having max_used > 0
+    + select instance, device, max(value) as max_usage from metrics_schema.node_disk_usage %v and device like '/%%' group by instance, device having max_usage >=  70
+    + select t1.instance, t1.max_load , 0.7*t2.cpu_count from
+             (select instance,max(value) as max_load  from metrics_schema.%[1]s %[2]s group by instance) as t1 join
+             (select instance,max(value) as cpu_count from metrics_schema.node_virtual_cpus %[2]s group by instance) as t2
+             on t1.instance=t2.instance where t1.max_load>(0.7*t2.cpu_count)
+    + select t1.job,t1.instance, t2.min_time from
+         (select instance,job from metrics_schema.up %[1]s group by instance,job having max(value)-min(value)>0) as t1 join
+         (select instance,min(time) as min_time from metrics_schema.up %[1]s and value=0 group by instance,job) as t2 on t1.instance=t2.instance order by job
+    + select t1.status_address, t1.cpu, (t2.value * %[2]f) as threshold, t2.value from
+                 (select status_address, max(sum_value) as cpu from (select instance as status_address, sum(value) as sum_value from metrics_schema.tikv_thread_cpu %[4]s and name    like '%[1]s' group by instance, time) as tmp group by tmp.status_address) as t1 join
+                 (select instance, value from information_schema.cluster_config where type='tikv' and %[5]s = '%[3]s') as t2 join
+                 (select instance,status_address from information_schema.cluster_info where type='tikv') as t3
+                 on t1.status_address=t3.status_address and t2.instance=t3.instance where t1.cpu > (t2.value * %[2]f)
+    + SELECT t1.address,
+             max(t1.value),
+             t2.address,
+             min(t2.value),
+             max((t1.value-t2.value)/t1.value) AS ratio
+         FROM metrics_schema.pd_scheduler_store_status t1
+         JOIN metrics_schema.pd_scheduler_store_status t2 %s
+             AND t1.type='%s'
+             AND t1.time = t2.time
+             AND t1.type=t2.type
+             AND t1.address != t2.address
+             AND (t1.value-t2.value)/t1.value>%v
+             AND t1.value > 0
+         GROUP BY  t1.address,t2.address
+         ORDER BY  ratio desc
+     + select instance, sum(value) as sum_value from metrics_schema.pd_region_health %s and
+         type in ('extra-peer-region-count','learner-peer-region-count','pending-peer-region-count') having sum_value>100
+     + select address, max(value) from metrics_schema.pd_scheduler_store_status %s and type='region_count' and value > 20000 group by address
+     + select address,min(value) as mi,max(value) as mx from metrics_schema.pd_scheduler_store_status %s and type='leader_count' group by address having mx-mi>%v
+     + select time, value from metrics_schema.pd_scheduler_store_status %s and type='leader_count' and address = '%s' order by time
+*** metrics profiling(curl http://tidbnode:10081/metrics/profile) - server/http_status.go
+    + select sum(value), '' from `metrics_schema`.`%v_total_count` %v
+    + select sum(value), `%[3]s` from `metrics_schema`.`%[1]s_total_count` %[2]s group by `%[3]s` having sum(value) > 0
+    + select sum(value), '' from `metrics_schema`.`%v_total_time` %v
+    + select avg(value), '' from `metrics_schema`.`%v_duration` %v
+    + select avg(value), `%[3]s` from `metrics_schema`.`%[1]s_duration` %[2]s group by `%[3]s
+* Todo
+** atomic.Value - pkg/domain/infosync/info.go
+   #+BEGIN_SRC
+var globalInfoSyncer atomic.Value
+
+func getGlobalInfoSyncer() (*InfoSyncer, error) {
+        v := globalInfoSyncer.Load()
+        if v == nil {
+                return nil, errors.New("infoSyncer is not initialized")
+        }
+        return v.(*InfoSyncer), nil
+}
+
+func setGlobalInfoSyncer(is *InfoSyncer) {
+        globalInfoSyncer.Store(is)
+}
+   #+END_SRC
