@@ -135,6 +135,45 @@ Check TiDB Cloud's dashboard that each cluster has its prometheus. The prometheu
     + select sum(value), '' from `metrics_schema`.`%v_total_time` %v
     + select avg(value), '' from `metrics_schema`.`%v_duration` %v
     + select avg(value), `%[3]s` from `metrics_schema`.`%[1]s_duration` %[2]s group by `%[3]s
+* ng-monitoring deployment
+  Download bin ng-monitoring-server first.
+  #+BEGIN_SRC
+workstation$ more ngmonitoring.toml
+# NG Monitoring Server Configuration.
+
+# Server address.
+address = "0.0.0.0:22021"
+advertise-address = "172.82.31.122:22021"
+
+[log]
+# Log path
+path = "/home/tidb/deploy/log"
+
+# Log level: INFO, WARN, ERROR
+level = "INFO"
+
+[pd]
+# Addresses of PD instances within the TiDB cluster. Multiple addresses are separated by commas, e.g. "10.0.0.1:2379","10.0.0.2:2379"
+endpoints = ["172.83.3.176:2379","172.83.1.60:2379","172.83.4.163:2379"]
+
+[storage]
+path = "/home/tidb/deploy/ngmonitoring"
+
+workstation$ ng-wrapper.sh
+#!/bin/bash
+
+# WARNING: This file was auto-generated to restart ng-monitoring when fail. 
+#          Do not edit! All your edit might be overwritten!
+
+while true
+do
+    /tmp/tidb/ng-monitoring-server         --config /tmp/tidb/ngmonitoring.toml >/dev/null 2>&1
+    sleep 15s
+done
+
+workstation$ ng-wrapper.sh
+  #+END_SRC
+* tidashboard deployment
 * Todo
 ** atomic.Value - pkg/domain/infosync/info.go
    #+BEGIN_SRC
@@ -152,3 +191,17 @@ func setGlobalInfoSyncer(is *InfoSyncer) {
         globalInfoSyncer.Store(is)
 }
    #+END_SRC
+** set @@tidb_enable_ddl=false -> can not disable ddl owner when it is the only one tidb instance
+   pkg/domain/infosync/info.go
+   pd: /tidb/server/info
+
+   #+BEGIN_SRC
+workstation$ ETCDCTL_API=3 etcdctl get "/tidb/server/info" --endpoints 172.83.1.60:12379 --prefix=true
+{"version":"5.7.25-TiDB-v7.1.0","git_hash":"635a4362235e8a3c0043542e629532e3c7bb2756","ddl_id":"31aaddfc-640a-4139-bc19-a2fae7723ed0","ip":"172.83.4.221","listening_port":4001,"status_port":10081,"lease":"45s","binlog_status":"Off","start_timestamp":1697119717,"labels":{},"server_id":1932681}
+/tidb/server/info/357284c3-53b3-4594-af65-ac99d4a6d8b4
+{"version":"5.7.25-TiDB-v7.1.0","git_hash":"635a4362235e8a3c0043542e629532e3c7bb2756","ddl_id":"357284c3-53b3-4594-af65-ac99d4a6d8b4","ip":"172.83.1.241","listening_port":4001,"status_port":10081,"lease":"45s","binlog_status":"Off","start_timestamp":1697118575,"labels":{},"server_id":3740511}
+   #+END_SRC
+*** Failed to fetch the /tidb/server/info
+    #+BEGIN_SRC
+workstation$ ETCDCTL_API=3 etcdctl get "/tidb/server/info" --endpoints 172.83.1.60:2379 --prefix=true
+    #+END_SRC

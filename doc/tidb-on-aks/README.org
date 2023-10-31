@@ -13,7 +13,8 @@
    + [[./k8s-rolling-upgrade.org][AKS rolling upgrade]]     - Move pod to new version nodepool
 ** Others
    + Performance test
-   + Scaling out/in
-   + Scaling up/down
+   + [[./scaling.org][Scaling out/in]] - Only scaling out procedures is prepared
+   + [[./specup.org][Scaling up/down]] - Support spec up/spec down
+   + [[./extend-disk.org][TiKV Disk Online extension]] - Online TiKV disk extension support
    + enterprise audit log
    + HTAP structure
