@@ -321,9 +321,8 @@ Same to ssd disk's data preparation
    #+BEGIN_SRC
 workstation$ az storage blob upload -f test.data_import_test.csv -c brbackup -n csvdata/test.data_import_test.csv --account-name jays3 --account-key sezfo9.......................zA==
    #+END_SRC
-
-
-
+** BLOB mount to AKS pod
+Please refer to [[https://ovidiuborlean.medium.com/mount-azure-blob-containers-with-nfs-in-aks-cluster-23a07c591463][Mount Azure Blob containers with NFS in AKS Cluster]] to create Storage Account and mount it to AKS pos as NFS3
 
 * POD workstation in the tidb-cluster(tidb cluster's namespace)
   #+BEGIN_SRC

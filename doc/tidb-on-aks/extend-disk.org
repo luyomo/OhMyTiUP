@@ -1,0 +1,41 @@
+* Check tpvc size
+  #+BEGIN_SRC
+workstation$ kubectl get pvc -n tidb-cluster
+NAME                     STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+pd-jaytest001-pd-0       Bound    pvc-1b4b64b4-5477-47ef-8536-a17183b326af   10Gi       RWO            managed-csi    87m
+pd-jaytest001-pd-1       Bound    pvc-4d62fbf7-4848-47d8-ad9d-0cf0cb5381e0   10Gi       RWO            managed-csi    87m
+pd-jaytest001-pd-2       Bound    pvc-fca71a43-bfbd-48a4-a8fe-a6f71efc74de   10Gi       RWO            managed-csi    87m
+tikv-jaytest001-tikv-0   Bound    pvc-1bfbd067-0e62-4841-97b8-ec842cc02a2f   512Gi      RWO            managed-csi    86m
+tikv-jaytest001-tikv-1   Bound    pvc-d61381c0-b96c-4627-98a0-93995d532c55   512Gi      RWO            managed-csi    86m
+tikv-jaytest001-tikv-2   Bound    pvc-b752de53-34de-4ce9-96c9-c37035b13188   512Gi      RWO            managed-csi    86m
+  #+END_SRC
+* patch the pvc size
+  #+BEGIN_SRC
+workstation$ kubectl patch pvc tikv-jaytest001-tikv-0 --type merge --patch '{"spec": {"resources": {"requests": {"storage": "1024Gi"}}}}'
+workstation$ kubectl patch pvc tikv-jaytest001-tikv-1 --type merge --patch '{"spec": {"resources": {"requests": {"storage": "1024Gi"}}}}'
+workstation$ kubectl patch pvc tikv-jaytest001-tikv-2 --type merge --patch '{"spec": {"resources": {"requests": {"storage": "1024Gi"}}}}'
+workstation$ $ kubectl get pv 
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                            STORAGECLASS   REASON   AGE
+pvc-1b4b64b4-5477-47ef-8536-a17183b326af   10Gi       RWO            Retain           Bound    default/pd-jaytest001-pd-0       managed-csi             90m
+pvc-1bfbd067-0e62-4841-97b8-ec842cc02a2f   512Gi      RWO            Retain           Bound    default/tikv-jaytest001-tikv-0   managed-csi             89m
+pvc-4d62fbf7-4848-47d8-ad9d-0cf0cb5381e0   10Gi       RWO            Retain           Bound    default/pd-jaytest001-pd-1       managed-csi             90m
+pvc-b752de53-34de-4ce9-96c9-c37035b13188   512Gi      RWO            Retain           Bound    default/tikv-jaytest001-tikv-2   managed-csi             89m
+pvc-d61381c0-b96c-4627-98a0-93995d532c55   512Gi      RWO            Retain           Bound    default/tikv-jaytest001-tikv-1   managed-csi             89m
+pvc-fca71a43-bfbd-48a4-a8fe-a6f71efc74de   10Gi       RWO            Retain           Bound    default/pd-jaytest001-pd-2       managed-csi             90m
+workstation$ # wait 10 minutes
+workstation$ kubectl get pvc
+NAME                     STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+pd-jaytest001-pd-0       Bound    pvc-1b4b64b4-5477-47ef-8536-a17183b326af   10Gi       RWO            managed-csi    93m
+pd-jaytest001-pd-1       Bound    pvc-4d62fbf7-4848-47d8-ad9d-0cf0cb5381e0   10Gi       RWO            managed-csi    93m
+pd-jaytest001-pd-2       Bound    pvc-fca71a43-bfbd-48a4-a8fe-a6f71efc74de   10Gi       RWO            managed-csi    93m
+tikv-jaytest001-tikv-0   Bound    pvc-1bfbd067-0e62-4841-97b8-ec842cc02a2f   1Ti        RWO            managed-csi    93m
+tikv-jaytest001-tikv-1   Bound    pvc-d61381c0-b96c-4627-98a0-93995d532c55   1Ti        RWO            managed-csi    93m
+tikv-jaytest001-tikv-2   Bound    pvc-b752de53-34de-4ce9-96c9-c37035b13188   1Ti        RWO            managed-csi    93m
+
+workstation$ kubectl exec -it jaytest001-tikv-0 -- sh 
+/ # df -h 
+Filesystem                Size      Used Available Use% Mounted on
+... ...
+/dev/sdb               1007.4G      5.2G   1002.2G   1% /var/lib/tikv
+... ...
+  #+END_SRC

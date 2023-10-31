@@ -1,0 +1,62 @@
+* TiKV spec up / spec down
+** Add new nodepool
+   #+BEGIN_SRC
+ workstation$ az aks nodepool add --name newtikv --cluster-name jaytest001 --resource-group azure-jp-tech-team --node-vm-size Standard_E16s_v4 --zones 1 2 3 --aks-custom-headers EnableAzureDiskFileCSIDriver=true --node-count 3 --labels dedicated=jaytest001-tikv --node-taints dedicated=jaytest001-tikv:NoSchedule
+ workstation$ az aks nodepool list --resource-group azure-jp-tech-team --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+ Name       K8version
+ ---------  -----------
+ agentpool  1.25.11
+ newtikv    1.25.11
+ pd         1.25.11
+ ticdc      1.25.11
+ tidb       1.25.11
+ tikv       1.25.11
+   #+END_SRC
+** pod migration to new spec server
+*** Remove label from nodes to be deleted
+   #+BEGIN_SRC
+ workstation$ az aks nodepool update --resource-group azure-jp-tech-team --cluster-name jaytest001 --name "tikv" --labels="" --node-taints=""
+   #+END_SRC
+*** Pod rolling migration
+    #+BEGIN_SRC
+ workstation$ kubectl delete pod jaytest001-tikv-0 -n tidb-cluster
+ pod "jaytest001-tikv-0" deleted
+ workstation$ kubectl get pod  -o wide
+ NAME                                    READY   STATUS    RESTARTS   AGE   IP            NODE                                NOMINATED NODE   READINESS GATES
+ ... ...
+ jaytest001-tikv-0                       1/1     Running   0          60s   10.244.14.2   aks-newtikv-12483745-vmss000001     <none>           <none>
+ jaytest001-tikv-1                       1/1     Running   0          88m   10.244.8.3    aks-tikv-21000424-vmss000001        <none>           <none>
+ jaytest001-tikv-2                       1/1     Running   0          88m   10.244.3.3    aks-tikv-21000424-vmss000002        <none>           <none>
+ workstation$ kubectl delete pod jaytest001-tikv-1 -n tidb-cluster
+ pod "jaytest001-tikv-1" deleted
+ workstation$ kubectl get pod  -o wide
+ NAME                                    READY   STATUS    RESTARTS   AGE   IP            NODE                                NOMINATED NODE   READINESS GATES
+ ... ...
+ jaytest001-tikv-0                       1/1     Running   0          60s   10.244.14.2   aks-newtikv-12483745-vmss000001     <none>           <none>
+ jaytest001-tikv-1                       1/1     Running   0          88m   10.244.13.2   aks-newtikv-12483745-vmss000002     <none>           <none>
+ jaytest001-tikv-2                       1/1     Running   0          88m   10.244.3.3    aks-tikv-21000424-vmss000002        <none>           <none>
+
+ workstation$ kubectl delete pod jaytest001-tikv-2 -n tidb-cluster
+ pod "jaytest001-tikv-1" deleted
+ workstation$ kubectl get pod  -o wide
+ NAME                                    READY   STATUS    RESTARTS   AGE   IP            NODE                                NOMINATED NODE   READINESS GATES
+ ... ...
+ jaytest001-tikv-0                       1/1     Running   0          60s   10.244.14.2   aks-newtikv-12483745-vmss000001     <none>           <none>
+ jaytest001-tikv-1                       1/1     Running   0          88m   10.244.13.2   aks-newtikv-12483745-vmss000002     <none>           <none>
+ jaytest001-tikv-2                       1/1     Running   0          88m   10.244.12.2   aks-newtikv-12483745-vmss000000     <none>           <none>
+    #+END_SRC
+** Delete the origin nodes
+   #+BEGIN_SRC
+workstation$ az aks nodepool delete --name tikv --cluster-name jaytest001 --resource-group azure-jp-tech-team
+workstation$ az aks nodepool list --resource-group azure-jp-tech-team --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+newtikv    1.25.11
+pd         1.25.11
+ticdc      1.25.11
+tidb       1.25.11
+
+   #+END_SRC
+* PD/TiDB
+  Do the same way as TiKV to spec up or spec down the nodes
