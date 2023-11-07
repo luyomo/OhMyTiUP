@@ -92,6 +92,135 @@ spec:
 workstation$ kubectl apply -f sort-pvc.yaml -n tidb-cluster 
 persistentvolumeclaim/pvc-sortdisk created
     #+END_SRC
+*** tidb lightning config creation
+    #+BEGIN_SRC
+workstation$ more tidb-lightning.toml
+[mydumper]
+data-source-dir = '/mnt/lightning/test'
+no-schema = true
+
+[mydumper.csv]
+separator = ','
+delimiter = '"'
+header = true
+not-null = true
+null = '\N'
+backslash-escape = true
+trim-last-separator = false
+[lightning]
+level = "info"
+file = "/tmp/tidb-lightning.log"
+
+[tikv-importer]
+backend = "local"
+sorted-kv-dir = "/mnt/sorted-kv-dir"
+
+[tidb]
+host = "10.0.248.181"
+port = 4000
+user = "root"
+password = ""
+status-port = 10080
+pd-addr = "10.0.35.2:2379"
+workstation$ kubectl create configmap tidb-lightning-config -n tidb-cluster --from-file=tidb-lightning.toml
+configmap/tidb-lightning-config created
+    #+END_SRC
+*** lightning data import
+    #+BEGIN_SRC
+workstation$ more pod-lightning.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jaytest001-ticdc
+spec:
+  securityContext:
+    runAsUser: 0
+    fsGroup: 0
+  nodeSelector:
+    dedicated: jaytest001-ticdc
+  tolerations:
+  - effect: NoSchedule
+    key: dedicated
+    operator: Equal
+    value: jaytest001-ticdc
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - eastus-1
+  restartPolicy: OnFailure
+  containers:
+  - image: pingcap/tidb-lightning
+    command: ["/tidb-lightning", "--config=/opt/tidb-lightning.toml"]
+    name: lightning-job
+    resources:
+      requests:
+        cpu: 4
+        memory: 4Gi
+      limits:
+        cpu: 4
+        memory: 4Gi
+    volumeMounts:
+      - name: azure
+        mountPath: /mnt/lightning
+      - name: sortdisk
+        mountPath: /opt/sorted-kv-dir
+      - name: tidb-lightning-volume
+        mountPath: /opt
+  volumes:
+  - name: azure
+    persistentVolumeClaim:
+      claimName: pvc-azuredisk
+  - name: sortdisk
+    persistentVolumeClaim:
+      claimName: pvc-sortdisk
+  - name: tidb-lightning-volume
+    configMap:
+      name: tidb-lightning-config
+workstation$ kubectl apply -f pod-lightning.yaml -n tidb-cluster
+pod/jaytest001-ticdc created
+workstation$ kubectl get pod jaytest001-ticdc -n tidb-cluster
+NAME               READY   STATUS      RESTARTS   AGE
+jaytest001-ticdc   0/1     Completed   0          4m1s
+workstation$ kubectl logs  jaytest001-ticdc -n tidb-cluster
+
+Verbose debug logs will be written to /tmp/tidb-lightning.log
+
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  # | CHECK ITEM                                                                                               | TYPE        | PASSED |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  1 | Source csv files size is proper                                                                          | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  2 | the checkpoints are valid                                                                                | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  3 | table schemas are valid                                                                                  | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  4 | all importing tables on the target are empty                                                             | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  5 | Cluster version check passed                                                                             | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  6 | Lightning has the correct storage permission                                                             | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  7 | local source dir and temp-kv dir are in different disks                                                  | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  8 | local disk resources are rich, estimate sorted data size 1.367KiB, local available is 100.5GiB           | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  9 | The storage space is rich, which TiKV/Tiflash is 2.92TiB/0B. The estimated storage space is 4.102KiB/0B. | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+| 10 | Cluster doesn't have too many empty regions                                                              | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+| 11 | Cluster region distribution is balanced                                                                  | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+| 12 | no CDC or PiTR task found                                                                                | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+
+tidb lightning exit successfully
+
+    #+END_SRC
 *** workstation preparation
      #+BEGIN_SRC
    workstation$ more pod.yaml
