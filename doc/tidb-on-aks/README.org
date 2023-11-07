@@ -7,6 +7,7 @@
 ** Tools
    + [[./ticdc.org][TiCDC]] - Setup TiCDC between TiDB Master and slave for replication
    + [[./lightning.org][lightning]] - Use lighting to import data by local mode
+   + [[./dumpling.org][Dumpling]] - Use dumpling to export data to local disk
 ** AKS version upgrade
    + [[./blue-green-ticdc-k8s-upgrade.org][AKS upgrade using TiCDC]] - Setup blue green structure to upgrade AKS version with TiCDC
    + [[./blue-green-k8s-upgrade.org][AKS upgrade using PITR]]  - Setup blue green structure to upgrade AKS version with PITR
@@ -18,3 +19,4 @@
    + [[./extend-disk.org][TiKV Disk Online extension]] - Online TiKV disk extension support
    + enterprise audit log
    + HTAP structure
+
