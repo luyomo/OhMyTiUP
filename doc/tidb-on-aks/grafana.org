@@ -1,0 +1,69 @@
+* Operator install
+  #+BEGIN_SRC
+workstation$ wget https://raw.githubusercontent.com/pingcap/tidb-operator/v1.5.1/examples/basic/tidb-monitor.yaml
+workstation$ diff tidb-monitor.yaml tidb-monitor.local.yaml 
+4c4
+<   name: basic
+---
+>   name: jaytest001
+8c8
+<   - name: basic
+---
+>   - name: jaytest001
+workstation$ more tidb-monitor.local.yaml
+apiVersion: pingcap.com/v1alpha1
+kind: TidbMonitor
+metadata:
+  name: jaytest001
+spec:
+  replicas: 1
+  clusters:
+  - name: jaytest001
+  prometheus:
+    baseImage: prom/prometheus
+    version: v2.27.1
+  grafana:
+    baseImage: grafana/grafana
+    version: 7.5.11
+  initializer:
+    baseImage: pingcap/tidb-monitor-initializer
+    version: v7.1.1
+  reloader:
+    baseImage: pingcap/tidb-monitor-reloader
+    version: v1.0.1
+  prometheusReloader:
+    baseImage: quay.io/prometheus-operator/prometheus-config-reloader
+    version: v0.49.0
+  imagePullPolicy: IfNotPresent
+workstation$ kubectl get TidbMonitor -n tidb-cluster 
+NAME         AGE
+jaytest001   11h
+
+workstation$ kubectl get pod jaytest001-monitor-0 -n tidb-cluster 
+NAME                   READY   STATUS    RESTARTS   AGE
+jaytest001-monitor-0   4/4     Running   0          11h
+  #+END_SRC
+* NLB Install
+  #+BEGIN_SRC
+workstation$ more nlb-grafana.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-svc
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 3000
+    targetPort: 3000
+  selector:
+    app.kubernetes.io/component: monitor
+    app.kubernetes.io/instance: jaytest001
+    app.kubernetes.io/name: tidb-cluster
+
+workstation$ kubectl apply -f nlb-grafana.yaml -n tidb-cluster
+workstation$ kubectl get service grafana-svc -n tidb-cluster 
+NAME          TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+grafana-svc   LoadBalancer   10.0.229.137   20.81.83.19   3000:31345/TCP   5h26m
+  #+END_SRC
+* Access grafana
+  http://20.81.83.19:3000
