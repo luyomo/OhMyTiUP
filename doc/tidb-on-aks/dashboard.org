@@ -1,0 +1,75 @@
+* NGMonitoring deployment
+  #+BEGIN_SRC
+workstation$ more tidbNGMonitoring.yaml
+apiVersion: pingcap.com/v1alpha1
+kind: TidbNGMonitoring
+metadata:
+  name: jaytest001
+spec:
+  clusters:
+  - name: jaytest001
+    namespace: tidb-cluster
+  ngMonitoring:
+    requests:
+      storage: 10Gi
+    version: v7.1.1
+    # storageClassName: default
+    baseImage: pingcap/ng-monitoring
+
+workstation$ kubectl apply -f tidbNGMonitoring.yaml
+workstation$ kubectl get TidbNGMonitoring -n tidb-cluster 
+NAME         AGE
+jaytest001   5h50m
+
+workstation$ kubectl get pod jaytest001-ng-monitoring-0 -n tidb-cluster 
+NAME                         READY   STATUS    RESTARTS   AGE
+jaytest001-ng-monitoring-0   1/1     Running   0          5h51m
+  #+END_SRC
+
+* Dashboard
+** Dashboard deployment
+   #+BEGIN_SRC
+workstation$ wget https://raw.githubusercontent.com/pingcap/tidb-operator/v1.5.1/examples/basic/tidb-dashboard.yaml
+workstation$ diff tidb-dashboard.yaml tidb-dashboard.local.yaml 
+4c4
+<   name: basic
+---
+>   name: jaytest001
+12c12
+<     - name: basic
+---
+>     - name: jaytest001
+workstation$ kubectl apply -f tidb-dashboard.local.yaml -n tidb-cluster
+workstation$ kubectl get TidbDashboard -n tidb-cluster 
+NAME         AGE
+jaytest001   7h15m
+workstation$ kubectl get pod jaytest001-tidb-dashboard-0 -n tidb-cluster 
+NAME                          READY   STATUS    RESTARTS   AGE
+jaytest001-tidb-dashboard-0   1/1     Running   0          7h16m
+   #+END_SRC
+** NLB
+   #+BEGIN_SRC
+workstation$ more nlb-dashboard.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: public-svc
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 12333
+    targetPort: 12333
+  selector:
+    app.kubernetes.io/component: tidb-dashboard
+    app.kubernetes.io/instance: jaytest001
+    app.kubernetes.io/managed-by: tidb-operator
+    app.kubernetes.io/name: tidb-dashboard
+workstation$ kubectl apply -f nlb-dashboard.yaml -n tidb-cluster
+workstation$ kubectl get service -n tidb-cluster 
+NAME                                TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                          AGE
+... ...
+dashboard-svc                       LoadBalancer   10.0.95.126    172.171.48.92    12333:30187/TCP                  6h37m
+
+   #+END_SRC
+* Web Access
+  Access: http://172.171.48.92:12333

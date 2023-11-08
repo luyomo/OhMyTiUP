@@ -4,6 +4,7 @@
    + [[./restore-snapshot.org][Restore full backup]] - Restore backup from BLOB to new TiDB Cluster
    + [[./pitr-log.org][Take PITR log]] - Take PITR jobs
    + [[./pitr.org][PITR recovery]] - Run the PITR restore
+   + [[./dashboard.org][TiDB Dashboard]] - Setup dashboard for TiDB
 ** Tools
    + [[./ticdc.org][TiCDC]] - Setup TiCDC between TiDB Master and slave for replication
    + [[./lightning.org][lightning]] - Use lighting to import data by local mode
