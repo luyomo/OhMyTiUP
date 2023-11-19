@@ -1,44 +1,55 @@
-* Background
-This article introduce how to deploy one tidb cluster on the aks and the rolling update on the AKS.
-  + Install below clients on the workstation
-    - helm install
-    - az cli install
-  + Use terraform to install aks
-  + Run aks command to update nodepool to enable EnableAzureDiskFileCSIDriver (So far the terraform does not the config)
-  + Install tidb operator  -> with terraform
-  + Install tidb cluster   -> with terraform
-* Deployment
-  #+BEGIN_SRC
-$ terraform apply
+* TiDB Master DB terraform file preparation
+** Register app for deployment
+Get the client id and client secret for credentials
+#+BEGIN_SRC
+export TF_VAR_register_app_client_id=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export TF_VAR_register_app_client_secret="xxxxx~.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#+END_SRC
 
-Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
-  + create
-
-Terraform will perform the following actions: 
-... ...
-Apply complete! Resources: 11 added, 0 changed, 0 destroyed.
-
-Outputs:
-
-client_certificate = <sensitive>
-client_key = <sensitive>
-cluster_ca_certificate = <sensitive>
-cluster_password = <sensitive>
-cluster_username = <sensitive>
-host = <sensitive>
-key_data = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDZQVYHQaWhMZNxX+96CernO4UXm4rX+HuhPOE3R9B6JLG7j5aPGQaY7q2kBNlO4P8xy9MP7spM9Go2tbPBSJyr3lx2eId1vaibHz2mpSf4q1IIukmOYOSippOgVxXaNdDFf
-xu51klFUWu0ezAL4Q2JOHJw89bfSXEBxMwTRyEtp/294DyPUOTB9RKR+2aWMrXcXakLl4W8tpTIYYYv0FWx2LksSeraTx4fv9mamw4afqPfch3umtyg16w3LKNQKFZiQXeGC0mE5YV6LBMm/2gY41vNk+2ckM0K63WgIEtZiH3XW3y59z9lPG
-igc/yCDv0jur8y43HDvmpdawz8ebrHUp9tVmTucEe5m5rhK6BTbDR8a0Bnl57xxwlz25BJE8BvLY5qFtxHPqEBxx9Ri4/Gg+WybWHnxMtGML6SQc0v2zDsscmxaXY89M84dXQrfr57vvn2gESJbHHYk4FscETw8if4njvonv7+Du/+8xcY7yn
-T7oPlN5guHuIRwbLiM4E= generated-by-azure"
-kube_config = <sensitive>
-kubernetes_cluster_name = "cluster-glad-satyr"
-resource_group_name = "rg-splendid-doe"
-test = {
-  "id" = "/subscriptions/8183d3d9-47ac-46a0-8f86-e9413fb6e035/resourceGroups/rg-splendid-doe"
-  "location" = "eastus"
-  "managed_by" = ""
-  "name" = "rg-splendid-doe"
-  "tags" = tomap(null) /* of string */
-  "timeouts" = null /* object */
-}
-  #+END_SRC
+** Cluster deployment
+#+BEGIN_SRC
+workstation$ cd masterdb
+workstation$ terraform apply
+workstation$ kubectl get nodes
+NAME                                STATUS   ROLES   AGE   VERSION
+aks-agentpool-33461446-vmss000000   Ready    agent   51m   v1.25.11
+aks-lightning-60258137-vmss000000   Ready    agent   47m   v1.25.11
+aks-pd-20979773-vmss000000          Ready    agent   47m   v1.25.11
+aks-pd-20979773-vmss000001          Ready    agent   46m   v1.25.11
+aks-pd-20979773-vmss000002          Ready    agent   47m   v1.25.11
+aks-ticdc-94050287-vmss000000       Ready    agent   47m   v1.25.11
+aks-ticdc-94050287-vmss000001       Ready    agent   47m   v1.25.11
+aks-ticdc-94050287-vmss000002       Ready    agent   47m   v1.25.11
+aks-tidb-27591904-vmss000000        Ready    agent   47m   v1.25.11
+aks-tidb-27591904-vmss000001        Ready    agent   47m   v1.25.11
+aks-tiflash-14571275-vmss000000     Ready    agent   47m   v1.25.11
+aks-tiflash-14571275-vmss000001     Ready    agent   47m   v1.25.11
+aks-tiflash-14571275-vmss000002     Ready    agent   47m   v1.25.11
+aks-tikv-95582648-vmss000000        Ready    agent   47m   v1.25.11
+aks-tikv-95582648-vmss000001        Ready    agent   47m   v1.25.11
+aks-tikv-95582648-vmss000002        Ready    agent   46m   v1.25.11
+workstation$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster
+workstation$ kubectl get pods -n tidb-cluster 
+NAME                                    READY   STATUS    RESTARTS   AGE
+jaytest001-discovery-85976b8d88-t9m88   1/1     Running   0          20m
+jaytest001-pd-0                         1/1     Running   0          20m
+jaytest001-pd-1                         1/1     Running   0          20m
+jaytest001-pd-2                         1/1     Running   0          20m
+jaytest001-tidb-0                       2/2     Running   0          18m
+jaytest001-tidb-1                       2/2     Running   0          18m
+jaytest001-tiflash-0                    4/4     Running   0          19m
+jaytest001-tiflash-1                    4/4     Running   0          19m
+jaytest001-tiflash-2                    4/4     Running   0          19m
+jaytest001-tikv-0                       1/1     Running   0          19m
+jaytest001-tikv-1                       1/1     Running   0          19m
+jaytest001-tikv-2                       1/1     Running   0          19m
+workstation$ kubectl get service -n tidb-cluster 
+NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)                                 AGE
+jaytest001-discovery      ClusterIP      10.0.106.11    <none>          10261/TCP,10262/TCP                     21m
+jaytest001-pd             ClusterIP      10.0.151.205   <none>          2379/TCP                                21m
+jaytest001-pd-peer        ClusterIP      None           <none>          2380/TCP,2379/TCP                       21m
+jaytest001-tidb           LoadBalancer   10.0.61.239    4.157.153.225   4000:30293/TCP,10080:32265/TCP          19m
+jaytest001-tidb-peer      ClusterIP      None           <none>          10080/TCP                               19m
+jaytest001-tiflash-peer   ClusterIP      None           <none>          3930/TCP,20170/TCP,8234/TCP,20292/TCP   21m
+jaytest001-tikv-peer      ClusterIP      None           <none>          20160/TCP                               20m
+#+END_SRC
