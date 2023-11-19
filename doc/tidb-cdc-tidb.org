@@ -1,0 +1,54 @@
+* TiCDC Setup
+  #+BEGIN_SRC
+workstation$ tiup cdc cli changefeed create --server 172.83.4.61:8300  --sink-uri="mysql://root@slavedb-3c4c8feb4b5817e4.elb.us-east-1.amazonaws.com:4000/?worker-count=16&max-txn-row=5000"
+  #+END_SRC
+
+* Enable PITR
+** session token(Not availble in 6.5.4)
+  It's not workable using session token.
+  #+BEGIN_SRC
+tiup br backup full --pd "172.83.2.199:2379" \
+--storage 's3://jay-data/br/full-backup/snapshop?access-key="{access-key}"&secret-access-key="{secret-access-key}"&session-token="{session-token}"'
+  #+END_SRC
+
+export AWS_ACCESS_KEY_ID="{access-key}"
+export AWS_SECRET_ACCESS_KEY="{secret-access-key}"
+export AWS_SESSION_TOKEN="{session-token}"
+
+
+
+
+tiup br backup full --pd "${PD_IP}:2379" \
+--storage 's3://backup-101/snapshot-${date}?access-key=${access-key}&secret-access-key=${secret-access-key}"'
+
+export AWS_ACCESS_KEY_ID="{access-key}"
+export AWS_SECRET_ACCESS_KEY="{secret-access-key}"
+export AWS_SESSION_TOKEN="{secret-access-key}"
+
+** Role(Unavailable on 6.5.4v which does not support session token)
+*** Policy
+#+BEGIN_SRC
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "Statement1",
+			"Effect": "Allow",
+			"Action": ["s3:ListBucket",
+                "s3:GetObject","s3:PutObject", "s3:AbortMultipartUpload"],
+			"Resource": ["arn:aws:s3:::jay-data/br/"]
+		}
+	]
+}
+#+END_SRC
+
+** Local
+   #+BEGIN_SRC
+workstation$ tiup br backup full --pd "172.83.2.199:2379" --storage 'file:///tmp/backup'
+   #+END_SRC
+
+** Local
+   #+BEGIN_SRC
+workstation$ tiup br log start --task-name=pitr --pd "172.83.2.199:2379" --storage 'file:///tmp/pitr' 
+workstation$ tiup br log status --task-name=pitr --pd "172.83.2.199:2379"
+   #+END_SRC

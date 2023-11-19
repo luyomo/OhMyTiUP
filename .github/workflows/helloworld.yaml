@@ -1,0 +1,11 @@
+name: "Hello World"
+
+on: [push]
+
+jobs:
+    sample:
+        name: Hello World Job
+        runs-on: self-hosted
+        steps:
+            - run: echo "Hello World"
+

@@ -1,0 +1,320 @@
+* Diagram
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-on-aks/k8s-upgrade.gif]]
+* Process
+** TiDB Cluster setup
+   #+BEGIN_SRC
+workstation$ terraform apply
+workstation$ kubectl get nodes
+NAME                                STATUS   ROLES   AGE    VERSION
+aks-agentpool-15197548-vmss000000   Ready    agent   169m   v1.25.11
+aks-pd-34515367-vmss000000          Ready    agent   165m   v1.25.11
+aks-pd-34515367-vmss000001          Ready    agent   166m   v1.25.11
+aks-pd-34515367-vmss000002          Ready    agent   165m   v1.25.11
+aks-tidb-12869045-vmss000000        Ready    agent   165m   v1.25.11
+aks-tidb-12869045-vmss000001        Ready    agent   165m   v1.25.11
+aks-tikv-78480237-vmss000000        Ready    agent   165m   v1.25.11
+aks-tikv-78480237-vmss000001        Ready    agent   166m   v1.25.11
+aks-tikv-78480237-vmss000002        Ready    agent   165m   v1.25.11
+workstation$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster
+tidbcluster.pingcap.com/jaytest001 created
+
+workstation$ kubectl get tc -n tidb-cluster 
+NAME         READY   PD                  STORAGE   READY   DESIRE   TIKV                  STORAGE   READY   DESIRE   TIDB                  READY   DESIRE   AGE
+jaytest001   False   pingcap/pd:v6.5.4   10Gi      3       3        pingcap/tikv:v6.5.4   100Gi     3       3        pingcap/tidb:v6.5.4           2        99s
+
+workstation$ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS        AGE     IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0               3m14s   10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   1 (2m33s ago)   3m14s   10.244.4.2    aks-pd-34515367-vmss000002          <none>           <none>
+jaytest001-pd-1                         1/1     Running   0               3m14s   10.244.8.2    aks-pd-34515367-vmss000000          <none>           <none>
+jaytest001-pd-2                         1/1     Running   0               3m14s   10.244.2.2    aks-pd-34515367-vmss000001          <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0               112s    10.244.9.2    aks-tidb-12869045-vmss000000        <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0               112s    10.244.5.2    aks-tidb-12869045-vmss000001        <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0               2m30s   10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0               2m30s   10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0               2m30s   10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+   #+END_SRC
+** API upgrade
+** Upgrade by components
+*** control plane upgrade
+    #+BEGIN_SRC
+workstation$ az aks show --resource-group jaytest001 --name jaytest001 --output table
+Name        Location    ResourceGroup    KubernetesVersion    CurrentKubernetesVersion    ProvisioningState    Fqdn
+----------  ----------  ---------------  -------------------  --------------------------  -------------------  ----------------------------------------
+jaytest001  eastus      jaytest001       1.25.11              1.25.11                     Succeeded            jaytest001-c741pfwj.hcp.eastus.azmk8s.io
+
+workstation$  az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+pd         1.25.11
+tidb       1.25.11
+tikv       1.25.11
+
+workstation$ az aks upgrade --resource-group jaytest001 --name jaytest001 --control-plane-only --no-wait --kubernetes-version 1.26.3
+Kubernetes may be unavailable during cluster upgrades.
+ Are you sure you want to perform this operation? (y/N): y
+Since control-plane-only argument is specified, this will upgrade only the control plane to 1.26.3. Node pool will not change. Continue? (y/N): y
+
+workstation$ az aks show --resource-group jaytest001 --name jaytest001 --output table
+Name        Location    ResourceGroup    KubernetesVersion    CurrentKubernetesVersion    ProvisioningState    Fqdn
+----------  ----------  ---------------  -------------------  --------------------------  -------------------  ----------------------------------------
+jaytest001  eastus      jaytest001       1.26.3               1.26.3                      Upgrading            jaytest001-c741pfwj.hcp.eastus.azmk8s.io
+
+workstation$ az aks show --resource-group jaytest001 --name jaytest001 --output table
+Name        Location    ResourceGroup    KubernetesVersion    CurrentKubernetesVersion    ProvisioningState    Fqdn
+----------  ----------  ---------------  -------------------  --------------------------  -------------------  ----------------------------------------
+jaytest001  eastus      jaytest001       1.26.3               1.26.3                      Succeeded            jaytest001-c741pfwj.hcp.eastus.azmk8s.io
+
+workstation$ az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+pd         1.25.11
+tidb       1.25.11
+tikv       1.25.11
+    #+END_SRC
+
+*** TiDB
+**** Nodepool addition
+     #+BEGIN_SRC
+workstation$ az aks nodepool add --name newtidb --cluster-name jaytest001 --resource-group jaytest001 --node-vm-size Standard_F8s_v2 --zones 1 2 3 --aks-custom-headers EnableAzureDiskFileCSIDriver=true --node-count 2 --labels dedicated=jaytest001-tidb --node-taints dedicated=jaytest001-tidb:NoSchedule
+workstation$ az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+newtidb    1.26.3
+pd         1.25.11
+tidb       1.25.11
+tikv       1.25.11
+     #+END_SRC
+**** pod migration
+     #+BEGIN_SRC
+workstation$ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS      AGE   IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0             43m   10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   1 (43m ago)   43m   10.244.4.2    aks-pd-34515367-vmss000002          <none>           <none>
+jaytest001-pd-1                         1/1     Running   0             43m   10.244.8.2    aks-pd-34515367-vmss000000          <none>           <none>
+jaytest001-pd-2                         1/1     Running   0             43m   10.244.2.2    aks-pd-34515367-vmss000001          <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0             42m   10.244.9.2    aks-tidb-12869045-vmss000000        <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0             42m   10.244.5.2    aks-tidb-12869045-vmss000001        <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0             43m   10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0             43m   10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0             43m   10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+
+workstation$ az aks nodepool update --resource-group jaytest001 --cluster-name jaytest001 --name "tidb" --labels="" --node-taints=""
+workstation$ kubectl delete pod jaytest001-tidb-0 -n tidb-cluster
+pod "jaytest001-tidb-0" deleted
+workstation$ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS      AGE   IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0             47m   10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   1 (46m ago)   47m   10.244.4.2    aks-pd-34515367-vmss000002          <none>           <none>
+jaytest001-pd-1                         1/1     Running   0             47m   10.244.8.2    aks-pd-34515367-vmss000000          <none>           <none>
+jaytest001-pd-2                         1/1     Running   0             47m   10.244.2.2    aks-pd-34515367-vmss000001          <none>           <none>
+jaytest001-tidb-0                       1/2     Running   0             18s   10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0             45m   10.244.5.2    aks-tidb-12869045-vmss000001        <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0             46m   10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0             46m   10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0             46m   10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+
+workstation$ kubectl delete pod jaytest001-tidb-1 -n tidb-cluster 
+pod "jaytest001-tidb-1" deleted
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0             48m    10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   1 (48m ago)   48m    10.244.4.2    aks-pd-34515367-vmss000002          <none>           <none>
+jaytest001-pd-1                         1/1     Running   0             48m    10.244.8.2    aks-pd-34515367-vmss000000          <none>           <none>
+jaytest001-pd-2                         1/1     Running   0             48m    10.244.2.2    aks-pd-34515367-vmss000001          <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0             116s   10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0             28s    10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0             48m    10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0             48m    10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0             48m    10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+workstation$ az aks nodepool delete --name tidb --cluster-name jaytest001 --resource-group jaytest001
+workstation$ az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+newtidb    1.26.3
+pd         1.25.11
+tikv       1.25.11
+
+
+     #+END_SRC
+*** PD
+**** Nodepool addition
+     #+BEGIN_SRC
+workstation$ az aks nodepool add --name newpd --cluster-name jaytest001 --resource-group jaytest001 --node-vm-size Standard_F4s_v2 --zones 1 2 3 --aks-custom-headers EnableAzureDiskFileCSIDriver=true --node-count 3 --labels dedicated=jaytest001-pd --node-taints dedicated=jaytest001-pd:NoSchedule
+workstation$ az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+newpd      1.26.3
+newtidb    1.26.3
+pd         1.25.11
+tikv       1.25.11
+     #+END_SRC
+**** pod migration
+     #+BEGIN_SRC
+workstation$ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS      AGE     IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0             58m     10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   1 (57m ago)   58m     10.244.4.2    aks-pd-34515367-vmss000002          <none>           <none>
+jaytest001-pd-1                         1/1     Running   0             58m     10.244.8.2    aks-pd-34515367-vmss000000          <none>           <none>
+jaytest001-pd-2                         1/1     Running   0             58m     10.244.2.2    aks-pd-34515367-vmss000001          <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0             11m     10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0             9m54s   10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0             57m     10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0             57m     10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0             57m     10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+workstation$ az aks nodepool update --resource-group jaytest001 --cluster-name jaytest001 --name "pd" --labels="" --node-taints=""
+workstation$ kubectl delete pod jaytest001-pd-0 -n tidb-cluster
+pod "jaytest001-pd-0" deleted
+workstation$ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS   AGE    IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0          62m    10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   0          2m6s   10.244.16.2   aks-newpd-66857245-vmss000000       <none>           <none>
+jaytest001-pd-1                         1/1     Running   0          62m    10.244.8.2    aks-pd-34515367-vmss000000          <none>           <none>
+jaytest001-pd-2                         1/1     Running   0          62m    10.244.2.2    aks-pd-34515367-vmss000001          <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0          15m    10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0          14m    10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0          62m    10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0          62m    10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0          62m    10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+workstation$ kubectl delete pod jaytest001-pd-1 -n tidb-cluster 
+pod "jaytest001-pd-1" deleted
+workstation$  kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS   AGE     IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0          66m     10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   0          5m56s   10.244.16.2   aks-newpd-66857245-vmss000000       <none>           <none>
+jaytest001-pd-1                         1/1     Running   0          3m23s   10.244.15.2   aks-newpd-66857245-vmss000001       <none>           <none>
+jaytest001-pd-2                         1/1     Running   0          66m     10.244.2.2    aks-pd-34515367-vmss000001          <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0          19m     10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0          18m     10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0          65m     10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0          65m     10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0          65m     10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+workstation$ kubectl delete pod jaytest001-pd-2 -n tidb-cluster 
+pod "jaytest001-pd-2" deleted
+workstation$  kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS   AGE     IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0          69m     10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   0          8m18s   10.244.16.2   aks-newpd-66857245-vmss000000       <none>           <none>
+jaytest001-pd-1                         1/1     Running   0          5m45s   10.244.15.2   aks-newpd-66857245-vmss000001       <none>           <none>
+jaytest001-pd-2                         1/1     Running   0          2m1s    10.244.14.2   aks-newpd-66857245-vmss000002       <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0          22m     10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0          20m     10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0          68m     10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0          68m     10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0          68m     10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+workstation$ az aks nodepool delete --name pd --cluster-name jaytest001 --resource-group jaytest001
+workstation$ az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+newpd      1.26.3
+newtidb    1.26.3
+tikv       1.25.11
+     #+END_SRC
+*** TiKV
+**** Nodepool addition
+     #+BEGIN_SRC
+workstation$ az aks nodepool add --name newtikv --cluster-name jaytest001 --resource-group jaytest001 --node-vm-size Standard_E8s_v4 --zones 1 2 3 --aks-custom-headers EnableAzureDiskFileCSIDriver=true --node-count 3 --labels dedicated=jaytest001-tikv --node-taints dedicated=jaytest001-tikv:NoSchedule
+workstation$ az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+newpd      1.26.3
+newtidb    1.26.3
+newtikv    1.26.3
+tikv       1.25.11
+
+     #+END_SRC
+**** pod migration
+     #+BEGIN_SRC
+workstation$ $ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS   AGE    IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0          102m   10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   0          42m    10.244.16.2   aks-newpd-66857245-vmss000000       <none>           <none>
+jaytest001-pd-1                         1/1     Running   0          39m    10.244.15.2   aks-newpd-66857245-vmss000001       <none>           <none>
+jaytest001-pd-2                         1/1     Running   0          35m    10.244.14.2   aks-newpd-66857245-vmss000002       <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0          55m    10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0          54m    10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0          102m   10.244.7.2    aks-tikv-78480237-vmss000002        <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0          102m   10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0          102m   10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+workstation$ az aks nodepool update --resource-group jaytest001 --cluster-name jaytest001 --name "pd" --labels="" --node-taints=""
+workstation$ kubectl delete pod jaytest001-tikv-0 -n tidb-cluster 
+pod "jaytest001-tikv-0" deleted
+workstation$ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS   AGE     IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0          109m    10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   0          48m     10.244.16.2   aks-newpd-66857245-vmss000000       <none>           <none>
+jaytest001-pd-1                         1/1     Running   0          46m     10.244.15.2   aks-newpd-66857245-vmss000001       <none>           <none>
+jaytest001-pd-2                         1/1     Running   0          42m     10.244.14.2   aks-newpd-66857245-vmss000002       <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0          62m     10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0          60m     10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0          2m26s   10.244.17.2   aks-newtikv-19182752-vmss000000     <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0          108m    10.244.3.2    aks-tikv-78480237-vmss000001        <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0          108m    10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+
+workstation$ kubectl delete pod jaytest001-tikv-1 -n tidb-cluster 
+pod "jaytest001-tikv-1" deleted
+
+workstation$ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS   AGE    IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0          129m   10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   0          68m    10.244.16.2   aks-newpd-66857245-vmss000000       <none>           <none>
+jaytest001-pd-1                         1/1     Running   0          66m    10.244.15.2   aks-newpd-66857245-vmss000001       <none>           <none>
+jaytest001-pd-2                         1/1     Running   0          62m    10.244.14.2   aks-newpd-66857245-vmss000002       <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0          82m    10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0          81m    10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0          22m    10.244.17.2   aks-newtikv-19182752-vmss000000     <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0          19m    10.244.18.2   aks-newtikv-19182752-vmss000002     <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0          128m   10.244.11.2   aks-tikv-78480237-vmss000000        <none>           <none>
+
+workstation$ kubectl delete pod jaytest001-tikv-2 -n tidb-cluster 
+pod "jaytest001-tikv-2" deleted
+
+workstation$ $ kubectl get pod -n tidb-cluster -o wide 
+NAME                                    READY   STATUS    RESTARTS   AGE    IP            NODE                                NOMINATED NODE   READINESS GATES
+jaytest001-discovery-85976b8d88-hbstk   1/1     Running   0          132m   10.244.0.18   aks-agentpool-15197548-vmss000000   <none>           <none>
+jaytest001-pd-0                         1/1     Running   0          71m    10.244.16.2   aks-newpd-66857245-vmss000000       <none>           <none>
+jaytest001-pd-1                         1/1     Running   0          68m    10.244.15.2   aks-newpd-66857245-vmss000001       <none>           <none>
+jaytest001-pd-2                         1/1     Running   0          65m    10.244.14.2   aks-newpd-66857245-vmss000002       <none>           <none>
+jaytest001-tidb-0                       2/2     Running   0          85m    10.244.13.2   aks-newtidb-14516864-vmss000000     <none>           <none>
+jaytest001-tidb-1                       2/2     Running   0          83m    10.244.12.2   aks-newtidb-14516864-vmss000001     <none>           <none>
+jaytest001-tikv-0                       1/1     Running   0          25m    10.244.17.2   aks-newtikv-19182752-vmss000000     <none>           <none>
+jaytest001-tikv-1                       1/1     Running   0          22m    10.244.18.2   aks-newtikv-19182752-vmss000002     <none>           <none>
+jaytest001-tikv-2                       1/1     Running   0          43s    10.244.19.3   aks-newtikv-19182752-vmss000001     <none>           <none>
+workstation$ az aks nodepool delete --name tikv --cluster-name jaytest001 --resource-group jaytest001
+az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --query "[].{Name:name,k8version:orchestratorVersion}" --output table
+Name       K8version
+---------  -----------
+agentpool  1.25.11
+newpd      1.26.3
+newtidb    1.26.3
+newtikv    1.26.3
+
+     #+END_SRC
+
+*** System upgrade
+    #+BEGIN_SRC
+workstation$ az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --output table
+Name       OsType    KubernetesVersion    VmSize           Count    MaxPods    ProvisioningState    Mode
+---------  --------  -------------------  ---------------  -------  ---------  -------------------  ------
+agentpool  Linux     1.25.11              Standard_D2_v2   1        110        Succeeded            System
+newpd      Linux     1.26.3               Standard_F4s_v2  3        110        Succeeded            User
+newtidb    Linux     1.26.3               Standard_F8s_v2  2        110        Succeeded            User
+newtikv    Linux     1.26.3               Standard_E8s_v4  3        110        Succeeded            User
+ticdc      Linux     1.25.11              Standard_F8s_v2  3        110        Succeeded            User
+workstation$ az aks nodepool upgrade --resource-group jaytest001 --cluster-name jaytest001 --name agentpool --no-wait --kubernetes-version 1.26.3
+The cluster is already on version 1.25.11 and is not in a failed state. No operations will occur when upgrading to the same version if the cluster is not in a failed state. (y/n): y
+workstation$ az aks nodepool list --resource-group jaytest001 --cluster-name jaytest001 --output table
+Name       OsType    KubernetesVersion    VmSize           Count    MaxPods    ProvisioningState    Mode
+---------  --------  -------------------  ---------------  -------  ---------  -------------------  ------
+agentpool  Linux     1.26.3               Standard_D2_v2   1        110        Upgrading            System
+newpd      Linux     1.26.3               Standard_F4s_v2  3        110        Succeeded            User
+newtidb    Linux     1.26.3               Standard_F8s_v2  2        110        Succeeded            User
+newtikv    Linux     1.26.3               Standard_E8s_v4  3        110        Succeeded            User
+ticdc      Linux     1.25.11              Standard_F8s_v2  3        110        Succeeded            User
+    #+END_SRC

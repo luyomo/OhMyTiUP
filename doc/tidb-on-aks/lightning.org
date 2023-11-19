@@ -1,0 +1,513 @@
+* ssd disk
+** SSD Storage preparation
+   #+BEGIN_SRC
+workstation$ az disk create --name testdata --resource-group resourceGroupName --location eastus --size-gb 256 --sku Premium_LRS --zone 1
+workstation$ az vm disk attach -g resourceGroupName --vm-name jay-workstation --name testdata
+workstation$ sudo lsblk
+NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+... ...
+sde       8:64   0  256G  0 disk
+workstation$ sudo mkfs.ext4 /dev/sde
+mke2fs 1.45.5 (07-Jan-2020)
+Discarding device blocks: done
+... ...
+done
+Writing superblocks and filesystem accounting information: done
+workstation$ sudo mkdir /opt/testdata
+workstation$ sudo mount /dev/sde /opt/testdata
+workstation$ df -h
+Filesystem      Size  Used Avail Use% Mounted on
+... ...
+/dev/sde        251G   28K  239G   1% /opt/testdata
+   #+END_SRC
+** Test Data Preparation
+*** Table preparation
+    #+BEGIN_SRC
+MySQL$ create table test.data_import_test(
+  col01 int primary key,
+  col02 char,
+  col03 varchar(32),
+  col04 json);
+    #+END_SRC
+*** Data preparation
+    #+BEGIN_SRC
+workstation$ more test.data_import_test.csv
+1,"a","This is the test 01","{\"key01\":\"value01\",\"key02\":\"value02\"}"
+2,"b","This is the test 02","{\"key01\":\"value11\",\"key02\":\"value12\"}"
+    #+END_SRC
+** Disk mount to AKS
+   #+BEGIN_SRC
+workstation$ az vm disk detach -g resourceGroupName --vm-name jay-workstation --name testdata
+workstation$ sudo umount /dev/sde
+workstation$ more pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-azuredisk
+spec:
+  capacity:
+    storage: 256Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName:  managed-premium
+  csi:
+    driver: disk.csi.azure.com
+    readOnly: false
+    volumeHandle: /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/resourceGroupName/providers/Microsoft.Compute/disks/testdata # Replace your disk 
+    volumeAttributes:
+      fsType: ext4
+
+workstation$ kubectl apply -f static-pv.yaml 
+persistentvolume/pv-azuredisk created
+kubectl get pv 
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM                            STORAGECLASS      REASON   AGE
+pv-azuredisk                               256Gi      RWO            Retain           Available                                    managed-premium            72s
+... ...
+
+workstation$ kubectl apply -f static-pvc.yaml -n tidb-cluster 
+persistentvolumeclaim/pvc-azuredisk created
+
+workstation$ kubectl get pvc -n tidb-cluster
+... ...
+pvc-azuredisk        Bound     pv-azuredisk                               256Gi      RWO            managed-premium   5s
+
+  #+END_SRC
+** POD workstation in the tidb-cluster(tidb cluster's namespace)
+*** PVC preparation for sort disk
+    #+BEGIN_SRC
+workstation$ more sort-pvc.yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-sortdisk
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: managed-csi-premium
+workstation$ kubectl apply -f sort-pvc.yaml -n tidb-cluster 
+persistentvolumeclaim/pvc-sortdisk created
+    #+END_SRC
+*** tidb lightning config creation
+    #+BEGIN_SRC
+workstation$ more tidb-lightning.toml
+[mydumper]
+data-source-dir = '/mnt/lightning/test'
+no-schema = true
+
+[mydumper.csv]
+separator = ','
+delimiter = '"'
+header = true
+not-null = true
+null = '\N'
+backslash-escape = true
+trim-last-separator = false
+[lightning]
+level = "info"
+file = "/tmp/tidb-lightning.log"
+
+[tikv-importer]
+backend = "local"
+sorted-kv-dir = "/mnt/sorted-kv-dir"
+
+[tidb]
+host = "10.0.248.181"
+port = 4000
+user = "root"
+password = ""
+status-port = 10080
+pd-addr = "10.0.35.2:2379"
+workstation$ kubectl create configmap tidb-lightning-config -n tidb-cluster --from-file=tidb-lightning.toml
+configmap/tidb-lightning-config created
+    #+END_SRC
+*** lightning data import
+    #+BEGIN_SRC
+workstation$ more pod-lightning.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jaytest001-ticdc
+spec:
+  securityContext:
+    runAsUser: 0
+    fsGroup: 0
+  nodeSelector:
+    dedicated: jaytest001-ticdc
+  tolerations:
+  - effect: NoSchedule
+    key: dedicated
+    operator: Equal
+    value: jaytest001-ticdc
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - eastus-1
+  restartPolicy: OnFailure
+  containers:
+  - image: pingcap/tidb-lightning
+    command: ["/tidb-lightning", "--config=/opt/tidb-lightning.toml"]
+    name: lightning-job
+    resources:
+      requests:
+        cpu: 4
+        memory: 4Gi
+      limits:
+        cpu: 4
+        memory: 4Gi
+    volumeMounts:
+      - name: azure
+        mountPath: /mnt/lightning
+      - name: sortdisk
+        mountPath: /opt/sorted-kv-dir
+      - name: tidb-lightning-volume
+        mountPath: /opt
+  volumes:
+  - name: azure
+    persistentVolumeClaim:
+      claimName: pvc-azuredisk
+  - name: sortdisk
+    persistentVolumeClaim:
+      claimName: pvc-sortdisk
+  - name: tidb-lightning-volume
+    configMap:
+      name: tidb-lightning-config
+workstation$ kubectl apply -f pod-lightning.yaml -n tidb-cluster
+pod/jaytest001-ticdc created
+workstation$ kubectl get pod jaytest001-ticdc -n tidb-cluster
+NAME               READY   STATUS      RESTARTS   AGE
+jaytest001-ticdc   0/1     Completed   0          4m1s
+workstation$ kubectl logs  jaytest001-ticdc -n tidb-cluster
+
+Verbose debug logs will be written to /tmp/tidb-lightning.log
+
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  # | CHECK ITEM                                                                                               | TYPE        | PASSED |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  1 | Source csv files size is proper                                                                          | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  2 | the checkpoints are valid                                                                                | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  3 | table schemas are valid                                                                                  | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  4 | all importing tables on the target are empty                                                             | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  5 | Cluster version check passed                                                                             | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  6 | Lightning has the correct storage permission                                                             | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  7 | local source dir and temp-kv dir are in different disks                                                  | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  8 | local disk resources are rich, estimate sorted data size 1.367KiB, local available is 100.5GiB           | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+|  9 | The storage space is rich, which TiKV/Tiflash is 2.92TiB/0B. The estimated storage space is 4.102KiB/0B. | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+| 10 | Cluster doesn't have too many empty regions                                                              | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+| 11 | Cluster region distribution is balanced                                                                  | performance | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+| 12 | no CDC or PiTR task found                                                                                | critical    | true   |
++----+----------------------------------------------------------------------------------------------------------+-------------+--------+
+
+tidb lightning exit successfully
+
+    #+END_SRC
+*** workstation preparation
+     #+BEGIN_SRC
+   workstation$ more pod.yaml
+   apiVersion: v1                                                                                                                                                               [0/4672]
+   kind: Pod
+   metadata:
+     name: jaytest001-ticdc
+   spec:
+     securityContext:
+       runAsUser: 0
+       fsGroup: 0
+     nodeSelector:
+       dedicated: jaytest001-ticdc
+     tolerations:
+     - effect: NoSchedule
+       key: dedicated
+       operator: Equal
+       value: jaytest001-ticdc
+     affinity:
+       nodeAffinity:
+         requiredDuringSchedulingIgnoredDuringExecution:
+           nodeSelectorTerms:
+           - matchExpressions:
+             - key: topology.kubernetes.io/zone
+               operator: In
+               values:
+               - eastus-1
+     containers:
+     - image: ubuntu
+       name: lightning-pod
+       command:
+       - sleep
+       - infinity
+       resources:
+         requests:
+           cpu: 100m
+           memory: 128Mi
+         limits:
+           cpu: 250m
+           memory: 256Mi
+       volumeMounts:
+         - name: azure
+           mountPath: /opt/csvdata
+         - name: sortdisk
+           mountPath: /opt/sorted-kv-dir
+     volumes:
+     - name: azure
+       persistentVolumeClaim:
+         claimName: pvc-azuredisk
+     - name: sortdisk
+       persistentVolumeClaim:
+         claimName: pvc-sortdisk
+workstation$ kubectl apply -f pod.yaml -n tidb-cluster 
+   pod/jaytest001-ticdc created
+workstation$ kubectl exec -it jaytest001-ticdc -n tidb-cluster -- bash
+pod$ df -h
+Filesystem                                Size  Used Avail Use% Mounted on
+/dev/sdd                                  251G   36K  239G   1% /opt/csvdata
+/dev/sdc                                   49G   24K   49G   1% /opt/sorted-kv-dir
+... ...
+     #+END_SRC
+** lightning install inside the pod
+   #+BEGIN_SRC
+ pod$ wget https://download.pingcap.org/tidb-community-toolkit-v7.1.1-linux-amd64.tar.gz
+ pod$ tar xvf tidb-community-toolkit-v7.1.1-linux-amd64.tar.gz
+ pod$ cd tidb-community-toolkit-v7.1.1-linux-amd64
+ pod$ tar xvf tidb-lightning-v7.1.1-linux-amd64.tar.gz
+   #+END_SRC
+** Data import inside pod
+*** tidb cluster info
+    #+BEGIN_SRC
+ workstation$ kubectl get service -n tidb-cluster 
+ NAME                    TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)                          AGE
+ jaytest001-discovery    ClusterIP      10.0.150.218   <none>         10261/TCP,10262/TCP              51m
+ jaytest001-pd           ClusterIP      10.0.35.240    <none>         2379/TCP                         51m
+ jaytest001-pd-peer      ClusterIP      None           <none>         2380/TCP,2379/TCP                51m                                                                            
+ jaytest001-ticdc-peer   ClusterIP      None           <none>         8301/TCP                         50m
+ jaytest001-tidb         LoadBalancer   10.0.239.238   4.157.199.60   4000:31517/TCP,10080:31919/TCP   50m
+ jaytest001-tidb-peer    ClusterIP      None           <none>         10080/TCP                        50m
+ jaytest001-tikv-peer    ClusterIP      None           <none>         20160/TCP                        51m
+    #+END_SRC
+*** config file preparation
+    #+BEGIN_SRC
+ pod$ more /tmp/tidb-lightning.toml 
+ [mydumper]
+ data-source-dir = '/opt/csvdata/test'
+ no-schema = true
+
+ [mydumper.csv]
+ separator = ','
+ delimiter = '"'
+ header = false
+ not-null = true
+ null = '\N'
+ backslash-escape = true
+ trim-last-separator = false
+ [lightning]
+ level = "info"
+ file = "tidb-lightning.log"
+
+ [tikv-importer]
+ backend = "local"
+ sorted-kv-dir = "/opt/sorted-kv-dir"
+
+ [tidb]
+ host = "10.0.239.238"
+ port = 4000
+ user = "root"
+ password = ""
+ status-port = 10080
+ pd-addr = "10.0.35.240:2379"
+
+ pod$ ./tidb-lightning --config=/tmp/tidb-lightning.toml
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  # | CHECK ITEM                                                                                                                 | TYPE        | PASSED |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  1 | Source csv files size is proper                                                                                            | performance | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  2 | the checkpoints are valid                                                                                                  | critical    | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  3 | table schemas are valid                                                                                                    | critical    | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  4 | all importing tables on the target are empty                                                                               | critical    | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  5 | the config [mydumper.csv.header] is set to false, and CSV header lines are really not detected in the data files           | critical    | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  6 | Cluster version check passed                                                                                               | critical    | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  7 | Lightning has the correct storage permission                                                                               | critical    | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  8 | sorted-kv-dir:/opt/sorted-kv-dir and data-source-dir:/opt/csvdata/test are in the same disk, may slow down performance     | performance | false  |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ |  9 | local disk resources are rich, estimate sorted data size 45B, local available is 97.91GiB                                  | critical    | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ | 10 | The storage space is rich, which TiKV/Tiflash is 290.1GiB/0B. The estimated storage space is 135B/0B.                      | performance | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ | 11 | Cluster doesn't have too many empty regions                                                                                | performance | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ | 12 | Cluster region distribution is balanced                                                                                    | performance | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+ | 13 | no CDC or PiTR task found                                                                                                  | critical    | true   |
+ +----+----------------------------------------------------------------------------------------------------------------------------+-------------+--------+
+
+    #+END_SRC
+** Imported data check
+   #+BEGIN_SRC
+MySQL [test]> select * from data_import_test; 
++-------+-------+---------------------+------------------------------------------+
+| col01 | col02 | col03               | col04                                    |
++-------+-------+---------------------+------------------------------------------+
+|     1 | a     | This is the test 01 | {"key01": "value01", "key02": "value02"} |
+|     2 | b     | This is the test 02 | {"key01": "value11", "key02": "value12"} |
++-------+-------+---------------------+------------------------------------------+
+2 rows in set (0.004 sec)
+   #+END_SRC
+* FILES
+** files preparation
+  Prepare the azure files and mount it to windows
+** Test Data Preparation
+Same to ssd disk's data preparation
+** Files mount to AKS
+   #+BEGIN_SRC
+workstation$ kubectl create secret generic azure-secret --from-literal=azurestorageaccountname=storagename --from-literal=azurestorageaccountkey=sezfxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -n tidb-cluster
+workstation$ more pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jaytest001-ticdc
+spec:
+  securityContext:
+    runAsUser: 0
+    fsGroup: 0
+  nodeSelector:
+    dedicated: jaytest001-ticdc
+  tolerations:
+  - effect: NoSchedule
+    key: dedicated
+    operator: Equal
+    value: jaytest001-ticdc
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - eastus-1
+  containers:
+  - image: ubuntu
+    command:
+    - sleep
+    - infinity
+    name: lightning-pod
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1024Mi
+      limits:
+        cpu: 250m
+        memory: 1024Mi
+    volumeMounts:
+      - name: azure
+        mountPath: /opt/csvdata
+  volumes:
+  - name: azure
+    csi: 
+      driver: file.csi.azure.com
+      readOnly: false
+      volumeAttributes:
+        secretName: azure-secret
+        shareName: 'linuxshare'
+        mountOptions: 'dir_mode=0777,file_mode=0777,cache=strict,actimeo=30,nosharesock'  # optional
+   #+END_SRC
+** lightning install inside the pod
+Same to ssd disk's process
+** Data import inside pod
+Same to ssd disk's process
+** Imported data check
+Same to ssd disk's process
+* BLOB
+** BLOB preparation
+   Prepare the BLOB
+** Test Data Preparation
+Same to ssd disk's data preparation
+** Upload CSV file to BLOB
+   #+BEGIN_SRC
+workstation$ az storage blob upload -f test.data_import_test.csv -c brbackup -n csvdata/test.data_import_test.csv --account-name jays3 --account-key sezfo9.......................zA==
+   #+END_SRC
+** BLOB mount to AKS pod
+Please refer to [[https://ovidiuborlean.medium.com/mount-azure-blob-containers-with-nfs-in-aks-cluster-23a07c591463][Mount Azure Blob containers with NFS in AKS Cluster]] to create Storage Account and mount it to AKS pos as NFS3
+
+* POD workstation in the tidb-cluster(tidb cluster's namespace)
+  #+BEGIN_SRC
+workstation$ more pod.yaml
+apiVersion: v1                                                                                                                                                               [0/4672]
+kind: Pod
+metadata:
+  name: jaytest001-ticdc
+spec:
+  securityContext:
+    runAsUser: 0
+    fsGroup: 0
+  nodeSelector:
+    dedicated: jaytest001-ticdc
+  tolerations:
+  - effect: NoSchedule
+    key: dedicated
+    operator: Equal
+    value: jaytest001-ticdc
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - eastus-1
+  containers:
+  - image: ubuntu
+    name: lightning-pod
+    command:
+    - sleep
+    - infinity
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    volumeMounts:
+      - name: azure
+        mountPath: /opt/csvdata
+  volumes:
+  - name: azure
+    persistentVolumeClaim:
+      claimName: pvc-azuredisk
+workstation$ kubectl apply -f pod.yaml -n tidb-cluster 
+pod/jaytest001-ticdc created
+workstation$ 
+workstation$ kubectl run my-shell --rm -i --tty --image ubuntu -- bash
+pod$ apt-get update -y
+pod$ apt-get install -y curl wget vim
+pod$ curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+pod$ mkdir -p /tmp/import01
+pod$ az storage blob directory download --recursive -c brbackup --account-name jays3 -s "csvdata" -d "/tmp/import01" --account-key sezfo9.......................zA==
+The command requires the extension storage-preview. Do you want to install it now? The command will continue to run after the extension is installed. (Y/n): Y
+  #+END_SRC

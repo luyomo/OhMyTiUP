@@ -1,0 +1,48 @@
+* Source analysis
+** Check TDO owner
+   Added log to server/grpc_service.go:Tso to verify that only leader call this function to accept the TSO request.
+   #+BEGIN_SRC
+     request, err := stream.Recv() 
+     if err == io.EOF {
+         return nil
+     }
+     if err != nil {
+         return errors.WithStack(err)
+     }
+     # This log is used to check the whethere only leader output this message
+     log.Info("Get TSO request ", zap.Stringer("request", request))
+
+     ... ...
+   #+END_SRC
+*** Definition
+    The file definition is kvproto:pkg/pdpb/pdpb.pb.go
+    #+BEGIN_SRC
+type PDServer interface {
+    ...
+    Tso(PD_TsoServer) error
+    ...
+}
+    #+END_SRC
+*** Server implementation
+    pd: server/grpc_service.go
+    #+BEGIN_SRC
+    func (s *GrpcServer) Tso(stream pdpb.PD_TsoServer) error {
+     log.Info("Starting to call Tso function. ")
+     var (
+         doneCh chan struct{}
+         errCh  chan error
+     )    
+     ctx, cancel := context.WithCancel(stream.Context())
+     defer cancel()
+
+    #+END_SRC
+
+* Reference
+** What's the advertise-client-urls's usage?
+   https://www.jianshu.com/p/7bbef1ca9733
+** How to understand the grpc?
+   https://eddycjy.gitbook.io/golang/di-1-ke-za-tan/talking-grpc
+** Source Code
+   https://xie.infoq.cn/article/7ac59c84f74945dfa102328b3
+** TSO improvment
+   https://zhuanlan.zhihu.com/p/520372500

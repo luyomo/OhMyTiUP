@@ -1,0 +1,20 @@
+* Procedure
+  Follow the official procedures to prepare the certificate and key. After uploading the CA to virtual network gateway, downlowd the opvn file. Replace the certificate and private key to the opvn file and put it into /etc/openvpn/client. Finally, run the below command to start the service.
+  #+BEGIN_SRC
+systemctl start openvpn-client@opvn
+  #+END_SRC
+* NFS
+  #+BEGIN_SRC
+sudo apt install nfs-common
+
+  #+END_SRC
+* Reference
+  https://tunnelblick.net/downloads.html
+  https://learn.microsoft.com/en-us/azure/virtual-wan/howto-openvpn-clients
+  https://learn.microsoft.com/en-us/azure/vpn-gateway/vpn-gateway-howto-point-to-site-resource-manager-portal
+  https://learn.microsoft.com/en-us/azure/vpn-gateway/point-to-site-vpn-client-cert-linux
+  https://learn.microsoft.com/en-us/azure/vpn-gateway/vpn-gateway-certificates-point-to-site-linux
+
+  https://ovidiuborlean.medium.com/mount-azure-blob-containers-with-nfs-in-aks-cluster-23a07c591463
+  https://github.com/OvidiuBorlean/Azure/tree/main/aks_blob_nfs
+  

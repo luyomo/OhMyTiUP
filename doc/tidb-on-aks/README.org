@@ -1,4 +1,7 @@
 * TiDB On AKS
+** Install
+   + [[./dashboard.org][TiDB Dashboard]] - Setup dashboard for TiDB
+   + [[./grafana.org][Grafana]] - grafana setup
 ** Backup & Restore
    + [[./fullbackup.org][Full Backup]] - Take full data backup to Azure BLOB with registered application and certificate
    + [[./restore-snapshot.org][Restore full backup]] - Restore backup from BLOB to new TiDB Cluster
@@ -6,13 +9,17 @@
    + [[./pitr.org][PITR recovery]] - Run the PITR restore
 ** Tools
    + [[./ticdc.org][TiCDC]] - Setup TiCDC between TiDB Master and slave for replication
-   + lightning
-** AKS patch
-   + AKS upgrade using TiCDC - Setup blue green structure to upgrade AKS version
-   + AKS rolling upgrade
+   + [[./lightning.org][lightning]] - Use lighting to import data by local mode
+   + [[./dumpling.org][Dumpling]] - Use dumpling to export data to local disk
+** AKS version upgrade
+   + [[./blue-green-ticdc-k8s-upgrade.org][AKS upgrade using TiCDC]] - Setup blue green structure to upgrade AKS version with TiCDC
+   + [[./blue-green-k8s-upgrade.org][AKS upgrade using PITR]]  - Setup blue green structure to upgrade AKS version with PITR
+   + [[./k8s-rolling-upgrade.org][AKS rolling upgrade]]     - Move pod to new version nodepool
 ** Others
    + Performance test
-   + Scaling out/in
-   + Scaling up/down
+   + [[./scaling.org][Scaling out/in]] - Only scaling out procedures is prepared
+   + [[./specup.org][Scaling up/down]] - Support spec up/spec down
+   + [[./extend-disk.org][TiKV Disk Online extension]] - Online TiKV disk extension support
    + enterprise audit log
    + HTAP structure
+

@@ -1,0 +1,179 @@
+* Attach disk to vm
+  #+BEGIN_SRC
+workstation$ az disk show --name testdata --resource-group azure-jp-tech-team |  jq '.id'
+  #+END_SRC
+* Create PVC from disk
+  #+BEGIN_SRC
+workstation$ export ResourceName="resource-name"
+workstation$ export DiskName="testdata"
+workstation$ export DiskID=$(az disk show --name $DiskName --resource-group $ResourceName |  jq '.id')
+
+workstation$ az vm disk detach -g $ResourceName --vm-name workstation --name $DiskName
+
+workstation$ more pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-azuredisk
+spec:
+  capacity:
+    storage: 256Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName:  managed-premium
+  csi:
+    driver: disk.csi.azure.com
+    readOnly: false
+    volumeHandle: /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/azure-jp-tech-team/providers/Microsoft.Compute/disks/testdata
+    volumeAttributes:
+      fsType: ext4
+workstation$ kubectl apply -f pv.yaml
+workstation$ kubectl get pv pv-azuredisk
+NAME           CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM  STORAGECLASS      REASON   AGE
+pv-azuredisk   256Gi      RWO            Retain           Pending         managed-premium            7h3m
+
+workstation$ more pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-azuredisk
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 256Gi
+  volumeName: pv-azuredisk
+  storageClassName:  managed-premium
+workstation$ kubectl get pvc pvc-azuredisk -n tidb-cluster 
+NAME            STATUS   VOLUME         CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+pvc-azuredisk   Bound    pv-azuredisk   256Gi      RWO            managed-premium   7h2m
+  #+END_SRC
+* Export data
+  #+BEGIN_SRC
+workstation$ more pod-dumpling.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jaytest001-ticdc
+spec:
+  securityContext:
+    runAsUser: 0
+    fsGroup: 0
+  nodeSelector:
+    dedicated: jaytest001-ticdc
+  tolerations:
+  - effect: NoSchedule
+    key: dedicated
+    operator: Equal
+    value: jaytest001-ticdc
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - eastus-1
+  restartPolicy: OnFailure
+  containers:
+  - image: pingcap/dumpling
+    name: dumpling-job
+    command: ["/dumpling", "-u", "root", "-P", "4000", "-h", "10.0.248.181", "--filetype", "csv", "-t", "8", "-B", "test", "-o", "/mnt/dumpling/test", "-r", "200000", "-F", "256MiB"]
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+    volumeMounts:
+      - name: azure
+        mountPath: /mnt/dumpling
+  volumes:
+  - name: azure
+    persistentVolumeClaim:
+      claimName: pvc-azuredisk
+workstation$ kubectl apply -f pod-dumpling -n tidb-cluster
+workstation$ kubectl get pods jaytest001-ticdc -n tidb-cluster 
+NAME               READY   STATUS      RESTARTS   AGE
+jaytest001-ticdc   0/1     Completed   0          109m
+
+  #+END_SRC
+* Data check in the VM
+   #+BEGIN_SRC
+workstation$ kubectl delete pod jaytest001-ticdc -n tidb-cluster
+pod "jaytest001-ticdc" deleted
+workstation$ kubectl delete pvc pvc-azuredisk -n tidb-cluster
+persistentvolumeclaim "pvc-azuredisk" deleted
+workstation$ kubectl delete pv pv-azuredisk
+persistentvolume "pv-azuredisk" deleted
+
+workstation$ az vm disk attach -g $ResourceName --vm-name jay-workstation --name $DiskNam
+workstation$ sudo mount /dev/sde /opt/testdata
+workstation$ ls /opt/test/data/test/
+metadata                         test.table02.0000000010000.csv                 test.table05-schema.sql                        test.table07.0000000010000.csv
+test-schema-create.sql           test.table03-schema.sql                        test.table05.0000000010000.csv                 test.table08-schema.sql
+test.table01-schema.sql          test.table03.0000000010000.csv                 test.table06-schema.sql                        test.table08.0000000010000.csv
+test.table01.0000000010000.csv   test.table04-schema.sql                        test.table06.0000000010000.csv
+test.table02-schema.sql          test.table04.0000000010000.csv                 test.table07-schema.sql
+workstation$ kubectl delete pod jaytest001-ticdc -n tidb-cluster
+   #+END_SRC
+
+* lightning
+  #+BEGIN_SRC
+workstation$ kubectl exec -it jaytest001-ticdc -n tidb-cluster -- bash
+lightning# df -h 
+Filesystem      Size  Used Avail Use% Mounted on
+... ...
+/dev/sdc        251G  104K  239G   1% /mnt/lightning
+... ...
+lightning# ls /mnt/lightning/test/
+metadata                         test.table02.0000000010000.csv                 test.table05-schema.sql                        test.table07.0000000010000.csv
+test-schema-create.sql           test.table03-schema.sql                        test.table05.0000000010000.csv                 test.table08-schema.sql
+test.table01-schema.sql          test.table03.0000000010000.csv                 test.table06-schema.sql                        test.table08.0000000010000.csv
+test.table01.0000000010000.csv   test.table04-schema.sql                        test.table06.0000000010000.csv
+test.table02-schema.sql          test.table04.0000000010000.csv                 test.table07-schema.sql
+lightning# more /mnt/lightning/tidb-lightning.yaml
+[mydumper]
+data-source-dir = '/mnt/lightning/test'
+no-schema = true
+
+[mydumper.csv]
+separator = ','
+delimiter = '"'
+header = true
+not-null = true
+null = '\N'
+backslash-escape = true
+trim-last-separator = false
+[lightning]
+level = "info"
+file = "tidb-lightning.log"
+
+[tikv-importer]
+backend = "local"
+sorted-kv-dir = "/mnt/lightning/sorted-kv-dir"
+
+[tidb]
+host = "10.0.248.181"
+port = 4000
+user = "root"
+password = ""
+status-port = 10080
+pd-addr = "10.0.35.2:2379"
+
+lightning# /tidb-lightning --config=/mnt/lightning/tidb-lightning.toml
+  #+END_SRC
+* Todo
+** Failed to delete from table
+   #+BEGIN_SRC
+MySQL$ delete from table;
+ERROR 8141 (HY000): assertion failed: key: 74800000000000005c5f698000000000000001038000000000000001038000000000000001, assertion: Exist, start_ts: 445470247823605761, existing start ts: 0, existing commit ts: 0
+
+kubectl patch pv <your-pv-name> -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+   #+END_SRC
+
+
