@@ -16,6 +16,8 @@ package manager
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
@@ -27,7 +29,6 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
-	"os"
 
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )

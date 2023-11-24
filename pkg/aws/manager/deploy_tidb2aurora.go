@@ -17,6 +17,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
@@ -32,8 +35,6 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"go.uber.org/zap"
-	"os"
-	"strings"
 )
 
 // DeployOptions contains the options for scale out.

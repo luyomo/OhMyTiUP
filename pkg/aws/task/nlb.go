@@ -22,7 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	nlb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/smithy-go"
+	smithy "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 )
@@ -254,12 +254,12 @@ type RegisterTarget struct {
 func (c *RegisterTarget) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
-	targetGroup, err := getTargetGroup(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	targetGroup, err := getTargetGroup(ctx, *c.pexecutor, clusterName, clusterType, c.subClusterType)
 	if err != nil {
 		return err
 	}
 
-	tidbNodes, err := getEC2Nodes(*c.pexecutor, ctx, clusterName, clusterType, "tidb")
+	tidbNodes, err := getEC2Nodes(ctx, *c.pexecutor, clusterName, clusterType, "tidb")
 	if err != nil {
 		return err
 	}

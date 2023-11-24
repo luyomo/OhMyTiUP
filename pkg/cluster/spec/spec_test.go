@@ -21,7 +21,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/luyomo/OhMyTiUP/pkg/cluster/template/scripts"
 	. "github.com/pingcap/check"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type metaSuiteTopo struct {

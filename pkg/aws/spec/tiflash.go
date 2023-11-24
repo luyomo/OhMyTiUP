@@ -33,7 +33,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
 	"golang.org/x/mod/semver"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // TiFlashSpec represents the TiFlash topology specification in topology.yaml

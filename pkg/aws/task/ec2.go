@@ -31,7 +31,7 @@ import (
 	astypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/aws/smithy-go"
+	smithy "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/embed"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
@@ -500,7 +500,7 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = installWebSSH2(workstation, ctx)
+	err = installWebSSH2(ctx, workstation)
 	if err != nil {
 		return err
 	}
@@ -517,7 +517,7 @@ func (c *DeployWS) Execute(ctx context.Context) error {
 		return err
 	}
 
-	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	nlb, err := getNLB(ctx, *c.pexecutor, clusterName, clusterType, c.subClusterType)
 	if err != nil {
 		return err
 	}
@@ -748,15 +748,7 @@ func (c *CreateEC2Nodes) Execute(ctx context.Context) error {
 	fmt.Printf("The security group is : <%s> \n\n\n\n\n\n", *securityGroupID)
 	// ********** TODO: Replace below login by common function --------------------
 
-	/***************************************************************************************************************
-	 * 05.before Get NLB
-	 ***************************************************************************************************************/
-	// nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
-	// if err != nil {
-	// 	return err
-	// }
-
-	targetGroup, err := getTargetGroup(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	targetGroup, err := getTargetGroup(ctx, *c.pexecutor, clusterName, clusterType, c.subClusterType)
 	if err != nil {
 		return err
 	}

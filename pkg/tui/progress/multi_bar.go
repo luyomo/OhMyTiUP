@@ -19,7 +19,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mattn/go-runewidth"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // MultiBarItem controls a bar item inside MultiBar.

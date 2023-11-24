@@ -19,7 +19,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func TestVersionCompare(t *testing.T) {

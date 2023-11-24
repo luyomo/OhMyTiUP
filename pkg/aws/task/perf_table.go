@@ -15,11 +15,11 @@ package task
 
 import (
 	"context"
-	// "errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"strings"
+
+	yaml "gopkg.in/yaml.v3"
 
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"

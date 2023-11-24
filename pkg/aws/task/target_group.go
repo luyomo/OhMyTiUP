@@ -22,8 +22,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	nlb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	smithy "github.com/aws/smithy-go"
+
 	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	"github.com/aws/smithy-go"
+
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	// "go.uber.org/zap"

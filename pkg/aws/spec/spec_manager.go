@@ -24,7 +24,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	"github.com/luyomo/OhMyTiUP/pkg/version"
 	perrs "github.com/pingcap/errors"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var (

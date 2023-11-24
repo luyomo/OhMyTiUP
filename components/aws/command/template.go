@@ -19,6 +19,7 @@ import (
 
 	"github.com/luyomo/OhMyTiUP/embed"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
+
 	//	"github.com/pingcap/errors"
 	"github.com/spf13/cobra"
 )

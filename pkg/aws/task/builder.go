@@ -878,8 +878,6 @@ func (b *Builder) CreateEKSCluster(pexecutor *ctxt.Executor, awsWSConfigs *spec.
 	clusterInfo.excludedAZ = awsESConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsESConfigs.General.IncludedAZ
 	clusterInfo.subnetsNum = awsESConfigs.General.SubnetsNum
-	// clusterInfo.enableNAT = awsESConfigs.General.EnableNAT
-	// clusterInfo.enableNAT = "true" // The nat is mandatory for EKS node group. If the NAT wants to be disable, need to set the private endpoint to acces EKS control plane
 
 	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "private", clusterInfo, []int{22, 80, 3000}).Build()).
 		Step(fmt.Sprintf("%s : Creating EKS ... ...", subClusterType), &DeployEKS{
@@ -1077,14 +1075,12 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	clusterInfo.excludedAZ = awsTopoConfigs.General.ExcludedAZ
 	clusterInfo.includedAZ = awsTopoConfigs.General.IncludedAZ
 	clusterInfo.subnetsNum = awsTopoConfigs.General.SubnetsNum
-	// clusterInfo.enableNAT = awsTopoConfigs.General.EnableNAT
 
 	var parallelTasks []Task
 
 	t1 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.PD, &awsTopoConfigs.General, clusterInfo, "pd").Build()
 	parallelTasks = append(parallelTasks, t1)
 
-	// network := NetworkType(awsTopoConfigs.General.NetworkType)
 	t2 := NewBuilder().
 		// CreateElasticAddress(pexecutor, "tidb", NetworkType(awsTopoConfigs.General.NetworkType)).
 		CreateNLB(pexecutor, subClusterType).
@@ -1095,12 +1091,6 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 
 	parallelTasks = append(parallelTasks, t2)
 
-	// ---------- The tikvGroup is the variable that will be assigned the value from array. The variable will be kept the same pointer and
-	// all the instance will use the last value.
-
-	// for _, tikvGroup := range awsTopoConfigs.TiKV {
-	// 	parallelTasks = append(parallelTasks, NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &tikvGroup, &awsTopoConfigs.General, clusterInfo, "tikv").Build())
-	// }
 	for idx := range awsTopoConfigs.TiKV {
 		tikvGroup := awsTopoConfigs.TiKV[idx]
 		parallelTasks = append(parallelTasks, NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &tikvGroup, &awsTopoConfigs.General, clusterInfo, "tikv").Build())
@@ -1127,9 +1117,8 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 	t10 := NewBuilder().CreateAlertManagerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()
 	parallelTasks = append(parallelTasks, t10)
 
-	// Step(fmt.Sprintf("%s : Creating Monitor Nodes ... ...", subClusterType), NewBuilder().CreateMonitorNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-	// Step(fmt.Sprintf("%s : Creating Grafana Nodes ... ...", subClusterType), NewBuilder().CreateGrafanaNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
-	// Step(fmt.Sprintf("%s : Creating Alert Manager Nodes ... ...", subClusterType), NewBuilder().CreateAlertManagerNodes(pexecutor, subClusterType, awsTopoConfigs, clusterInfo).Build()).
+	t11 := NewBuilder().WrapCreateEC2Nodes(pexecutor, subClusterType, &awsTopoConfigs.VM, &awsTopoConfigs.General, clusterInfo, "vm").Build()
+	parallelTasks = append(parallelTasks, t11)
 
 	//
 	// 49191: thanos query port

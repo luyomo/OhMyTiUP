@@ -17,6 +17,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
@@ -32,7 +34,6 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
-	"os"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"

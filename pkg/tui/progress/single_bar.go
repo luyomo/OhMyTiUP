@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"github.com/mattn/go-runewidth"
+	runewidth "github.com/mattn/go-runewidth"
 	"go.uber.org/atomic"
 )
 

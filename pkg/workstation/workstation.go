@@ -18,12 +18,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	yaml "gopkg.in/yaml.v3"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -441,7 +442,7 @@ done" > ~/.bash_aliases`,
 
 func (w *Workstation) InstallMySQLShell() error {
 	if err := w.RunSerialCmds([]string{
-		"wget https://cdn.mysql.com//Downloads/MySQL-Shell/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz -P /tmp",
+		"wget https://downloads.mysql.com/archives/get/p/43/file/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz -P /tmp",
 		"tar xvf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz -C /opt --transform s/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit/mysql-shell/",
 		"rm -rf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit",
 		"rm -rf /tmp/mysql-shell-8.0.33-linux-glibc2.12-x86-64bit.tar.gz",

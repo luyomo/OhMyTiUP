@@ -24,7 +24,7 @@ import (
 
 	"github.com/luyomo/OhMyTiUP/pkg/crypto/rand"
 	"github.com/pingcap/errors"
-	"software.sslmate.com/src/go-pkcs12"
+	pkcs12 "software.sslmate.com/src/go-pkcs12"
 )
 
 // RSAKeyLength define the length of RSA keys

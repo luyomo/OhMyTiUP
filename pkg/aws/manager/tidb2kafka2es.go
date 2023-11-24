@@ -17,7 +17,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -34,6 +33,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 	perrs "github.com/pingcap/errors"
+	yaml "gopkg.in/yaml.v3"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
@@ -116,7 +116,7 @@ func (m *Manager) TiDB2Kafka2ESDeploy(
 	// task002 = append(task002, t22)
 
 	t23 := task.NewBuilder().
-		DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog,  &m.workstation).
+		DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 		DeployTiDBInstance(base.AwsWSConfigs, "tidb", base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 		BuildAsStep(fmt.Sprintf("  - Deploying tidb instance ... "))
 	task002 = append(task002, t23)

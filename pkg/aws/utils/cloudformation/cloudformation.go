@@ -16,10 +16,8 @@ package s3
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 )
 
 func MapTag() *map[string]string {
@@ -54,5 +52,3 @@ func NewCFAPI(mapArgs *map[string]string) (*CloudformationAPI, error) {
 
 	return &cfApi, nil
 }
-
-

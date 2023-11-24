@@ -209,6 +209,7 @@ type (
 		TiCDC        AwsNodeModal          `yaml:"ticdc"`
 		Pump         AwsNodeModal          `yaml:"pump"`
 		Drainer      AwsNodeModal          `yaml:"drainer"`
+		VM           AwsNodeModal          `yaml:"vm"`
 	}
 
 	AwsWSConfigs struct {

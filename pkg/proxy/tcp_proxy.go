@@ -22,7 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/appleboy/easyssh-proxy"
+	easyssh "github.com/appleboy/easyssh-proxy"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"

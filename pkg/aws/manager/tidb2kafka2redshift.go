@@ -17,10 +17,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"strings"
 	"time"
+
+	yaml "gopkg.in/yaml.v3"
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"

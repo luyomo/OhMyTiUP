@@ -17,10 +17,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/luyomo/OhMyTiUP/pkg/executor"
-	"go.uber.org/zap"
 	"sort"
 	"strings"
+
+	"github.com/luyomo/OhMyTiUP/pkg/executor"
+	"go.uber.org/zap"
 )
 
 type ListTiDB2Aurora struct {

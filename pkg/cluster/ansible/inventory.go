@@ -24,8 +24,8 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/cluster/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 	"github.com/relex/aini"
-	"gopkg.in/ini.v1"
-	"gopkg.in/yaml.v2"
+	ini "gopkg.in/ini.v1"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var (

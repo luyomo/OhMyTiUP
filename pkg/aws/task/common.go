@@ -18,10 +18,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"path"
+
+	yaml "gopkg.in/yaml.v3"
+
 	// "reflect"
 	"regexp"
 	"runtime/debug"
@@ -31,7 +33,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/aws/smithy-go"
+	smithy "github.com/aws/smithy-go"
 
 	"github.com/luyomo/OhMyTiUP/embed"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
@@ -42,6 +44,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
 	// "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	astypes "github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -57,6 +60,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+
 	// "github.com/aws/smithy-go"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 )
@@ -711,7 +715,7 @@ func getDMClusterInfo(wsexecutor *ctxt.Executor, ctx context.Context, clusterNam
 	return nil, nil
 }
 
-func getEC2Nodes(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, componentName string) (*[]EC2, error) {
+func getEC2Nodes(ctx context.Context, executor ctxt.Executor, clusterName, clusterType, componentName string) (*[]EC2, error) {
 	var reservations Reservations
 	command := fmt.Sprintf("aws ec2 describe-instances --filters \"Name=tag:Name,Values=%s\" \"Name=tag:Cluster,Values=%s\" \"Name=tag:Component,Values=%s\" \"Name=instance-state-code,Values=0,16,32,64,80\"", clusterName, clusterType, componentName)
 	zap.L().Debug("Command", zap.String("describe-instance", command))
@@ -736,7 +740,7 @@ func getEC2Nodes(executor ctxt.Executor, ctx context.Context, clusterName, clust
 
 }
 
-func deployFreetds(executor ctxt.Executor, ctx context.Context, name, host string, port int) error {
+func deployFreetds(ctx context.Context, executor ctxt.Executor, name, host string, port int) error {
 
 	if err := installPKGs(&executor, ctx, []string{"freetds-bin"}); err != nil {
 		return err
@@ -815,7 +819,7 @@ type TagDescriptions struct {
 	TagDescriptions []TagDescription `json:"TagDescriptions"`
 }
 
-func ExistsELBResource(executor ctxt.Executor, ctx context.Context, clusterType, subClusterType, clusterName, resourceName string) bool {
+func ExistsELBResource(ctx context.Context, executor ctxt.Executor, clusterType, subClusterType, clusterName, resourceName string) bool {
 	command := fmt.Sprintf("aws elbv2 describe-tags --resource-arns %s ", resourceName)
 	stdout, _, err := executor.Execute(ctx, command, false)
 	if err != nil {
@@ -846,7 +850,7 @@ func ExistsELBResource(executor ctxt.Executor, ctx context.Context, clusterType,
 	return false
 }
 
-func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*nlbtypes.TargetGroup, error) {
+func getTargetGroup(ctx context.Context, executor ctxt.Executor, clusterName, clusterType, subClusterType string) (*nlbtypes.TargetGroup, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
@@ -869,7 +873,7 @@ func getTargetGroup(executor ctxt.Executor, ctx context.Context, clusterName, cl
 }
 
 // func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*LoadBalancer, error) {
-func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterType, subClusterType string) (*nlbtypes.LoadBalancer, error) {
+func getNLB(ctx context.Context, executor ctxt.Executor, clusterName, clusterType, subClusterType string) (*nlbtypes.LoadBalancer, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
@@ -893,7 +897,7 @@ func getNLB(executor ctxt.Executor, ctx context.Context, clusterName, clusterTyp
 	return &describeLoadBalancers.LoadBalancers[0], nil
 }
 
-func installWebSSH2(wexecutor *ctxt.Executor, ctx context.Context) error {
+func installWebSSH2(ctx context.Context, wexecutor *ctxt.Executor) error {
 
 	if err := installPKGs(wexecutor, ctx, []string{"nodejs", "npm", "cmake"}); err != nil {
 		return err
@@ -956,11 +960,9 @@ func ReadDBConntionInfo(workstation *ctxt.Executor, fileName string, connInfo in
 		return err
 	}
 
-	if err = yaml.Unmarshal(yfile, connInfo); err != nil {
-		return err
-	}
+	err = yaml.Unmarshal(yfile, connInfo)
 
-	return nil
+	return err
 }
 
 func TransferToWorkstation(workstation *ctxt.Executor, sourceFile, destFile, mode string, params interface{}) error {
@@ -1547,9 +1549,9 @@ type BaseTask struct {
 	clusterInfo *ClusterInfo
 }
 
-func (c *BaseTask) takeTimer(jobName string) {
-	if c.timer != nil {
-		c.timer.Take(jobName)
+func (b *BaseTask) takeTimer(jobName string) {
+	if b.timer != nil {
+		b.timer.Take(jobName)
 	}
 
 }
@@ -1818,7 +1820,7 @@ func (b *BaseTask) GetElasticAddress(throwErr ThrowErrorFlag) (*string, error) {
 	return listElasticAddress.ResourceData.GetResourceArn(throwErr)
 }
 
-func (b *BaseTask) GetInternetGatewayId(throwErr ThrowErrorFlag) (*string, bool, error) {
+func (b *BaseTask) GetInternetGatewayID(throwErr ThrowErrorFlag) (*string, bool, error) {
 	listInternetGateway := &ListInternetGateway{BaseInternetGateway: BaseInternetGateway{BaseTask: BaseTask{
 		pexecutor:      b.pexecutor,
 		clusterName:    b.clusterName,
@@ -1830,7 +1832,7 @@ func (b *BaseTask) GetInternetGatewayId(throwErr ThrowErrorFlag) (*string, bool,
 		return nil, false, err
 	}
 
-	internetGatewayId, err := listInternetGateway.ResourceData.GetResourceArn(throwErr)
+	internetGatewayID, err := listInternetGateway.ResourceData.GetResourceArn(throwErr)
 	if err != nil {
 		return nil, false, err
 	}
@@ -1840,7 +1842,7 @@ func (b *BaseTask) GetInternetGatewayId(throwErr ThrowErrorFlag) (*string, bool,
 		return nil, false, err
 	}
 
-	return internetGatewayId, isAttached, nil
+	return internetGatewayID, isAttached, nil
 }
 
 // The route of the internet gateway is shared by public net and nat's internetegatewy

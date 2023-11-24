@@ -16,6 +16,8 @@ package manager
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
@@ -30,7 +32,6 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
-	"os"
 )
 
 // DeployOptions contains the options for scale out.
@@ -210,7 +211,7 @@ func (m *Manager) TiDB2MSDeploy(
 			CreateTransitGatewayVpcAttachment(&sexecutor, "dmsservice", task.NetworkTypePrivate).
 			CreateRouteTgw(&sexecutor, "workstation", []string{"aurora", "sqlserver", "dmsservice"}).
 			CreateRouteTgw(&sexecutor, "dmsservice", []string{"aurora", "sqlserver"}).
-			DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog,  &m.workstation).
+			DeployTiDB("tidb", base.AwsWSConfigs, base.AwsTopoConfigs.General.TiDBVersion, base.AwsTopoConfigs.General.EnableAuditLog, &m.workstation).
 			CreateDMSTask(&sexecutor, "dmsservice", &dmsInfo).
 			MakeDBObjects(&sexecutor, "tidb", &workstationInfo).
 			BuildAsStep(fmt.Sprintf("  - Prepare %s:%d", "127.0.0.1", 22))

@@ -12,7 +12,7 @@ package utils
 
 import (
 	. "github.com/pingcap/check"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type diffSuite struct {

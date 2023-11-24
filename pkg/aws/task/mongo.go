@@ -82,7 +82,7 @@ func (c *DeployMongo) Execute(ctx context.Context) error {
 	var rsConfig RSConfig
 	rsConfig.ID = "rs0"
 
-	_ec2List, err := getEC2Nodes(*c.pexecutor, ctx, clusterName, clusterType, "replicaSet")
+	_ec2List, err := getEC2Nodes(ctx, *c.pexecutor, clusterName, clusterType, "replicaSet")
 	var pkgInstallTasks []Task
 	var listMongoIP []string
 	var proxyIP string

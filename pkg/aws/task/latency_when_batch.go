@@ -16,10 +16,11 @@ package task
 import (
 	"context"
 	"fmt"
-	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
-	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"strings"
 	"time"
+
+	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
+	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 )
 
 func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, insertMode string) *Builder {

@@ -23,7 +23,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/environment"
 	"github.com/luyomo/OhMyTiUP/pkg/localdata"
 	"github.com/pingcap/errors"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const telemetryFname = "meta.yaml"

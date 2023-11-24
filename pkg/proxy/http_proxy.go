@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/appleboy/easyssh-proxy"
+	easyssh "github.com/appleboy/easyssh-proxy"
 	perrs "github.com/pingcap/errors"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"

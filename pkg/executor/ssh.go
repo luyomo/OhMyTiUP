@@ -25,7 +25,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/appleboy/easyssh-proxy"
+	easyssh "github.com/appleboy/easyssh-proxy"
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
 	"github.com/luyomo/OhMyTiUP/embed"

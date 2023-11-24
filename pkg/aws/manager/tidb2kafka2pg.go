@@ -17,7 +17,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"strings"
 	"time"
@@ -35,6 +34,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
+	yaml "gopkg.in/yaml.v3"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"

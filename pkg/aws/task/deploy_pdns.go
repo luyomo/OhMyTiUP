@@ -20,6 +20,7 @@ import (
 	"path"
 	"text/template"
 	"time"
+
 	//	"github.com/aws/aws-sdk-go/aws"
 	//	"github.com/aws/aws-sdk-go/aws/session"
 	//	"github.com/aws/aws-sdk-go/service/cloudformation"
@@ -58,7 +59,7 @@ func (c *DeployPDNS) Execute(ctx context.Context) error {
 		return err
 	}
 
-	nlb, err := getNLB(*c.pexecutor, ctx, clusterName, clusterType, c.subClusterType)
+	nlb, err := getNLB(ctx, *c.pexecutor, clusterName, clusterType, c.subClusterType)
 
 	// 4. Deploy docker-compose file
 	type TiDBCONN struct {

@@ -62,22 +62,6 @@ func (m *Manager) TiDBDeploy(
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	// if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
-	// 	return err
-	// }
-
-	// exist, err := m.specManager.Exist(name)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if exist {
-	// 	// FIXME: When change to use args, the suggestion text need to be updatem.
-	// 	return errDeployNameDuplicate.
-	// 		New("Cluster name '%s' is duplicated", name).
-	// 		WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
-	// }
-
 	// 02. Get the topo file and parse it
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
@@ -141,14 +125,6 @@ func (m *Manager) TiDBDeploy(
 		}
 		return err
 	}
-
-	// if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
-	// 	return err
-	// }
-
-	// if err := m.workstation.InstallProfiles(base.AwsWSConfigs.KeyFile); err != nil {
-	// 	return err
-	// }
 
 	timer.Take("Execution")
 

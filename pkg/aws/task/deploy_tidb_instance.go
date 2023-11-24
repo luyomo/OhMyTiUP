@@ -16,12 +16,14 @@ package task
 import (
 	"context"
 	"encoding/json"
+
 	// "errors"
 	"fmt"
-	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	"go.uber.org/zap"
 	"regexp"
 	"time"
+
+	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	"go.uber.org/zap"
 
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
 	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"

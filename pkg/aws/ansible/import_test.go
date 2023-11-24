@@ -24,7 +24,7 @@ import (
 	"github.com/creasty/defaults"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	. "github.com/pingcap/check"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 type ansSuite struct {

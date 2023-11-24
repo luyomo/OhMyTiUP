@@ -21,8 +21,9 @@ import (
 	// "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+
 	// "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/smithy-go"
+	smithy "github.com/aws/smithy-go"
 	// "github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 

@@ -19,7 +19,7 @@ import (
 	"reflect"
 
 	"github.com/luyomo/OhMyTiUP/pkg/set"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 // ScrubStrategy for scrub sensible value.

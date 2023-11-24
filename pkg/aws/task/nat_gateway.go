@@ -290,7 +290,7 @@ func (c *CreateNATGateway) addRouteFromPrivate2NAT() error {
 }
 
 func (c *CreateNATGateway) CreateInternetGatewayRoute() error {
-	internetGatewayId, _, err := c.GetInternetGatewayId(ThrowErrorIfNotExists)
+	internetGatewayId, _, err := c.GetInternetGatewayID(ThrowErrorIfNotExists)
 	if err != nil {
 		return err
 	}

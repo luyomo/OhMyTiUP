@@ -26,7 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/utils/s3"
 
-	"github.com/aws/smithy-go"
+	smithy "github.com/aws/smithy-go"
 )
 
 func WaitResourceUntilExpectState(_interval, _timeout time.Duration, _resourceStateCheck func() (bool, error)) error {

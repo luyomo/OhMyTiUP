@@ -22,7 +22,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	. "github.com/pingcap/check"
 	"github.com/pingcap/errors"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func (s *metaSuiteTopo) TestDirectoryConflicts1(c *C) {
