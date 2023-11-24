@@ -1,5 +1,5 @@
 output "resource_group_name" {
-  value = azurerm_resource_group.rg.name
+  value = data.azurerm_resource_group.rg.name
 }
 
 output "kubernetes_cluster_name" {
@@ -41,6 +41,6 @@ output "kube_config" {
   sensitive = true
 }
 
-output "test" {
-  value = azurerm_resource_group.rg
+output "kube_config_file" {
+  value = var.kube_config_file
 }
