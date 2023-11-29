@@ -54,9 +54,6 @@ func (w *Workstation) RunSerialCmdsOnRemoteNode(targetIP string, cmds []string, 
 	return nil
 }
 
-// func (w *Workstation) TransferTemplate2Remote(targetIP string, sourceFile , targetFile ) error {
-// }
-
 func (w *Workstation) InstallMySQLBinToWorker(targetIP string) error {
 
 	return w.RunSerialCmdsOnRemoteNode(targetIP, []string{
@@ -103,6 +100,21 @@ func (w *Workstation) FormatDisk(targetIP, mountDir string) error {
 
 	_, _, err = (*_remoteExecutor).Execute(ctx, "/opt/scripts/fdisk.sh", true)
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *Workstation) RenderTemplate2Remote(targetIP, sourceFile, targetDir string, data map[interface{}]interface{}, isRootUser bool) error {
+	ctx := context.Background()
+
+	_remoteExecutor, err := w.getRemoteExecutor(targetIP)
+	if err != nil {
+		return err
+	}
+
+	if err = (*_remoteExecutor).TransferTemplate(ctx, sourceFile, targetDir, "0644", data, isRootUser, 20); err != nil {
 		return err
 	}
 

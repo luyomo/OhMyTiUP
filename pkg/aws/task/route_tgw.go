@@ -56,7 +56,7 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 
 	mapArgs["subClusterType"] = c.subClusterType
 
-	sourceVpcInfo, err := ec2api.GetVpcId()
+	sourceVpcInfo, err := ec2api.GetVpc()
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (c *CreateRouteTgw) Execute(ctx context.Context) error {
 		mapArgs["subClusterType"] = targetSubClusterType
 		delete(mapArgs, "scope")
 
-		targetVpcInfo, err := ec2api.GetVpcId()
+		targetVpcInfo, err := ec2api.GetVpc()
 		if err != nil {
 			return err
 		}

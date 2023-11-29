@@ -15,6 +15,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -27,6 +28,7 @@ type TiDBClusterNodes struct {
 	TiDB    []string
 	TiKV    []string
 	TiCDC   []string
+	VM      []string
 	DM      []string
 	Monitor []string
 	Pump    []string
@@ -58,7 +60,6 @@ func ExtractTiDBClusterNodes(name, cluster, clusterType string) (*TiDBClusterNod
 	}
 
 	var retValue TiDBClusterNodes
-
 	for _, reservation := range ec2Instances.Reservations {
 		for _, instance := range reservation.Instances {
 			for _, tag := range instance.Tags {
@@ -74,19 +75,19 @@ func ExtractTiDBClusterNodes(name, cluster, clusterType string) (*TiDBClusterNod
 				if *(tag.Key) == "Component" && *(tag.Value) == "ticdc" {
 					retValue.TiCDC = append(retValue.TiCDC, *(instance.PrivateIpAddress))
 				}
-
+				if *(tag.Key) == "Component" && *(tag.Value) == "vm" {
+					fmt.Printf("Hitting the vm .... \n\n\n\n\n\n")
+					retValue.VM = append(retValue.VM, *(instance.PrivateIpAddress))
+				}
 				if *(tag.Key) == "Component" && *(tag.Value) == "dm" {
 					retValue.DM = append(retValue.DM, *(instance.PrivateIpAddress))
 				}
-
 				if *(tag.Key) == "Component" && *(tag.Value) == "pump" {
 					retValue.Pump = append(retValue.Pump, *(instance.PrivateIpAddress))
 				}
-
 				if *(tag.Key) == "Component" && *(tag.Value) == "drainer" {
 					retValue.Drainer = append(retValue.Drainer, *(instance.PrivateIpAddress))
 				}
-
 				if *(tag.Key) == "Component" && *(tag.Value) == "workstation" {
 					retValue.Monitor = append(retValue.Monitor, *(instance.PrivateIpAddress))
 				}
