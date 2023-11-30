@@ -1,0 +1,26 @@
+* ng-monitoring flow
+  + database.Init - victoriametrics database - data insert?
+    - timeseries initialization
+        -> log init
+        -> database directory
+        -> vmstorage.Init
+        -> vmselect.Init()
+        -> vminsert.Init()
+     - badger graph db
+  + domain - What's the domain is?
+    It is the client initialization with etcd client.
+  + topology.Init - Read the tidb topology from pd component
+  + pd variable initialization
+    Get gloval config from pd:
+    ETCDCTL_API=3 etcdctl get "/global/config/" --endpoints 172.83.1.60:12379 --prefix=true
+    /global/config/enable_resource_metering
+  + topsql instance initialization
+  + conprof initialization
+  + Service initialization
+  + ReloadRoutine
+
+* conprof
+  contconf.go
+    -> scrape/manager.go: NewManager()/Start()
+    -> scrape/scrape.go: NewTarget()/scrape()
+    -> http

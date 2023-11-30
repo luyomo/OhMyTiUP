@@ -1122,7 +1122,8 @@ func (b *Builder) CreateTiDBCluster(pexecutor *ctxt.Executor, subClusterType str
 
 	//
 	// 49191: thanos query port
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkType(awsTopoConfigs.General.NetworkType), clusterInfo, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
+	// 8481: vm
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkType(awsTopoConfigs.General.NetworkType), clusterInfo, []int{22, 1433, 2379, 2380, 3000, 3306, 4000, 8250, 8300, 8481, 9100, 9090, 9093, 9094, 10080, 12020, 20160, 20180, 9000, 8123, 3930, 20170, 20292, 8234, 49191}).Build()).
 		Step(fmt.Sprintf("%s : Creating TiDB Resource ... ...", subClusterType), NewBuilder().Parallel(false, parallelTasks...).Build())
 
 	return b

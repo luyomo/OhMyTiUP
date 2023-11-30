@@ -1,0 +1,62 @@
+* Todo
+** Deployment TiDB Cluster
+** VictoryMetrics Manual Install
+   + vminsert(3 nodes)
+   + vmselect(3 nodes)
+   + vmstorage(3 nodes)
+   + vmagent(3 nodes)
+** VictoryMetrics
+* Memo
+  #+BEGIN_SRC
+export VM_VER=`curl -s https://api.github.com/repos/VictoriaMetrics/VictoriaMetrics/releases/latest | jq -r '.tag_name'` && curl -L https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/${VM_VER}/victoria-metrics-amd64-${VM_VER}.tar.gz --output victoria-metrics-amd64-${VM_VER}.tar.gz
+
+wget https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.95.1/victoria-metrics-linux-amd64-v1.95.1.tar.gz
+tar xvf victoria-metrics-linux-amd64-v1.95.1.tar.gz
+sudo mv victoria-metrics-prod /usr/local/bin/
+
+sudo mkdir -v /var/lib/victoria-metrics-data
+more /etc/systemd/system/victoriametrics.service
+[Unit]
+Description=High-performance, cost-effective and scalable time series database, long-term remote storage for Prometheus
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+StartLimitBurst=5
+StartLimitInterval=0
+Restart=on-failure
+RestartSec=1
+ExecStart=/usr/local/bin/victoria-metrics-prod \
+        -storageDataPath=/var/lib/victoria-metrics-data \
+        -httpListenAddr=127.0.0.1:8428 \
+        -retentionPeriod=1
+ExecStop=/bin/kill -s SIGTERM $MAINPID
+LimitNOFILE=65536
+LimitNPROC=32000
+
+[Install]
+WantedBy=multi-user.target
+workstation$ sudo systemctl start victoriametrics.service
+  #+END_SRC
+
+** vmagent
+   #+BEGIN_SRC
+wget https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.95.1/vmutils-linux-amd64-v1.95.1.tar.gz
+tar xvf vmutils-linux-amd64-v1.95.1.tar.gz
+   #+END_SRC
+
+** vminsert/vmselect/vmstorage
+   #+BEGIN_SRC
+wget https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.95.1/victoria-metrics-linux-amd64-v1.95.1-cluster.tar.gz
+   #+END_SRC
+** vmstorage port:
+   | Port | Comment      |
+   |------+--------------|
+   | 8400 | vminsertAddr |
+   | 8401 | vmselectAddr |
+   | 8482 | prometheus   |
+** memo
+   + Fetch all tenantes
+     curl http://172.82.31.223:8481/admin/tenants

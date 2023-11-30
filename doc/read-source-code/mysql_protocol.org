@@ -1,0 +1,58 @@
+* Memo (pke/server)
+** server.go: onConn
+   + Get PeerHost: Todo
+   + GetExtensions: Todo
+   + sessExtensions
+   + handShake(conn.go)
+     #+begin_src plantuml :file ./images/mysql_protocol_01.png
+     "MySQL Client" -> "TiDB Server": shake request
+     "TiDB Server" -> "MySQL Client": init shake packet
+     "MySQL Client" -> "TiDB Server": connection information
+     #+end_src
+     + writeInitialHandshake(conn.go)
+       Send the first handshake to client once the connect request reach the servers.
+     + readOptionalSSLRequestAndHandshakeResponse(conn.go)
+       Read SSL request options from the client
+       - First time packet read
+       #+BEGIN_SRC
+handshake.Response41{Attrs:map[string]string(nil), User:\"\", DBName:\"\", AuthPlugin:\"\", Auth:[]uint8(nil), ZstdLevel:0, Capability:0x20bfa68d, Collation:0x2d}"] [conn=3684696066]
+       #+END_SRC
+       | Column Name |      Value | Comment |
+       |-------------+------------+---------|
+       | Attr        |        nil |         |
+       | User        |            |         |
+       | DBName      |            |         |
+       | Auth        |        nil |         |
+       | ZstdLevel   |          0 |         |
+       | Capability  | 0x20bfa68d |         |
+       | Collation   |       0x2d |         |
+       | conn        | 3684696066 |         |
+
+       - Second time packet read
+         #+BEGIN_SRC
+handshake.Response41{Attrs:map[string]string{\"_client_name\":\"libmariadb\", \"_client_version\":\"3.1.21\", \"_os\":\"Linux\", \"_pid\":\"12278\", \"_platform\":\"x86_64\"
+, \"_server_host\":\"172.82.31.122\", \"program_name\":\"mysql\"}, User:\"root\", DBName:\"test\", AuthPlugin:\"mysql_native_password\", Auth:[]uint8{}, ZstdLevel:0
+, Capability:0x20bfa68d, Collation:0x2d}"] [conn=2134900738]
+         #+END_SRC
+         | Column Name | Sub Attr        | Value                 | Comment |
+         |-------------+-----------------+-----------------------+---------|
+         | Attr        | _client_name    | libmariadb            |         |
+         |             | _client_version | 3.1.21                |         |
+         |             | _os             | Linux                 |         |
+         |             | _pid            | 12278                 |         |
+         |             | _platform       | x86_64                |         |
+         |             | _server_host    | 172.82.31.122         |         |
+         |             | program_name    | mysql                 |         |
+         | User        |                 | root                  |         |
+         | DBName      |                 | test                  |         |
+         | AuthPlugin  |                 | mysql_native_password |         |
+         | Auth        |                 | -                     |         |
+         | ZstdLevel   |                 | 0                     |         |
+         | Capability  |                 | 0x20bfa68d            |         |
+         | Collation   |                 | 0x2d                  |         |
+     + initConnect(conn.go)
+     + cc.capability&mysql.ClientProtocol41 todo
+
+*** Points
+**** server/driver_tidb.go
+     TiDBContext is the bridge between MySQL communcation from client and executions.

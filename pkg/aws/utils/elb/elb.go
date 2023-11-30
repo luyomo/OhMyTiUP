@@ -18,24 +18,24 @@ import (
 	"errors"
 	"fmt"
 
-	// "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	elb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 
-	// "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	smithy "github.com/aws/smithy-go"
 	// "github.com/luyomo/OhMyTiUP/pkg/utils"
 )
 
-// func MapTag() *map[string]string {
-// 	return &map[string]string{
-// 		"clusterName":    "Name",
-// 		"clusterType":    "Cluster",
-// 		"subClusterType": "Type",
-// 		"scope":          "Scope",
-// 		"component":      "Component",
-// 	}
-// }
+func MapTag() *map[string]string {
+	return &map[string]string{
+		"clusterName":    "Name",
+		"clusterType":    "Cluster",
+		"subClusterType": "Type",
+		"scope":          "Scope",
+		"component":      "Component",
+	}
+}
 
 type ELBAPI struct {
 	client *elb.Client
@@ -81,110 +81,172 @@ func (e *ELBAPI) GetNLB(clusterName string) (*string, error) {
 	return describeLoadBalancers.LoadBalancers[0].DNSName, nil
 }
 
-// func (e *EC2API) GetAvailabilitySubnet4EndpointService(serviceName string) (*[]string, error) {
-// 	availableZones, err := e.getEndpointServiceAvailabilityZones(serviceName)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func (e *ELBAPI) GetNLBInfo(clusterName, componentName string) (*string, *string, *types.LoadBalancerStateEnum, error) {
+	describeLoadBalancers, err := e.client.DescribeLoadBalancers(context.TODO(), &elb.DescribeLoadBalancersInput{Names: []string{fmt.Sprintf("%s-%s", clusterName, componentName)}})
+	if err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() == "LoadBalancerNotFound" {
+				return nil, nil, nil, nil
+			}
+		}
 
-// 	filters := e.makeFilters()
+		return nil, nil, nil, err
+	}
+	return describeLoadBalancers.LoadBalancers[0].LoadBalancerArn, describeLoadBalancers.LoadBalancers[0].DNSName, &describeLoadBalancers.LoadBalancers[0].State.Code, nil
+}
 
-// 	resp, err := e.client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{Filters: *filters})
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func (e *ELBAPI) CreateNLB(clusterName, componentName string, loadBalancerType types.LoadBalancerTypeEnum, subnets *[]string, sg *string) (*string, error) {
+	nlbArn, _, _, err := e.GetNLBInfo(clusterName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	if nlbArn != nil {
+		return nlbArn, nil
+	}
 
-// 	for _, subnet := range resp.Subnets {
-// 		if utils.Includes(*availableZones, *subnet.AvailabilityZone) == true {
-// 			return &[]string{*subnet.SubnetId}, nil
-// 		}
+	createLoadBalancer, err := e.client.CreateLoadBalancer(context.TODO(), &elb.CreateLoadBalancerInput{
+		Name:           aws.String(fmt.Sprintf("%s-%s", clusterName, componentName)),
+		Subnets:        *subnets,
+		SecurityGroups: []string{*sg},
+		Scheme:         types.LoadBalancerSchemeEnumInternal,
+		Type:           loadBalancerType, // LoadBalancerTypeEnumApplication
+	})
+	if err != nil {
+		return nil, err
+	}
+	return createLoadBalancer.LoadBalancers[0].LoadBalancerArn, nil
+}
 
-// 	}
+func (e *ELBAPI) DestroyNLB(clusterName, componentName string) error {
+	nlbArn, _, _, err := e.GetNLBInfo(clusterName, componentName)
+	if err != nil {
+		return err
+	}
+	if nlbArn == nil {
+		return nil
+	}
 
-// 	return nil, errors.New("Not availability zone for service found")
-// }
-// func (e *EC2API) getEndpointServiceAvailabilityZones(serviceName string) (*[]string, error) {
-// 	resp, err := e.client.DescribeVpcEndpointServices(context.TODO(), &ec2.DescribeVpcEndpointServicesInput{
-// 		ServiceNames: []string{serviceName},
-// 	})
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	if _, err = e.client.DeleteLoadBalancer(context.TODO(), &elb.DeleteLoadBalancerInput{LoadBalancerArn: nlbArn}); err != nil {
+		return err
+	}
 
-// 	if len(resp.ServiceDetails) == 0 {
-// 		return nil, errors.New("No endpoint service found")
-// 	}
+	return nil
+}
 
-// 	if len(resp.ServiceDetails) > 1 {
-// 		return nil, errors.New("More than one endpoint service found")
-// 	}
+func (e *ELBAPI) GetTargetGroupArn(targetGroupName, componentName string) (*string, error) {
+	describeTargetGroups, err := e.client.DescribeTargetGroups(context.TODO(), &elb.DescribeTargetGroupsInput{Names: []string{fmt.Sprintf("%s-%s", targetGroupName, componentName)}})
+	if err != nil {
+		var ae smithy.APIError
+		if errors.As(err, &ae) {
+			// fmt.Printf("code: %s, message: %s, fault: %s \n\n\n", ae.ErrorCode(), ae.ErrorMessage(), ae.ErrorFault().String())
+			if ae.ErrorCode() == "TargetGroupNotFound" {
+				return nil, nil
+			}
+		}
 
-// 	return &resp.ServiceDetails[0].AvailabilityZones, nil
-// }
+		return nil, err
+	}
 
-// func (e *EC2API) ExtractEC2Instances() (*map[string][]string, error) {
+	return describeTargetGroups.TargetGroups[0].TargetGroupArn, nil
+}
 
-// 	filters := e.makeFilters()
+func (e *ELBAPI) CreateTargetGroup(clusterName, componentName string, vpcID *string, port int32, protocolType types.ProtocolEnum, subnets, targetNodes *[]string, sg *string) (*string, error) {
+	// 01. Fetch the target group
+	targetGroupArn, err := e.GetTargetGroupArn(clusterName, componentName)
+	if err != nil {
+		return nil, err
+	}
 
-// 	describeInstances, err := e.client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{Filters: *filters})
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	// 02. Create the target group if it does not exist
+	if targetGroupArn == nil {
+		tags := e.makeTags()
+		*tags = append(*tags, types.Tag{Key: aws.String("Component"), Value: aws.String(componentName)})
 
-// 	mapInstances := make(map[string][]string)
+		fmt.Printf("The tags: %#v \n\n\n", tags)
 
-// 	for _, reservation := range describeInstances.Reservations {
-// 		for _, instance := range reservation.Instances {
-// 			if instance.State.Name == types.InstanceStateNameTerminated {
-// 				continue
-// 			}
+		resp, err := e.client.CreateTargetGroup(context.TODO(), &elb.CreateTargetGroupInput{
+			Name:       aws.String(fmt.Sprintf("%s-%s", clusterName, componentName)),
+			Port:       aws.Int32(port),
+			Protocol:   protocolType,
+			TargetType: types.TargetTypeEnumInstance,
+			VpcId:      vpcID,
+			Tags:       *tags,
+		})
+		if err != nil {
+			return nil, err
+		}
 
-// 			for _, tag := range instance.Tags {
-// 				switch {
-// 				case *tag.Key == "Component" && *tag.Value == "dm-master":
-// 					mapInstances["DMMaster"] = append(mapInstances["DMMaster"], *instance.PrivateIpAddress)
-// 				case *tag.Key == "Component" && *tag.Value == "dm-worker":
-// 					mapInstances["DMWorker"] = append(mapInstances["DMWorker"], *instance.PrivateIpAddress)
-// 				case *tag.Key == "Component" && *tag.Value == "workstation":
-// 					mapInstances["Grafana"] = append(mapInstances["Grafana"], *instance.PrivateIpAddress)
-// 					mapInstances["Monitor"] = append(mapInstances["Monitor"], *instance.PrivateIpAddress)
-// 					mapInstances["AlertManager"] = append(mapInstances["AlertManager"], *instance.PrivateIpAddress)
-// 				case *tag.Key == "Component" && *tag.Value == "mysql-worker":
-// 					mapInstances["MySQLWorker"] = append(mapInstances["MySQLWorker"], *instance.PrivateIpAddress)
-// 				}
-// 			}
-// 		}
-// 	}
+		targetGroupArn = resp.TargetGroups[0].TargetGroupArn
+	}
 
-// 	return &mapInstances, nil
-// }
+	// 03. Fetch all the targets
+	var arrTargets []types.TargetDescription
+	for _, instanceId := range *targetNodes {
+		arrTargets = append(arrTargets, types.TargetDescription{Id: aws.String(instanceId), Port: aws.Int32(port)})
+	}
 
-// func (c *EC2API) makeTags() *[]types.Tag {
-// 	var tags []types.Tag
-// 	if c.mapArgs == nil {
-// 		return &tags
-// 	}
+	// 04. Register the targets to target group
+	if _, err = e.client.RegisterTargets(context.TODO(), &elb.RegisterTargetsInput{TargetGroupArn: targetGroupArn, Targets: arrTargets}); err != nil {
+		return nil, err
+	}
 
-// 	for key, tagName := range *(MapTag()) {
-// 		if tagValue, ok := (*c.mapArgs)[key]; ok {
-// 			tags = append(tags, types.Tag{Key: aws.String(tagName), Value: aws.String(tagValue)})
-// 		}
-// 	}
+	// 05. If the component is vminsert/vmselect, create the vmendpoint NLB
+	if componentName == "vminsert" || componentName == "vmselect" {
+		// 05.01 Create vmendpoint NLB
+		nlbArn, err := e.CreateNLB(clusterName, "vmendpoint", types.LoadBalancerTypeEnumApplication, subnets, sg)
+		if err != nil {
+			return nil, err
+		}
 
-// 	return &tags
-// }
+		// 05.02 Add listener to the NLB
+		if _, err = e.client.CreateListener(context.TODO(), &elb.CreateListenerInput{
+			LoadBalancerArn: nlbArn,
+			Port:            aws.Int32(port),
+			Protocol:        protocolType,
+			DefaultActions: []types.Action{
+				{
+					Type:           types.ActionTypeEnumForward,
+					TargetGroupArn: targetGroupArn,
+				},
+			},
+		}); err != nil {
+			return nil, err
+		}
+	}
 
-// func (c *EC2API) makeFilters() *[]types.Filter {
-// 	var filters []types.Filter
-// 	if c.mapArgs == nil {
-// 		return &filters
-// 	}
+	return targetGroupArn, nil
+}
 
-// 	for key, tagName := range *(MapTag()) {
-// 		if tagValue, ok := (*c.mapArgs)[key]; ok {
-// 			filters = append(filters, types.Filter{Name: aws.String("tag:" + tagName), Values: []string{tagValue}})
-// 		}
-// 	}
+func (e *ELBAPI) DeleteTargetGroup(clusterName, componentName string) error {
+	// 01. Fetch the target group
+	targetGroupArn, err := e.GetTargetGroupArn(clusterName, componentName)
+	if err != nil {
+		return err
+	}
 
-// 	return &filters
-// }
+	// 02. Create the target group if it does not exist
+	if targetGroupArn != nil {
+		if _, err = e.client.DeleteTargetGroup(context.TODO(), &elb.DeleteTargetGroupInput{TargetGroupArn: targetGroupArn}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *ELBAPI) makeTags() *[]types.Tag {
+	var tags []types.Tag
+	if c.mapArgs == nil {
+		return &tags
+	}
+
+	for key, tagName := range *(MapTag()) {
+		if tagValue, ok := (*c.mapArgs)[key]; ok {
+			tags = append(tags, types.Tag{Key: aws.String(tagName), Value: aws.String(tagValue)})
+		}
+	}
+
+	return &tags
+}

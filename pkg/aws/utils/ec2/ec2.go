@@ -121,7 +121,7 @@ func (e *EC2API) getEndpointServiceAvailabilityZones(serviceName string) (*[]str
 	return &resp.ServiceDetails[0].AvailabilityZones, nil
 }
 
-func (e *EC2API) GetVpcId() (*types.Vpc, error) {
+func (e *EC2API) GetVpc() (*types.Vpc, error) {
 	filters := e.makeFilters()
 
 	describeVpc, err := e.client.DescribeVpcs(context.TODO(), &ec2.DescribeVpcsInput{Filters: *filters})
@@ -141,7 +141,39 @@ func (e *EC2API) GetVpcId() (*types.Vpc, error) {
 	}
 
 	return &(describeVpc.Vpcs[0]), nil
+}
 
+func (e *EC2API) GetSubnets(subnetType string) (*[]string, error) {
+	filters := e.makeFilters()
+	*filters = append(*filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{subnetType}})
+
+	var arrSubnets []string
+	describeSubnets, err := e.client.DescribeSubnets(context.TODO(), &ec2.DescribeSubnetsInput{Filters: *filters})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, subnet := range describeSubnets.Subnets {
+		arrSubnets = append(arrSubnets, *subnet.SubnetId)
+	}
+
+	return &arrSubnets, nil
+}
+
+func (e *EC2API) GetSG(sgType string) (*string, error) {
+	filters := e.makeFilters()
+	*filters = append(*filters, types.Filter{Name: aws.String("tag:Scope"), Values: []string{sgType}})
+
+	describeSecurityGroups, err := e.client.DescribeSecurityGroups(context.TODO(), &ec2.DescribeSecurityGroupsInput{Filters: *filters})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, securityGroup := range describeSecurityGroups.SecurityGroups {
+		return securityGroup.GroupId, nil
+	}
+
+	return nil, nil
 }
 
 func (e *EC2API) GetRouteTable() (*types.RouteTable, error) {
@@ -251,6 +283,28 @@ func (e *EC2API) routeHasExists(routeTable *types.RouteTable, cidr, transitGatew
 	return false, nil
 }
 
+func (e *EC2API) ExtractEC2InstancesIDByComp(componentName string) (*[]string, error) {
+	filters := e.makeFilters()
+	*filters = append(*filters, types.Filter{Name: aws.String("tag:Component"), Values: []string{componentName}})
+
+	describeInstances, err := e.client.DescribeInstances(context.TODO(), &ec2.DescribeInstancesInput{Filters: *filters})
+	if err != nil {
+		return nil, err
+	}
+
+	var arrInstanceID []string
+	for _, reservation := range describeInstances.Reservations {
+		for _, instance := range reservation.Instances {
+			if instance.State.Name == types.InstanceStateNameTerminated {
+				continue
+			}
+			arrInstanceID = append(arrInstanceID, *instance.InstanceId)
+		}
+	}
+
+	return &arrInstanceID, nil
+}
+
 func (e *EC2API) ExtractEC2Instances() (*map[string][]interface{}, error) {
 
 	filters := e.makeFilters()
@@ -294,6 +348,8 @@ func (e *EC2API) ExtractEC2Instances() (*map[string][]interface{}, error) {
 					mapInstances["TiCDC"] = append(mapInstances["TiCDC"], *instance.PrivateIpAddress)
 				case *tag.Key == "Component" && *tag.Value == "dm":
 					mapInstances["DM"] = append(mapInstances["DM"], *instance.PrivateIpAddress)
+				case *tag.Key == "Component" && *tag.Value == "vm":
+					mapInstances["VM"] = append(mapInstances["VM"], *instance.PrivateIpAddress)
 				case *tag.Key == "Component" && *tag.Value == "pump":
 					mapInstances["Pump"] = append(mapInstances["Pump"], *instance.PrivateIpAddress)
 				case *tag.Key == "Component" && *tag.Value == "drainer":
@@ -353,13 +409,9 @@ func (c *EC2API) makeFilters() *[]types.Filter {
 	if c.mapArgs == nil {
 		return &filters
 	}
-	// fmt.Printf("*** mapsArgs: %#v \n\n\n", *c.mapArgs)
-	// fmt.Printf("*** maptag: %#v \n\n\n", MapTag())
 	for key, tagName := range *(MapTag()) {
-		// fmt.Printf("*** tag mapping: %s -> %s \n\n\n", key, tagName)
 		if tagValue, ok := (*c.mapArgs)[key]; ok {
 			filters = append(filters, types.Filter{Name: aws.String("tag:" + tagName), Values: []string{tagValue}})
-			// fmt.Printf("*** tagName: %s, tagValue: %s \n\n\n", tagName, tagValue)
 		}
 	}
 
@@ -380,36 +432,6 @@ func (c *EC2API) makeFiltersString() *string {
 
 	return aws.String(strings.Join(filters, ","))
 }
-
-// func (c *EC2API) MakeFiltersString() *string {
-// 	var filters []string
-// 	if c.mapArgs == nil {
-// 		return aws.String("")
-// 	}
-
-// 	for key, tagName := range *(MapTag()) {
-// 		if tagValue, ok := (*c.mapArgs)[key]; ok {
-// 			filters = append(filters, fmt.Sprintf("tag:%s->%s", tagName, tagValue))
-// 		}
-// 	}
-
-// 	return aws.String(strings.Join(filters, ","))
-// }
-
-// func (c *EC2API) MakeFiltersString02() *string {
-// 	var filters []string
-// 	if c.newMapArgs == nil {
-// 		return aws.String("")
-// 	}
-
-// 	for key, tagName := range *(MapTag()) {
-// 		if tagValue, ok := (c.newMapArgs)[key]; ok {
-// 			filters = append(filters, fmt.Sprintf("tag:%s->%s", tagName, tagValue))
-// 		}
-// 	}
-
-// 	return aws.String(strings.Join(filters, ","))
-// }
 
 func (c *EC2API) makeTagsString(tags *[]types.Tag) *string {
 	var tagsStr []string

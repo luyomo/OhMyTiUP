@@ -23,6 +23,7 @@ import (
 	nlb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	smithy "github.com/aws/smithy-go"
+	elbutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/elb"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
 )
@@ -52,11 +53,6 @@ type NLBs struct {
 func (d *NLBs) ToPrintTable() *[][]string {
 	tableNLB := [][]string{{"Cluster Name"}}
 	for _, _row := range d.Data {
-		// _entry := _row.(NLB)
-		// tableNLB = append(tableNLB, []string{
-		// 	// *_entry.PolicyName,
-		// })
-
 		log.Infof("%#v", _row)
 	}
 	return &tableNLB
@@ -195,6 +191,23 @@ func (c *DestroyNLB) Execute(ctx context.Context) error {
 		if _, err = c.client.DeleteLoadBalancer(context.TODO(), &nlb.DeleteLoadBalancerInput{LoadBalancerArn: _id}); err != nil {
 			return err
 		}
+	}
+
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	mapArgs := make(map[string]string)
+	mapArgs["clusterName"] = clusterName
+	mapArgs["clusterType"] = clusterType
+	mapArgs["subClusterType"] = c.subClusterType
+
+	elbapi, err := elbutils.NewELBAPI(&mapArgs)
+	if err != nil {
+		return err
+	}
+
+	if err := elbapi.DestroyNLB(clusterName, "vmendpoint"); err != nil {
+		return err
 	}
 
 	return nil

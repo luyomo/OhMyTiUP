@@ -640,3 +640,29 @@ func (w *Workstation) ExecuteTiDB(dbName, query string) error {
 
 	return nil
 }
+
+func (w *Workstation) TransferWSFile2Remote(targetIP, sourceFile, targetFile string, isRootUser bool) error {
+	ctx := context.Background()
+
+	if isRootUser == true {
+		tmpFile := fmt.Sprintf("/tmp/%d", time.Now().UnixNano())
+
+		_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("scp -o StrictHostKeyChecking=no %s %s:%s", sourceFile, targetIP, tmpFile), false, 1*time.Hour)
+		if err != nil {
+			return err
+		}
+
+		if err := w.RunSerialCmdsOnRemoteNode(targetIP, []string{fmt.Sprintf("mv %s %s", tmpFile, targetFile)}, true); err != nil {
+			return err
+		}
+
+	} else {
+		_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("scp %s %s:%s", sourceFile, targetIP, targetFile), false, 1*time.Hour)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}

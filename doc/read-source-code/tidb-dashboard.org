@@ -1,0 +1,499 @@
+#+OPTIONS: ^:nil
+* Dashboard dependency
+  #+ATTR_HTML: :border 2 :rules all :frame border
+  | DashBoard Module     | Module              | Dependency             | Sub Dependency                  | Comment                               |
+  |----------------------+---------------------+------------------------+---------------------------------+---------------------------------------|
+  | Cluster Info         | Instance            | PD                     |                                 |                                       |
+  |                      | Host                | TiDB                   | No Prometheus                   |                                       |
+  |                      | Disks               | TiDB                   | No Prometheus                   |                                       |
+  |                      | Store Topology      | PD                     |                                 |                                       |
+  |                      | Statistics          | TiDB                   | No Prometheus                   |                                       |
+  | TopSQL               | NG Monitor          | Component Status(GRPC) |                                 | Change PD config to enable the TopSQL |
+  | SQL Statement        | -                   | TiDB                   | No Prometheus                   |                                       |
+  | Slow Queries         | -                   | TiDB                   | No Prometheus                   |                                       |
+  | Key Visualizer       |                     | PD                     |                                 | Regular gather leaders from PD        |
+  | Cluster Diagnositics |                     | TiDB                   | metrics_schema-> Prometheus     |                                       |
+  | Monitor              |                     | Prometheus             |                                 |                                       |
+  | Search Logs          |                     | Component Status(GRPC) |                                 |                                       |
+  | Resource Manager     | Config              | TiDB                   | resource controle -> Prometheus |                                       |
+  |                      | metrics             | Prometheus             |                                 |                                       |
+  | Advanced Debugging   | Profiling Instances |                        |                                 |                                       |
+  |                      | Continus Profiling  | NG Monitor             | Component Status(HTTP)          |                                       |
+  | Advanced Debugging   | Debug Data          |                        |                                 |                                       |
+* Modules
+** clinic-client
+** tidb-dashboard-client
+** tidb-dashboard-for-clinic-cloud
+** tidb-dashboard-for-clinic-op
+** tidb-dashboard-for-dbaas
+** tidb-dashboard-for-op
+* Source Code analysis
+Login user is DB User
+** Cluster Info
+*** Instances
+    getPDTopology
+    getTiDBTopology
+    getStoreTopology
+*** Host
+    getHostsInfo
+    #+BEGIN_SRC
+SELECT
+        *,
+        FIELD(LOWER(A.TYPE), 'tiflash', 'tikv', 'pd', 'tidb') AS _ORDER
+FROM (
+        SELECT
+                TYPE, INSTANCE, DEVICE_TYPE, DEVICE_NAME, JSON_OBJECTAGG(NAME, VALUE) AS JSON_VALUE
+        FROM
+                INFORMATION_SCHEMA.CLUSTER_LOAD
+        WHERE
+                DEVICE_TYPE IN ('memory','cpu')
+        GROUP BY TYPE, INSTANCE, DEVICE_TYPE, DEVICE_NAME
+) AS A
+ORDER BY
+        _ORDER DESC, INSTANCE, DEVICE_TYPE, DEVICE_NAME
+    #+END_SRC
+*** Disks
+    getHostInfo
+    #+BEGIN_SRC
+SELECT
+        *,
+        FIELD(LOWER(A.TYPE), 'tiflash', 'tikv', 'pd', 'tidb') AS _ORDER
+FROM (
+        SELECT
+                TYPE, INSTANCE, DEVICE_TYPE, DEVICE_NAME, JSON_OBJECTAGG(NAME, VALUE) AS JSON_VALUE
+        FROM
+                INFORMATION_SCHEMA.CLUSTER_LOAD
+        WHERE
+                DEVICE_TYPE IN ('memory','cpu')
+        GROUP BY TYPE, INSTANCE, DEVICE_TYPE, DEVICE_NAME
+) AS A
+ORDER BY
+        _ORDER DESC, INSTANCE, DEVICE_TYPE, DEVICE_NAME
+    #+END_SRC
+*** Store Topology
+    
+    RegisterRouter: endpoint.GET("/store_location", s.getStoreLocationTopology)
+    apiserver/clusterinfo/service.go: getStoreLocationTopology -> Fetch info from PD
+*** Statisics
+    getStatistics
+    
+    apiserver/clusterinfo/service.go: "/statistics"
+    apiserver/clusterinfo/statistics.go: FillFromClusterLoadTable
+    #+BEGIN_SRC
+SELECT
+        *,
+        FIELD(LOWER(A.TYPE), 'tiflash', 'tikv', 'pd', 'tidb') AS _ORDER
+FROM (
+        SELECT
+                TYPE, INSTANCE, DEVICE_TYPE, DEVICE_NAME, JSON_OBJECTAGG(NAME, VALUE) AS JSON_VALUE
+        FROM
+                INFORMATION_SCHEMA.CLUSTER_LOAD
+        WHERE
+                DEVICE_TYPE IN ('memory','cpu')
+        GROUP BY TYPE, INSTANCE, DEVICE_TYPE, DEVICE_NAME
+) AS A
+ORDER BY
+        _ORDER DESC, INSTANCE, DEVICE_TYPE, DEVICE_NAME
+    #+END_SRC
+** Top SQL: to check
+   /config:get  -> SELECT @@GLOBAL.tidb_enable_top_sql as tidb_enable_top_sql
+   /config:post -> SET @@GLOBAL.tidb_enable_top_sql = @Enable
+   /instances   -> Ngmproxy: /topsql/v1/instances
+   /summary     -> Ngmproxy: /topsql/v1/summary
+** SQL Statements
+   db: INFORMATION_SCHEMA.CLUSTER_STATEMENTS_SUMMARY_HISTORY
+** Slow Queries
+   db: INFORMATION_SCHEMA.CLUSTER_SLOW_QUERY
+** Key Visualizer
+   input/api.go: Scan key data from pd
+   /regions/key?end_key=&key=&limit=51200
+   
+   tiup ctl:v7.1.2 pd -u http://172.83.4.163:12379 region
+** Cluster Diagnostics
+   | url                        | Type | Function                         | Access Type      | Comment                                          |
+   |----------------------------+------+----------------------------------+------------------+--------------------------------------------------|
+   | /report                    | GET  | reportsHandler -> GetReport      | DB ACCESS        |                                                  |
+   | /report                    | POST | genReportHandler -> NewReport    | DB ACCESS        |                                                  |
+   | /reports/:id/detail        | GET  | reportHTMLHandler                | No data request  |                                                  |
+   | reports/:id/data.js        | GET  | reportDataHandler -> GetReport   | DB ACCESS        |                                                  |
+   | /reports/:id/status        | GET  | reportStatusHandler -> GetReport | DB ACCESS        |                                                  |
+   | /metrics_relation/generate | POST | metricsRelationHandler           |                  |                                                  |
+   |                            |      | -> generateMetricsRelation       | DB Status ACCESS | Please refer to source code analysis             |
+   |                            |      | -> NewJWTString                  |                  | The generated Token is used to view the svg file |
+   | /metrics_relation/view     | GET  | metricsRelationViewHandler       |                  | Viewing the svg                                  |
+   | /diagnosis                 | POST | genDiagnosisHandler              | DB ACCESS        |                                                  |
+   |                            |      | -- > GetDiagnoseReport           |                  |                                                  |
+*** Source Code
+**** metricsRelationViewHandler
+     Request metrics from TiDB status port as below. After the data fetch from DB, generate one SVG file generated in the local and send back to frontend. 
+     #+BEGIN_SRC
+# Params: start/ent/type
+curl http://172.83.1.241:10081/metrics/profile
+     #+END_SRC
+*** QUERY
+   + QUERY 01
+     #+BEGIN_SRC
+select t0.*,t1.*,t2.*,t3.*,t4.*,t5.* from  (select 'pd_grpc_completed_commands','', if(0>0,sum(value)/0,1) , sum(value) from metrics_schema.pd_grpc_completed_co
+mmands_total_time where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26') as t0 join  (select sum(value) from metrics_schema.pd_grpc_completed_commands_total_count whe
+re time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26') as t1 join  (select max(value) as max_value from metrics_schema.pd_grpc_completed_commands_duration where time >= 
+'2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.999000) as t2 join  (select max(value) as max_value from metrics_schema.pd_grpc_completed_commands_duration whe
+re time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.990000) as t3 join  (select max(value) as max_value from metrics_schema.pd_grpc_completed_commands_d
+uration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.900000) as t4 join  (select max(value) as max_value from metrics_schema.pd_grpc_completed
+_commands_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.800000) as t5
+     #+END_SRC
+   + QUERY 02
+     #+BEGIN_SRC
+select t0.*,t1.*,t2.*,t3.*,t4.*,t5.* from  (select 'tikv_grpc_message','', if(0>0,sum(value)/0,1) , sum(value) from metrics_schema.tikv_grpc_message_total_time 
+where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26') as t0 join  (select sum(value) from metrics_schema.tikv_grpc_message_total_count where time >= '2023-11-11 15:2
+6:26' and time < '2023-11-11 15:36:26') as t1 join  (select max(value) as max_value from metrics_schema.tikv_grpc_message_duration where time >= '2023-11-11 15:26:26' and time < '20
+23-11-11 15:36:26' and quantile=0.999000) as t2 join  (select max(value) as max_value from metrics_schema.tikv_grpc_message_duration where time >= '2023-11-11 15:26:26' and time < '
+2023-11-11 15:36:26' and quantile=0.990000) as t3 join  (select max(value) as max_value from metrics_schema.tikv_grpc_message_duration where time >= '2023-11-11 15:26:26' and time <
+ '2023-11-11 15:36:26' and quantile=0.900000) as t4 join  (select max(value) as max_value from metrics_schema.tikv_grpc_message_duration where time >= '2023-11-11 15:26:26' and time
+ < '2023-11-11 15:36:26' and quantile=0.800000) as t5
+     #+END_SRC
+   + QUERY 03
+     #+BEGIN_SRC
+select t0.*,t1.total_count,t2.max_value,t3.max_value,t4.max_value,t5.max_value from  (select 'tikv_grpc_message', `instance`,`type`, if(3.300669688002887>0,sum(
+value)/3.300669688002887,1) , sum(value) as total from metrics_schema.tikv_grpc_message_total_time where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' group by `ins
+tance`,`type` having sum(value) > 0) as t0 join  (select `instance`,`type`, sum(value) as total_count from metrics_schema.tikv_grpc_message_total_count where time >= '2023-11-11 15:
+26:26' and time < '2023-11-11 15:36:26' group by `instance`,`type`) as t1 join  (select `instance`,`type`, max(value) as max_value from metrics_schema.tikv_grpc_message_duration whe
+re time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.999000 group by `instance`,`type`) as t2 join  (select `instance`,`type`, max(value) as max_value fr
+om metrics_schema.tikv_grpc_message_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.990000 group by `instance`,`type`) as t3 join  (sele
+ct `instance`,`type`, max(value) as max_value from metrics_schema.tikv_grpc_message_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.9000
+00 group by `instance`,`type`) as t4 join  (select `instance`,`type`, max(value) as max_value from metrics_schema.tikv_grpc_message_duration where time >= '2023-11-11 15:26:26' and 
+time < '2023-11-11 15:36:26' and quantile=0.800000 group by `instance`,`type`) as t5  where  t0.instance = t1.instance and  t0.type = t1.type and  t1.instance = t2.instance and  t1.
+type = t2.type and  t2.instance = t3.instance and  t2.type = t3.type and  t3.instance = t4.instance and  t3.type = t4.type and  t4.instance = t5.instance and  t4.type = t5.type  ord
+er by t0.total desc
+     #+END_SRC
+    + QUERY 04
+      #+BEGIN_SRC
+select /*+ time_range('2023-11-11 15:26:26','2023-11-11 15:36:26') */ RULE,ITEM,TYPE,INSTANCE,STATUS_ADDRESS,VALUE,REFERENCE,SEVERITY,DETAILS from information_schema.INSPECTION_RESULT
+      #+END_SRC
+    + QUERY 05
+      #+BEGIN_SRC
+select t0.*,t1.*,t2.*,t3.*,t4.*,t5.* from  (select 'tidb_kv_request','', if(9.089147966694025>0,sum(value)/9.089147966694025,1) , sum(value) from metrics_schema
+.tidb_kv_request_total_time where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26') as t0 join  (select sum(value) from metrics_schema.tidb_kv_request_total_count wher
+e time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26') as t1 join  (select max(value) as max_value from metrics_schema.tidb_kv_request_duration where time >= '2023-11-11 
+15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.999000) as t2 join  (select max(value) as max_value from metrics_schema.tidb_kv_request_duration where time >= '2023-11-11 
+15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.990000) as t3 join  (select max(value) as max_value from metrics_schema.tidb_kv_request_duration where time >= '2023-11-11 
+15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.900000) as t4 join  (select max(value) as max_value from metrics_schema.tidb_kv_request_duration where time >= '2023-11-11 
+15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.800000) as t5
+      #+END_SRC
+    + QUERY 06
+      #+BEGIN_SRC
+select t0.*,t1.total_count,t2.max_value,t3.max_value,t4.max_value,t5.max_value from  (select 'tidb_kv_request', `instance`,`store`,`type`, if(9.089147966694025>
+0,sum(value)/9.089147966694025,1) , sum(value) as total from metrics_schema.tidb_kv_request_total_time where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' group by 
+`instance`,`store`,`type` having sum(value) > 0) as t0 join  (select `instance`,`store`,`type`, sum(value) as total_count from metrics_schema.tidb_kv_request_total_count where time 
+>= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' group by `instance`,`store`,`type`) as t1 join  (select `instance`,`store`,`type`, max(value) as max_value from metrics_sch
+ema.tidb_kv_request_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.999000 group by `instance`,`store`,`type`) as t2 join  (select `inst
+ance`,`store`,`type`, max(value) as max_value from metrics_schema.tidb_kv_request_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.990000
+ group by `instance`,`store`,`type`) as t3 join  (select `instance`,`store`,`type`, max(value) as max_value from metrics_schema.tidb_kv_request_duration where time >= '2023-11-11 15
+:26:26' and time < '2023-11-11 15:36:26' and quantile=0.900000 group by `instance`,`store`,`type`) as t4 join  (select `instance`,`store`,`type`, max(value) as max_value from metric
+s_schema.tidb_kv_request_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.800000 group by `instance`,`store`,`type`) as t5  where  t0.ins
+tance = t1.instance and  t0.store = t1.store and  t0.type = t1.type and  t1.instance = t2.instance and  t1.store = t2.store and  t1.type = t2.type and  t2.instance = t3.instance and
+  t2.store = t3.store and  t2.type = t3.type and  t3.instance = t4.instance and  t3.store = t4.store and  t3.type = t4.type and  t4.instance = t5.instance and  t4.store = t5.store a
+nd  t4.type = t5.type  order by t0.total desc
+      #+END_SRC
+    + QUERY 07
+      #+BEGIN_SRC
+select t0.*,t1.total_count,t2.max_value,t3.max_value,t4.max_value,t5.max_value from  (select 'tikv_cop_wait', `instance`,`req`, if(3.300669688002887>0,sum(value
+)/3.300669688002887,1) , sum(value) as total from metrics_schema.tikv_cop_wait_total_time where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' group by `instance`,`r
+eq` having sum(value) > 0) as t0 join  (select `instance`,`req`, sum(value) as total_count from metrics_schema.tikv_cop_wait_total_count where time >= '2023-11-11 15:26:26' and time
+ < '2023-11-11 15:36:26' group by `instance`,`req`) as t1 join  (select `instance`,`req`, max(value) as max_value from metrics_schema.tikv_cop_wait_duration where time >= '2023-11-1
+1 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.999000 group by `instance`,`req`) as t2 join  (select `instance`,`req`, max(value) as max_value from metrics_schema.tikv_
+cop_wait_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.990000 group by `instance`,`req`) as t3 join  (select `instance`,`req`, max(val
+ue) as max_value from metrics_schema.tikv_cop_wait_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quantile=0.900000 group by `instance`,`req`) as 
+t4 join  (select `instance`,`req`, max(value) as max_value from metrics_schema.tikv_cop_wait_duration where time >= '2023-11-11 15:26:26' and time < '2023-11-11 15:36:26' and quanti
+le=0.800000 group by `instance`,`req`) as t5  where  t0.instance = t1.instance and  t0.req = t1.req and  t1.instance = t2.instance and  t1.req = t2.req and  t2.instance = t3.instanc
+e and  t2.req = t3.req and  t3.instance = t4.instance and  t3.req = t4.req and  t4.instance = t5.instance and  t4.req = t5.req  order by t0.total desc
+      #+END_SRC
+    + QUERY 08
+      #+BEGIN_SRC
+select 'tikv_scheduler_scan_details_total_num', '', sum(value) from metrics_schema.tikv_scheduler_scan_details_total_num where time >= '2023-11-11 15:26:26' and
+ time < '2023-11-11 15:36:26'
+      #+END_SRC
+    + QUERY 09
+      #+BEGIN_SRC
+select 'tikv_scheduler_scan_details_total_num',`instance`,`req`,`tag`, sum(value) from metrics_schema.tikv_scheduler_scan_details_total_num where time >= '2023-
+11-11 15:26:26' and time < '2023-11-11 15:36:26'  group by `instance`,`req`,`tag` having sum(value) > 0 order by sum(value) desc
+      #+END_SRC
+** Monitor
+   file: tidb-dashboard-for-op/src/apps/Monitoring/metricsQueries.ts
+*** metrics
+**** Database Time by SQL Types
+     - promql
+       sum(rate(tidb_server_handle_query_duration_seconds_sum{sql_type!="internal"}[$__rate_interval]))
+       sum(rate(tidb_server_handle_query_duration_seconds_sum{sql_type!="internal"}[$__rate_interval])) by (sql_type)
+**** Database Time by SQL Phase
+     - promql
+       sum(rate(tidb_server_handle_query_duration_seconds_sum{sql_type!="internal"}[$__rate_interval]))
+       sum(rate(tidb_session_parse_duration_seconds_sum{sql_type="general"}[$__rate_interval]))
+       sum(rate(tidb_session_compile_duration_seconds_sum{sql_type="general"}[$__rate_interval]))
+       sum(rate(tidb_session_execute_duration_seconds_sum{sql_type="general"}[$__rate_interval]))
+       sum(rate(tidb_server_get_token_duration_seconds_sum[$__rate_interval]))/1000000
+**** SQL Execute Time Overview
+     - promql
+       sum(rate(tidb_tikvclient_request_seconds_sum{store!="0"}[$__rate_interval])) by (type)
+       sum(rate(pd_client_cmd_handle_cmds_duration_seconds_sum{type="wait"}[$__rate_interval]))
+**** Connection Count
+     - promql
+       sum(tidb_server_connections)
+       sum(tidb_server_tokens)
+**** Disconnection
+     - promql
+       sum(rate(tidb_server_disconnection_total[$__rate_interval])) by (instance, result)
+**** Query Per Second
+     - promql
+       sum(rate(tidb_executor_statement_total[$__rate_interval]))
+       sum(rate(tidb_executor_statement_total[$__rate_interval])) by (type)
+**** Failed Queries
+     - promql
+       increase(tidb_server_execute_error_total[$__rate_interval])
+**** Command Per Second
+     - promql
+       sum(rate(tidb_server_query_total[$__rate_interval])) by (type)
+**** Queries Using Plan Cache OPS
+     - promql
+       sum(rate(tidb_server_plan_cache_total[$__rate_interval])) by (type)
+       sum(rate(tidb_server_plan_cache_miss_total[$__rate_interval]))
+**** Query Duration
+     - promql
+       sum(rate(tidb_server_handle_query_duration_seconds_sum{sql_type!="internal"}[$__rate_interval])) / sum(rate(tidb_server_handle_query_duration_seconds_count{sql_type!="internal"}[$__rate_interval]))
+       histogram_quantile(0.99, sum(rate(tidb_server_handle_query_duration_seconds_bucket{sql_type!="internal"}[$__rate_interval])) by (le))
+       sum(rate(tidb_server_handle_query_duration_seconds_sum{sql_type!="internal"}[$__rate_interval])) by (sql_type) / sum(rate(tidb_server_handle_query_duration_seconds_count{sql_type!="internal"}[$__rate_interval])) by (sql_type)
+       histogram_quantile(0.99, sum(rate(tidb_server_handle_query_duration_seconds_bucket{sql_type!="internal"}[$__rate_interval])) by (le,sql_type))
+**** Average Idle Connection Duration
+     - promql
+       (sum(rate(tidb_server_conn_idle_duration_seconds_sum{in_txn='1'}[$__rate_interval])) / sum(rate(tidb_server_conn_idle_duration_seconds_count{in_txn='1'}[$__rate_interval])))
+       (sum(rate(tidb_server_conn_idle_duration_seconds_sum{in_txn='0'}[$__rate_interval])) / sum(rate(tidb_server_conn_idle_duration_seconds_count{in_txn='0'}[$__rate_interval])))
+**** Get Token Duration
+     - promql
+       sum(rate(tidb_server_get_token_duration_seconds_sum[$__rate_interval])) / sum(rate(tidb_server_get_token_duration_seconds_count[$__rate_interval]))
+       histogram_quantile(0.99, sum(rate(tidb_server_get_token_duration_seconds_bucket[$__rate_interval])) by (le))
+**** Parse Duration
+     - promql
+       (sum(rate(tidb_session_parse_duration_seconds_sum{sql_type="general"}[$__rate_interval])) / sum(rate(tidb_session_parse_duration_seconds_count{sql_type="general"}[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(tidb_session_parse_duration_seconds_bucket{sql_type="general"}[$__rate_interval])) by (le))
+**** Compile Duration
+     - promql
+       (sum(rate(tidb_session_compile_duration_seconds_sum{sql_type="general"}[$__rate_interval])) / sum(rate(tidb_session_compile_duration_seconds_count{sql_type="general"}[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(tidb_session_compile_duration_seconds_bucket{sql_type="general"}[$__rate_interval])) by (le))
+**** Execute Duration
+     - promql
+       (sum(rate(tidb_session_execute_duration_seconds_sum{sql_type="general"}[$__rate_interval])) / sum(rate(tidb_session_execute_duration_seconds_count{sql_type="general"}[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(tidb_session_execute_duration_seconds_bucket{sql_type="general"}[$__rate_interval])) by (le))
+**** Transaction Per Second
+     - promql
+       sum(rate(tidb_session_transaction_duration_seconds_count[$__rate_interval])) by (type, txn_mode)
+**** Transaction Duration
+     - promql
+       sum(rate(tidb_session_transaction_duration_seconds_sum[$__rate_interval])) by (txn_mode)/ sum(rate(tidb_session_transaction_duration_seconds_count[$__rate_interval])) by (txn_mode)
+       histogram_quantile(0.99, sum(rate(tidb_session_transaction_duration_seconds_bucket[$__rate_interval])) by (le, txn_mode))
+**** Avg TiDB KV Request Duration
+     - promql
+       sum(rate(tidb_tikvclient_request_seconds_sum{store!="0"}[$__rate_interval])) by (type)/ sum(rate(tidb_tikvclient_request_seconds_count{store!="0"}[$__rate_interval]
+)) by (type)
+**** Avg TiKV GRPC Duration
+     - promql
+       sum(rate(tikv_grpc_msg_duration_seconds_sum{store!="0"}[$__rate_interval])) by (type)/ sum(rate(tikv_grpc_msg_duration_seconds_count{store!="0"}[$__rate_interval]))
+ by (type)
+**** Average / P99 PD TSO Wait/RPC Duration
+     - promql
+       (sum(rate(pd_client_cmd_handle_cmds_duration_seconds_sum{type="wait"}[$__rate_interval])) / sum(rate(pd_client_cmd_handle_cmds_duration_seconds_count{type="wait"}[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(pd_client_cmd_handle_cmds_duration_seconds_bucket{type="wait"}[$__rate_interval])) by (le))
+       (sum(rate(pd_client_request_handle_requests_duration_seconds_sum{type="tso"}[$__rate_interval])) / sum(rate(pd_client_request_handle_requests_duration_seconds_count
+{type="tso"}[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(pd_client_request_handle_requests_duration_seconds_bucket{type="tso"}[$__rate_interval])) by (le))
+**** Average / P99 Storage Async Write Duration
+     - promql
+       sum(rate(tikv_storage_engine_async_request_duration_seconds_sum{type="write"}[$__rate_interval])) / sum(rate(tikv_storage_engine_async_request_duration_seconds_coun
+t{type="write"}[$__rate_interval]))
+       histogram_quantile(0.99, sum(rate(tikv_storage_engine_async_request_duration_seconds_bucket{type="write"}[$__rate_interval])) by (le))
+**** Average / P99 Store Duration
+     - promql
+       sum(rate(tikv_raftstore_store_duration_secs_sum[$__rate_interval])) / sum(rate(tikv_raftstore_store_duration_secs_count[$__rate_interval]))
+       histogram_quantile(0.99, sum(rate(tikv_raftstore_store_duration_secs_bucket[$__rate_interval])) by (le))
+**** Average / P99 Apply Duration
+     - promql
+       (sum(rate(tikv_raftstore_apply_duration_secs_sum[$__rate_interval])) / sum(rate(tikv_raftstore_apply_duration_secs_count[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(tikv_raftstore_apply_duration_secs_bucket[$__rate_interval])) by (le))
+**** Average / P99 Append Log Duration
+     - promql
+       (sum(rate(tikv_raftstore_append_log_duration_seconds_sum[$__rate_interval])) / sum(rate(tikv_raftstore_append_log_duration_seconds_count[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(tikv_raftstore_append_log_duration_seconds_bucket[$__rate_interval])) by (le))
+**** Average / P99 Commit Log Duration
+     - promql
+       (sum(rate(tikv_raftstore_commit_log_duration_seconds_sum[$__rate_interval])) / sum(rate(tikv_raftstore_commit_log_duration_seconds_count[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(tikv_raftstore_commit_log_duration_seconds_bucket[$__rate_interval])) by (le))
+**** Average / P99 Apply Log Duration
+     - promql
+       (sum(rate(tikv_raftstore_apply_log_duration_seconds_sum[$__rate_interval])) / sum(rate(tikv_raftstore_apply_log_duration_seconds_count[$__rate_interval])))
+       histogram_quantile(0.99, sum(rate(tikv_raftstore_apply_log_duration_seconds_bucket[$__rate_interval])) by (le))
+**** TiDB Uptime
+     - promql
+       (time() - process_start_time_seconds{job="tidb"})
+**** TiDB CPU Usage
+     - promql
+       rate(process_cpu_seconds_total{job="tidb"}[30s])
+**** TiDB Memory Usage
+     - promql
+       process_resident_memory_bytes{job="tidb"}
+**** TiKV Uptime
+     - promql
+       (time() - process_start_time_seconds{job="tikv"})
+**** TiKV CPU Usage
+     - promql
+       sum(rate(tikv_thread_cpu_seconds_total[$__rate_interval])) by (instance)
+**** TiKV Memory Usage
+     - promql
+       process_resident_memory_bytes{job=~".*tikv"}
+**** TiKV IO MBps
+     - promql
+       sum(rate(tikv_engine_flow_bytes{db="kv", type="wal_file_bytes"}[$__rate_interval])) by (instance) + sum(rate(tikv_engine_flow_bytes{db="raft", type="wal_file_bytes"}[$__rate_interval])) by (instance) + sum(rate(raft_engine_write_size_sum[$__rate_interval])) by (instance)
+       sum(rate(tikv_engine_flow_bytes{db="kv", type=~"bytes_read|iter_bytes_read"}[$__rate_interval])) by (instance)
+**** TiKV Storage Usage
+     - promql
+       loadTiKVStoragePromql()
+**** TiFlash Uptime
+     - promql
+       tiflash_system_asynchronous_metric_Uptime
+**** TiFlash CPU Usage
+     - promql
+       rate(tiflash_proxy_process_cpu_seconds_total{job="tiflash"}[$__rate_interval])
+**** TiFlash Memory
+     - promql
+       tiflash_proxy_process_resident_memory_bytes{job="tiflash"}
+**** TiFlash IO MBps
+     - promql
+       sum(rate(tiflash_system_profile_event_WriteBufferFromFileDescriptorWriteBytes[$__rate_interval])) by (instance) + sum(rate(tiflash_system_profile_event_PSMWriteBytes[$__rate_interval])) by (instance) + sum(rate(tiflash_system_profile_event_WriteBufferAIOWriteBytes[$__rate_interval])) by (instance)
+       sum(rate(tiflash_system_profile_event_ReadBufferFromFileDescriptorReadBytes[$__rate_interval])) by (instance) + sum(rate(tiflash_system_profile_event_PSMReadBytes[$__rate_interval])) by (instance) + sum(rate(tiflash_system_profile_event_ReadBufferAIOReadBytes[$__rate_interval])) by (instance)
+**** TiFlash Storage Usage
+     - promql
+       sum(tiflash_system_current_metric_StoreSizeUsed) by (instance)
+** Search logs
+   Fetch the log from each compoenent by grpc into local sqlite3 to show in the GUI.
+*** Search
+    GetTaskGroups
+    GetTaskGroupPreview
+*** task init
+   apiserver/logsearch/task.go
+** Resource Manger
+*** Limitiation
+    The RU used by resouce controlled is fetched from prometheus. With Prometheus stopped status, the query [CALIBRATE RESOURCE ... fail with [ERROR 1105 (HY000): There is no CPU quota metrics, query metric error: Post "http://44.195.66.138:19090/api/v1/query_range": dial tcp 44.195.66.138:19090: connect: connection refused]]
+    #+BEGIN_SRC
+MySQL$ CALIBRATE RESOURCE;
+MySQL$ ERROR 1105 (HY000): There is no CPU quota metrics, query metric error: Post "http://44.195.66.138:19090/api/v1/query_range": dial tcp 44.195.66.138:19090: connect: connection refused
+    #+END_SRC
+*** GetConfig
+    #+BEGIN_SRC
+MySQL$ SELECT @@GLOBAL.tidb_enable_resource_control as tidb_enable_resource_control
+    #+END_SRC
+*** GetInformation
+    #+BEGIN_SRC
+MySQL$ SELECT * FROM INFORMATION_SCHEMA.RESOURCE_GROUPS;
+    #+END_SRC
+*** GetCalibrateByHardware
+    #+BEGIN_SRC
+MySQL$ calibrate resource workload oltp_read_write/oltp_read_only/oltp_read_write/tpcc;
+    #+END_SRC
+*** GetCalibrateByActual
+    #+BEGIN_SRC
+MySQL$ calibrate resource start_time '%s' end_time '%s';
+    #+END_SRC
+*** metrics
+**** Total RU Consumed
+     + file
+       apps/ResourceManager/uilts/metricQueries.ts
+     + promql
+       sum(rate(resource_manager_resource_unit_read_request_unit_sum[1m])) + sum(rate(resource_manager_resource_unit_write_request_unit_sum[1m]))
+**** RU Consumed by Resource Groups
+     + promql
+       sum(rate(resource_manager_resource_unit_read_request_unit_sum[1m])) by (name) + sum(rate(resource_manager_resource_unit_write_request_unit_sum[1m])) by (name)
+**** TiDB CPU Usage
+     + promql
+       rate(process_cpu_seconds_total{job="tidb"}[30s])
+       tidb_server_maxprocs
+**** TiKV CPU Usage
+     + promql
+       sum(rate(tikv_thread_cpu_seconds_total[$__rate_interval])) by (instance)
+       tikv_server_cpu_cores_quota
+**** TiKV IO MBps
+     + promql
+       sum(rate(tikv_engine_flow_bytes{db="kv", type="wal_file_bytes"}[$__rate_interval])) by (instance) + sum(rate(tikv_engine_flow_bytes{db="raft", type="wal_file_bytes"}[$__r
+ate_interval])) by (instance) + sum(rate(raft_engine_write_size_sum[$__rate_interval])) by (instance)
+       sum(rate(tikv_engine_flow_bytes{db="kv", type=~"bytes_read|iter_bytes_read"}[$__rate_interval])) by (instance)
+       
+** Advanced Debugging
+*** Profiling Instances
+**** Manual Profiling
+     |           ip |  port | url                             | Comment |
+     |--------------+-------+---------------------------------+---------|
+     | 172.83.4.221 | 10081 | /debug/pprof/heap               | TiDB    |
+     | 172.83.4.221 | 10081 | /debug/pprof/profile?seconds=30 |         |
+     | 172.83.4.221 | 10081 | /debug/pprof/goroutine?debug=2  |         |
+     | 172.83.4.221 | 10081 | /debug/pprof/mutex?debug=1      |         |
+     |          ... |       |                                 |         |
+     | 172.83.4.163 | 12379 | /debug/pprof/profile?seconds=30 | pd      |
+     | 172.83.4.163 | 12379 | /debug/pprof/goroutine?debug=2  |         |
+     | 172.83.4.163 | 12379 | /debug/pprof/mutex?debug=1      |         |
+     | 172.83.4.163 | 12379 | /debug/pprof/heap               |         |
+     |          ... |       |                                 |         |
+     |              |       |                                 |         |
+      + Profiling task status
+        #+BEGIN_SRC
+UPDATE `profiling_tasks` SET `task_group_id`=2,`state`=\"4\",`kind`=\"tikv\",`display_name`=\"172.83.3.101:20161\",`ip`=\"172.83.3.101\",`port`=20181,`file_path`=\"\",`error`=\"\",`started_at`=1700146692,`raw_data_type`=\"\",`profiling_type`=\"mutex\" WHERE `id` = 68"hh
+        #+END_SRC
+***** getGroupList
+      | Object Type | Object Name              |
+      |-------------+--------------------------|
+      | Object Name | profiling.TaskGroupModel |
+      | Table Name  | profiling_task_groups    |
+      #+BEGIN_SRC
+sqlite> select * from profiling_task_groups;
+1|3|30|3|3|3|0|1700110007|["cpu","heap","goroutine","mutex"]
+      #+END_SRC
+      
+***** handleStartGroup
+      
+**** Continuous Profiling
+     NgmProxy
+*** Debug Data
+**** RequestEndpoint
+    #+BEGIN_SRC
+Step 001 Request: endpoint.RequestPayload{API:"tidb_stats_by_table", Host:"172.82.31.122", Port:10081, ParamValues:map[string]string{"db":"test", "table":"test01"}}
+Step 002 Resolved: endpoint.ResolvedRequestPayload{api:(*endpoint.APIDefinition)(0xc000599000), host:"172.83.1.241", port:10081, path:"/stats/dump/test/test01", queryValues:url.Values{}}
+Step 003 Send request: http://172.83.4.221:10081/stats/dump/test/test01
+  Step 003.01 endpoint/payload.go: SendRequestAndPipe
+Step 004 File preparation: access token-> xxxxx......xxxxx fileName-> tidb_stats_by_table_1700118480.json
+Step 005 Generate the token from file name with jwt(util/rest/fileswap/server.go:"github.com/golang-jwt/jwt")
+
+    #+END_SRC
+** root
+* Memo
+**  utils/tipology/tidb.go:FetchTiDBTopology
+   apiserver/apiserver.go
+     -> tidb/client.go:NewTiDBClient
+       -> tidb/forwarder.go:pollingForTiDB 
+         -> Fetch topology from pd with /topology/tidb/ prefix
+** Host
+   
+   apiserver/clusterinfo/service.go: getHostsInfo
+   GetTiDBConnectio
+   -> apiserver/clusterinfo/host.go:fetchAllHostsInfo
+     -> pkg/apiserver/clusterinfo/hostinfo/cluster_load.go 
+   #+BEGIN_SRC
+SELECT
+        *,
+        FIELD(LOWER(A.TYPE), 'tiflash', 'tikv', 'pd', 'tidb') AS _ORDER
+FROM (
+        SELECT
+                TYPE, INSTANCE, DEVICE_TYPE, DEVICE_NAME, JSON_OBJECTAGG(NAME, VALUE) AS JSON_VALUE
+        FROM
+                INFORMATION_SCHEMA.CLUSTER_LOAD
+        WHERE
+                DEVICE_TYPE IN ('memory','cpu')
+        GROUP BY TYPE, INSTANCE, DEVICE_TYPE, DEVICE_NAME
+) AS A
+ORDER BY
+        _ORDER DESC, INSTANCE, DEVICE_TYPE, DEVICE_NAME
+   #+END_SRC

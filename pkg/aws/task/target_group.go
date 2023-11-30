@@ -23,31 +23,11 @@ import (
 	nlb "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	smithy "github.com/aws/smithy-go"
-
-	// "github.com/luyomo/OhMyTiUP/pkg/aws/spec"
+	elbutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils/elb"
 
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
 	"github.com/luyomo/OhMyTiUP/pkg/logger/log"
-	// "go.uber.org/zap"
 )
-
-/******************************************************************************/
-// func (b *Builder) CreateTargetGroup(pexecutor *ctxt.Executor, subClusterType string, clusterInfo *ClusterInfo) *Builder {
-// 	b.tasks = append(b.tasks, &CreateTargetGroup{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 		clusterInfo:    clusterInfo,
-// 	})
-// 	return b
-// }
-
-// func (b *Builder) DestroyTargetGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
-// 	b.tasks = append(b.tasks, &DestroyTargetGroup{
-// 		pexecutor:      pexecutor,
-// 		subClusterType: subClusterType,
-// 	})
-// 	return b
-// }
 
 func (b *Builder) CreateTargetGroup(pexecutor *ctxt.Executor, subClusterType string) *Builder {
 	b.tasks = append(b.tasks, &CreateTargetGroup{BaseTargetGroup: BaseTargetGroup{BaseTask: BaseTask{pexecutor: pexecutor, subClusterType: subClusterType, scope: NetworkTypePrivate}}})
@@ -223,6 +203,25 @@ func (c *DestroyTargetGroup) Execute(ctx context.Context) error {
 		}); err != nil {
 			return err
 		}
+	}
+
+	clusterName := ctx.Value("clusterName").(string)
+	clusterType := ctx.Value("clusterType").(string)
+
+	mapArgs := make(map[string]string)
+	mapArgs["clusterName"] = clusterName
+	mapArgs["clusterType"] = clusterType
+	mapArgs["subClusterType"] = c.subClusterType
+
+	elbapi, err := elbutils.NewELBAPI(&mapArgs)
+	if err != nil {
+		return err
+	}
+	if err := elbapi.DeleteTargetGroup(clusterName, "vminsert"); err != nil {
+		return err
+	}
+	if err := elbapi.DeleteTargetGroup(clusterName, "vmselect"); err != nil {
+		return err
 	}
 
 	return nil

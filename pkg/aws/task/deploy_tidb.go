@@ -53,10 +53,12 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	clusterName := ctx.Value("clusterName").(string)
 	clusterType := ctx.Value("clusterType").(string)
 
+	// 01. Install the mysql client in the workstation
 	if err := c.workstation.InstallPackages(&[]string{"mariadb-client"}); err != nil {
 		return err
 	}
 
+	// 02. Extract TiDB Cluster EC2 instances
 	mapArgs := make(map[string]string)
 	mapArgs["clusterName"] = clusterName
 	mapArgs["clusterType"] = clusterType
@@ -70,6 +72,8 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// 03. Set the tidb cluster config
 	tidbConfig := make(map[string]interface{})
 	tidbConfig["Servers"] = instances
 	if c.enableAuditLog == true && c.tidbVersion < "v7.1.0" {
@@ -77,6 +81,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		tidbConfig["PluginDir"] = "/home/admin/tidb/tidb-deploy/tidb-4000/plugin"
 	}
 
+	// 04. If the EnableMonitoring is enabled, set workstation's ip as grafana and monitor's deployment target
 	if c.awsWSConfigs.EnableMonitoring == "enabled" {
 		var ipList []interface{}
 		ipList = append(ipList, c.workstation.GetIPAddr())
@@ -89,6 +94,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		}
 	}
 
+	// 05. Render the config file(cdc/tidb-cluster) to workstation
 	wsExe, err := c.workstation.GetExecutor()
 	if err != nil {
 		return err
@@ -102,6 +108,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		return err
 	}
 
+	// 06. Render ontime ddl to workstation
 	sqlFiles := []string{"ontime_ms.ddl", "ontime_mysql.ddl", "ontime_tidb.ddl"}
 	for _, sqlFile := range sqlFiles {
 		err = (*wsExe).TransferTemplate(ctx, fmt.Sprintf("templates/sql/%s", sqlFile), fmt.Sprintf("/opt/tidb/sql/%s", sqlFile), "0644", nil, true, 0)
@@ -110,6 +117,7 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		}
 	}
 
+	// 07. Format storage layer's disk
 	for _, tikvNode := range (*instances)["TiKV"] {
 		if err := c.workstation.FormatDisk(tikvNode.(map[string]interface{})["IPAddress"].(string), "/home/admin/tidb"); err != nil {
 			return err
@@ -122,6 +130,13 @@ func (c *DeployTiDB) Execute(ctx context.Context) error {
 		}
 	}
 
+	for _, vm := range (*instances)["VM"] {
+		if err := c.workstation.FormatDisk(vm.(string), "/home/admin/tidb"); err != nil {
+			return err
+		}
+	}
+
+	// 08. Install TiUP(community or enterprise)
 	if c.enableAuditLog == true {
 		if err := c.workstation.InstallEnterpriseTiup(c.tidbVersion); err != nil {
 			return err
