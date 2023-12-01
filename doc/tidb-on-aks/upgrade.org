@@ -1,0 +1,21 @@
+* TiDB Cluster Upgrade
+** Version verification
+   #+attr_html: :width 800px
+   [[http://www.51yomo.net/static/doc/tidb-on-aks/tidb-operator-upgrade/001.png]]
+
+   #+attr_html: :width 800px
+   [[http://www.51yomo.net/static/doc/tidb-on-aks/tidb-operator-upgrade/002.png]]
+ 
+** Edit the config file to upgrade
+   #+attr_html: :width 800px
+   [[http://www.51yomo.net/static/doc/tidb-on-aks/tidb-operator-upgrade/003.png]]
+
+   #+attr_html: :width 800px
+   [[http://www.51yomo.net/static/doc/tidb-on-aks/tidb-operator-upgrade/004.png]]
+** Watch pod's upgrade status
+   #+attr_html: :width 800px
+   [[http://www.51yomo.net/static/doc/tidb-on-aks/tidb-operator-upgrade/005.gif]]
+
+** Upgraded version confirmation
+   #+attr_html: :width 800px
+   [[http://www.51yomo.net/static/doc/tidb-on-aks/tidb-operator-upgrade/006.png]]
