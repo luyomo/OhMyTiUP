@@ -3,10 +3,7 @@
    + [[./dashboard.org][TiDB Dashboard]] - Setup dashboard for TiDB
    + [[./grafana.org][Grafana]] - grafana setup
 ** Backup & Restore
-   + [[./fullbackup.org][Full Backup]] - Take full data backup to Azure BLOB with registered application and certificate
-   + [[./restore-snapshot.org][Restore full backup]] - Restore backup from BLOB to new TiDB Cluster
-   + [[./pitr-log.org][Take PITR log]] - Take PITR jobs
-   + [[./pitr.org][PITR recovery]] - Run the PITR restore
+   + [[./backup.org][Backup]] - Full database backup/PITR log/Restore from full backup/PITR
 ** Tools
    + [[./ticdc.org][TiCDC]] - Setup TiCDC between TiDB Master and slave for replication
    + [[./lightning.org][lightning]] - Use lighting to import data by local mode
