@@ -1,150 +1,151 @@
 #+OPTIONS: ^:nil
-* Register APP preparation
-** Register APP Creation
-  #+BEGIN_SRC
-tidb-on-aks$ az ad app create --display-name backup-reg-app
-{                     
-  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#applications/$entity",
-  "addIns": [],
-... ...
-    "logoutUrl": null,
-    "redirectUriSettings": [],
-    "redirectUris": []
-  }
-}
-  #+END_SRC
-  #+attr_html: :width 800px
-  [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/001.png]]
-** Create Register APP secret
+* Storage Setup 
+** Register APP preparation
+*** Register APP Creation
    #+BEGIN_SRC
-tidb-on-aks$ az ad app list --display-name "backup-reg-app" | jq '.[0].appId'
-"xxxxxxxx-1234-abcd-xxxx-xxxxxx000001"
-tidb-on-aks$  az ad app credential reset --id "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001" --append 
-The output includes credentials that you must protect. Be sure that you do not include these credentials in your code or check the credentials into your source control. For more information, see https://aka.ms/azadsp-cli
-{
-  "appId": "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001",
-  "password": "XXxxQ~xxxxxxxxXXXX_~xxxxxxxxxxXXXXXXXX01",
-  "tenant": "xxxxxxxx-1234-abcd-xxxx-xxxx00000002"
-}
-tidb-on-aks$ az ad app credential list --id "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001"
-[
-  {
-    "customKeyIdentifier": null,
-    "displayName": null,
-    "endDateTime": "2024-12-01T02:40:16Z",
-    "hint": "VwR",
-    "keyId": "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyy0002",
-    "secretText": null,
-    "startDateTime": "2023-12-01T02:40:16Z"
-  }
-]
-   #+END_SRC
-  #+attr_html: :width 800px
-  [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/002.png]]
-** Create the service principal
-   #+BEGIN_SRC
-tidb-on-aks$ az ad sp create --id 01139ae6-58c7-4a7c-b360-fc8110e13fce
-{
-  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#servicePrincipals/$entity",
-  "accountEnabled": true,
-  "addIns": [],
-  "alternativeNames": [],
-  ... ...
-  "verifiedPublisher": {
-    "addedDateTime": null,
-    "displayName": null,
-    "verifiedPublisherId": null
-  }
-}
-   #+END_SRC
-** Resources summary
-   #+ATTR_HTML: :border 2 :rules all :frame border
-   | Resource name    | Value                                    |
-   |------------------+------------------------------------------|
-   | app name         | backup-reg-app                           |
-   | secret ID        | yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyy0002     |
-   | Value            | VwRxQ~xxxxxxxxXXXX_~xxxxxxxxxxXXXXXXXX01 |
-   | appId(client id) | xxxxxxxx-1234-abcd-xxxx-xxxxxx000001     |
-   | tenant           | xxxxxxxx-1234-abcd-xxxx-xxxx00000002     |
-* Storage preparation
-** Storage Account Preparation
-   #+BEGIN_SRC
-tidb-on-aks$ export RESOURCE_GROUP=resource_name_to_deploy
-tidb-on-aks$ az storage account create --name pingcapdbbackuptest --resource-group $RESOURCE_GROUP --allow-blob-public-access false --location "East US"
-The public access to all blobs or containers in the storage account will be disallowed by default in the future, which means default value for --allow-blob-public-access is still null but will be equivalent to false.
-{                         
-  "accessTier": "Hot",          
-  "allowBlobPublicAccess": false,
-  "allowCrossTenantReplication": null,
-  "allowSharedKeyAccess": null,
-  ... ...
-  "tags": {},
-  "type": "Microsoft.Storage/storageAccounts"
-}
+ tidb-on-aks$ az ad app create --display-name backup-reg-app
+ {                     
+   "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#applications/$entity",
+   "addIns": [],
+ ... ...
+     "logoutUrl": null,
+     "redirectUriSettings": [],
+     "redirectUris": []
+   }
+ }
    #+END_SRC
    #+attr_html: :width 800px
-   [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/003.png]]
-** Storage Container preparation
-   #+BEGIN_SRC
-tidb-on-aks$ az storage container create -n dbbackup --account-name pingcapdbbackuqptest
-{
-  "created": true
-}
+   [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/001.png]]
+*** Create Register APP secret
+    #+BEGIN_SRC
+ tidb-on-aks$ az ad app list --display-name "backup-reg-app" | jq '.[0].appId'
+ "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001"
+ tidb-on-aks$  az ad app credential reset --id "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001" --append 
+ The output includes credentials that you must protect. Be sure that you do not include these credentials in your code or check the credentials into your source control. For more information, see https://aka.ms/azadsp-cli
+ {
+   "appId": "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001",
+   "password": "XXxxQ~xxxxxxxxXXXX_~xxxxxxxxxxXXXXXXXX01",
+   "tenant": "xxxxxxxx-1234-abcd-xxxx-xxxx00000002"
+ }
+ tidb-on-aks$ az ad app credential list --id "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001"
+ [
+   {
+     "customKeyIdentifier": null,
+     "displayName": null,
+     "endDateTime": "2024-12-01T02:40:16Z",
+     "hint": "VwR",
+     "keyId": "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyy0002",
+     "secretText": null,
+     "startDateTime": "2023-12-01T02:40:16Z"
+   }
+ ]
+    #+END_SRC
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/002.png]]
+*** Create the service principal
+    #+BEGIN_SRC
+ tidb-on-aks$ az ad sp create --id 01139ae6-58c7-4a7c-b360-fc8110e13fce
+ {
+   "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#servicePrincipals/$entity",
+   "accountEnabled": true,
+   "addIns": [],
+   "alternativeNames": [],
+   ... ...
+   "verifiedPublisher": {
+     "addedDateTime": null,
+     "displayName": null,
+     "verifiedPublisherId": null
+   }
+ }
+    #+END_SRC
+*** Resources summary
+    #+ATTR_HTML: :border 2 :rules all :frame border
+    | Resource name    | Value                                    |
+    |------------------+------------------------------------------|
+    | app name         | backup-reg-app                           |
+    | secret ID        | yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyy0002     |
+    | Value            | VwRxQ~xxxxxxxxXXXX_~xxxxxxxxxxXXXXXXXX01 |
+    | appId(client id) | xxxxxxxx-1234-abcd-xxxx-xxxxxx000001     |
+    | tenant           | xxxxxxxx-1234-abcd-xxxx-xxxx00000002     |
+** Storage preparation
+*** Storage Account Preparation
+    #+BEGIN_SRC
+ tidb-on-aks$ export RESOURCE_GROUP=resource_name_to_deploy
+ tidb-on-aks$ az storage account create --name pingcapdbbackuptest --resource-group $RESOURCE_GROUP --allow-blob-public-access false --location "East US"
+ The public access to all blobs or containers in the storage account will be disallowed by default in the future, which means default value for --allow-blob-public-access is still null but will be equivalent to false.
+ {                         
+   "accessTier": "Hot",          
+   "allowBlobPublicAccess": false,
+   "allowCrossTenantReplication": null,
+   "allowSharedKeyAccess": null,
+   ... ...
+   "tags": {},
+   "type": "Microsoft.Storage/storageAccounts"
+ }
+    #+END_SRC
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/003.png]]
+*** Storage Container preparation
+    #+BEGIN_SRC
+ tidb-on-aks$ az storage container create -n dbbackup --account-name pingcapdbbackuqptest
+ {
+   "created": true
+ }
+    #+END_SRC
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/004.png]]
+*** Grant permission
+    #+ATTR_HTML: :border 1 :rules all :frame all
+    | Resource        | Role                           |
+    |-----------------+--------------------------------|
+    | container       | Contributor                    |
+    | storage account | Storage Blob Data Contributor  |
+    | storage account | Storage Queue Data Contributor |
+**** Storage account permission
+    #+BEGIN_SRC
+ tidb-on-aks$ az role assignment create --assignee "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001" --role "Contributor" --scope "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest/blobServices/default/containers/dbbackup"
+ {
+   "condition": null,
+   "conditionVersion": null,
+   "createdBy": null,
+   "createdOn": "2023-12-01T08:29:10.402947+00:00",
+   "delegatedManagedIdentityResourceId": null,
+   "description": null,
+   "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest/blobServices/default/containers/dbbackup",
+   ... ...
+ }
+ tidb-on-aks$ az role assignment create --assignee "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001" --role "Storage Blob Data Contributor" --scope "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOUIRCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest"
+ {
+   "condition": null,
+   "conditionVersion": null,
+   "createdBy": null,
+   "createdOn": "2023-12-01T14:16:26.166195+00:00",
+   "delegatedManagedIdentityResourceId": null,
+   "description": null,
+   "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest/providers/Microsoft.Authorization/roleAssignments/22f1ac17-572c-4a57-a5cd-143b033f13ba",
+   ... ...
+ }
    #+END_SRC
    #+attr_html: :width 800px
-   [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/004.png]]
-** Grant permission
-   #+ATTR_HTML: :border 1 :rules all :frame all
-   | Resource        | Role                           |
-   |-----------------+--------------------------------|
-   | container       | Contributor                    |
-   | storage account | Storage Blob Data Contributor  |
-   | storage account | Storage Queue Data Contributor |
-*** Storage account permission
+   [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/005.png]]
+**** Container IAM permission
    #+BEGIN_SRC
-tidb-on-aks$ az role assignment create --assignee "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001" --role "Contributor" --scope "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest/blobServices/default/containers/dbbackup"
-{
-  "condition": null,
-  "conditionVersion": null,
-  "createdBy": null,
-  "createdOn": "2023-12-01T08:29:10.402947+00:00",
-  "delegatedManagedIdentityResourceId": null,
-  "description": null,
-  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest/blobServices/default/containers/dbbackup",
-  ... ...
-}
-tidb-on-aks$ az role assignment create --assignee "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001" --role "Storage Blob Data Contributor" --scope "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOUIRCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest"
-{
-  "condition": null,
-  "conditionVersion": null,
-  "createdBy": null,
-  "createdOn": "2023-12-01T14:16:26.166195+00:00",
-  "delegatedManagedIdentityResourceId": null,
-  "description": null,
-  "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest/providers/Microsoft.Authorization/roleAssignments/22f1ac17-572c-4a57-a5cd-143b033f13ba",
-  ... ...
-}
-  #+END_SRC
-  #+attr_html: :width 800px
-  [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/005.png]]
-*** Container IAM permission
-  #+BEGIN_SRC
-tidb-on-aks$ az role assignment create --assignee "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001" --role "Storage Queue Data Contributor" --scope "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest"
-{
-  "condition": null,
-  "conditionVersion": null,
-  "createdBy": null,
-  "createdOn": "2023-12-01T14:21:06.453272+00:00",
-  "delegatedManagedIdentityResourceId": null,
-  "description": null,
-  ... ...
-}
+ tidb-on-aks$ az role assignment create --assignee "xxxxxxxx-1234-abcd-xxxx-xxxxxx000001" --role "Storage Queue Data Contributor" --scope "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Storage/storageAccounts/pingcapdbbackuptest/blobServices/default/containers/dbbackup"
+ {
+   "condition": null,
+   "conditionVersion": null,
+   "createdBy": null,
+   "createdOn": "2023-12-01T14:21:06.453272+00:00",
+   "delegatedManagedIdentityResourceId": null,
+   "description": null,
+   ... ...
+ }
 
-   #+END_SRC
-  #+attr_html: :width 800px
-  [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/006.png]]
-* Full Backup
-** Set secret
+    #+END_SRC
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/006.png]]
+** Set secret to kubernetes
+*** Storage account credentials setup
   #+BEGIN_SRC
 tidb-on-aks$ export AZURE_STORAGE_ACCOUNT=pingcapdbbackuqptest
 tidb-on-aks$ export AZURE_CLIENT_ID=xxxxxxxx-1234-abcd-xxxx-xxxxxx000001
@@ -154,10 +155,10 @@ tidb-on-aks$ kubectl create namespace backup-test
 tidb-on-aks$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT} --from-literal=AZURE_CLIENT_ID=${AZURE_CLIENT_ID} --from-literal=AZURE_TENANT_ID=${AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET=${SECRET_VALUE} --namespace=backup-test
 tidb-on-aks$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT} --from-literal=AZURE_CLIENT_ID=${AZURE_CLIENT_ID} --from-literal=AZURE_TENANT_ID=${AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET=${SECRET_VALUE} --namespace=tidb-cluster
   #+END_SRC
-
-** To decide
-   Go to [[https://github.com/pingcap/tidb-operator/blob/v1.5.1/manifests/backup/backup-rbac.yaml][backup-rbac.yaml]] to download the file.
-   #+BEGIN_SRC
+*** service account setup
+    The service account is required to created for the backup and restore in their namespace.
+    Go to [[https://github.com/pingcap/tidb-operator/blob/v1.5.1/manifests/backup/backup-rbac.yaml][backup-rbac.yaml]] to download the file.
+    #+BEGIN_SRC
 tidb-on-aks$ more backup-rbac.yaml
 ---
 kind: Role
@@ -194,10 +195,21 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: tidb-backup-manager
+
+tidb-on-aks$ # The rbac is created after the namespace of backup-test is created
 tidb-on-aks$ kubectl create -f backup-rbac.yaml -n backup-test
 role.rbac.authorization.k8s.io/tidb-backup-manager created
 serviceaccount/tidb-backup-manager created
 rolebinding.rbac.authorization.k8s.io/tidb-backup-manager created
+
+tidb-on-aks$ # The rbac is created after the namespace of restore-test is created
+tidb-on-aks$ kubectl create -f backup-rbac.yaml -n restore-test
+role.rbac.authorization.k8s.io/tidb-backup-manager created
+serviceaccount/tidb-backup-manager created
+rolebinding.rbac.authorization.k8s.io/tidb-backup-manager created
+    #+END_SRC
+*** apply credentials to TiDB Cluster
+    #+BEGIN_SRC
 tidb-on-aks$ kubectl exec jaytest-tikv-0 -n tidb-cluster  -- env | grep AZURE
 tidb-on-aks$ # Confirmed that no AZURE variable is set in the TiKV pods
 tidb-on-aks$ more /tmp/merge.json
@@ -209,11 +221,34 @@ AZURE_STORAGE_ACCOUNT=pingcapdbbackuptest
 AZURE_TENANT_ID=xxxxxxxx-1234-abcd-xxxx-xxxx00000002
 AZURE_CLIENT_ID=xxxxxxxx-1234-abcd-xxxx-xxxxxx000001
 AZURE_CLIENT_SECRET=VwRxQ~xxxxxxxxXXXX_~xxxxxxxxxxXXXXXXXX01
-tidb-on-aks workstation$ kubectl get backup -n backup-test 
+    #+END_SRC
+* PITR LOG Enable
+  #+BEGIN_SRC
+tidb-on-aks$ more /tmp/log-backup-azblob.yaml
+---
+apiVersion: pingcap.com/v1alpha1
+kind: Backup
+metadata:
+  name: demo-log-backup-azblob
+  namespace: backup-test
+spec:
+  backupMode: log
+  br:
+    cluster: jaytest001
+    clusterNamespace: tidb-cluster
+    sendCredToTikv: false
+  azblob:
+    secretName: azblob-secret-ad
+    container: dbbackup
+    prefix: pitr-log
+    #accessTier: Hot
+tidb-on-aks$ kubectl apply -f /tmp/log-backup-azblob.yaml -n backup-test
+backup.pingcap.com/demo-log-backup-azblob created
+tidb-on-aks$ kubectl get backup -n backup-test 
 NAME                           TYPE   MODE       STATUS     BACKUPPATH                                 BACKUPSIZE   COMMITTS             LOGTRUNCATEUNTIL   TIMETAKEN   AGE
-demo1-full-backup-azblob-001   full   snapshot   Complete   azure://dbbackup/full-backup-folder/001/   270 kB       446022439042547714                      12s         26m
-
-   #+END_SRC
+demo-log-backup-azblob                log        Running    azure://dbbackup/pitr-log/                              446043223075848194                                  36s
+  #+END_SRC
+* Full Backup
 ** Backup run
    #+BEGIN_SRC
 tidb-on-aks workstation$ more /tmp/full-backup-azblob.yaml
@@ -239,3 +274,90 @@ backup.pingcap.com/demo1-full-backup-azblob-001 created
    #+END_SRC
    #+attr_html: :width 800px
    [[https://www.51yomo.net/static/doc/tidb-on-aks/fullbackup/007.png]]
+* Full restore
+  The Storage credentials are not required for the restore in the TiDB Cluster.
+  #+BEGIN_SRC
+tidb-on-aks$ kubectl create namespace restore-test
+tidb-on-aks$ kubectl apply -f /tmp/backup-rbac.yaml -n restore-test
+tidb-on-aks$kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT} --from-literal=AZURE_CLIENT_ID=${AZURE_CLIENT_ID} --from-literal=AZURE_TENANT_ID=${AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET=${SECRET_VALUE} --namespace=restore-test
+secret/azblob-secret-ad created
+tidb-on-aks$ more /tmp/restore-full-azblob.yaml
+---
+apiVersion: pingcap.com/v1alpha1
+kind: Restore
+metadata:
+  name: demo-restore-azblob
+  namespace: restore-test
+spec:
+  br:
+    cluster: jaytest001
+    clusterNamespace: tidb-cluster
+    sendCredToTikv: false
+  azblob:
+    secretName: azblob-secret-ad
+    container: dbbackup
+    prefix: full-backup-folder/001
+tidb-on-aks$ kubectl apply -f /tmp/restore-full-azblob.yaml -n restore-test
+tidb-on-aks$ kubectl get restore -n restore-test 
+NAME                  STATUS     TIMETAKEN   COMMITTS             AGE
+demo-restore-azblob   Complete   3s          446045655929454593   65m
+
+MySQL [test]> show tables; 
++----------------+
+| Tables_in_test |
++----------------+
+| test01         |
++----------------+
+1 row in set (0.002 sec)
+
+MySQL [test]> select count(*) from test01; 
++----------+
+| count(*) |
++----------+
+|     2560 |
++----------+
+1 row in set (0.007 sec)
+
+  #+END_SRC
+* PITR restore
+  #+BEGIN_SRC
+tidb-on-aks$ more /tmp/restore-point-azblob.yaml 
+---
+apiVersion: pingcap.com/v1alpha1
+kind: Restore
+metadata:
+  name: demo-restore-azblob
+  namespace: restore-test
+spec:
+  restoreMode: pitr
+  br:
+    cluster: jaytest001
+    clusterNamespace: tidb-cluster
+  azblob:
+    secretName: azblob-secret-ad
+    container: dbbackup
+    prefix: full-backup-folder/001 
+  pitrRestoredTs: "2023-12-03T01:32:00+09:00"
+  pitrFullBackupStorageProvider:
+    azblob:
+      secretName: azblob-secret-ad
+      container: dbbackup
+      prefix: pitr-log
+tidb-on-aks$ kubectl apply -f /tmp/restore-point-azblob.yaml -n restore-test 
+restore.pingcap.com/demo-restore-azblob configured
+MySQL [test]> show tables; 
++----------------+
+| Tables_in_test |
++----------------+
+| test01         |
++----------------+
+1 row in set (0.002 sec)
+
+MySQL [test]> select count(*) from test01; 
++----------+
+| count(*) |
++----------+
+|     5120 |
++----------+
+1 row in set (0.007 sec)
+  #+END_SRC
