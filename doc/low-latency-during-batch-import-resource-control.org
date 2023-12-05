@@ -160,15 +160,53 @@ admin@workstation:~$
 ** Select Latency
 * TodoList
 ** Add batch resource control mode
-
 How to fetch ddl from aurora without db connection info.
   + Use data api
   + Use IAM authentication
   + Call mysqldump from lambda - No need to setup one EC2 server to run it.
+** v7.5.0 test
+*** resource control setup
+*** Control one batch's RU to see the executing effect
+    
 * lambda
   + https://www.zhihu.com/question/29490143
   + https://dashbird.io/lambda-cost-calculator/
   + https://dashbird.io/blog/aws-lambda-pricing-model-explained/
   + https://aws.amazon.com/blogs/database/iam-role-based-authentication-to-amazon-aurora-from-serverless-applications/
 
-  
+* Issue
+** Failed to change the ltb-max-wait-duration using tiup edit-config
+   #+BEGIN_SRC
+workstation$ ETCDCTL_API=3 etcdctl --endpoints=172.83.1.183:2379 get "resource_group/controller" --prefix=true 
+resource_group/controller
+{"degraded-mode-wait-duration":"0s","ltb-max-wait-duration":"1h0m0s","request-unit":{"read-base-cost":0.125,"read-per-batch-base-cost":0.5,"read-cost-per-byte":0.0000152587890625,"write-base-cost":1,"write-per-batch-base-cost":1,"write-cost-per-byte":0.0009765625,"read-cpu-ms-cost":0.3333333333333333}}
+workstation$ tiup cluster edit-config rctest
+...
+server_configs:
+  tidb:
+    performance.txn-total-size-limit: 107374182400
+  tikv: {}
+  pd:
+    controller.ltb-max-wait-duration: 7200s
+  tidb_dashboard: {}
+workstation$ tiup cluster reload rctest
+... ...
+workstation$ ETCDCTL_API=3 etcdctl --endpoints=172.83.1.183:2379 get "resource_group/controller" --prefix=true 
+resource_group/controller
+{"degraded-mode-wait-duration":"0s","ltb-max-wait-duration":"1h0m0s","request-unit":{"read-base-cost":0.125,"read-per-batch-base-cost":0.5,"read-cost-per-byte":0.0000152587890625,"write-base-cost":1,"write-per-batch-base-cost":1,"write-cost-per-byte":0.0009765625,"read-cpu-ms-cost":0.3333333333333333}}
+
+   #+END_SRC
+** Failed to killed the query after timeout
+   #+BEGIN_SRC
+workstation$ ETCDCTL_API=3 etcdctl --endpoints=172.83.1.183:2379 get "resource_group/controller" --prefix=true 
+resource_group/controller
+{"degraded-mode-wait-duration":"0s","ltb-max-wait-duration":"1h0m0s","request-unit":{"read-base-cost":0.125,"read-per-batch-base-cost":0.5,"read-cost-per-byte":0.0000152587890625,"write-base-cost":1,"write-per-batch-base-cost":1,"write-cost-per-byte":0.0009765625,"read-cpu-ms-cost":0.3333333333333333}}
+MySQL [latencytest]> show processlist;
++------------+----------+--------------------+-------------+---------+------+------------+------------------------------------------------------------------------------------------------------+
+| Id         | User     | Host               | db          | Command | Time | State      | Info                                                                                                 |
++------------+----------+--------------------+-------------+---------+------+------------+------------------------------------------------------------------------------------------------------+
+| 3749707886 | batchusr | 172.82.31.15:42138 | latencytest | Query   | 5115 | autocommit | insert into ontime( Year, Quarter, Month, DayofMonth, DayOfWeek, FlightDate, UniqueCarrier, AirlineI |
++------------+----------+--------------------+-------------+---------+------+------------+------------------------------------------------------------------------------------------------------+
+1 rows in set (0.002 sec)
+
+   #+END_SRC
