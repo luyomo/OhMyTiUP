@@ -10,6 +10,8 @@ server_configs:
 {{- end }}
   tidb:
     performance.txn-total-size-limit: 107374182400
+  pd:
+    controller.ltb-max-wait-duration: "3600s"
 {{- if (and (.Labels) (gt (len .Labels) 0)) }}
   pd:
     replication.location-labels: [ {{ range .Labels -}} "{{. }}" {{- end }} ]
