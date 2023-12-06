@@ -234,8 +234,11 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.installVM(ctx, (*instances)["VM"]); err != nil {
-		return err
+	// If there is no VM EC2 nodes, skip the vm instal
+	if (len((*instances)["VM"])) > 0 {
+		if err := c.installVM(ctx, (*instances)["VM"]); err != nil {
+			return err
+		}
 	}
 
 	// The audit log feature is merged into the TiDB bin after v7.1.0.

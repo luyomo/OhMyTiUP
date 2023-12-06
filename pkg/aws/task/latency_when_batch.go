@@ -163,8 +163,7 @@ func (c *RunSysbench) Execute(ctx context.Context) error {
 
 			} else {
 				// Todo : make compatible for two different cases
-				// arrData = append([]string{"Batch size"}, arrData[:len(arrData)-1]...)
-				arrData = append([]string{"Rows Inserted"}, arrData[:len(arrData)-1]...)
+				arrData = append([]string{"Test Case", "Rows Inserted"}, arrData[:len(arrData)-1]...)
 				arrData = append(arrData, "Start Time")
 				arrData = append(arrData, "End Time")
 				*c.sysbenchResult = append(*c.sysbenchResult, arrData)
@@ -177,8 +176,6 @@ func (c *RunSysbench) Execute(ctx context.Context) error {
 		return err
 	}
 	(*c.cancelCtx)()
-	fmt.Printf("The process has been completed. \n\n\n\n\n\n")
-	fmt.Printf("The data: <%#v> \n\n\n\n\n\n", *c.sysbenchResult)
 
 	return nil
 }

@@ -1268,7 +1268,7 @@ func (b *Builder) CreateDMSService(pexecutor *ctxt.Executor, subClusterType stri
 	}
 	clusterInfo.cidr = awsDMSConfigs.CIDR
 	clusterInfo.instanceType = awsDMSConfigs.InstanceType
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9100, 10080, 20160, 20180}).Build()).
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, NetworkTypePrivate, clusterInfo, []int{22, 1433, 2379, 2380, 3306, 4000, 8250, 8300, 9090, 9100, 10080, 20160, 20180}).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Subnet Group ... ...", subClusterType), NewBuilder().CreateDMSSubnetGroup(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Instance ... ...", subClusterType), NewBuilder().CreateDMSInstance(pexecutor, subClusterType, clusterInfo).Build()).
 		Step(fmt.Sprintf("%s : Creating DMS Source Endpoint ... ...", subClusterType), NewBuilder().CreateDMSSourceEndpoint(pexecutor, subClusterType, clusterInfo).Build()).
