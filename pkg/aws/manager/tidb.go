@@ -436,6 +436,10 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		return err
 	}
 
+	if err := m.workstation.InstallLightning("v7.5.0"); err != nil {
+		return err
+	}
+
 	// 03. Create the necessary tidb resources
 	var queries []string
 	if opt.TiKVMode == "partition" {
@@ -487,17 +491,16 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		return err
 	}
 
-	//  select DB_NAME, TABLE_NAME, STORE_ID, count(*) as cnt from TIKV_REGION_PEERS t1 inner join TIKV_REGION_STATUS t2 on t1.REGION_ID = t2.REGION_ID and t2.db_name in ('sbtest', 'latencytest') group by DB_NAME, TABLE_NAME, STORE_ID order by DB_NAME, TABLE_NAME, STORE_ID;
-
 	// 05. Data preparation from external
 	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh", "ontime_shard_batch_insert.sh"} {
 		if err := task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
 		}
 	}
+	return nil
 
 	// Download the data for ontime data population
-	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s 2022 01 2022 01 1>/dev/null", "latencytest", "ontime01"), false, 1*time.Hour); err != nil {
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s 2022 01 2022 02 1>/dev/null", "latencytest", "ontime01"), false, 1*time.Hour); err != nil {
 		return err
 	}
 
@@ -510,8 +513,6 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	tplSysbenchParam := make(map[string]string)
 	tplSysbenchParam["TiDBHost"] = (*dbConnInfo).DBHost
 	tplSysbenchParam["TiDBPort"] = strconv.FormatInt(int64((*dbConnInfo).DBPort), 10) // fmt.Sprintf("%s", (*dbConnInfo).DBPort)
-	// tplSysbenchParam["TiDBUser"] = (*dbConnInfo).DBUser
-	// tplSysbenchParam["TiDBPassword"] = (*dbConnInfo).DBPassword
 	tplSysbenchParam["TiDBUser"] = "onlineusr"
 	tplSysbenchParam["TiDBPassword"] = "1234Abcd"
 	tplSysbenchParam["TiDBDBName"] = opt.SysbenchDBName
@@ -523,6 +524,12 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/sysbench.toml.tpl", "/opt/sysbench.toml", "0644", tplSysbenchParam); err != nil {
 		return err
 	}
+
+	// 	return nil
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/tidb-lightning.toml.tpl", "/opt/tidb-lightning.toml", "0644", tplSysbenchParam); err != nil {
+		return err
+	}
+	return nil
 
 	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
 		return err
@@ -588,7 +595,6 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 					}
 
 					rcRU := int(int(rcQuota) * intCoe / 100)
-					fmt.Printf("RCU calculation: %d \n\n\n", rcRU)
 					if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "mysql", fmt.Sprintf("alter resource group sg_batch ru_per_sec=%d BURSTABLE=false Query_LIMIT=(EXEC_ELAPSED=\"120m\", ACTION=COOLDOWN)", rcRU)), false, 1*time.Hour); err != nil {
 						return err
 					}

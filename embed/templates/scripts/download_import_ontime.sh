@@ -12,17 +12,22 @@ start_month=$4
 end_year=$5
 end_month=$6
 
+mkdir -p /home/admin/tidb-lightning/data
+mkdir -p /home/admin/tidb-lightning/sort
+
 for s in `seq $start_year $end_year`
 do
 for m in `seq $start_month $end_month`
 do
 wget https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip --no-check-certificate
 unzip On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip
-mv "On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_${s}_${m}.csv" "${s}_${m}.csv";
+mv "On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_${s}_${m}.csv" "${1}.${2}.csv";
 rm -f readme.html
+sed -i -E '1 s/,$//' "${1}.${2}.csv"
+mv "${1}.${2}.csv" /home/admin/tidb-lightning/data/
 
-/opt/scripts/run_tidb_query $database "LOAD DATA LOCAL INFILE '$(pwd)/${s}_${m}.csv' INTO TABLE ${table_name} FIELDS TERMINATED BY ',' ENCLOSED BY '\"' LINES TERMINATED BY '\n' ignore 1 lines (Year, Quarter, Month, DayofMonth, DayOfWeek, FlightDate, UniqueCarrier, AirlineID, Carrier, TailNum, FlightNum, OriginAirportID, OriginAirportSeqID, OriginCityMarketID, Origin, OriginCityName, OriginState, OriginStateFips, OriginStateName, OriginWac, DestAirportID, DestAirportSeqID, DestCityMarketID, Dest, DestCityName, DestState, DestStateFips, DestStateName, DestWac, CRSDepTime, DepTime, DepDelay, DepDelayMinutes, DepDel15, DepartureDelayGroups, DepTimeBlk, TaxiOut, WheelsOff, WheelsOn, TaxiIn, CRSArrTime, ArrTime, ArrDelay, ArrDelayMinutes, ArrDel15, ArrivalDelayGroups, ArrTimeBlk, Cancelled, CancellationCode, Diverted, CRSElapsedTime, ActualElapsedTime, AirTime, Flights, Distance, DistanceGroup, CarrierDelay, WeatherDelay, NASDelay, SecurityDelay, LateAircraftDelay, FirstDepTime, TotalAddGTime, LongestAddGTime, DivAirportLandings, DivReachedDest, DivActualElapsedTime, DivArrDelay, DivDistance, Div1Airport, Div1AirportID, Div1AirportSeqID, Div1WheelsOn, Div1TotalGTime, Div1LongestGTime, Div1WheelsOff, Div1TailNum, Div2Airport, Div2AirportID, Div2AirportSeqID, Div2WheelsOn, Div2TotalGTime, Div2LongestGTime, Div2WheelsOff, Div2TailNum, Div3Airport, Div3AirportID, Div3AirportSeqID, Div3WheelsOn, Div3TotalGTime, Div3LongestGTime, Div3WheelsOff, Div3TailNum, Div4Airport, Div4AirportID, Div4AirportSeqID, Div4WheelsOn, Div4TotalGTime, Div4LongestGTime, Div4WheelsOff, Div4TailNum, Div5Airport, Div5AirportID, Div5AirportSeqID, Div5WheelsOn, Div5TotalGTime, Div5LongestGTime, Div5WheelsOff, Div5TailNum )"
+tidb-lightning -c /opt/tidb/tidb-lightning.toml
 rm On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip
-rm "${s}_${m}.csv"
+rm "/home/admin/tidb-lightning/data/${1}.${2}.csv"
 done
 done

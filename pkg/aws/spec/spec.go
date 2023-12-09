@@ -219,7 +219,7 @@ type (
 		KeyName          string `yaml:"keyname" default:"jay.pingcap"`
 		KeyFile          string `yaml:"keyfile" default:"/home/pi/.ssh/jaypingcap.pem"`
 		UserName         string `yaml:"username" default:"admin"`
-		VolumeSize       int    `yaml:"volumeSize,omitempty"`
+		VolumeSize       int32  `yaml:"volumeSize,omitempty"`
 		EnableMonitoring string `yaml:"enable_monitoring", default:"enabled"` // enabled/disabled
 	}
 

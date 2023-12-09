@@ -15,8 +15,6 @@ package task
 
 import (
 	"context"
-	"encoding/json"
-
 	"errors"
 	"fmt"
 	"regexp"
@@ -24,7 +22,6 @@ import (
 	"time"
 
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
-	"go.uber.org/zap"
 
 	elbtypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	awsutils "github.com/luyomo/OhMyTiUP/pkg/aws/utils"
@@ -119,77 +116,38 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		return err
 	}
 
-	// TODO: remove wsExe
-	wsExe, err := c.workstation.GetExecutor()
+	_, clusterInfo, err := c.workstation.ReadTiDBTopo(clusterName)
 	if err != nil {
 		return err
 	}
 
 	tiupClusterCmd := fmt.Sprintf("/home/%s/.tiup/bin/tiup cluster", c.awsWSConfigs.UserName)
+	if clusterInfo == nil {
 
-	stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`%s list --format json `, tiupClusterCmd), false)
-	if err != nil {
-		return err
-	}
+		var deploymentCmds []string
 
-	var tidbClusterInfos TiDBClusterInfos
-	if err = json.Unmarshal(stdout, &tidbClusterInfos); err != nil {
-		zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
-		return err
-	}
-
-	clusterExists := false
-	for _, tidbClusterInfo := range tidbClusterInfos.TiDBClusterInfos {
-		if tidbClusterInfo.Name == clusterName {
-			clusterExists = true
-			break
-		}
-	}
-
-	if clusterExists == false {
-
-		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s deploy %s %s /opt/tidb/tidb-cluster.yml -y`, tiupClusterCmd, clusterName, c.tidbVersion), false, 300*time.Second)
-		if err != nil {
-			return err
-		}
+		deploymentCmds = append(deploymentCmds, fmt.Sprintf(`%s deploy %s %s /opt/tidb/tidb-cluster.yml -y`, tiupClusterCmd, clusterName, c.tidbVersion))
 
 		if c.enableAuditLog == true && c.tidbVersion < "v7.1.0" {
 			binPlugin := fmt.Sprintf("enterprise-plugin-%s-linux-amd64", c.tidbVersion)
 
-			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s exec %s --command "mkdir -p {{.DeployDir}}/plugin"`, tiupClusterCmd, clusterName), false, 300*time.Second)
-			if err != nil {
-				return err
-			}
-
-			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s push %s /tmp/%s/bin/audit-1.so {{.DeployDir}}/plugin/audit-1.so`, tiupClusterCmd, clusterName, binPlugin), false, 300*time.Second)
-			if err != nil {
-				return err
-			}
-
-			stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s push %s /tmp/%s/bin/whitelist-1.so {{.DeployDir}}/plugin/whitelist-1.so`, tiupClusterCmd, clusterName, binPlugin), false, 300*time.Second)
-			if err != nil {
-				return err
-			}
+			deploymentCmds = append(deploymentCmds, fmt.Sprintf(`%s exec %s --command "mkdir -p {{.DeployDir}}/plugin"`, tiupClusterCmd, clusterName))
+			deploymentCmds = append(deploymentCmds, fmt.Sprintf(`%s push %s /tmp/%s/bin/audit-1.so {{.DeployDir}}/plugin/audit-1.so`, tiupClusterCmd, clusterName, binPlugin))
+			deploymentCmds = append(deploymentCmds, fmt.Sprintf(`%s push %s /tmp/%s/bin/whitelist-1.so {{.DeployDir}}/plugin/whitelist-1.so`, tiupClusterCmd, clusterName, binPlugin))
 		}
+		deploymentCmds = append(deploymentCmds, fmt.Sprintf(`%s start %s`, tiupClusterCmd, clusterName))
 
-		stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s start %s`, tiupClusterCmd, clusterName), false, 300*time.Second)
-		if err != nil {
+		if err := c.workstation.RunSerialCmds(deploymentCmds, false); err != nil {
 			return err
 		}
 
 		if err = awsutils.WaitResourceUntilExpectState(60*time.Second, 60*time.Minute, func() (bool, error) {
-			stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`%s display %s --format json `, tiupClusterCmd, clusterName), false)
+			_, clusterInfo, err := c.workstation.ReadTiDBTopo(clusterName)
 			if err != nil {
 				return false, err
 			}
 
-			var tidbClusterDetail TiDBClusterDetail
-			if err = json.Unmarshal(stdout, &tidbClusterDetail); err != nil {
-				zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
-				return false, err
-			}
-
-			for _, component := range tidbClusterDetail.Instances {
+			for _, component := range clusterInfo.Instances {
 				matched, err := regexp.MatchString(`^Up.*`, component.Status)
 				if err != nil {
 					return false, err
@@ -205,20 +163,9 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 		}
 
 	} else {
-		stdout, _, err := (*wsExe).Execute(ctx, fmt.Sprintf(`%s display %s --format json `, tiupClusterCmd, clusterName), false)
-		if err != nil {
-			return err
-		}
-
-		var tidbClusterDetail TiDBClusterDetail
-		if err = json.Unmarshal(stdout, &tidbClusterDetail); err != nil {
-			zap.L().Debug("Json unmarshal", zap.String("tidb cluster list", string(stdout)))
-			return nil
-		}
-		for _, component := range tidbClusterDetail.Instances {
+		for _, component := range clusterInfo.Instances {
 			if component.Status != "Up" {
-				stdout, _, err = (*wsExe).Execute(ctx, fmt.Sprintf(`%s start %s --node %s `, tiupClusterCmd, clusterName, component.Id), false)
-				if err != nil {
+				if err := c.workstation.RunSerialCmds([]string{fmt.Sprintf(`%s start %s --node %s `, tiupClusterCmd, clusterName, component.ID)}, false); err != nil {
 					return err
 				}
 			}
@@ -231,6 +178,10 @@ func (c *DeployTiDBInstance) Execute(ctx context.Context) error {
 	}
 
 	if err := c.workstation.DeployTiDBInfo(clusterName); err != nil {
+		return err
+	}
+
+	if err := c.workstation.DeployTiDBClusterConfig(instances); err != nil {
 		return err
 	}
 
@@ -285,9 +236,7 @@ func (c *DeployTiDBInstance) installVM(ctx context.Context, nodes []interface{})
 			"wget https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/v1.95.1/vmutils-linux-amd64-v1.95.1.tar.gz -O - | sudo tar -xz -C /usr/local/bin"}, false); err != nil {
 			return err
 		}
-
 	}
-
 	_params := make(map[interface{}]interface{})
 
 	var arrVMInsert []string
@@ -334,7 +283,6 @@ func (c *DeployTiDBInstance) installVM(ctx context.Context, nodes []interface{})
 		}, true); err != nil {
 			return err
 		}
-
 	}
 
 	// 04. Add NLB to three nodes

@@ -60,7 +60,8 @@ func (b *Builder) CreateWorkstationCluster(pexecutor *ctxt.Executor, subClusterT
 	clusterInfo.cidr = awsWSConfigs.CIDR
 	clusterInfo.keyFile = awsWSConfigs.KeyFile
 
-	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "public", clusterInfo, []int{22, 80, 3000, 4000}).Build()).
+	// 9090 : open against TiDB cluster for metrics_info/calicate resource
+	b.Step(fmt.Sprintf("%s : Creating Basic Resource ... ...", subClusterType), NewBuilder().CreateBasicResource(pexecutor, subClusterType, "public", clusterInfo, []int{22, 80, 3000, 4000, 9090}).Build()).
 		Step(fmt.Sprintf("%s : Creating workstation ... ...", subClusterType), NewBuilder().CreateWorkstation(pexecutor, subClusterType, awsWSConfigs, clusterInfo, wsExe, gOpt, cbMakeWSContext).Build())
 
 	return b
@@ -150,9 +151,6 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 			return err
 		}
 
-		// if *c.wsExe, err = GetWSExecutor03(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil); err != nil {
-		// 	return err
-		// }
 		return nil
 	}
 
@@ -224,7 +222,7 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 				DeviceName: aws.String("/dev/xvda"),
 				Ebs: &types.EbsBlockDevice{
 					DeleteOnTermination: aws.Bool(true),
-					VolumeSize:          aws.Int32(32),
+					VolumeSize:          aws.Int32(c.awsWSConfigs.VolumeSize),
 					VolumeType:          types.VolumeType("gp2"),
 				},
 			},
@@ -241,10 +239,6 @@ func (c *CreateWorkstation) Execute(ctx context.Context) error {
 	if err := c.cbMakeWSContext(); err != nil {
 		return err
 	}
-
-	// if *c.wsExe, err = GetWSExecutor03(*c.pexecutor, ctx, clusterName, clusterType, c.awsWSConfigs.UserName, c.awsWSConfigs.KeyFile, true, nil); err != nil {
-	// 	return err
-	// }
 
 	return nil
 }
