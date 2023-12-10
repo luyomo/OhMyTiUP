@@ -156,6 +156,9 @@ type (
 		RunCount       int
 		TransInterval  int
 
+		OnTimeStart string // 2020-01
+		OnTimeEnd   string // 2020-02
+
 		TiKVMode      string
 		IsolationMode string
 

@@ -428,6 +428,9 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
+
 	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.INC_AWS_ENV); err != nil {
 		return err
 	}
@@ -439,6 +442,8 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	if err := m.workstation.InstallLightning("v7.5.0"); err != nil {
 		return err
 	}
+
+	timer.Take("Package Install")
 
 	// 03. Create the necessary tidb resources
 	var queries []string
@@ -491,17 +496,13 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		return err
 	}
 
+	timer.Take("DB Resource preparation")
+
 	// 05. Data preparation from external
 	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh", "ontime_shard_batch_insert.sh"} {
 		if err := task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
 			return err
 		}
-	}
-	return nil
-
-	// Download the data for ontime data population
-	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s 2022 01 2022 02 1>/dev/null", "latencytest", "ontime01"), false, 1*time.Hour); err != nil {
-		return err
 	}
 
 	// 06. Get DB info
@@ -525,21 +526,40 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		return err
 	}
 
-	// 	return nil
 	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/tidb-lightning.toml.tpl", "/opt/tidb-lightning.toml", "0644", tplSysbenchParam); err != nil {
 		return err
 	}
-	return nil
+	timer.Take("Template render")
+
+	// Truncate table before data import(lightning local)
+	if err := m.workstation.ExecuteTiDB("latencytest", "truncate table ontime01"); err != nil {
+		return err
+	}
+
+	startYM := strings.Split(opt.OnTimeStart, "-")
+	endYM := strings.Split(opt.OnTimeEnd, "-")
+
+	// Download the data for ontime data population
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s %s %s %s %s 1>/dev/null", "latencytest", "ontime01", startYM[0], strings.TrimLeft(startYM[1], "0"), endYM[0], strings.TrimLeft(endYM[1], "0")), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	timer.Take("Batch data import(ontime)")
 
 	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
 		return err
 	}
+
+	timer.Take("sysbench preparation")
 
 	for _, file := range []string{"tidb_common.lua", "tidb_oltp_insert.lua", "tidb_oltp_point_select.lua", "tidb_oltp_read_write.lua", "tidb_oltp_insert_simple.lua", "tidb_oltp_point_select_simple.lua", "tidb_oltp_read_write_simple.lua"} {
 		if err = task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/sysbench/%s", file), fmt.Sprintf("/usr/share/sysbench/%s", file), "0644", []string{}); err != nil {
 			return err
 		}
 	}
+
+	timer.Take("sysbench scripts render ")
+	timer.Print()
 
 	return nil
 

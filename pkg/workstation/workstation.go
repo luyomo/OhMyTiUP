@@ -319,6 +319,21 @@ func (w *Workstation) DeployTiDBInfo(clusterName string) error {
 	return nil
 }
 
+func (w *Workstation) DeployTiDBClusterConfig(mapInstances *map[string][]interface{}) error {
+	ctx := context.Background()
+
+	mapValue := make(map[string]string)
+	mapValue["TiDB"] = (*mapInstances)["TiDB"][0].(string)
+	mapValue["PD"] = (*mapInstances)["PD"][0].(string)
+
+	err := (*w.executor).TransferTemplate(ctx, "templates/config/tidb-lightning.toml.tpl", "/opt/tidb/tidb-lightning.toml", "0644", mapValue, true, 0)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Todo: Remove it after ReadDBConnInfo migration
 func (w *Workstation) GetRedshiftDBInfo() (*RedshiftDBInfo, error) {
 	var redshiftDBInfos []RedshiftDBInfo
@@ -503,53 +518,22 @@ func (w *Workstation) InstallEnterpriseTiup(tidbVersion string) error {
 			binPlugin := fmt.Sprintf("enterprise-plugin-%s-linux-amd64", tidbVersion)
 			binTool := fmt.Sprintf("tidb-enterprise-toolkit-%s-linux-amd64", tidbVersion)
 
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binTiDB), false, 600*time.Second); err != nil {
+			if err := w.RunSerialCmds([]string{
+				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binTiDB),
+				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binTool),
+				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", binTiDB),
+				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", binTool),
+				fmt.Sprintf("sh /tmp/%s/local_install.sh", binTiDB),
+				fmt.Sprintf("cp -rp /tmp/%s/keys $HOME/.tiup/", binTiDB),
+				fmt.Sprintf("$HOME/.tiup/bin/tiup mirror merge /tmp/%s", binTool),
+				fmt.Sprintf("mkdir -p /tmp/%s", binPlugin),
+				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binPlugin),
+				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp/%s", binPlugin, binPlugin),
+				"which $HOME/.tiup/bin/tiup",
+			}, true); err != nil {
 				return err
 			}
 
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binTool), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			// https://download.pingcap.org/tidb-enterprise-toolkit-v7.1.0-linux-amd64.tar.gz
-			// https://docs.pingcap.com/tidb/stable/upgrade-tidb-using-tiup#upgrade-tiup-offline-mirror
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", binTiDB), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", binTool), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("sh /tmp/%s/local_install.sh", binTiDB), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("cp -rp /tmp/%s/keys $HOME/.tiup/", binTiDB), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("$HOME/.tiup/bin/tiup mirror merge /tmp/%s", binTool), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("mkdir -p /tmp/%s", binPlugin), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", binPlugin), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			if _, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp/%s", binPlugin, binPlugin), false, 600*time.Second); err != nil {
-				return err
-			}
-
-			_, _, err = (*w.executor).Execute(ctx, "which $HOME/.tiup/bin/tiup", false)
-			if err != nil {
-				return err
-			}
 		} else {
 			return err
 		}
@@ -564,7 +548,7 @@ func (w *Workstation) InstallSyncDiffInspector(version string) error {
 
 	installerFileName := fmt.Sprintf("tidb-community-toolkit-%s-linux-amd64", version)
 
-	_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/sync_diff_inspector", w.tiupCmdPath), false)
+	_, _, err := (*w.executor).Execute(ctx, "which sync_diff_inspector", false)
 	if err != nil {
 		if strings.Contains(err.Error(), "cause: exit status 1") {
 			if err := w.RunSerialCmds([]string{
@@ -585,19 +569,45 @@ func (w *Workstation) InstallSyncDiffInspector(version string) error {
 	return nil
 }
 
+func (w *Workstation) InstallLightning(version string) error {
+	ctx := context.Background()
+
+	installerFileName := fmt.Sprintf("tidb-community-toolkit-%s-linux-amd64", version)
+
+	_, _, err := (*w.executor).Execute(ctx, "which tidb-lightning", false)
+	if err != nil {
+		if strings.Contains(err.Error(), "cause: exit status 1") {
+			if err := w.RunSerialCmds([]string{
+				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", installerFileName),
+				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", installerFileName),
+				fmt.Sprintf("tar xvf /tmp/%s/tidb-lightning-%s-linux-amd64.tar.gz -C /tmp", installerFileName, version),
+				fmt.Sprintf("sudo mv /tmp/tidb-lightning /usr/local/bin"),
+				fmt.Sprintf("rm -rf /tmp/%s", installerFileName),
+				fmt.Sprintf("rm -rf /tmp/dumpling-%s-linux-amd64", version),
+				fmt.Sprintf("rm /tmp/%s.tar.gz", installerFileName),
+			}, false); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (w *Workstation) InstallDumpling(version string) error {
 	ctx := context.Background()
 
 	installerFileName := fmt.Sprintf("tidb-community-toolkit-%s-linux-amd64", version)
 
-	_, _, err := (*w.executor).Execute(ctx, fmt.Sprintf("which %s/dumpling", w.tiupCmdPath), false)
+	_, _, err := (*w.executor).Execute(ctx, "which %s/dumpling", false)
 	if err != nil {
 		if strings.Contains(err.Error(), "cause: exit status 1") {
 			if err := w.RunSerialCmds([]string{
 				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", installerFileName),
 				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", installerFileName),
 				fmt.Sprintf("tar xvf /tmp/%s/dumpling-%s-linux-amd64.tar.gz -C /tmp", installerFileName, version),
-				// fmt.Sprintf("mv /tmp/dumpling-%s-linux-amd64/dumpling %s/", version, w.tiupCmdPath),
 				fmt.Sprintf("sudo mv /tmp/dumpling /usr/local/bin"),
 				fmt.Sprintf("rm -rf /tmp/%s", installerFileName),
 				fmt.Sprintf("rm -rf /tmp/dumpling-%s-linux-amd64", version),
@@ -665,4 +675,73 @@ func (w *Workstation) TransferWSFile2Remote(targetIP, sourceFile, targetFile str
 
 	return nil
 
+}
+
+// -------------------------------------------
+type TiDBInstanceInfo struct {
+	ID            string `json:"id"`
+	Role          string `json:"role"`
+	Host          string `json:"host"`
+	Ports         string `json:"ports"`
+	OsArch        string `json:"os_arch"`
+	Status        string `json:"status"`
+	Memory        string `json:"memory"`
+	MemoryLimit   string `json:"memory_limit"`
+	CPUQuota      string `json:"cpu_quota"`
+	Since         string `json:"since"`
+	DataDir       string `json:"data_dir"`
+	DeployDir     string `json:"deploy_dir"`
+	ComponentName string `json:"ComponentName"`
+	Port          int    `json:"Port"`
+}
+
+type TiDBTopo struct {
+	ClusterMeta struct {
+		ClusterType    string `json:"cluster_type"`
+		ClusterName    string `json:"cluster_name"`
+		ClusterVersion string `json:"cluster_version"`
+		DeployUser     string `json:"deploy_user"`
+		SshType        string `json:"ssh_type"`
+		TlsEnabled     bool   `json:"tls_enabled"`
+		DashboardUrl   string `json:"dashboard_url"`
+	} `json:"cluster_meta"`
+	Instances []TiDBInstanceInfo `json:"instances"`
+}
+
+type TiDBCluster struct {
+	Name       string `json:"name"`
+	User       string `json:"user"`
+	Version    string `json:"version"`
+	Path       string `json:"path"`
+	PrivateKey string `json:"private_key"`
+}
+
+type TiDBClusters struct {
+	Clusters []TiDBCluster `json:"clusters"`
+}
+
+func (w *Workstation) ReadTiDBTopo(clusterName string) (*TiDBCluster, *TiDBTopo, error) {
+	stdout, _, err := (*w.executor).Execute(context.Background(), fmt.Sprintf("~/.tiup/bin/tiup cluster list --format json %s", clusterName), false)
+	if err != nil {
+		return nil, nil, err
+	}
+	var listClusters TiDBClusters
+	if err = json.Unmarshal(stdout, &listClusters); err != nil {
+		return nil, nil, errors.New(fmt.Sprintf("Failed to unmarshal data: <%s>, cluster name: <%s>", string(stdout), clusterName))
+	}
+	if len(listClusters.Clusters) == 0 {
+		return nil, nil, nil
+	}
+
+	stdout, _, err = (*w.executor).Execute(context.Background(), fmt.Sprintf("~/.tiup/bin/tiup cluster display --format json %s", clusterName), false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var tidbTopo TiDBTopo
+	if err = json.Unmarshal(stdout, &tidbTopo); err != nil {
+		return nil, nil, errors.New(fmt.Sprintf("Failed to unmarshal data: <%s>, cluster name: <%s>", string(stdout), clusterName))
+	}
+
+	return &listClusters.Clusters[0], &tidbTopo, nil
 }

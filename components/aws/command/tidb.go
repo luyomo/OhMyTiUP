@@ -247,6 +247,9 @@ func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")
 	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "oltp_point_select", "sysbench: oltp_point_select")
 
+	cmd.Flags().StringVarP(&opt.OnTimeStart, "ontime-start-ym", "s", "2022-01", "OnTime data start from: 2022-01")
+	cmd.Flags().StringVarP(&opt.OnTimeEnd, "ontime-end-ym", "e", "2022-01", "OnTime data end with: 2022-01")
+
 	cmd.Flags().Int64Var(&opt.SysbenchExecutionTime, "sysbench-execution-time", 600, "sysbench: --execution-time")
 	cmd.Flags().IntVar(&opt.SysbenchThread, "sysbench-thread", 4, "sysbench: --thread")
 	cmd.Flags().IntVar(&opt.SysbenchReportInterval, "sysbench-report-interval", 10, "sysbench: --report-interval")

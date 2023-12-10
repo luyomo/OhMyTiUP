@@ -15,19 +15,56 @@ end_month=$6
 mkdir -p /home/admin/tidb-lightning/data
 mkdir -p /home/admin/tidb-lightning/sort
 
+cleanup() {
+  rv=$?
+  exit $rv
+}
+
+INDEX=1
+
 for s in `seq $start_year $end_year`
 do
-for m in `seq $start_month $end_month`
-do
-wget https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip --no-check-certificate
-unzip On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip
-mv "On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_${s}_${m}.csv" "${1}.${2}.csv";
-rm -f readme.html
-sed -i -E '1 s/,$//' "${1}.${2}.csv"
-mv "${1}.${2}.csv" /home/admin/tidb-lightning/data/
+
+  if [ "$s" -lt "${end_year}" ];
+  then
+    endMonth=12
+  else
+    endMonth=$end_month
+  fi
+
+  if [ "$s" -gt "${start_year}" ];
+  then
+    startMonth=1
+  else
+    startMonth=$start_month
+  fi
+
+  for m in `seq $startMonth $endMonth`
+  do
+    FileIdx=$(printf "%05d" $INDEX)
+
+    wget https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip --no-check-certificate
+    trap "cleanup" EXIT
+
+    unzip On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip
+    trap "cleanup" EXIT
+
+    mv "On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_${s}_${m}.csv" "${1}.${2}.${FileIdx}.csv";
+    trap "cleanup" EXIT
+
+    rm -f readme.html
+    sed -i -E '1 s/,$//' "${1}.${2}.${FileIdx}.csv"
+    trap "cleanup" EXIT
+
+    mv "${1}.${2}.${FileIdx}.csv" "/home/admin/tidb-lightning/data/${1}.${2}.${FileIdx}.csv"
+    trap "cleanup" EXIT
+
+    let INDEX=${INDEX}+1
+  done
+done
 
 tidb-lightning -c /opt/tidb/tidb-lightning.toml
-rm On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${s}_${m}.zip
-rm "/home/admin/tidb-lightning/data/${1}.${2}.csv"
-done
-done
+trap "cleanup" EXIT
+
+rm -f On_Time_Reporting_Carrier_On_Time_Performance_1987_present_*.zip
+rm -f /home/admin/tidb-lightning/data/*.csv
