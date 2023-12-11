@@ -1,212 +1,111 @@
-* topic
-** Background
-   Simulate the batch + online case. When there is a batch starting to run, the latency will 
+#+OPTIONS: ^:nil
 * Background
-  | Test Case                | Comment                                                                                            |
-  |--------------------------+----------------------------------------------------------------------------------------------------|
-  | sysbench                 | Run the select sysbench singlely                                                                   |
-  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000)                                         |
-  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature                     |
-  | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature. [Resource Control] |
-  + Batch feature
-    #+BEGIN_SRC
-mysql> batch on source_table.id limit 2000 insert into target_table select * from source_table where date='2020-01-01'
-mysql> delete from target_table where date = '2020-01-01'
-    #+END_SRC
-* Environment preparation
-** Cluster setup
-   #+BEGIN_SRC
-admin@workstation:~$ more /tmp/aws-nodes-resourcecontrol.yaml
-workstation:
-  imageid: ami-01e5ff16fd6e8c542                  # Workstation EC2 instance
-  keyname: jay-us-east-01                         # Public key for workstation instance deployment
-  keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
-  volumeSize: 100                                 # disk size in the workstation
-  enable_monitoring: enabled                      # enable the moniroting on the workstation
-  instance_type: c5.2xlarge
-  cidr: 172.81.0.0/16
-aws_topo_configs:
-  general:
-    # debian os
-    imageid: ami-01e5ff16fd6e8c542                # Default image id for EC2
-    keyname: jay-us-east-01                       # Public key to access the EC2 instance
-    keyfile: /home/pi/.ssh/jay-us-east-01.pem
-    cidr: 172.83.0.0/16
-    tidb_version: v7.0.0
-    excluded_az:                                  # The AZ to be excluded for the subnets
-      - us-east-1e
-  pd:
-    instance_type: c5.large
-    count: 3
-  tidb:
-    instance_type: c5.2xlarge
-    count: 1
-  tikv:
-    -
-      instance_type: t2.medium
-      count: 3
-      volumeSize: 300
-      volumeType: gp3
-      iops: 3000
-admin@workstation:~$ ./bin/aws tidb deploy placementruletest /tmp/aws-nodes-resourcecontrol.yaml
+  Simulate the batch + online case. The online (tpcc) is in high priority compared to batch. The tpcc's qps and latency should be guaranteed from batch. 
+* Cluster Deployment
+  #+BEGIN_SRC
+workstation$ more tidb-on-aws.yaml
+ workstation:
+   cidr: 172.82.0.0/16                             # The cidr for the VPC
+   imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+   keyname: jay-us-east-01                         # Public key for workstation instance deployment
+   keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+   volumeSize: 100                                 # disk size in the workstation
+   enable_monitoring: enabled                      # enable the moniroting on the workstation
+   instance_type: t2.2xlarge                       # Instance type for PD component
+ aws_topo_configs:
+   general:
+     # debian os
+     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+     keyname: jay-us-east-01                       # Public key to access the EC2 instance
+     keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key ti access the EC2 instance
+     cidr: 172.83.0.0/16                           # The cidr for the VPC
+     instance_type: t2.small                       # Default instance type
+     #enable_audit_log: true                        # Enable the audit log
+     tidb_version: v7.5.0                          # TiDB version
+     excluded_az:                                  # The AZ to be excluded for the subnets
+       - us-east-1e
+     network_type: nat                             # The flag to decide whether the nat is created in the TiDB VPC
+   pd:
+     instance_type: t2.medium                      # Instance type for PD component
+     count: 3                                      # Number of PD node to be deployed
+   tidb:
+     instance_type: t2.large                       # Instance type of tidb
+     count: 2                                      # Number of TiDB node to be deployed
+   tikv:
+     -
+       instance_type: t2.large                     # Instance type of TiKV
+       count: 3                                    # Number of TiKV nodes to be deployed
+       volumeSize: 50                              # Storage size for TiKV nodes (GB)
+       volumeType: gp3                             # Storage type ex. gp2(default), gp3, io2
+       iops: 2000                                  # Storage IOPS(Only for gp3, io2)
+workstation$ ./bin/aws tidb deploy rctest /tmp/tidb-on-aws.yaml
 Please confirm your topology:
 AWS Region:      
 Cluster type:    tidb
-Cluster name:    placementruletest
-Cluster version: v7.0.0
+Cluster name:    rctest
+Cluster version: v7.5.0
 User Name:       
 Key Name:        jay-us-east-01
 
 Component    # of nodes  Instance Type  Image Name             CIDR           User  Placement rule labels
 ---------    ----------  -------------  ----------             ----           ----  ---------------------
-Workstation  1           c5.2xlarge     ami-01e5ff16fd6e8c542  172.81.0.0/16  admin
-TiDB         1           c5.2xlarge     ami-01e5ff16fd6e8c542  172.83.0.0/16  master
-PD           3           c5.large       ami-01e5ff16fd6e8c542  172.83.0.0/16  master
-TiKV         3           t2.medium      ami-01e5ff16fd6e8c542  172.83.0.0/16  master
+Workstation  1           t2.2xlarge     ami-07d02ee1eeb0c996c  172.82.0.0/16  admin
+TiDB         2           t2.large       ami-07d02ee1eeb0c996c  172.83.0.0/16  master
+PD           3           t2.medium      ami-07d02ee1eeb0c996c  172.83.0.0/16  master
+TiKV         3           t2.large       ami-07d02ee1eeb0c996c  172.83.0.0/16  master
 Attention:
     1. If the topology is not what you expected, check your yaml file.
     2. Please confirm there is no port/directory conflicts in same host.
 Do you want to continue? [y/N]: (default=N) y
 ... ...
 
-   #+END_SRC
-** Cluster confirmation
-   #+BEGIN_SRC
-admin@workstation:~$ ./bin/aws tidb list placementruletest
-Cluster  Type:      ohmytiup-tidb
-Cluster Name :      placementruletest
 
-Resource Type:      VPC
-Component Name  VPC ID  CIDR  Status
---------------  ------  ----  ------
+Execution Time:
+Step       Duration(s)
+----       -----------
+Execution  18m12s
+Total      18m12s
 
-Resource Type:      Subnet
-Component Name  Zone        Subnet ID                 CIDR            State      VPC ID
---------------  ----        ---------                 ----            -----      ------
-tidb            us-east-1a  subnet-00ce3622415d004ba  172.83.1.0/24   available  vpc-0be4bc95dce1820fa
-tidb            us-east-1b  subnet-0271a3a50f1a6cbaa  172.83.2.0/24   available  vpc-0be4bc95dce1820fa
-tidb            us-east-1c  subnet-0bdb9efc6e11d3748  172.83.3.0/24   available  vpc-0be4bc95dce1820fa
-tidb            us-east-1d  subnet-0f0b5192dcc9e4689  172.83.4.0/24   available  vpc-0be4bc95dce1820fa
-tidb            us-east-1f  subnet-0ceae420b2fc16082  172.83.5.0/24   available  vpc-0be4bc95dce1820fa
-workstation     us-east-1a  subnet-0e6e9d82df7453656  172.81.31.0/24  available  vpc-0ed2e7a786f749d80
+Verbose debug logs has been written to /home/pi/.tiup/logs/aws-nodes-debug-2023-12-07-10-51-55.log.
+  #+END_SRC
+* performance test
+  + Test Case
+    #+ATTR_HTML: :border 2 :rules all :frame border
+    | Test Case        | Comment                                                                                                                                         |
+    |------------------+-------------------------------------------------------------------------------------------------------------------------------------------------|
+    | TPCC ONLY        | The test only run tpcc against the TiDB to checkout the standard QPS and latency as the standard. All the other test will be compared to it     |
+    | TPCC/batch       | The TPCC and batch are run in parallel to see how much performance will be impacted from the batch.                                             |
+    | TPCC/batch(100%) | The TPCC and batch whose resource is controlled under 100%. This case we can take it as no resource control since it is allowed to use 100$ RCU |
+    | TPCC/batch(%x)   | The TPCC and batch whose resource is controoled under x%.                                                                                       |
+  + Execution commands
+    #+BEGIN_SRC
+workstation$ ./bin/aws tidb perf resource-isolation prepare rctest --sysbench-num-tables 10 --sysbench-execution-time 300 --isolation-mode ResourceControl  --tikv-mode simple
+workstation$ ./bin/aws tidb perf resource-isolation run rctest --sysbench-num-tables 10 -i ResourceControl  --batch-size x,50000 --repeats 2 --sysbench-plugin-name tidb_oltp_insert_simple
+Test Case         Rows Inserted  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  Start Time  End Time
+---------         -------------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  ----------  --------
+TPCC ONLY         0              0      128270  128270   128270  427.56      128270   427.56       4.16             9.35             227.37           12.98                     1199452.36        14:19:37    14:24:40
+TPCC/batch        2649643        0      91071   91071    91071   303.56      91071    303.56       4.25             13.17            990.04           27.66                     1199631.62        14:25:19    14:30:22
+TPCC/batch(%100)  1187771        0      101215  101215   101215  337.36      101215   337.36       4.24             11.85            208.25           20.74                     1199635.97        14:31:19    14:36:21
+TPCC/batch(%80)   1279138        0      92458   92458    92458   308.18      92458    308.18       4.10             12.97            434.11           25.28                     1199633.81        14:37:17    14:42:19
+TPCC/batch(%60)   1370505        0      103879  103879   103879  346.26      103879   346.26       3.97             11.55            355.30           20.00                     1199570.90        14:43:10    14:48:13
+TPCC/batch(%40)   913670         0      104459  104459   104459  348.19      104459   348.19       5.32             11.48            158.30           18.95                     1199572.49        14:50:35    14:55:37
+TPCC/batch(%20)   822303         0      109523  109523   109523  365.07      109523   365.07       4.07             10.95            372.04           18.61                     1199546.70        14:56:41    15:01:43
+TPCC/batch(%10)   274101         0      105706  105706   105706  352.34      105706   352.34       4.18             11.35            271.09           18.95                     1199564.59        15:06:16    15:11:18
+TPCC/batch(%5)    822303         0      107080  107080   107080  356.88      107080   356.88       3.97             11.20            364.85           19.65                     1199638.05        15:12:02    15:17:05
+TPCC ONLY         0              0      137435  137435   137435  458.10      137435   458.10       3.91             8.73             238.56           12.75                     1199443.99        15:43:13    15:48:16
+TPCC/batch        2649643        0      105991  105991   105991  353.25      105991   353.25       3.94             11.32            304.95           25.28                     1199620.69        15:48:56    15:53:59
+TPCC/batch(%100)  1370505        0      111970  111970   111970  373.08      111970   373.08       3.96             10.71            761.59           20.00                     1199685.55        15:54:40    15:59:42
+TPCC/batch(%80)   1279138        0      107689  107689   107689  358.95      107689   358.95       4.05             11.14            256.08           21.11                     1199565.71        16:01:51    16:06:54
+TPCC/batch(%60)   1005037        0      112955  112955   112955  376.48      112955   376.48       3.89             10.62            207.52           18.95                     1199607.49        16:08:06    16:13:08
+TPCC/batch(%40)   1005037        0      112837  112837   112837  376.12      112837   376.12       4.13             10.63            523.93           19.29                     1199518.78        16:14:18    16:19:20
+TPCC/batch(%20)   1187771        0      112508  112508   112508  375.02      112508   375.02       4.01             10.66            245.91           20.00                     1199534.28        16:21:04    16:26:06
+TPCC/batch(%10)   456835         0      127289  127289   127289  424.29      127289   424.29       3.89             9.42             282.97           15.00                     1199463.02        16:34:39    16:39:41
+TPCC/batch(%5)    274101         0      130402  130402   130402  434.67      130402   434.67       3.99             9.20             252.79           13.95                     1199461.60        16:43:43    16:48:46
+    #+END_SRC
+  + Execution screenshot \\
+    From above test case, we can see that as the resource controll's percentage decrease, the Row Inserted is decreasing at the similar rate. 
+    #+ATTR_HTML: :width 800
+    [[https://www.51yomo.net/static/doc/ResourceControl/011.png]]
+  
 
-Resource Type:      Route Table
-Component Name  Route Table ID  DestinationCidrBlock  TransitGatewayId  GatewayId  State  Origin
---------------  --------------  --------------------  ----------------  ---------  -----  ------
-
-Resource Type:      Security Group
-Component Name  Ip Protocol  Source Ip Range  From Port  To Port
---------------  -----------  ---------------  ---------  -------
-
-Resource Type:      Transit Gateway
-Resource ID  :          State:  
-Component Name  VPC ID  State
---------------  ------  -----
-
-Load Balancer:      placementruletest-8a18e26f8d132e80.elb.us-east-1.amazonaws.com
-Resource Type:      EC2
-Component Name  Component Cluster  State    Instance ID          Instance Type  Private IP     Public IP       Image ID
---------------  -----------------  -----    -----------          -------------  ----------     ---------       --------
-pd              tidb               running  i-0b40e4fb99df8ff32  c5.large       172.83.3.177                   ami-01e5ff16fd6e8c542
-pd              tidb               running  i-09f35214d166acbba  c5.large       172.83.1.112                   ami-01e5ff16fd6e8c542
-pd              tidb               running  i-0bb78d1a6a7717fee  c5.large       172.83.4.51                    ami-01e5ff16fd6e8c542
-tidb            tidb               running  i-0a3e6d2d821fddda3  c5.2xlarge     172.83.4.170                   ami-01e5ff16fd6e8c542
-tikv            tidb               running  i-0a85763b8d40cc02b  t2.medium      172.83.1.113                   ami-01e5ff16fd6e8c542
-tikv            tidb               running  i-031c7d0cff5c73fed  t2.medium      172.83.4.137                   ami-01e5ff16fd6e8c542
-tikv            tidb               running  i-044f024f53054e9ad  t2.medium      172.83.5.134                   ami-01e5ff16fd6e8c542
-workstation     workstation        running  i-0826e96fbccd865fb  c5.2xlarge     172.81.31.248  100.26.245.103  ami-01e5ff16fd6e8c542
-   #+END_SRC
-* Test
-** Prepare test environment
-   + Download ontime data and import it to latencytest database
-   + Database and user preparation
-   + Resource Group preparation
-     | Parameter           | Value           | Comment                                           |
-     |---------------------+-----------------+---------------------------------------------------|
-     | sysbench-num-tables | 10              | number of table for sysbench                      |
-     | isolation-mode      | ResourceControl | Use resource control to do the resource isolation |
-   #+BEGIN_SRC
-admin@workstation:~$ ./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-num-tables 10 --isolation-mode ResourceControl
-... ...
-   #+END_SRC
-** Test run
-   #+BEGIN_SRC
-admin@workstation:~$
-   #+END_SRC
-
-* Metrics
-** Resource Control State
-   | Test Case                | Comment                                                                                            |
-   |--------------------------+----------------------------------------------------------------------------------------------------|
-   | sysbench                 | Run the select sysbench singlely                                                                   |
-   | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000)                                         |
-   | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature                     |
-   | sysbench + Insert/Select | Run the sysbench and Insert/Select batch parallelly(90000) using batch feature. [Resource Control] |
-   [[https://www.51yomo.net/static/doc/ResourceControl/001.png]]
-   [[https://www.51yomo.net/static/doc/ResourceControl/002.png]]
-** sysbench Result
-   From the result, the batch impact the whole performance little. The batch rows decrease from case two. At the same time, the resource control totally controlled the batch process which decrease the inserted row to 1/8.
-   [[https://www.51yomo.net/static/doc/ResourceControl/003.png]]
-** RU metrics
-   [[https://www.51yomo.net/static/doc/ResourceControl/004.png]]
-** RU per query metrics
-   [[https://www.51yomo.net/static/doc/ResourceControl/005.png]]
-** Partition Query
-   [[https://www.51yomo.net/static/doc/ResourceControl/006.png]]
-** Latency metrics
-   [[https://www.51yomo.net/static/doc/ResourceControl/007.png]]
-
-** Resource control
-** Select Latency
-* TodoList
-** Add batch resource control mode
-How to fetch ddl from aurora without db connection info.
-  + Use data api
-  + Use IAM authentication
-  + Call mysqldump from lambda - No need to setup one EC2 server to run it.
-** v7.5.0 test
-*** resource control setup
-*** Control one batch's RU to see the executing effect
-    
-* lambda
-  + https://www.zhihu.com/question/29490143
-  + https://dashbird.io/lambda-cost-calculator/
-  + https://dashbird.io/blog/aws-lambda-pricing-model-explained/
-  + https://aws.amazon.com/blogs/database/iam-role-based-authentication-to-amazon-aurora-from-serverless-applications/
-
-* Issue
-** Failed to change the ltb-max-wait-duration using tiup edit-config
-   #+BEGIN_SRC
-workstation$ ETCDCTL_API=3 etcdctl --endpoints=172.83.1.183:2379 get "resource_group/controller" --prefix=true 
-resource_group/controller
-{"degraded-mode-wait-duration":"0s","ltb-max-wait-duration":"1h0m0s","request-unit":{"read-base-cost":0.125,"read-per-batch-base-cost":0.5,"read-cost-per-byte":0.0000152587890625,"write-base-cost":1,"write-per-batch-base-cost":1,"write-cost-per-byte":0.0009765625,"read-cpu-ms-cost":0.3333333333333333}}
-workstation$ tiup cluster edit-config rctest
-...
-server_configs:
-  tidb:
-    performance.txn-total-size-limit: 107374182400
-  tikv: {}
-  pd:
-    controller.ltb-max-wait-duration: 7200s
-  tidb_dashboard: {}
-workstation$ tiup cluster reload rctest
-... ...
-workstation$ ETCDCTL_API=3 etcdctl --endpoints=172.83.1.183:2379 get "resource_group/controller" --prefix=true 
-resource_group/controller
-{"degraded-mode-wait-duration":"0s","ltb-max-wait-duration":"1h0m0s","request-unit":{"read-base-cost":0.125,"read-per-batch-base-cost":0.5,"read-cost-per-byte":0.0000152587890625,"write-base-cost":1,"write-per-batch-base-cost":1,"write-cost-per-byte":0.0009765625,"read-cpu-ms-cost":0.3333333333333333}}
-
-   #+END_SRC
-** Failed to killed the query after timeout
-   #+BEGIN_SRC
-workstation$ ETCDCTL_API=3 etcdctl --endpoints=172.83.1.183:2379 get "resource_group/controller" --prefix=true 
-resource_group/controller
-{"degraded-mode-wait-duration":"0s","ltb-max-wait-duration":"1h0m0s","request-unit":{"read-base-cost":0.125,"read-per-batch-base-cost":0.5,"read-cost-per-byte":0.0000152587890625,"write-base-cost":1,"write-per-batch-base-cost":1,"write-cost-per-byte":0.0009765625,"read-cpu-ms-cost":0.3333333333333333}}
-MySQL [latencytest]> show processlist;
-+------------+----------+--------------------+-------------+---------+------+------------+------------------------------------------------------------------------------------------------------+
-| Id         | User     | Host               | db          | Command | Time | State      | Info                                                                                                 |
-+------------+----------+--------------------+-------------+---------+------+------------+------------------------------------------------------------------------------------------------------+
-| 3749707886 | batchusr | 172.82.31.15:42138 | latencytest | Query   | 5115 | autocommit | insert into ontime( Year, Quarter, Month, DayofMonth, DayOfWeek, FlightDate, UniqueCarrier, AirlineI |
-+------------+----------+--------------------+-------------+---------+------+------------+------------------------------------------------------------------------------------------------------+
-1 rows in set (0.002 sec)
-
-   #+END_SRC
+  [[https://www.51yomo.net/static/doc/ResourceControl/resource-control.gif]]
