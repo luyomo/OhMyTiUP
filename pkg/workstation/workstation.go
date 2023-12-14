@@ -569,26 +569,27 @@ func (w *Workstation) InstallSyncDiffInspector(version string) error {
 	return nil
 }
 
-func (w *Workstation) InstallLightning(version string) error {
+func (w *Workstation) InstallToolkit(version string) error {
 	ctx := context.Background()
 
 	installerFileName := fmt.Sprintf("tidb-community-toolkit-%s-linux-amd64", version)
 
-	_, _, err := (*w.executor).Execute(ctx, "which tidb-lightning", false)
-	if err != nil {
-		if strings.Contains(err.Error(), "cause: exit status 1") {
-			if err := w.RunSerialCmds([]string{
-				fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", installerFileName),
-				fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", installerFileName),
-				fmt.Sprintf("tar xvf /tmp/%s/tidb-lightning-%s-linux-amd64.tar.gz -C /tmp", installerFileName, version),
-				fmt.Sprintf("sudo mv /tmp/tidb-lightning /usr/local/bin"),
-				fmt.Sprintf("rm -rf /tmp/%s", installerFileName),
-				fmt.Sprintf("rm -rf /tmp/dumpling-%s-linux-amd64", version),
-				fmt.Sprintf("rm /tmp/%s.tar.gz", installerFileName),
-			}, false); err != nil {
-				return err
-			}
-		} else {
+	_, _, err01 := (*w.executor).Execute(ctx, "which tidb-lightning", false)
+	_, _, err02 := (*w.executor).Execute(ctx, "which dumpling", false)
+
+	if (err01 != nil && strings.Contains(err01.Error(), "cause: exit status 1")) || (err02 != nil && strings.Contains(err02.Error(), "cause: exit status 1")) {
+		if err := w.RunSerialCmds([]string{
+			fmt.Sprintf("wget https://download.pingcap.org/%s.tar.gz -P /tmp", installerFileName),
+			fmt.Sprintf("tar xvf /tmp/%s.tar.gz -C /tmp", installerFileName),
+			fmt.Sprintf("tar xvf /tmp/%s/tidb-lightning-%s-linux-amd64.tar.gz -C /tmp", installerFileName, version),
+			fmt.Sprintf("sudo mv /tmp/tidb-lightning /usr/local/bin"),
+			fmt.Sprintf("sudo mv /tmp/%s/tidb-lightning-ctl /usr/local/bin", installerFileName),
+			fmt.Sprintf("tar xvf /tmp/%s/dumpling-%s-linux-amd64.tar.gz -C /tmp", installerFileName, version),
+			fmt.Sprintf("sudo mv /tmp/dumpling /usr/local/bin"),
+			fmt.Sprintf("rm -rf /tmp/%s", installerFileName),
+			fmt.Sprintf("rm -rf /tmp/dumpling-%s-linux-amd64", version),
+			fmt.Sprintf("rm /tmp/%s.tar.gz", installerFileName),
+		}, false); err != nil {
 			return err
 		}
 	}

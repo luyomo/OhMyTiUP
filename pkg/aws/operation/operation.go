@@ -161,6 +161,7 @@ type (
 
 		TiKVMode      string
 		IsolationMode string
+		BatchMode     string
 
 		SysbenchTargetInstance string
 		SysbenchDBName         string

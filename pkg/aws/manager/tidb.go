@@ -16,7 +16,7 @@ package manager
 import (
 	"context"
 	"fmt"
-	"math"
+	// "math"
 	"os"
 	"strconv"
 	"strings"
@@ -439,7 +439,7 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 		return err
 	}
 
-	if err := m.workstation.InstallLightning("v7.5.0"); err != nil {
+	if err := m.workstation.InstallToolkit("v7.5.0"); err != nil {
 		return err
 	}
 
@@ -508,6 +508,17 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 	// 06. Get DB info
 	dbConnInfo, err := m.workstation.GetTiDBDBInfo()
 	if err != nil {
+		return err
+	}
+
+	// Render dumpling script
+	tplDumpling := make(map[string]string)
+	tplDumpling["TiDBHost"] = (*dbConnInfo).DBHost
+	tplDumpling["TiDBPort"] = strconv.FormatInt(int64((*dbConnInfo).DBPort), 10) // fmt.Sprintf("%s", (*dbConnInfo).DBPort)
+	tplDumpling["TiDBUser"] = "batchusr"
+	tplDumpling["TiDBPassword"] = "1234Abcd"
+	tplDumpling["DBName"] = "latencytest"
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/scripts/dumpling_data.sh.tpl", "/usr/local/bin/dumpling_data", "0755", tplDumpling); err != nil {
 		return err
 	}
 
@@ -597,15 +608,16 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 				[]string{"TPCC/batch(%20)", "20"},
 				[]string{"TPCC/batch(%10)", "10"},
 				[]string{"TPCC/batch(%5)", "5"},
+				[]string{"TPCC/batch(%1)", "1"},
 			}
 
 			for _, _testCase := range arrConfig {
 				// 001. Count the batch table before batch
-				_data, err := m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
-				if err != nil {
-					return err
-				}
-				originalCnt := (*_data)[0]["ontime_cnt"].(float64)
+				// _data, err := m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+				// if err != nil {
+				// 	return err
+				// }
+				// originalCnt := (*_data)[0]["ontime_cnt"].(float64)
 
 				// 002. Change the resource control for batch
 				if _testCase[1] != "" {
@@ -615,11 +627,11 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 					}
 
 					rcRU := int(int(rcQuota) * intCoe / 100)
-					if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "mysql", fmt.Sprintf("alter resource group sg_batch ru_per_sec=%d BURSTABLE=false Query_LIMIT=(EXEC_ELAPSED=\"120m\", ACTION=COOLDOWN)", rcRU)), false, 1*time.Hour); err != nil {
+					if err := m.workstation.ExecuteTiDB("mysql", fmt.Sprintf("alter resource group sg_batch ru_per_sec=%d BURSTABLE=false Query_LIMIT=(EXEC_ELAPSED='120m', ACTION=COOLDOWN)", rcRU)); err != nil {
 						return err
 					}
 				} else {
-					if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "mysql", "alter resource group sg_batch ru_per_sec=2000 priority=high burstable"), false, 1*time.Hour); err != nil {
+					if err := m.workstation.ExecuteTiDB("mysql", "alter resource group sg_batch ru_per_sec=2000 priority=high burstable"); err != nil {
 						return err
 					}
 				}
@@ -635,9 +647,10 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 				t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
 				envInitTasks = append(envInitTasks, t1)
 
+				var dumplingCnt int64
 				// 005. batch task preparation
 				if _testCase[0] != "TPCC ONLY" {
-					t2 := task.NewBuilder().RunOntimeBatchInsert(&m.wsExe, &opt, &gOpt, "batch").BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+					t2 := task.NewBuilder().RunOntimeBatchInsert(&m.workstation, &opt, &dumplingCnt).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
 					envInitTasks = append(envInitTasks, t2)
 				}
 
@@ -651,14 +664,17 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 				}
 
 				// 007. Count after execution
-				_data, err = m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
-				if err != nil {
-					return err
-				}
-				cnt := (*_data)[0]["ontime_cnt"].(float64) - originalCnt
+				// _data, err = m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+				// if err != nil {
+				// 	return err
+				// }
+				// cnt := (*_data)[0]["ontime_cnt"].(float64) - originalCnt
+
+				// fmt.Printf("Inserted row here: %d vs %f \n\n\n\n\n\n", dumplingCnt, cnt)
 
 				lastItem := sysbenchResult[len(sysbenchResult)-1]
-				lastItem = append([]string{fmt.Sprintf("%d", int(math.Round(cnt)))}, lastItem...)
+				// lastItem = append([]string{fmt.Sprintf("%d", int(math.Round(cnt)))}, lastItem...)
+				lastItem = append([]string{fmt.Sprintf("%d", dumplingCnt)}, lastItem...)
 				lastItem = append([]string{_testCase[0]}, lastItem...)
 
 				// 008. Fixed the message
@@ -686,7 +702,10 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 						return err
 					}
 
-					t2 := task.NewBuilder().RunOntimeBatchInsert(&m.wsExe, &opt, &gOpt, "insert").BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+					// batchmode: insert
+					var cntInsert int64
+					opt.BatchMode = "insert"
+					t2 := task.NewBuilder().RunOntimeBatchInsert(&m.workstation, &opt, &cntInsert).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
 					envInitTasks = append(envInitTasks, t2)
 				} else {
 					opt.BatchSize = 0

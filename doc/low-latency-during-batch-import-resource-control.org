@@ -69,6 +69,7 @@ Total      18m12s
 Verbose debug logs has been written to /home/pi/.tiup/logs/aws-nodes-debug-2023-12-07-10-51-55.log.
   #+END_SRC
 * performance test
+** Batch: insert ... select ... from 
   + Test Case
     #+ATTR_HTML: :border 2 :rules all :frame border
     | Test Case        | Comment                                                                                                                                         |
@@ -79,33 +80,45 @@ Verbose debug logs has been written to /home/pi/.tiup/logs/aws-nodes-debug-2023-
     | TPCC/batch(%x)   | The TPCC and batch whose resource is controoled under x%.                                                                                       |
   + Execution commands
     #+BEGIN_SRC
-workstation$ ./bin/aws tidb perf resource-isolation prepare rctest --sysbench-num-tables 10 --sysbench-execution-time 300 --isolation-mode ResourceControl  --tikv-mode simple
-workstation$ ./bin/aws tidb perf resource-isolation run rctest --sysbench-num-tables 10 -i ResourceControl  --batch-size x,50000 --repeats 2 --sysbench-plugin-name tidb_oltp_insert_simple
+workstation$ ./bin/aws tidb perf resource-isolation prepare rctest --sysbench-num-tables 10 --sysbench-execution-time 300 --isolation-mode ResourceControl --tikv-mode simple --ontime-start-ym 2021-01 --ontime-end-ym 2021-02
+workstation$ ./bin/aws tidb perf resource-isolation run rctest --sysbench-num-tables 10 -i ResourceControl  --batch-size x,50000 --repeats 1 --sysbench-plugin-name tidb_oltp_insert_simple
 Test Case         Rows Inserted  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  Start Time  End Time
 ---------         -------------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  ----------  --------
-TPCC ONLY         0              0      128270  128270   128270  427.56      128270   427.56       4.16             9.35             227.37           12.98                     1199452.36        14:19:37    14:24:40
-TPCC/batch        2649643        0      91071   91071    91071   303.56      91071    303.56       4.25             13.17            990.04           27.66                     1199631.62        14:25:19    14:30:22
-TPCC/batch(%100)  1187771        0      101215  101215   101215  337.36      101215   337.36       4.24             11.85            208.25           20.74                     1199635.97        14:31:19    14:36:21
-TPCC/batch(%80)   1279138        0      92458   92458    92458   308.18      92458    308.18       4.10             12.97            434.11           25.28                     1199633.81        14:37:17    14:42:19
-TPCC/batch(%60)   1370505        0      103879  103879   103879  346.26      103879   346.26       3.97             11.55            355.30           20.00                     1199570.90        14:43:10    14:48:13
-TPCC/batch(%40)   913670         0      104459  104459   104459  348.19      104459   348.19       5.32             11.48            158.30           18.95                     1199572.49        14:50:35    14:55:37
-TPCC/batch(%20)   822303         0      109523  109523   109523  365.07      109523   365.07       4.07             10.95            372.04           18.61                     1199546.70        14:56:41    15:01:43
-TPCC/batch(%10)   274101         0      105706  105706   105706  352.34      105706   352.34       4.18             11.35            271.09           18.95                     1199564.59        15:06:16    15:11:18
-TPCC/batch(%5)    822303         0      107080  107080   107080  356.88      107080   356.88       3.97             11.20            364.85           19.65                     1199638.05        15:12:02    15:17:05
-TPCC ONLY         0              0      137435  137435   137435  458.10      137435   458.10       3.91             8.73             238.56           12.75                     1199443.99        15:43:13    15:48:16
-TPCC/batch        2649643        0      105991  105991   105991  353.25      105991   353.25       3.94             11.32            304.95           25.28                     1199620.69        15:48:56    15:53:59
-TPCC/batch(%100)  1370505        0      111970  111970   111970  373.08      111970   373.08       3.96             10.71            761.59           20.00                     1199685.55        15:54:40    15:59:42
-TPCC/batch(%80)   1279138        0      107689  107689   107689  358.95      107689   358.95       4.05             11.14            256.08           21.11                     1199565.71        16:01:51    16:06:54
-TPCC/batch(%60)   1005037        0      112955  112955   112955  376.48      112955   376.48       3.89             10.62            207.52           18.95                     1199607.49        16:08:06    16:13:08
-TPCC/batch(%40)   1005037        0      112837  112837   112837  376.12      112837   376.12       4.13             10.63            523.93           19.29                     1199518.78        16:14:18    16:19:20
-TPCC/batch(%20)   1187771        0      112508  112508   112508  375.02      112508   375.02       4.01             10.66            245.91           20.00                     1199534.28        16:21:04    16:26:06
-TPCC/batch(%10)   456835         0      127289  127289   127289  424.29      127289   424.29       3.89             9.42             282.97           15.00                     1199463.02        16:34:39    16:39:41
-TPCC/batch(%5)    274101         0      130402  130402   130402  434.67      130402   434.67       3.99             9.20             252.79           13.95                     1199461.60        16:43:43    16:48:46
+TPCC ONLY         0              0      136324  136324   136324  454.41      136324   454.41       4.87             8.80             143.53           11.87                     1199440.22        22:29:47    22:34:50
+TPCC/batch        2714310        0      117689  117689   117689  392.29      117689   392.29       4.85             10.19            363.35           17.32                     1199510.62        22:35:22    22:40:25
+TPCC/batch(%100)  1407420        0      119428  119428   119428  398.08      119428   398.08       4.42             10.04            253.99           14.73                     1199493.58        22:41:40    22:46:43
+TPCC/batch(%80)   1206360        0      121772  121772   121772  405.90      121772   405.90       4.73             9.85             211.77           14.46                     1199493.41        22:47:35    22:52:38
+TPCC/batch(%60)   1005300        0      120693  120693   120693  402.29      120693   402.29       4.85             9.94             181.46           14.21                     1199528.23        22:53:42    22:58:45
+TPCC/batch(%40)   1105830        0      124640  124640   124640  415.46      124640   415.46       4.73             9.62             82.92            13.70                     1199488.97        22:59:26    23:04:28
+TPCC/batch(%20)   1005300        0      124949  124949   124949  416.49      124949   416.49       4.82             9.60             221.80           13.22                     1199480.89        23:07:54    23:12:57
+TPCC/batch(%10)   301590         0      134084  134084   134084  446.94      134084   446.94       4.72             8.95             60.54            11.87                     1199443.11        23:19:35    23:24:37
+TPCC/batch(%5)    603180         0      135706  135706   135706  452.35      135706   452.35       4.65             8.84             64.17            11.65                     1199436.20        23:26:33    23:31:35
+TPCC/batch(%1)    100530         0      147578  147578   147578  491.92      147578   491.92       4.62             8.13             2474.17          10.65                     1199397.31        23:51:14    23:56:17
     #+END_SRC
   + Execution screenshot \\
+    From the test, we can see that as the allocated resource's usage decreases, the Row Inserted is decreasing. Is is the 
     From above test case, we can see that as the resource controll's percentage decrease, the Row Inserted is decreasing at the similar rate. 
     #+ATTR_HTML: :width 800
     [[https://www.51yomo.net/static/doc/ResourceControl/011.png]]
   
 
   [[https://www.51yomo.net/static/doc/ResourceControl/resource-control.gif]]
+** Batch: dumpling
+   #+BEGIN_SRC
+workstation$ ./bin/aws tidb perf resource-isolation prepare rctest --sysbench-num-tables 10 --sysbench-execution-time 300 --isolation-mode ResourceControl --tikv-mode simple --ontime-start-ym 2021-01 --ontime-end-ym 2021-02
+workstation$ ./bin/aws tidb perf resource-isolation run rctest --sysbench-num-tables 10 -i ResourceControl  --batch-size x,50000 --repeats 1 --sysbench-plugin-name tidb_oltp_insert_simple --batch-mode dumpling
+Test Case         Rows Inserted  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  Start Time  End Time
+---------         -------------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  ----------  --------
+TPCC ONLY         0              0      148496  148496   148496  494.98      148496   494.98       4.50             8.08             217.99           10.84                     1199392.33        00:11:54    00:16:56
+TPCC/batch        6245064        0      68520   68520    68520   228.38      68520    228.38       4.55             17.51            1530.74          41.10                     1199754.74        00:17:29    00:22:32
+TPCC/batch(%100)  4857272        0      55415   55415    55415   184.61      55415    184.61       4.41             21.66            1405.09          65.65                     1200068.05        00:26:26    00:31:28
+TPCC/batch(%80)   6938960        0      57459   57459    57459   191.52      57459    191.52       4.43             20.88            1615.73          59.99                     1199753.93        00:33:05    00:38:08
+TPCC/batch(%60)   5551168        0      55760   55760    55760   185.58      55760    185.58       4.54             21.54            1587.25          61.08                     1201342.19        00:42:22    00:47:25
+TPCC/batch(%40)   4163376        0      55297   55297    55297   184.31      55297    184.31       4.41             21.70            1726.22          65.65                     1199774.66        00:49:55    00:54:58
+TPCC/batch(%20)   4163376        0      59355   59355    59355   197.62      59355    197.62       4.51             20.22            1520.30          54.83                     1200095.16        00:55:46    01:00:49
+TPCC/batch(%10)   2775584        0      90876   90876    90876   302.68      90876    302.68       4.62             13.20            1233.16          21.89                     1199837.21        01:01:46    01:06:48
+TPCC/batch(%5)    1387792        0      118237  118237   118237  394.11      118237   394.11       4.56             10.14            822.56           15.27                     1199486.88        01:07:41    01:12:44
+TPCC/batch(%1)    693896         0      140955  140955   140955  469.64      140955   469.64       4.72             8.51             432.79           11.65                     1199544.12        01:13:19    01:18:22
+   #+END_SRC
+
+

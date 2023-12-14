@@ -21,13 +21,14 @@ import (
 
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/ctxt"
+	ws "github.com/luyomo/OhMyTiUP/pkg/workstation"
 )
 
-func (b *Builder) RunOntimeBatchInsert(pexecutor *ctxt.Executor, opt *operator.LatencyWhenBatchOptions, gOpt *operator.Options, insertMode string) *Builder {
+func (b *Builder) RunOntimeBatchInsert(workstation *ws.Workstation, opt *operator.LatencyWhenBatchOptions, dumplingCnt *int64) *Builder {
 	b.tasks = append(b.tasks, &RunOntimeBatchInsert{
-		pexecutor:  pexecutor,
-		opt:        opt,
-		insertMode: insertMode,
+		opt:         opt,
+		dumplingCnt: dumplingCnt,
+		workstation: workstation,
 	})
 	return b
 }
@@ -55,39 +56,73 @@ type MetricsOfLatencyWhenBatch struct {
 }
 
 type RunOntimeBatchInsert struct {
-	pexecutor *ctxt.Executor
-	// gOpt      *operator.Options
-	opt        *operator.LatencyWhenBatchOptions
-	insertMode string
+	pexecutor   *ctxt.Executor
+	workstation *ws.Workstation
+	opt         *operator.LatencyWhenBatchOptions
+	dumplingCnt *int64
 }
 
-// Execute implements the Task interface
+// Bckground: Test the resource control's effect. The process are simulated. One the online application by tpcc while another is batch by insert...select query. Use resource control to limit the tpcc's latency and qps impact from batch.
+// Description: There are seveal modes to call the batch process:
+//  01. partition:
+//  02. batch: Split the big transaction into several small transactions without user's source hacker.  https://docs.pingcap.com/tidb/stable/sql-statement-batch
+//  03. insert: User the insert into ontime (...) select ... from ontime01
+//  04. dumpling: Dumpling the data from ontime01 to similate the batch process
+//
+// For dumpling mode, count the ontime01 first and calculate the sum export by ontime01's count * idx(number of loop)
+// For non-dumpling mode, count the ontime before and after the batch to diff out the count of the batch
 func (c *RunOntimeBatchInsert) Execute(ctx context.Context) error {
 	ticker := time.NewTicker(time.Duration((*c.opt).TransInterval) * time.Millisecond)
+
+	var cntOntime01 int64
+	if c.opt.BatchMode == "dumpling" {
+		_data, err := c.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime01")
+		if err != nil {
+			return err
+		}
+		cntOntime01 = int64((*_data)[0]["ontime_cnt"].(float64))
+	} else {
+		_data, err := c.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+		if err != nil {
+			return err
+		}
+		cntOntime01 = int64((*_data)[0]["ontime_cnt"].(float64))
+	}
 
 	idx := 0
 	for {
 		select {
 		case <-ctx.Done(): // Signal from another thread that it has completed.
 			fmt.Printf("Rows are inserted into batch table: %d and %d \n\n\n\n\n\n", idx, (*(c.opt)).BatchSize)
+
+			if c.opt.BatchMode == "dumpling" {
+				*(c.dumplingCnt) = int64(idx) * cntOntime01
+			} else {
+				_data, err := c.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
+				if err != nil {
+					return err
+				}
+				curOntimeCnt := int64((*_data)[0]["ontime_cnt"].(float64))
+				*(c.dumplingCnt) = curOntimeCnt - cntOntime01
+			}
+
 			return nil
 		case <-ticker.C:
 			// fmt.Printf("Starting to copy data: %d \n\n\n", idx)
 			command := ""
 			// insert / batch / partition
-			switch c.insertMode {
+			switch c.opt.BatchMode {
 			case "partition":
-				command = fmt.Sprintf(`/opt/scripts/ontime_shard_batch_insert.sh latencytest ontime01 ontime %s`, c.insertMode)
+				command = fmt.Sprintf(`/opt/scripts/ontime_shard_batch_insert.sh latencytest ontime01 ontime %s`, c.opt.BatchMode)
 			case "batch":
-				command = fmt.Sprintf(`/opt/scripts/ontime_shard_batch_insert.sh latencytest ontime01 ontime %s`, c.insertMode)
+				command = fmt.Sprintf(`/opt/scripts/ontime_shard_batch_insert.sh latencytest ontime01 ontime %s`, c.opt.BatchMode)
 			case "insert":
 				command = fmt.Sprintf(`/opt/scripts/ontime_batch_insert.sh latencytest ontime01 ontime %d`, (*(c.opt)).BatchSize)
+			case "dumpling":
+				command = `/usr/local/bin/dumpling_data`
 			}
 
-			stdout, stderr, err := (*c.pexecutor).Execute(context.Background(), command, false, 5*time.Hour)
-			// fmt.Printf("Completed to copy data: %d \n\n\n", idx)
-			if err != nil {
-				fmt.Printf("stdout: %s, stderr: %#v \n\n\n", string(stdout), string(stderr))
+			if err := c.workstation.RunSerialCmds([]string{command}, true); err != nil {
 				return err
 			}
 

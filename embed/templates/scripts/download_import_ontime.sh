@@ -63,6 +63,7 @@ do
   done
 done
 
+rm -f /tmp/tidb_lightning_checkpoint.pb
 tidb-lightning -c /opt/tidb/tidb-lightning.toml
 trap "cleanup" EXIT
 
