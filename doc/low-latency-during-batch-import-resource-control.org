@@ -1,6 +1,8 @@
 #+OPTIONS: ^:nil
 * Background
   #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/tidb-on-aks/k8s-upgrade.gif]]
+  #+attr_html: :width 800px
   [[https://www.51yomo.net/static/doc/ResourceControl/resource-control.gif]] \\
   Simulate the batch + online case. The online (tpcc) is in high priority compared to batch. The tpcc's qps and latency should be guaranteed from batch. 
 * Cluster Deployment
