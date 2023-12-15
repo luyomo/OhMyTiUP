@@ -26,4 +26,6 @@
 ** Others
   + [[./doc/count_performance.org][Count performance tuning]] - Performance tuning for table count
   + [[./doc/transferdb.org][transferdb ddl conversion]] - Data conversion from oracle to mysql document. Please refer to [[https://github.com/wentaojin/transferdb][transferdb]]
-  + [[./doc/low-latency-during-batch-import.org][Low latency during heavy batch]] - TiKV nodes isolation between batch and online transaction 
+  + [[./doc/low-latency-during-batch-import.org][Low latency during heavy batch]] - TiKV nodes isolation between batch and online transaction
+  + [[./doc/low-latency-during-batch-import-resource-control.org][Resource control to improve latency during heavy batch]] - Resource control between batch and online transaction to reduce impact to online [batch: insert/select, dumpling]
+    

@@ -1,5 +1,7 @@
 #+OPTIONS: ^:nil
 * Background
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/ResourceControl/resource-control.gif]] \\
   Simulate the batch + online case. The online (tpcc) is in high priority compared to batch. The tpcc's qps and latency should be guaranteed from batch. 
 * Cluster Deployment
   #+BEGIN_SRC
@@ -100,9 +102,7 @@ TPCC/batch(%1)    100530         0      147578  147578   147578  491.92      147
     From above test case, we can see that as the resource controll's percentage decrease, the Row Inserted is decreasing at the similar rate. 
     #+ATTR_HTML: :width 800
     [[https://www.51yomo.net/static/doc/ResourceControl/011.png]]
-  
-
-  [[https://www.51yomo.net/static/doc/ResourceControl/resource-control.gif]]
+    
 ** Batch: dumpling
    #+BEGIN_SRC
 workstation$ ./bin/aws tidb perf resource-isolation prepare rctest --sysbench-num-tables 10 --sysbench-execution-time 300 --isolation-mode ResourceControl --tikv-mode simple --ontime-start-ym 2021-01 --ontime-end-ym 2021-02
