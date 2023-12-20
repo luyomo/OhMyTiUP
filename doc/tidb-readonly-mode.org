@@ -1,0 +1,74 @@
+* Batch
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/readonly-mode/readonly-batch.gif]]
+* Transaction
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/readonly-mode/readonly-transaction.gif]]
+* read only effective
+** Shell mode
+   #+BEGIN_SRC shell
+     $ more testScript.sh 
+     #!/bin/bash 
+     
+     host=$1
+     tableName=$2
+     
+     for v in {1..1000}
+     do
+       mysql -h $host -u root -P 4000 test -e "select current_timestamp"
+       mysql -h $host -u root -P 4000 test -e "insert into $tableName values($v, $v)"
+       if [ $? != 0 ];
+       then
+         exit 0
+       fi
+     done
+     
+     $ testScript.sh db-host target-table-name
+   #+END_SRC
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/readonly-mode/readonly-bash.gif]]
+** golang mode
+   #+BEGIN_SRC golang
+package main
+
+import (
+        "database/sql"
+        "time"
+        "fmt"
+        "os"
+
+        _ "github.com/go-sql-driver/mysql"
+)
+
+func main() {
+    host := os.Args[1]
+    tableName := os.Args[2]
+
+    db, err := sql.Open("mysql", fmt.Sprintf("root@tcp(%s:4000)/test", host))
+    if err != nil {
+        panic(err)
+    }
+    // See "Important settings" section.
+    db.SetConnMaxLifetime(time.Minute * 3)
+    db.SetMaxOpenConns(10)
+    db.SetMaxIdleConns(10)
+
+    stmtIns, err := db.Prepare(fmt.Sprintf("INSERT INTO %s VALUES( ?, ? )", tableName)) // ? = placeholder
+    if err != nil {
+        panic(err.Error()) // proper error handling instead of panic in your app
+    }
+    defer stmtIns.Close() // Close the statement when we leave main() / the program terminates
+
+    // Insert square numbers for 0-24 in the database
+    for i := 0; i < 10000; i++ {
+        _, err = stmtIns.Exec(i, i) // Insert tuples (i, i^2)
+        if err != nil {
+            t := time.Now()
+            fmt.Println(t.Format("2006-01-02T15:04:05.000"))
+            panic(err.Error()) // proper error handling instead of panic in your app
+        }
+    }
+}
+   #+END_SRC
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/readonly-mode/readonly-golang.gif]]
