@@ -1,11 +1,26 @@
+#+OPTIONS: ^:nil
 * Batch
+Test as the below procedure to see how much impact on the batch procedure. From the result, the batch failed after about 30 seconds when the ticb_super_read_only was set to true.. 
+  + Run one heavy batch to copy one table to another(# of rows: 50000)
+  + set global tidb_super_read_only = true
+  + Failed after about 30 seconds
   #+attr_html: :width 800px
   [[https://www.51yomo.net/static/doc/readonly-mode/readonly-batch.gif]]
 * Transaction
+Test as the below procesure to see how the tidb_super_read_only impact one transaction. From the result, the transaction failed after the tidb_super_read_only was set to true.
+  + Start one transaction
+  + Insert data into one table
+  + set global tidb_super_read_only = true
+  + Insert data into one table -> Failed
   #+attr_html: :width 800px
   [[https://www.51yomo.net/static/doc/readonly-mode/readonly-transaction.gif]]
 * read only effective
 ** Shell mode
+Test as the below procedure to see how long the tidb_suprt_read_only comes to effect on all the TiDB nodes. From the result, it almost comes to effect at the same time.
+  + Run the below shell against two TiDB nodes in parallel
+  + set global tidb_super_read_only = true
+  + Check the time when the query failed in each TiDB nodes
+  + Compare the timesamp between two nodes(Almost same)
    #+BEGIN_SRC shell
      $ more testScript.sh 
      #!/bin/bash 
@@ -28,6 +43,11 @@
   #+attr_html: :width 800px
   [[https://www.51yomo.net/static/doc/readonly-mode/readonly-bash.gif]]
 ** golang mode
+Test as the below procedure to see how long the tidb_suprt_read_only comes to effect on all the TiDB nodes. From the result, the difference is at millisecond level.
+  + Run the below golang test application against two TiDB nodes in parallel
+  + set global tidb_super_read_only = true
+  + Check the time when the query failed in each TiDB nodes
+  + Compare the timesamp between two nodes(diff: 28 milliseconds)
    #+BEGIN_SRC golang
 package main
 
