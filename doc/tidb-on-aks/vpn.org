@@ -8,6 +8,25 @@ systemctl start openvpn-client@opvn
 sudo apt install nfs-common
 
   #+END_SRC
+* VPN setup
+** create vip
+   reference: https://learn.microsoft.com/en-us/azure/vpn-gateway/create-routebased-vpn-gateway-cli#vnet
+   The GatewaySubnet is fixed.
+   #+BEGIN_SRC
+az network public-ip create -n jaygwip -g azure-jp-tech-team -l eastus
+az network vnet subnet create -n GatewaySubnet --vnet-name aks-vnet-82163357 -g azure-jp-tech-team --address-prefix 10.225.0.0/24
+az network vnet-gateway create -n jaygw -l eastus --public-ip-address jaygwip -g azure-jp-tech-team --vnet aks-vnet-82163357 --gateway-type Vpn --sku VpnGw1 --vpn-gateway-generation Generation1 --no-wait
+az network vpn-server-config create --name workstation --resource-group azure-jp-tech-team --auth-types Certificate --protocols OpenVPN --no-wait --vpn-client-root-certs /tmp/openssl/tmp/caCert.pem
+   #+END_SRC
+* VPN removal
+  #+BEGIN_SRC
+sudo systemctl stop openvpn@client
+az network vnet-gateway delete -n jaygw -g azure-jp-tech-team
+az network vnet subnet delete --vnet-name aks-vnet-82163357 -n GatewaySubnet  -g azure-jp-tech-team
+az network public-ip create -n jaygwip -g azure-jp-tech-team -l eastus
+  #+END_SRC
+* Certificate prepatation
+  Please find the [[https://learn.microsoft.com/en-us/azure/vpn-gateway/vpn-gateway-certificates-point-to-site-linux][link]] for reference
 * Reference
   https://tunnelblick.net/downloads.html
   https://learn.microsoft.com/en-us/azure/virtual-wan/howto-openvpn-clients
