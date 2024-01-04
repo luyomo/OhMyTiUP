@@ -1,0 +1,207 @@
+* TiDB with existing public ip
+** public ip preparation
+   #+BEGIN_SRC
+workstation$ az network public-ip create --resource-group MC_azure-jp-tech-team_jaytest001_eastus --name jay-tidb-ep --sku Standard --allocation-method static
+[Coming breaking change] In the coming release, the default behavior will be changed as follows when sku is Standard and zone is not provided: For zonal regions, you will get a zone-redundant IP indicated by zones:["1","2","3"]; For non-zonal regions, you will get a non zone-redundant IP indicated by zones:null.
+{
+  "publicIp": {
+    "ddosSettings": {
+      "protectionMode": "VirtualNetworkInherited"
+    },
+    "etag":"... ...",
+    "id": "/subscriptions/xxxx0001-xxxx-xxxx-xxxx-xxxxxxxxxx001/resourceGroups/MC_azure-jp-tech-team_jaytest001_eastus/providers/Microsoft.Network/publicIPAddresses/jay-tidb-ep",
+    "idleTimeoutInMinutes": 4,
+    "ipAddress": "172.190.151.100",
+    "ipTags": [],
+    "location": "eastus",
+    "name": "jay-tidb-ep",
+    "provisioningState": "Succeeded",
+    "publicIPAddressVersion": "IPv4",
+    "publicIPAllocationMethod": "Static",
+    "resourceGroup": "MC_azure-jp-tech-team_jaytest001_eastus",
+    "resourceGuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx0002",
+    "sku": {
+      "name": "Standard",
+      "tier": "Regional"
+    },
+    "type": "Microsoft.Network/publicIPAddresses"
+  }
+}
+workstation$ az network public-ip show --resource-group MC_azure-jp-tech-team_jaytest001_eastus --name jay-tidb-ep
+{
+  "ddosSettings": {
+    "protectionMode": "VirtualNetworkInherited"
+  },
+  "etag": "... ...",
+  "id": "/subscriptions/xxxx0001-xxxx-xxxx-xxxx-xxxxxxxxxx001/resourceGroups/MC_azure-jp-tech-team_jaytest001_eastus/providers/Microsoft.Network/publicIPAddresses/jay-tidb-ep",
+  "idleTimeoutInMinutes": 4,
+  "ipAddress": "172.190.151.100",
+  "ipTags": [],
+  "location": "eastus",
+  "name": "jay-tidb-ep",
+  "provisioningState": "Succeeded",
+  "publicIPAddressVersion": "IPv4",
+  "publicIPAllocationMethod": "Static",
+  "resourceGroup": "MC_azure-jp-tech-team_jaytest001_eastus",
+  "resourceGuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx0002",
+  "sku": {
+    "name": "Standard",
+    "tier": "Regional"
+  },
+  "type": "Microsoft.Network/publicIPAddresses"
+}
+   #+END_SRC
+   
+** TiDB Cluster deployment
+   #+BEGIN_SRC
+workstation$ more tidb-cluster.yaml
+... ...
+  tidb:
+    baseImage: pingcap/tidb
+    maxFailoverCount: 0
+    replicas: 2
+    service:
+      exposeStatus: true
+      externalTrafficPolicy: Local
+      loadBalancerIP: 172.190.151.100
+      type: LoadBalancer
+    config: |
+      [performance]
+        tcp-keep-alive = true
+    annotations:
+      tidb.pingcap.com/sysctl-init: "true"
+    podSecurityContext:
+      sysctls:
+      - name: net.ipv4.tcp_keepalive_time
+        value: "300"
+      - name: net.ipv4.tcp_keepalive_intvl
+        value: "75"
+      - name: net.core.somaxconn
+        value: "32768"
+    separateSlowLog: true
+    nodeSelector:
+      dedicated: jaytest001-tidb
+    tolerations:
+    - effect: NoSchedule
+      key: dedicated
+      operator: Equal
+      value: jaytest001-tidb
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - tidb
+          topologyKey: kubernetes.io/hostname
+... ...
+
+workstation$ kubectl apply -f tidb-cluster -n tidb-cluster
+tidbcluster.pingcap.com/jaytest001 created
+   #+END_SRC
+** Cluster confirmation
+   #+BEGIN_SRC
+workstation$ workstation$ kubectl get service -n tidb-cluster 
+NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP       PORT(S)                                 AGE
+jaytest001-discovery      ClusterIP      10.0.147.223   <none>            10261/TCP,10262/TCP                     4m10s
+jaytest001-pd             ClusterIP      10.0.186.233   <none>            2379/TCP                                4m10s
+jaytest001-pd-peer        ClusterIP      None           <none>            2380/TCP,2379/TCP                       4m10s
+jaytest001-tidb           LoadBalancer   10.0.184.179   172.190.151.100   4000:30598/TCP,10080:32108/TCP          3m7s
+jaytest001-tidb-peer      ClusterIP      None           <none>            10080/TCP                               3m7s
+jaytest001-tiflash-peer   ClusterIP      None           <none>            3930/TCP,20170/TCP,8234/TCP,20292/TCP   4m9s
+jaytest001-tikv-peer      ClusterIP      None           <none>            20160/TCP                               3m38s
+workstation$ mysql -h 172.190.151.100 -u root -P 4000
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 1340080228
+Server version: 8.0.11-TiDB-v7.5.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 8.0 compatible
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [(none)]> 
+   #+END_SRC
+* TiDB Cluster Endpoint replacement
+** New public preparation
+   #+BEGIN_SRC
+workstation$ az network public-ip create --resource-group MC_azure-jp-tech-team_jaytest001_eastus --name jay-tidb-ep-new --sku Standard --allocation-method static
+{
+  "publicIp": {
+    "ddosSettings": {
+      "protectionMode": "VirtualNetworkInherited"
+    },
+    "etag": "... ...",
+    "id": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx0003/resourceGroups/MC_azure-jp-tech-team_jaytest001_eastus/providers/Microsoft.Network/publicIPAddresses/jay-tidb-ep-new",
+    "idleTimeoutInMinutes": 4,
+    "ipAddress": "20.185.198.46",
+    "ipTags": [],
+    "location": "eastus",
+    "name": "jay-tidb-ep-new",
+    "provisioningState": "Succeeded",
+    "publicIPAddressVersion": "IPv4",
+    "publicIPAllocationMethod": "Static",
+    "resourceGroup": "MC_azure-jp-tech-team_jaytest001_eastus",
+    "resourceGuid": "a65f8c41-5c94-4e3b-88a2-dec72db75307",
+    "sku": {
+      "name": "Standard",
+      "tier": "Regional"
+    },
+    "type": "Microsoft.Network/publicIPAddresses"
+  }
+}
+   #+END_SRC
+** Update the tidb deployment yaml file
+   #+BEGIN_SRC
+... ...
+  tidb:
+    baseImage: pingcap/tidb
+    maxFailoverCount: 0
+    replicas: 2
+    service:
+      exposeStatus: true
+      externalTrafficPolicy: Local
+      loadBalancerIP: 20.185.198.46 
+      type: LoadBalancer
+    config: |
+... ..
+   #+END_SRC
+** Apply the change public ip
+   #+BEGIN_SRC
+workstation$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster
+tidbcluster.pingcap.com/jaytest001 configured
+workstation$ kubectl get service -n tidb-cluster 
+NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP       PORT(S)                                 AGE
+jaytest001-discovery      ClusterIP      10.0.147.223   <none>            10261/TCP,10262/TCP                     26m
+jaytest001-pd             ClusterIP      10.0.186.233   <none>            2379/TCP                                26m
+jaytest001-pd-peer        ClusterIP      None           <none>            2380/TCP,2379/TCP                       26m
+jaytest001-tidb           LoadBalancer   10.0.184.179   172.190.151.100   4000:30598/TCP,10080:32108/TCP          25m
+jaytest001-tidb-peer      ClusterIP      None           <none>            10080/TCP                               25m
+jaytest001-tiflash-peer   ClusterIP      None           <none>            3930/TCP,20170/TCP,8234/TCP,20292/TCP   26m
+jaytest001-tikv-peer      ClusterIP      None           <none>            20160/TCP                               25m
+workstation$ # wait for 20 seconds 
+workstation$ kubectl get service -n tidb-cluster 
+NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)                                 AGE
+jaytest001-discovery      ClusterIP      10.0.147.223   <none>          10261/TCP,10262/TCP                     26m
+jaytest001-pd             ClusterIP      10.0.186.233   <none>          2379/TCP                                26m
+jaytest001-pd-peer        ClusterIP      None           <none>          2380/TCP,2379/TCP                       26m
+jaytest001-tidb           LoadBalancer   10.0.184.179   20.185.198.46   4000:30598/TCP,10080:32108/TCP          25m
+jaytest001-tidb-peer      ClusterIP      None           <none>          10080/TCP                               25m
+jaytest001-tiflash-peer   ClusterIP      None           <none>          3930/TCP,20170/TCP,8234/TCP,20292/TCP   26m
+jaytest001-tikv-peer      ClusterIP      None           <none>          20160/TCP                               25m
+workstation$ mysql -h 20.185.198.46 -u root -P 4000 
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 243269964
+Server version: 8.0.11-TiDB-v7.5.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 8.0 compatible
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [(none)]> 
+   #+END_SRC
+** public ip cleaness
+   #+BEGIN_SRC
+workstation$ az network public-ip delete --resource-group MC_azure-jp-tech-team_jaytest001_eastus --name jay-tidb-ep
+   #+END_SRC
