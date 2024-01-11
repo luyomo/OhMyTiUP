@@ -194,36 +194,35 @@ func newTiDBPerfCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		newTiDBLatencyMeasurementCmd(),
+		newTiDBLMPlacementRuleCmd(),
+		newTiDBLMResourceControlCmd(),
 		newTiDBPerfRecursiveCmd(),
 	)
 	return cmd
 }
 
 // -- latency measurement
-func newTiDBLatencyMeasurementCmd() *cobra.Command {
+func newTiDBLMPlacementRuleCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "resource-isolation <sub_command>",
+		Use:   "placement-rule <sub_command>",
 		Short: "Run measure latency against tidb: placement rule for resource isolation test",
 	}
 
 	cmd.AddCommand(
-		newTiDBLatencyMeasurementPrepareCmd(),
-		newTiDBLatencyMeasurementRunCmd(),
-		newTiDBLatencyMeasurementCleanupCmd(),
+		newTiDBLMPlacementRulePrepareCmd(),
+		newTiDBLMPlacementRuleRunCmd(),
+		newTiDBLMPlacementRuleCleanupCmd(),
 	)
 	return cmd
 }
 
-func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
+func newTiDBLMPlacementRulePrepareCmd() *cobra.Command {
 
-	opt := operator.LatencyWhenBatchOptions{
-		TiKVMode: "simple",
-	}
+	opt := operator.LatencyWhenBatchOptions{TiKVMode: "simple"}
 
 	cmd := &cobra.Command{
 		Use:   "prepare <cluster-name>",
-		Short: "Prepare resource for test",
+		Short: "Download data from ontime to table ontime01 for batch simulation, render sysbench config file for initialization, render sysbench scripts to output the result to this script",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
 			if err != nil {
@@ -235,13 +234,13 @@ func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBMeasureLatencyPrepareCluster(clusterName, TiDBCluster, opt, gOpt)
+			return cm.TiDBPlacementRulePrepareCluster(clusterName, TiDBCluster, opt, gOpt)
 		},
 	}
 
 	// One parameter to decide the test case - TiKV partition/Simple
-	cmd.Flags().StringVarP(&opt.TiKVMode, "tikv-mode", "m", "simple", "simple: No partition for TiKV nodes.  partition: Group the TiKV to online/batch. Batch query to batch TiKV nodes, sysbench to online TiKV nodes.")
-	cmd.Flags().StringVarP(&opt.IsolationMode, "isolation-mode", "i", "PlacementRule", "PlacementRule: Use placement rule to isolate resource between Online and Batch.  ResourceControl: Use resource and batch to isolate resource between Online and Batch")
+	cmd.Flags().StringVarP(&opt.TiKVMode, "tikv-mode", "m", "simple", "simple: No partition for TiKV nodes.  \npartition: Group the TiKV to online/batch. Batch query to batch TiKV nodes, sysbench to online TiKV nodes.")
+	// cmd.Flags().StringVarP(&opt.IsolationMode, "isolation-mode", "i", "PlacementRule", "PlacementRule: Use placement rule to isolate resource between Online and Batch.  \nResourceControl: Use resource and batch to isolate resource between Online and Batch")
 	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
 	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
 	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")
@@ -257,15 +256,13 @@ func newTiDBLatencyMeasurementPrepareCmd() *cobra.Command {
 	return cmd
 }
 
-func newTiDBLatencyMeasurementRunCmd() *cobra.Command {
+func newTiDBLMPlacementRuleRunCmd() *cobra.Command {
 
-	opt := operator.LatencyWhenBatchOptions{
-		TransInterval: 2,
-	}
+	opt := operator.LatencyWhenBatchOptions{TransInterval: 2}
 
 	cmd := &cobra.Command{
 		Use:   "run <cluster-name>",
-		Short: "Run the query for latency performance test",
+		Short: `Run the query for latency performance test. Compare the sysbench latency after putting the batch workload`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
 			if err != nil {
@@ -277,13 +274,13 @@ func newTiDBLatencyMeasurementRunCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.TiDBMeasureLatencyRunCluster(clusterName, TiDBCluster, opt, gOpt)
+			return cm.TiDBPlacementRuleRunCluster(clusterName, TiDBCluster, opt, gOpt)
 		},
 	}
 
-	cmd.Flags().StringVarP(&opt.BatchMode, "batch-mode", "b", "batch", "batch: insert data from table to table, dumpling: dumpling csv data")
+	cmd.Flags().StringVarP(&opt.BatchMode, "batch-mode", "b", "batch", "batch: insert data from table to table \ndumpling: dumpling csv data")
 	cmd.Flags().StringVarP(&opt.BatchSizeArray, "batch-size", "s", "x,10000", "Batch size: x,5000,10000,25000,50000 -> Loop the test as <no batch -> 5000 -> 10000 -> 25000 -> 50000>")
-	cmd.Flags().StringVarP(&opt.IsolationMode, "isolation-mode", "i", "PlacementRule", "PlacementRule: Use placement rule to isolate resource between Online and Batch.  ResourceControl: Use resource and batch to isolate resource between Online and Batch")
+	cmd.Flags().StringVarP(&opt.IsolationMode, "isolation-mode", "i", "PlacementRule", "PlacementRule: Use placement rule to isolate resource between Online and Batch.  \nResourceControl: Use resource and batch to isolate resource between Online and Batch")
 	cmd.Flags().IntVar(&opt.RunCount, "repeats", 1, "Count to loop the test")
 	cmd.Flags().IntVar(&opt.TransInterval, "trans-interval", 2, "The interval to insert the transaction")
 
@@ -343,7 +340,120 @@ func newInstallThanos() *cobra.Command {
 	return cmd
 }
 
-func newTiDBLatencyMeasurementCleanupCmd() *cobra.Command {
+func newTiDBLMPlacementRuleCleanupCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "cleanup <cluster-name>",
+		Short: "Cleanup resource for test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBPlacementRuleCleanupCluster(clusterName, TiDBCluster, gOpt)
+		},
+	}
+
+	return cmd
+}
+
+func newTiDBLMResourceControlCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "resource-control <sub_command>",
+		Short: "Run measure latency against tidb: resource control for resource isolation test(v7.5.0~)",
+	}
+
+	cmd.AddCommand(
+		newTiDBLMResourceControlPrepareCmd(),
+		newTiDBLMResourceControlRunCmd(),
+		newTiDBLMResourceControlCleanupCmd(),
+	)
+	return cmd
+}
+
+func newTiDBLMResourceControlPrepareCmd() *cobra.Command {
+
+	opt := operator.LatencyWhenBatchOptions{TiKVMode: "simple"}
+
+	cmd := &cobra.Command{
+		Use:   "prepare <cluster-name>",
+		Short: "Prepare resource for test",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBMeasureLatencyPrepareCluster(clusterName, TiDBCluster, opt, gOpt)
+		},
+	}
+
+	// One parameter to decide the test case - TiKV partition/Simple
+	cmd.Flags().StringVarP(&opt.TiKVMode, "tikv-mode", "m", "simple", "simple: No partition for TiKV nodes.  \npartition: Group the TiKV to online/batch. Batch query to batch TiKV nodes, sysbench to online TiKV nodes.")
+	cmd.Flags().StringVarP(&opt.IsolationMode, "isolation-mode", "i", "PlacementRule", "PlacementRule: Use placement rule to isolate resource between Online and Batch.  \nResourceControl: Use resource and batch to isolate resource between Online and Batch")
+	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
+	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
+	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")
+	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "oltp_point_select", "sysbench: oltp_point_select")
+
+	cmd.Flags().StringVarP(&opt.OnTimeStart, "ontime-start-ym", "s", "2022-01", "OnTime data start from: 2022-01")
+	cmd.Flags().StringVarP(&opt.OnTimeEnd, "ontime-end-ym", "e", "2022-01", "OnTime data end with: 2022-01")
+
+	cmd.Flags().Int64Var(&opt.SysbenchExecutionTime, "sysbench-execution-time", 600, "sysbench: --execution-time")
+	cmd.Flags().IntVar(&opt.SysbenchThread, "sysbench-thread", 4, "sysbench: --thread")
+	cmd.Flags().IntVar(&opt.SysbenchReportInterval, "sysbench-report-interval", 10, "sysbench: --report-interval")
+
+	return cmd
+}
+
+func newTiDBLMResourceControlRunCmd() *cobra.Command {
+
+	opt := operator.LatencyWhenBatchOptions{TransInterval: 2}
+
+	cmd := &cobra.Command{
+		Use:   "run <cluster-name>",
+		Short: `Run the query for latency performance test. The resource isolation approach is separated into two: Placement Rule and Resource Control.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shouldContinue, err := tui.CheckCommandArgsAndMayPrintHelp(cmd, args, 1)
+			if err != nil {
+				return err
+			}
+			if !shouldContinue {
+				return nil
+			}
+
+			clusterName := args[0]
+
+			return cm.TiDBMeasureLatencyRunCluster(clusterName, TiDBCluster, opt, gOpt)
+		},
+	}
+
+	cmd.Flags().StringVarP(&opt.BatchMode, "batch-mode", "b", "batch", "batch: insert data from table to table \ndumpling: dumpling csv data")
+	cmd.Flags().StringVarP(&opt.BatchSizeArray, "batch-size", "s", "x,10000", "Batch size: x,5000,10000,25000,50000 -> Loop the test as <no batch -> 5000 -> 10000 -> 25000 -> 50000>")
+	cmd.Flags().StringVarP(&opt.IsolationMode, "isolation-mode", "i", "PlacementRule", "PlacementRule: Use placement rule to isolate resource between Online and Batch.  \nResourceControl: Use resource and batch to isolate resource between Online and Batch")
+	cmd.Flags().IntVar(&opt.RunCount, "repeats", 1, "Count to loop the test")
+	cmd.Flags().IntVar(&opt.TransInterval, "trans-interval", 2, "The interval to insert the transaction")
+
+	cmd.Flags().IntVar(&opt.SysbenchNumTables, "sysbench-num-tables", 8, "sysbench: --tables")
+	cmd.Flags().IntVar(&opt.SysbenchNumRows, "sysbench-num-rows", 10000, "sysbench: --table-size")
+	cmd.Flags().StringVarP(&opt.SysbenchDBName, "sysbench-db-name", "d", "sbtest", "sysbench: database-name")
+	cmd.Flags().StringVarP(&opt.SysbenchPluginName, "sysbench-plugin-name", "p", "oltp_point_select", "sysbench: oltp_point_select")
+
+	return cmd
+}
+
+func newTiDBLMResourceControlCleanupCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cleanup <cluster-name>",

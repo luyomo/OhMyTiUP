@@ -93,7 +93,7 @@ func (c *RunOntimeBatchInsert) Execute(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done(): // Signal from another thread that it has completed.
-			fmt.Printf("Rows are inserted into batch table: %d and %d \n\n\n\n\n\n", idx, (*(c.opt)).BatchSize)
+			// fmt.Printf("Rows are inserted into batch table: %d and %d \n\n\n\n\n\n", idx, (*(c.opt)).BatchSize)
 
 			if c.opt.BatchMode == "dumpling" {
 				*(c.dumplingCnt) = int64(idx) * cntOntime01

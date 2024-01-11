@@ -1,0 +1,9 @@
+* tidb_server_disconnection_total
+  + DisconnectionCounter creation  \\
+    https://github.com/pingcap/tidb/blob/60dbb615abda6e7e447fa8d57f90ca4757be16b7/pkg/metrics/server.go#L118-L124
+  + label definition
+    https://github.com/pingcap/tidb/blob/60dbb615abda6e7e447fa8d57f90ca4757be16b7/pkg/server/metrics/metrics.go#L81-L83
+  + Incrementation
+    https://github.com/pingcap/tidb/blob/60dbb615abda6e7e447fa8d57f90ca4757be16b7/pkg/server/conn.go#L1108
+    https://github.com/pingcap/tidb/blob/60dbb615abda6e7e447fa8d57f90ca4757be16b7/pkg/server/conn.go#L1112
+    https://github.com/pingcap/tidb/blob/60dbb615abda6e7e447fa8d57f90ca4757be16b7/pkg/server/conn.go#L1085

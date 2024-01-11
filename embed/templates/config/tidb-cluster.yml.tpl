@@ -12,9 +12,8 @@ server_configs:
     performance.txn-total-size-limit: 107374182400
   pd:
     controller.ltb-max-wait-duration: "2h"
-{{- if (and (.Labels) (gt (len .Labels) 0)) }}
-  pd:
-    replication.location-labels: [ {{ range .Labels -}} "{{. }}" {{- end }} ]
+{{- if (and (.Servers.Labels) (gt (len .Servers.Labels) 0)) }}
+    replication.location-labels: [ {{ range .Servers.Labels -}} "{{. }}" {{- end }} ]
 {{ end }}
 {{- if (and (.Servers.Pump) (gt (len .Servers.Pump) 0)) }}
     binlog.enable: true

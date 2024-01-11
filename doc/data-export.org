@@ -1,0 +1,10 @@
+* TODO
+** task01: Dumpling data from DB with resurce control limiting the DB impact to csv
+*** Data preparation
+*** Export data performance test to s3
+*** data import from csv from console
+** task02: Restore backup to new cluster
+*** Take database backup
+*** Restore database backup to new cluster
+*** Export data to csv
+*** Import data to target db
