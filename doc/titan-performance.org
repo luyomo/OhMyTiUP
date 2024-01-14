@@ -43,7 +43,7 @@
    #+attr_html: :width 800px
    [[https://www.51yomo.net/static/doc/titanMetrics/010.png]]
 * Custom Sysbench Script
-** Please refere to link for reference
+** Please refere to [[https://github.com/luyomo/OhMyTiUP/blob/main/embed/templates/scripts/sysbench/tidb_bulk_insert.lua][link]] for reference
 ** Sysbench run
    | Option          |  Value | Comment                    |
    |-----------------+--------+----------------------------|
