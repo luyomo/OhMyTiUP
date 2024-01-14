@@ -1,0 +1,54 @@
+#+OPTIONS: ^:nil
+* sysbench comparison between rocksdb and titan
+     | Storage Type | Column length | reads | writes | queries |   events | events/sec | queries | queries/sec | latency_min(ms) | latency_avg(ms) | latency_max(ms) | 95th_latency_pct (ms) ms | latency_sum (ms) |
+     |--------------+---------------+-------+--------+---------+----------+------------+---------+-------------+-----------------+-----------------+-----------------+--------------------------+------------------|
+     | rocksdb      |          1024 |     0 |  25332 |   25332 | 12661478 |   13665.88 |   25332 |       27.34 |            0.00 |            0.72 |        50157.21 |                     0.01 |       9121110.94 |
+     | rocksdb      |          5120 |     0 |  24315 |   24315 |  2430920 |    2581.73 |   24315 |       25.82 |            0.02 |            3.85 |        81072.78 |                     0.04 |       9347220.80 |
+     | rocksdb      |         10240 |     0 |  23176 |   23176 |  1170304 |    1155.66 |   23176 |       22.89 |            0.04 |            8.54 |       161214.38 |                     0.08 |       9995848.48 |
+     | rocksdb      |        102400 |     0 |  19710 |   19710 |    98510 |     103.81 |   19710 |       20.77 |            0.52 |           96.08 |       158479.83 |                   211.60 |       9465310.91 |
+     | rocksdb      |         51200 |     0 |  22936 |   22936 |    22936 |      25.26 |   22936 |       25.26 |           11.87 |          394.35 |       100700.36 |                   411.96 |       9044910.98 |
+     | TiTan        |          1024 |     0 |  47290 |   47290 | 23640370 |   26265.25 |   47290 |       52.54 |            0.00 |            0.38 |         1224.53 |                     0.01 |       8943495.14 |
+     | TiTan        |          5120 |     0 |  63834 |   63834 |  6382822 |    7090.86 |   63834 |       70.91 |            0.01 |            1.41 |         1880.74 |                     0.04 |       8973431.99 |
+     | TiTan        |         10240 |     0 |  60403 |   60403 |  3050408 |    3386.83 |   60403 |       67.06 |            0.04 |            2.95 |         3606.01 |                     0.08 |       8986135.54 |
+     | TiTan        |        102400 |     0 |  59465 |   59465 |   297291 |     330.27 |   59465 |       66.06 |            0.51 |           30.26 |         4254.27 |                   155.80 |       8994655.38 |
+     | TiTan        |         51200 |     0 |  57473 |   57473 |    57473 |      63.84 |   57473 |       63.84 |            7.36 |          156.53 |         5014.70 |                   308.84 |       8995981.31 |
+* metrics
+** compaction pending bytes
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/001.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/002.png]]
+** TiKV QPS
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/003.png]]
+** TiKV CPU
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/004.png]]
+** KV write operations
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/005.png]]
+** KV write duration
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/006.png]]
+** KV request duration 99
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/007.png]]
+** KV request OPS
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/008.png]]
+** KV backoff duration
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/009.png]]
+** KV backoff Duration
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/titanMetrics/010.png]]
+* Custom Sysbench Script
+** Please refere to link for reference
+** Sysbench run
+   | Option          |  Value | Comment                    |
+   |-----------------+--------+----------------------------|
+   | bulk_inserts    |   1000 | Rows per commit            |
+   | rand_string_len | 512000 | string length for sysbench |
+   #+BEGIN_SRC
+sysbench --config-file=/opt/sysbench.toml tidb_bulk_insert --bulk_inserts=1000 --rand_string_len=512000 run
+   #+END_SRC

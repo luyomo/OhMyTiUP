@@ -1,3 +1,9 @@
+sysbench.cmdline.options = {
+       bulk_inserts = {"Number of values to to insert", 1000},
+          rand_string_len = {"rand string length to insert", 1024}
+          
+}
+
 function report_noop(stat)
 end
 
