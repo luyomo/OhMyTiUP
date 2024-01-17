@@ -1,3 +1,9 @@
+* Background
+  + Multi accesspoint addition (Done)
+  + TiDB addition to new accesspoint (Done)
+  + Public access (Done)
+  + VPC Peering (Todo)
+  + Private Endpoint (Todo)
 * multi-access creation
 ** Creation
   #+BEGIN_SRC
