@@ -1,0 +1,324 @@
+* multi-access creation
+** Creation
+  #+BEGIN_SRC
+workstation$ curl --digest --user 'xxxxxxxx:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx' --request POST --url https://api.tidbcloud.com/api/v1beta/projects/13728130892dddddddd/clusters/13796619446dddddddd/accesspoints -d '{"display_name":"test-jay"}'
+{"id":"1747505990598660096"}
+  #+END_SRC
+** multi-access query
+   #+BEGIN_SRC
+workstation$ curl --digest --user 'xxxxxxxx:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx' --request GET --url https://api.tidbcloud.com/api/v1beta/projects/13728130892dddddddd/clusters/13796619446dddddddd/accesspoints | jq
+{
+  "items": [
+    {
+      "id": "1747505990598660096",
+      "project_id": "13728130892dddddddd",
+      "cluster_id": "13796619446dddddddd",
+      "display_name": "test-jay",
+      "tidb_node_quantity": 0,
+      "public_endpoint": {
+        "host": "",
+        "port": 4000,
+        "ip_allowlist": []
+      },
+      "vpc_peering_endpoint": {
+        "host": "",
+        "port": 4000
+      },
+      "private_endpoint": {
+        "private_link_service": {
+          "service_name": "",
+          "status": "NOT_CONFIGURE"
+        },
+        "host": "",
+        "port": 0,
+        "az_ids": []
+      }
+    },
+    {
+      "id": "0",
+      "project_id": "13728130892dddddddd",
+      "cluster_id": "13796619446dddddddd",
+      "display_name": "default",
+      "tidb_node_quantity": 2,
+      "public_endpoint": {
+        "host": "tidb.xxxxxxxxatbu.clusters.tidb-cloud.com",
+        "port": 4000,
+        "ip_allowlist": []
+      },
+      "vpc_peering_endpoint": {
+        "host": "private-tidb.xxxxxxxxatbu.clusters.tidb-cloud.com",
+        "port": 4000
+      },
+      "private_endpoint": {
+        "private_link_service": {
+          "service_name": "com.amazonaws.vpce.us-east-1.vpce-svc-048e88ea62720b92a",
+          "status": "ACTIVE"
+        },
+        "host": "privatelink-tidb.xxxxxxxxatbu.clusters.tidb-cloud.com",
+        "port": 4000,
+        "az_ids": [
+          "use1-az1",
+          "use1-az2",
+          "use1-az4"
+        ]
+      }
+    }
+  ],
+  "total": 2
+}
+
+   #+END_SRC
+* Add TiDB node to access point
+** commands
+   #+BEGIN_SRC
+workstation$ more /tmp/tidb-scale-out.json
+{
+  "config": {
+    "components": {
+      "tidb": {
+        "accesspoint_id": 1747505990598660096, 
+        "node_quantity": 1
+      }
+    }
+  }
+}
+
+workstation$ curl --digest --user 'xxxxxxxx:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx' -H "Content-Type: application/json"  --request PATCH --url https://api.tidbcloud.com/api/v1beta/projects/13728130892dddddddd/clusters/13796619446dddddddd  --data-binary "@/tmp/tidb-scale-out.json"
+workstation$ curl --digest --user 'xxxxxxxx:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx' --request GET --url https://api.tidbcloud.com/api/v1beta/projects/13728130892dddddddd/clusters/13796619446dddddddd/accesspoints | jq
+
+{
+  "items": [
+    {
+      "id": "1747505990598660096",
+      "project_id": "13728130892dddddddd",
+      "cluster_id": "13796619446dddddddd",
+      "display_name": "test-jay",
+      "tidb_node_quantity": 1,
+      "public_endpoint": {
+        "host": "tidb.dmwjxb12ftyf.clusters.tidb-cloud.com",
+        "port": 4000,
+        "ip_allowlist": []
+      },
+      "vpc_peering_endpoint": {
+        "host": "private-tidb.dmwjxb12ftyf.clusters.tidb-cloud.com",
+        "port": 4000
+      },
+      "private_endpoint": {
+        "private_link_service": {
+          "service_name": "",
+          "status": "CREATING"
+        },
+        "host": "",
+        "port": 0,
+        "az_ids": []
+      }
+    },
+    {
+      "id": "0",
+      "project_id": "13728130892dddddddd",
+      "cluster_id": "13796619446dddddddd",
+      "display_name": "default",
+      "tidb_node_quantity": 2,
+      "public_endpoint": {
+        "host": "tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000,
+        "ip_allowlist": []
+      },
+      "vpc_peering_endpoint": {
+        "host": "private-tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000
+      },
+      "private_endpoint": {
+        "private_link_service": {
+          "service_name": "com.amazonaws.vpce.us-east-1.vpce-svc-048e88ea62720b92a",
+          "status": "ACTIVE"
+        },
+        "host": "privatelink-tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000,
+        "az_ids": [
+          "use1-az1",
+          "use1-az2",
+          "use1-az4"
+        ]
+      }
+    }
+  ],
+  "total": 2
+}
+workstation$ curl --digest --user 'xxxxxxxx:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx' --request GET --url https://api.tidbcloud.com/api/v1beta/projects/13728130892dddddddd/clusters/13796619446dddddddd/accesspoints | jq
+{
+  "items": [
+    {
+      "id": "1747505990598660096",
+      "project_id": "13728130892dddddddd",
+      "cluster_id": "13796619446dddddddd",
+      "display_name": "test-jay",
+      "tidb_node_quantity": 1,
+      "public_endpoint": {
+        "host": "tidb.dmwjxb12ftyf.clusters.tidb-cloud.com",
+        "port": 4000,
+        "ip_allowlist": []
+      },
+      "vpc_peering_endpoint": {
+        "host": "private-tidb.dmwjxb12ftyf.clusters.tidb-cloud.com",
+        "port": 4000
+      },
+      "private_endpoint": {
+        "private_link_service": {
+          "service_name": "com.amazonaws.vpce.us-east-1.vpce-svc-055324d8fb1ad0827",
+          "status": "CREATING"
+        },
+        "host": "privatelink-tidb.dmwjxb12ftyf.clusters.tidb-cloud.com",
+        "port": 4000,
+        "az_ids": [
+          "use1-az1",
+          "use1-az2",
+          "use1-az4"
+        ]
+      }
+    },
+    {
+      "id": "0",
+      "project_id": "13728130892dddddddd",
+      "cluster_id": "13796619446dddddddd",
+      "display_name": "default",
+      "tidb_node_quantity": 2,
+      "public_endpoint": {
+        "host": "tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000,
+        "ip_allowlist": []
+      },
+      "vpc_peering_endpoint": {
+        "host": "private-tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000
+      },
+      "private_endpoint": {
+        "private_link_service": {
+          "service_name": "com.amazonaws.vpce.us-east-1.vpce-svc-048e88ea62720b92a",
+          "status": "ACTIVE"
+        },
+        "host": "privatelink-tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000,
+        "az_ids": [
+          "use1-az1",
+          "use1-az2",
+          "use1-az4"
+        ]
+      }
+    }
+  ],
+  "total": 2
+}
+   #+END_SRC
+
+** TiDB addition screenshot
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/multi-accesspoint/001.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/multi-accesspoint/002.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/multi-accesspoint/003.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/multi-accesspoint/004.png]]
+** TiDB addition complate screenshot
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/multi-accesspoint/005.png]]
+* Allow public access
+  #+BEGIN_SRC
+workstation$ more /tmp/allow_public_ip.json
+{
+    "public_endpoint": {
+        "ip_allowlist": [
+            {
+                "cidr": "0.0.0.0/0"
+            }
+        ]
+    }
+}
+workstation$ curl --digest --user 'xxxxxxxx:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx' -H "Content-Type: application/json"  --request PATCH --url https://api.tidbcloud.com/api/v1beta/projects/13728130892dddddddd/clusters/13796619446dddddddd/accesspoints/1747505990598660096  --data-binary "@/tmp/allow_public_ip.json"
+{}
+workstation$ curl --digest --user 'xxxxxxxx:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx' --request GET --url https://api.tidbcloud.com/api/v1beta/projects/13728130892dddddddd/clusters/13796619446dddddddd/accesspoints | jq
+{
+  "items": [
+    {
+      "id": "1747505990598660096",
+      "project_id": "13728130892dddddddd",
+      "cluster_id": "13796619446dddddddd",
+      "display_name": "test-jay",
+      "tidb_node_quantity": 1,
+      "public_endpoint": {
+        "host": "tidb.dmwjxb12ftyf.clusters.tidb-cloud.com",
+        "port": 4000,
+        "ip_allowlist": [
+          {
+            "cidr": "0.0.0.0/0"
+          }
+        ]
+      },
+      "vpc_peering_endpoint": {
+        "host": "private-tidb.dmwjxb12ftyf.clusters.tidb-cloud.com",
+        "port": 4000
+      },
+      "private_endpoint": {
+        "private_link_service": {
+          "service_name": "com.amazonaws.vpce.us-east-1.vpce-svc-055324d8fb1ad0827",
+          "status": "CREATING"
+        },
+        "host": "privatelink-tidb.dmwjxb12ftyf.clusters.tidb-cloud.com",
+        "port": 4000,
+        "az_ids": [
+          "use1-az1",
+          "use1-az2",
+          "use1-az4"
+        ]
+      }
+    },
+    {
+      "id": "0",
+      "project_id": "13728130892dddddddd",
+      "cluster_id": "13796619446dddddddd",
+      "display_name": "default",
+      "tidb_node_quantity": 2,
+      "public_endpoint": {
+        "host": "tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000,
+        "ip_allowlist": []
+      },
+      "vpc_peering_endpoint": {
+        "host": "private-tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000
+      },
+      "private_endpoint": {
+        "private_link_service": {
+          "service_name": "com.amazonaws.vpce.us-east-1.vpce-svc-048e88ea62720b92a",
+          "status": "ACTIVE"
+        },
+        "host": "privatelink-tidb.bahemn11atbu.clusters.tidb-cloud.com",
+        "port": 4000,
+        "az_ids": [
+          "use1-az1",
+          "use1-az2",
+          "use1-az4"
+        ]
+      }
+    }
+  ],
+  "total": 2
+}
+workstation$ mysql -h tidb.dmwjxb12ftyf.clusters.tidb-cloud.com -u root -P 4000 -p
+Enter password: 
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 937
+Server version: 5.7.25-TiDB-v7.1.1 TiDB Server (Apache License 2.0) Enterprise Edition, MySQL 5.7 compatible
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [(none)]> 
+
+  #+END_SRC
+* VPC Peering
+  TODO
+* Private Link
+  TODO
