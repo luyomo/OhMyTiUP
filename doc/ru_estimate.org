@@ -1,0 +1,80 @@
+#+OPTIONS: ^:nil
+* Test Cases
+    | Type         | Row Size |     RU |
+    |--------------+----------+--------|
+    | Point Select |     1024 |   0.53 |
+    | Point Select |    10240 |   0.65 |
+    | Point Select |   102400 |   2.16 |
+    | Point Select |   512000 |   8.72 |
+    |--------------+----------+--------|
+    | Range        |     1024 |   0.83 |
+    | Range        |    10240 |   1.88 |
+    | Range        |   102400 |  14.83 |
+    | Range        |   512000 |  79.23 |
+    |--------------+----------+--------|
+    | Insert       |     1024 |   3.25 |
+    | Insert       |    10240 |  12.43 |
+    | Insert       |   102400 | 103.91 |
+    | Insert       |   512000 | 510.42 |
+* Test Case
+** 1024
+*** Point Select
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/1024_select.png]]
+*** Range Select
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/1024_range.png]]
+*** Insert
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/1024_insert.png]]
+** 10240
+*** Point Select
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/10240_select.png]]
+*** Range Select
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/10240_range.png]]
+*** Insert
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/10240_insert.png]]
+** 102400
+*** Point Select
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/102400_select.png]]
+*** Range Select
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/102400_range.png]]
+*** Insert
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/102400_insert.png]]
+** 512000
+*** Point Select
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/512000_select.png]]
+*** Range Select
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/512000_range.png]]
+*** Insert
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ru_estimate/512000_insert.png]]
+
+* Summary
+  Please find the [[https://www.pingcap.com/tidb-serverless-pricing-details/][link]] for reference.
+** Storage
+    | Storage Size | $/Month(1GB) | $ / Month |
+    |--------------+--------------+-----------|
+    | 1024GB       |         0.24 |       245 |
+    | 2048GB       |         0.24 |       500 |
+** Insert (512000)
+    | Rows/Month | Bytes/Row | RU/Row |  RU/Month | 0.12/1M |
+    |------------+-----------+--------+-----------+---------|
+    |    100000  |    512000 |    510 | 510000000 |     51  |
+    |    1000000 |    512000 |    510 | 510000000 |     510 |
+** Point Select
+    | Point Select/Month | Bytes/Row | RU/Row | RU/Month | 0.12/1m |
+    |--------------------+-----------+--------+----------+---------|
+    |               1000 |    512000 |   8.72 |     8720 | ~       |
+** Range Select 
+    | Range Select/Month | # of scan rows | Bytes/Row | RU/Row | RU/Month | 0.12/1m |
+    |--------------------+----------------+-----------+--------+----------+---------|
+    |               1000 |           1000 |    512000 |   8.72 |  8720000 |       1 |
