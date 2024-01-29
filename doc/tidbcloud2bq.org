@@ -1,0 +1,70 @@
+* Background
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/tidbcloud2bq/tidbcloud2bigquery.png]]
+* Sync Flow
+** Sync CDC data S3 storage
+   Please find the [[https://docs.pingcap.com/tidbcloud/changefeed-sink-to-cloud-storage#sink-to-cloud-storage][link]] for changefeed setting.
+*** CDC tables
+**** Insert data into table
+    #+BEGIN_SRC
+MySQL$ use test;
+MySQL$ create table test.test01 (col01 int primary key, col02 int);
+MySQL$ insert into test.test01 values(1,1);
+MySQL$ insert into test.test01 values(2,2);
+MySQL$ insert into test.test01 values(3,3);
+    #+END_SRC
+**** Update/Delete data from table
+    #+BEGIN_SRC
+MySQL$ use test;
+MySQL$ update test.test01 set col02 = 20 where col01 = 2;
+MySQL$ delete test.test01 where col01 = 3;
+    #+END_SRC
+*** Output file in S3
+    If the S3 path is specified as [s3://bucketname/cdc/bigquery/], the table test01 in the test schema will be exported as [s3://bucketname/cdc/bigquery/test/test01/447261602321793027/]. The csv file format will be [CDC00000000000000000001.csv]
+    The number 447261602321793027 is the table version which is changed when the table schema is changed.
+*** Data format
+**** Insert data into table
+    #+BEGIN_SRC
+workstation$ more CDC00000000000000000001.csv
+"test","test01","I",1,1
+"test","test01","I",2,2
+"test","test01","I",3,3
+    #+END_SRC
+**** Update/Delete data from table
+    #+BEGIN_SRC
+workstation$ more CDC00000000000000000002.csv
+"test","test01","U",2,20
+"test","test01","D",3,3
+    #+END_SRC
+** Append CSV files to BigQuery Table regularly
+   Please find the [[https://cloud.google.com/bigquery/docs/s3-transfer][link]] file for reference. After importing the data into BigQuery, the table in the BigQuery will be like as below.
+   #+BEGIN_SRC
+BigQuery$ select * from bigquery_dataset.test01;
+
+   #+END_SRC
+*** Import CDC00000000000000000001.csv
+     | SchemaName | TableName | CDCType | col01 | col02 |
+     |------------+-----------+---------+-------+-------|
+     | test       | test01    | I       |     1 |     1 |
+     | test       | test01    | I       |     2 |     2 |
+     | test       | test01    | I       |     3 |     3 |
+*** Import CDC00000000000000000002.csv
+     | SchemaName | TableName | CDCType | col01 | col02 | *Coment                                                                                                                       |
+     |------------+-----------+---------+-------+-------+-------------------------------------------------------------------------------------------------------------------------------|
+     | test       | test01    | I       |     1 |     1 | No change                                                                                                                     |
+     | test       | test01    | I       |     2 |    20 | Upinsert:                                                                                                                     |
+     | test       | test01    | D       |     3 |     3 | Upinsert: data transfer does not support delete against table, insteadily additional deletion is required after data transfer |
+
+* Appendix
+** Changefeed setting
+   In order to reduce the cost of the S3 requests, set the flush interval to 10 minutes if the sync latency requirement is not high.
+** Table structure
+   Three meta columns[schema name/table name/cdc operation type] have to be added into BigQuery table since they are outputted from TiDB Cloud changefeed into csv files. In the data transfer service of GCP, columns filter out feature are not supported. To use the data transfer service, these three columns have to be added.
+** No support delete
+   The data transfer only supports copy the data from S3 storage to BigQuery table which is different from CDC. It does not support delete operation. Insteadily, if there is delete operation, the batch delete is requireed after data transfer.
+** Update support
+   The data transfer support update if key existes , otherwise insert. No need to adjsut the updated data from upstream's csv files.
+** Table layout change
+   If the table layout on the TiDB Cloud is changed, the table version will be changed as well. The CSV file directory outputed to S3 directory is changed accordingly. The data transfer also needs to be adjusted to the new directory.
+** Data transfer pricing
+   From [[https://cloud.google.com/bigquery/pricing#bqdts][data transfer service pricing]], the transfer itself is no charge. Please consult to Google for the pricing.
