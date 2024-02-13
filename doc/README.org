@@ -10,7 +10,7 @@
    | [[./powerdns.org][powerdns on TiDB]]            | Deploy powerdbs on TiDB                                   |                                            |
    | [[./tidb-endpoints.org][TiDB Cluster service on aws]] | Create TiDB Service using PrivateLink on aws              |                                            |
    | [[./ossinsight-aurora.org][OSS Insight on AWS]]          | Query performance test using OSS Insight project's tables | https://ossinsight.io/                     |
-   | [[./doc/ru_estimate.org][RU estimation]]               | Estimate RU according to different operations             |                                            |
+   | [[./ru_estimate.org][RU estimation]]               | Estimate RU according to different operations             |                                            |
 
 ** TiDB Cloud on aws solution
    #+CAPTION: Index of all topics on aws
@@ -30,7 +30,7 @@
    | [[./aurora2tidbcloud.org][Data Migration from Aurora(S3) to TiDB Cloud]]                      |                                                                                                                   |        |
    | [[./tidb-on-eks.deployment.org][TiDB Deployment on EKS]]                                            |                                                                                                                   |        |
    | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]                                    | Redshift --federated query--> TiDB Cloud(Not supported any more since redshift only allow the access to RDS by CA |        |
-   | [[./doc/tidbcloud2bq.org][TiDB Cloud data Sync to BigQuery]]                                  | Data sync from TiDB Cloud to BigQuery through S3                                                                  |        |
+   | [[./tidbcloud2bq.org][TiDB Cloud data Sync to BigQuery]]                                  | Data sync from TiDB Cloud to BigQuery through S3                                                                  |        |
    | [[./tidbcloud2reshift-serverless.org][Serverless data migration from TiDBCloud To Redshift]]              | Use lambda function to migrate the data from TiDBCloud to redshift                                                |        |
    | Grant S3 bucket/folder permission to TiDB Cloud account           |                                                                                                                   |        |
    | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                                                                                   |        |
@@ -43,9 +43,9 @@
    #+ATTR_HTML: :border 2 :rules all :frame border
    | Link                   | Comment                                  |
    |------------------------+------------------------------------------|
-   | [[./doc/multi-access-point.org][Multiple Access Point]]  | Create multiple access point by open api |
-   | [[./doc/tidb-readonly-mode.org][Readonly mode test]]     | Test read only mode                      |
-   | [[./doc/titan-performance.org][TiTan performance test]] | Test TiTan Storage performance           |
+   | [[./multi-access-point.org][Multiple Access Point]]  | Create multiple access point by open api |
+   | [[./tidb-readonly-mode.org][Readonly mode test]]     | Test read only mode                      |
+   | [[./titan-performance.org][TiTan performance test]] | Test TiTan Storage performance           |
 
 ** Troubleshooting
    #+CAPTION: Index of all topics on aws
