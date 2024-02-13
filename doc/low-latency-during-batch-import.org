@@ -3,80 +3,94 @@
 #+TITLE: TiKV nodes isolation between batch and online transaction
 
 * OLTP isolation from Batch
+  #+attr_html: :width 800xp
   [[./png/placementrule/isolation-batch-oltp.01.png]]
+  #+attr_html: :width 800px
   [[./png/placementrule/isolation-batch-oltp.02.png]]
 * TiDB Cluster generation with node labels
 ** Cluster deployment
   Use the below config to generate TiDB Cluster with TiKV nodes labels. Three TiKV nodes are group together as batch nodes. And the remaining three are grouped as online nodes. 
   #+BEGIN_SRC
 OhMyTiUP$ more aws-nodes-isolation.yaml 
- workstation:
-   imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
-   keyname: jay-us-east-01                         # Public key for workstation instance deployment
-   keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
-   volumeSize: 100                                 # disk size in the workstation
-   enable_monitoring: disabled                     # enable the moniroting on the workstation
-   instance_type: c5.2xlarge
-   cidr: 172.81.0.0/16
- aws_topo_configs:
-   general:
-     # debian os
-     imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
-     keyname: jay-us-east-01                       # Public key to access the EC2 instance
-     keyfile: /home/pi/.ssh/jay-us-east-01.pem
-     cidr: 172.83.0.0/16
-     tidb_version: v7.0.0
-     excluded_az:                                  # The AZ to be excluded for the subnets
-       - us-east-1e
-   pd:
-     instance_type: c5.2xlarge
-     count: 3
-   tidb:
-     instance_type: c5.2xlarge
-     count: 2
-   tikv:
-     -
-       instance_type: c5.2xlarge
-       count: 3
-       volumeSize: 300
-       volumeType: gp3
-       iops: 3000
-       labels:
-       -
-         Name: db_type
-         Value: online
-     - 
-       instance_type: c5.xlarge
-       count: 3
-       volumeSize: 100
-       volumeType: gp3
-       iops: 2000
-       labels:
-       -
-         Name: db_type
-         Value: batch
-
+workstation:
+  imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+  keyname: jay-us-east-01                         # Public key for workstation instance deployment
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+  volumeSize: 100                                 # disk size in the workstation
+  enable_monitoring: disabled                     # enable the moniroting on the workstation
+  instance_type: c5.2xlarge
+  cidr: 172.81.0.0/16
+aws_topo_configs:
+  general:
+    # debian os
+    imageid: ami-07d02ee1eeb0c996c                # Default image id for EC2
+    keyname: jay-us-east-01                       # Public key to access the EC2 instance
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem
+    cidr: 172.83.0.0/16
+    tidb_version: v7.0.0
+    excluded_az:                                  # The AZ to be excluded for the subnets
+      - us-east-1e
+  pd:
+    instance_type: c5.2xlarge
+    count: 3
+  tidb:
+    instance_type: c5.2xlarge
+    count: 2
+  tikv:
+    -
+      instance_type: c5.2xlarge
+      count: 3
+      volumeSize: 300
+      volumeType: gp3
+      iops: 3000
+      labels:
+      -
+        Name: db_type
+        Value: online
+    - 
+      instance_type: c5.xlarge
+      count: 3
+      volumeSize: 100
+      volumeType: gp3
+      iops: 2000
+      labels:
+      -
+        Name: db_type
+        Value: batch
 OhMyTiUP$ ./bin/aws tidb deploy placementruletest /tmp/aws-nodes-isolation.yaml
   #+END_SRC
+  #+attr_html: :width 800px
   [[./png/placementrule/placementrule.01.png]]
+  #+attr_html: :width 800px
   [[./png/placementrule/placementrule.02.png]]
 ** List all the resources
    #+BEGIN_SRC
 OhMyTiUP$ ./bin/aws tidb list placementruletest
    #+END_SRC
+   #+attr_html: :width 800px
    [[./png/placementrule/placementrule.03.png]]
+   #+attr_html: :width 800px
    [[./png/placementrule/placementrule.04.png]]
 ** Check the placement rule labels
+   #+BEGIN_SRC
+OhMyTiUP$ mysql -h placementruletest-3c7eacd157d8b3d0.elb.us-east-1.amazonaws.com -u root -P 4000 test
+MySQL [test]> show placement group;
+   #+END_SRC
+   #+attr_html: :width 800px
    [[./png/placementrule/placementrule.05.png]]
-
 * Command description
-** measure-latency
+** aws tidb perf placement-rule
    There are three sub command for the latency measurement.
    + prepare - Prepare the test environment including database/table/placement rule generation and data preparation
    + run     - Run the actual test
    + cleanup - Cleanup all the resources (todo)
-  [[./png/placementrule/placementrule.06.png]]
-** measure-latency prepare
+
+  #+BEGIN_SRC
+OhMyTiUP$ ./bin/aws tidb perf placement-rule --help
+  #+END_SRC
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0101.png]]
+** aws tidb perf placement-rule prepare
    This command is used for test preparation. Including:
    + batch database creation
    + batch table creation
@@ -86,68 +100,125 @@ OhMyTiUP$ ./bin/aws tidb list placementruletest
    + sysbench table creation
    + sysbench customization module upload
 
-   [[./png/placementrule/placementrule.11.png]]
-
-** measure-latency run
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0102.png]]
+** aws tidb perf placement-rule run
 *** Simple TiKV mode
-    In the mode, all the TiKV nodes are share by the batch and online application. Sometimes heavy batch might impact the online transaction even though there is no table confilict. Especially the log apply duration is impacted heavily if the batch is heavy.
+    In the mode, all the TiKV nodes are shared by the batch and online application. Sometimes heavy batch might impact the online transaction even though there is no table confilict. Especially the log apply duration is impacted heavily if the batch is heavy.
 *** Placment rule policy TiKV mode
     In this mode, the TiKV nodes are grouped to two. Online and batch. The online group nodes are used only by sysbench while the batch nodes are only used by batch. With placement rule, the TiKV resources isolation are achieved.
-    
-   [[./png/placementrule/placementrule.12.png]]
+
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0103.png]]
 * Latency impact test
-** Scenario: Common TiDB Cluster without resource isolation
+** Scenario: Common TiDB Cluster without placement rule
 *** Preparation
 #+BEGIN_SRC
-OhMyTiUP$ ./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-num-tables 10  --tikv-mode simple
-        
+OhMyTiUP$ ./bin/aws tidb perf placement-rule prepare placementruletest --sysbench-num-tables 10 --sysbench-execution-time 30 --tikv-mode partition --ontime-start-ym 2021-01 --ontime-end-ym 2021-02
+Execution Time:
+Step                       Duration(s)
+----                       -----------
+Package Install            29.4s
+DB Resource preparation    40s
+Template render            1m18.9s
+Batch data import(ontime)  2m41s
+sysbench preparation       13.4s
+sysbench scripts render    1m27.9s
+Total                      6m50s
+
 #+END_SRC
-[[./png/placementrule/placementrule.07.png]]   
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0201.png]]
+
+*** PlacementRule check
+    #+BEGIN_SRC
+MySQL [latencytest]> select table_schema, table_name, TIDB_PLACEMENT_POLICY_NAME from information_schema.tables where table_name in ('ontime' ) or table_schema = 'sbtest' order by table_schema, table_name;
++--------------+------------+----------------------------+
+| table_schema | table_name | TIDB_PLACEMENT_POLICY_NAME |
++--------------+------------+----------------------------+
+| latencytest  | ontime     | NULL                       |
+| sbtest       | sbtest1    | NULL                       |
+| sbtest       | sbtest10   | NULL                       |
+| sbtest       | sbtest2    | NULL                       |
+| sbtest       | sbtest3    | NULL                       |
+| sbtest       | sbtest4    | NULL                       |
+| sbtest       | sbtest5    | NULL                       |
+| sbtest       | sbtest6    | NULL                       |
+| sbtest       | sbtest7    | NULL                       |
+| sbtest       | sbtest8    | NULL                       |
+| sbtest       | sbtest9    | NULL                       |
++--------------+------------+----------------------------+
+11 rows in set (0.011 sec)
+    #+END_SRC
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0202.png]]
 *** Run test
 #+BEGIN_SRC
 
-OhMyTiUP$ ./bin/aws tidb perf resource-isolation run placementruletest --sysbench-num-tables 50 --batch-size x,50000 --repeats 10 --sysbench-plugin-name tidb_oltp_insert_simple
+OhMyTiUP$ ./bin/aws tidb perf placement-rule run placementruletest --sysbench-num-tables 10 --batch-size x,50000 --repeats 2 --sysbench-plugin-name tidb_oltp_insert_simple
+Test Case         Rows Inserted  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  Start Time  End Time
+---------         -------------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  ----------  --------
+batchsize: x      0              0      17703   17703    17703   589.98      17703    589.98       3.84             6.78             77.29            8.58                      119991.10         15:41:57    15:42:30
+batchsize: 50000  600000         0      20431   20431    20431   680.88      20431    680.88       2.66             5.87             51.93            7.84                      119986.04         15:42:50    15:43:22
+batchsize: x      0              0      21321   21321    21321   710.62      21321    710.62       2.73             5.63             78.65            7.30                      119978.64         15:44:18    15:44:50
+batchsize: 50000  300000         0      19746   19746    19746   658.11      19746    658.11       2.74             6.08             54.91            7.98                      119979.95         15:45:10    15:45:43
 #+END_SRC
-[[./png/placementrule/placementrule.08.png]]
-
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0203.png]]
 As the result from the above example, because of the heavy batch impact, the latency and qps are impacted compared to the case where only sysbench is running.
-** Scenario: Common TiDB Cluster without resource isolation
-*** Preparation
+** Scenario: Common TiDB Cluster with placement rule
+*** Preparation  
     #+BEGIN_SRC
-OhMyTiUP$./bin/aws tidb perf resource-isolation prepare placementruletest --sysbench-execution-time 40 --sysbench-num-tables 10  --tikv-mode partition
+OhMyTiUP$./bin/aws tidb perf placement-rule prepare placementruletest --sysbench-num-tables 10 --sysbench-execution-time 300 --tikv-mode partition --ontime-start-ym 2021-01 --ontime-end-ym 2021-02
+Execution Time:
+Step                       Duration(s)
+----                       -----------
+Package Install            29.6s
+DB Resource preparation    39.5s
+Template render            1m18.3s
+Batch data import(ontime)  2m40s
+sysbench preparation       12.8s
+sysbench scripts render    1m28.7s
+Total                      6m49s
     #+END_SRC
-[[./png/placementrule/placementrule.09.png]]
-Batch size  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  
-----------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  
-0           0      598849  598849   598849  998.08      598849   998.08       2.49             4.01             47.51            5.67                      2399321.09
-50000       0      484470  484470   484470  807.44      484470   807.44       1.79             4.95             229560.02        5.77                      2399422.45
-0           0      684562  684562   684562  1140.93     684562   1140.93      1.64             3.50             412.08           5.28                      2399303.23
-50000       0      605884  605884   605884  1009.80     605884   1009.80      1.62             3.96             210.17           6.43                      2399242.41
-0           0      744333  744333   744333  1240.55     744333   1240.55      1.60             3.22             67.49            4.82                      2399210.24
-50000       0      636935  636935   636935  1061.55     636935   1061.55      1.62             3.77             209.71           5.88                      2399224.99
-0           0      749426  749426   749426  1249.04     749426   1249.04      1.63             3.20             399.06           4.82                      2399169.24
-50000       0      649537  649537   649537  1082.56     649537   1082.56      1.60             3.69             212.48           5.88                      2399212.06
-0           0      713366  713366   713366  1188.94     713366   1188.94      1.63             3.36             208.28           5.00                      2399238.12
-50000       0      671999  671999   671999  1119.99     671999   1119.99      1.62             3.57             130.07           5.67                      2399166.20
-0           0      606692  606692   606692  1011.15     606692   1011.15      2.45             3.95             377.64           5.47                      2399343.18
-50000       0      569454  569454   569454  949.08      569454   949.08       2.57             4.21             213.39           6.32                      2399261.03
-0           0      735795  735795   735795  1226.32     735795   1226.32      1.61             3.26             210.79           5.00                      2399247.23
-50000       0      580762  580762   580762  967.93      580762   967.93       2.49             4.13             209.11           6.32                      2399290.80
-0           0      606412  606412   606412  1010.68     606412   1010.68      2.47             3.96             162.23           5.47                      2399374.54
-50000       0      592036  592036   592036  986.72      592036   986.72       2.52             4.05             169.32           5.99                      2399271.29
-0           0      676746  676746   676746  1127.90     676746   1127.90      1.65             3.55             62.46            5.37                      2399263.67
-50000       0      576960  576960   576960  961.59      576960   961.59       1.67             4.16             210.74           6.67                      2399283.28
-0           0      603172  603172   603172  1005.28     603172   1005.28      2.56             3.98             221.27           5.67                      2399351.05
-50000       0      610684  610684   610684  1017.80     610684   1017.80      1.62             3.93             214.56           6.43                      2399250.07
-
-Batch size  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  
-----------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  
-0           0      476846  476846   476846  794.74      476846   794.74       2.22             5.03             65.15            7.17                      2399397.72
-50000       0      445502  445502   445502  742.49      445502   742.49       2.22             5.39             605.22           7.84                      2399346.88
-
-
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0301.png]]
 If the workload is not high enough, the batch does not have much impact on the online process, while the batch has the impact on the online process while the online process has high workload.
 
+*** PlacementRule check
+#+BEGIN_SRC
+MySQL$ select table_schema, table_name, TIDB_PLACEMENT_POLICY_NAME from information_schema.tables where table_name in ('ontime' ) or table_schema = 'sbtest' order by table_schema, table_name;
++--------------+------------+----------------------------+
+| table_schema | table_name | TIDB_PLACEMENT_POLICY_NAME |
++--------------+------------+----------------------------+
+| latencytest  | ontime     | policy_batch               |
+| sbtest       | sbtest1    | policy_online              |
+| sbtest       | sbtest10   | policy_online              |
+| sbtest       | sbtest2    | policy_online              |
+| sbtest       | sbtest3    | policy_online              |
+| sbtest       | sbtest4    | policy_online              |
+| sbtest       | sbtest5    | policy_online              |
+| sbtest       | sbtest6    | policy_online              |
+| sbtest       | sbtest7    | policy_online              |
+| sbtest       | sbtest8    | policy_online              |
+| sbtest       | sbtest9    | policy_online              |
++--------------+------------+----------------------------+
+11 rows in set (0.011 sec)
+#+END_SRC
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0302.png]]
+*** Run test
+#+BEGIN_SRC
+OhMyTiUP$ ./bin/aws tidb perf placement-rule run placementruletest --sysbench-num-tables 10 --batch-size x,50000 --repeats 2 --sysbench-plugin-name tidb_oltp_insert_simple
+Test Case         Rows Inserted  reads  writes  queries  events  events/sec  queries  queries/sec  latency_min(ms)  latency_avg(ms)  latency_max(ms)  95th_latency_pct (ms) ms  latency_sum (ms)  Start Time  End Time
+---------         -------------  -----  ------  -------  ------  ----------  -------  -----------  ---------------  ---------------  ---------------  ------------------------  ----------------  ----------  --------
+batchsize: x      0              0      197638  197638   197638  658.79      197638   658.79       2.60             6.07             60.19            8.43                      1199712.09        14:49:31    14:54:33
+batchsize: 50000  2900000        0      211333  211333   211333  704.43      211333   704.43       2.51             5.68             208.74           7.70                      1199682.12        14:54:53    14:59:56
+batchsize: x      0              0      192668  192668   192668  642.22      192668   642.22       2.63             6.23             223.82           8.58                      1199748.46        15:00:25    15:05:31
+batchsize: 50000  2950000        0      176898  176898   176898  589.65      176898   589.65       3.75             6.78             62.67            8.74                      1199704.34        15:05:51    15:10:54
+#+END_SRC
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/ResourceControl/placementrule/0303.png]]
 ** Run test against cluster with batch/online isolated
 
 *** Preparation

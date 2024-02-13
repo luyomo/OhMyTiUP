@@ -1,14 +1,15 @@
 * Install
 #+BEGIN_SRC
-tidb-on-aks$ kubectl create namespace -n restore-test
+tidb-on-aks$ kubectl create namespace restore-test
 tidb-on-aks$ kubectl apply -f /tmp/backup-rbac.yaml -n restore-test
-tidb-on-aks$ kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=jays3 --from-literal=AZURE_CLIENT_ID={REGISTER_APP_CLIENT_ID} --from-literal=AZURE_TENANT_ID={AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET={SECRET_VALUE} --namespace=restore-test
+tidb-on-aks$kubectl create secret generic azblob-secret-ad --from-literal=AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT} --from-literal=AZURE_CLIENT_ID=${AZURE_CLIENT_ID} --from-literal=AZURE_TENANT_ID=${AD_TENANT_ID} --from-literal=AZURE_CLIENT_SECRET=${SECRET_VALUE} --namespace=restore-test
+secret/azblob-secret-ad created
 tidb-on-aks$ more /tmp/restore-point-azblob.yaml 
 ---
 apiVersion: pingcap.com/v1alpha1
 kind: Restore
 metadata:
-  name: demo3-restore-azblob
+  name: demo-restore-azblob
   namespace: restore-test
 spec:
   restoreMode: pitr

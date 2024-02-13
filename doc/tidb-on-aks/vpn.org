@@ -9,21 +9,78 @@ sudo apt install nfs-common
 
   #+END_SRC
 * VPN setup
+** Generate the key and certificate
+   Please refer to the link [[https://learn.microsoft.com/en-us/azure/vpn-gateway/vpn-gateway-certificates-point-to-site-linux][ca and key generation]] for certificate generation.
+   #+BEGIN_SRC
+workstation$ ipsec pki --gen --outform pem > caKey.pem
+workstation$ ipsec pki --self --in caKey.pem --dn "CN=VPN CA" --ca --outform pem > caCert.pem
+workstation$ export PASSWORD="password"
+workstation$ export USERNAME=$(hostnamectl --static)
+workstation$ ipsec pki --gen --outform pem > "${USERNAME}Key.pem"
+workstation$ ipsec pki --pub --in "${USERNAME}Key.pem" | ipsec pki --issue --cacert caCert.pem --cakey caKey.pem --dn "CN=${USERNAME}" --san "${USERNAME}" --flag clientAuth --outform pem > "${USERNAME}Cert.pem"
+workstation$ openssl pkcs12 -in "${USERNAME}Cert.pem" -inkey "${USERNAME}Key.pem" -certfile caCert.pem -export -out "${USERNAME}.p12" -password "pass:${PASSWORD}"
+   #+END_SRC
 ** create vip
    reference: https://learn.microsoft.com/en-us/azure/vpn-gateway/create-routebased-vpn-gateway-cli#vnet
    The GatewaySubnet is fixed.
    #+BEGIN_SRC
 az network public-ip create -n jaygwip -g azure-jp-tech-team -l eastus
 az network vnet subnet create -n GatewaySubnet --vnet-name aks-vnet-82163357 -g azure-jp-tech-team --address-prefix 10.225.0.0/24
-az network vnet-gateway create -n jaygw -l eastus --public-ip-address jaygwip -g azure-jp-tech-team --vnet aks-vnet-82163357 --gateway-type Vpn --sku VpnGw1 --vpn-gateway-generation Generation1 --no-wait
+az network vnet-gateway create -n jaygw -l eastus --public-ip-address jaygwip -g azure-jp-tech-team --vnet aks-vnet-82163357 --gateway-type Vpn --sku VpnGw1 --vpn-gateway-generation Generation1 --vpn-type RouteBased --address-prefixes 192.168.0.0/24  --client-protocol OpenVPN
+az network vnet-gateway root-cert create -g azure-jp-tech-team -n vpncliCert --gateway-name jaygw --public-cert-data /tmp/ca.pem
+
 az network vpn-server-config create --name workstation --resource-group azure-jp-tech-team --auth-types Certificate --protocols OpenVPN --no-wait --vpn-client-root-certs /tmp/openssl/tmp/caCert.pem
    #+END_SRC
+*** Create local service
+**** Download VPN client
+**** Replace the client piCert.pen/piKey.pen to OpenVPN/vpnconfig.ovpn
+**** Restart the service
+     #+BEGIN_SRC
+workstation$ more /lib/systemd/system/openvpn@.service
+[Unit]
+Description=OpenVPN connection to %i
+PartOf=openvpn.service
+ReloadPropagatedFrom=openvpn.service
+Before=systemd-user-sessions.service
+After=network-online.target
+Wants=network-online.target
+Documentation=man:openvpn(8)
+Documentation=https://community.openvpn.net/openvpn/wiki/Openvpn24ManPage
+Documentation=https://community.openvpn.net/openvpn/wiki/HOWTO
+
+[Service]
+Type=notify
+PrivateTmp=true
+WorkingDirectory=/etc/openvpn
+ExecStart=/usr/sbin/openvpn --daemon ovpn-%i --status /run/openvpn/%i.status 10 --cd /etc/openvpn --config /etc/openvpn/%i/vpnconfig.conf --writepid /run/openvpn/%i.pid
+PIDFile=/run/openvpn/%i.pid
+KillMode=process
+ExecReload=/bin/kill -HUP $MAINPID
+CapabilityBoundingSet=CAP_IPC_LOCK CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETGID CAP_SETUID CAP_SYS_CHROOT CAP_DAC_OVERRIDE CAP_AUDIT_WRITE
+LimitNPROC=100
+DeviceAllow=/dev/null rw
+DeviceAllow=/dev/net/tun rw
+ProtectSystem=true
+ProtectHome=true
+RestartSec=5s
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+workstation$ sudo systemctl restart openvpn@client
+     #+END_SRC
 * VPN removal
   #+BEGIN_SRC
 sudo systemctl stop openvpn@client
 az network vnet-gateway delete -n jaygw -g azure-jp-tech-team
 az network vnet subnet delete --vnet-name aks-vnet-82163357 -n GatewaySubnet  -g azure-jp-tech-team
-az network public-ip create -n jaygwip -g azure-jp-tech-team -l eastus
+az network public-ip delete -n jaygwip -g azure-jp-tech-team
+  #+END_SRC
+* VM stop
+  #+BEGIN_SRC
+workstation$ az vm stop --name jay-workstation -g azure-jp-tech-team
+workstation$ az vm deallocate --name jay-workstation -g azure-jp-tech-team
   #+END_SRC
 * Certificate prepatation
   Please find the [[https://learn.microsoft.com/en-us/azure/vpn-gateway/vpn-gateway-certificates-point-to-site-linux][link]] for reference

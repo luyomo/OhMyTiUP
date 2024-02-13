@@ -29,6 +29,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	WSName = "ohmytiup-workstation"
+)
+
 func newWorkstationCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "workstation <sub_command>",
@@ -69,7 +73,7 @@ func newWorkstationDeploy() *cobra.Command {
 				teleTopology = string(data)
 			}
 
-			return cm.WorkstationDeploy(clusterName, topoFile, opt, skipConfirm, gOpt)
+			return cm.WorkstationDeploy(clusterName, WSName, topoFile, opt, skipConfirm, gOpt)
 		},
 	}
 
@@ -94,7 +98,7 @@ func newListWorkstationCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.ListWorkstation(clusterName, opt)
+			return cm.ListWorkstation(clusterName, WSName, opt)
 		},
 	}
 
@@ -121,7 +125,7 @@ You can retain some nodes and roles data when destroy cluster, eg:
 			clusterReport.ID = scrubClusterName(clusterName)
 			teleCommand = append(teleCommand, scrubClusterName(clusterName))
 
-			return cm.DestroyWorkstation(clusterName, gOpt, skipConfirm)
+			return cm.DestroyWorkstation(clusterName, WSName, gOpt, skipConfirm)
 		},
 	}
 
@@ -143,7 +147,7 @@ func newShowVPCPeeringWorkstationCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.ShowVPCPeering(clusterName, "ohmytiup-workstation", []string{"workstation"})
+			return cm.ShowVPCPeering(clusterName, WSName, []string{"workstation"})
 		},
 	}
 
@@ -165,7 +169,7 @@ func newAcceptVPCPeeringWorkstationCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.AcceptVPCPeering(clusterName, "ohmytiup-workstation", []string{"workstation"})
+			return cm.AcceptVPCPeering(clusterName, WSName, []string{"workstation"})
 		},
 	}
 

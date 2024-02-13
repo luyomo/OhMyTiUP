@@ -2,51 +2,60 @@
 
 * INDEX
 ** TiDB Solution
- #+CAPTION: Index of all topics
- #+ATTR_HTML: :border 2 :rules all :frame border
- | Link                        | Comment                                                   | Source                                     |
- |-----------------------------+-----------------------------------------------------------+--------------------------------------------|
- | [[./baidu-uuid.org][uuid generator]]              | Use uid-generator from baidu to generate sequence id      | [[https://github.com/baidu/uid-generator.git]] |
- | [[./powerdns.org][powerdns on TiDB]]            | Deploy powerdbs on TiDB                                   |                                            |
- | [[./tidb-endpoints.org][TiDB Cluster service on aws]] | Create TiDB Service using PrivateLink on aws              |                                            |
- | [[./ossinsight-aurora.org][OSS Insight on AWS]]          | Query performance test using OSS Insight project's tables | https://ossinsight.io/                     |
+   #+CAPTION: Index of all topics
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | Link                        | Comment                                                   | Source                                     |
+   |-----------------------------+-----------------------------------------------------------+--------------------------------------------|
+   | [[./baidu-uuid.org][uuid generator]]              | Use uid-generator from baidu to generate sequence id      | [[https://github.com/baidu/uid-generator.git]] |
+   | [[./powerdns.org][powerdns on TiDB]]            | Deploy powerdbs on TiDB                                   |                                            |
+   | [[./tidb-endpoints.org][TiDB Cluster service on aws]] | Create TiDB Service using PrivateLink on aws              |                                            |
+   | [[./ossinsight-aurora.org][OSS Insight on AWS]]          | Query performance test using OSS Insight project's tables | https://ossinsight.io/                     |
+   | [[./doc/ru_estimate.org][RU estimation]]               | Estimate RU according to different operations             |                                            |
 
 ** TiDB Cloud on aws solution
- #+CAPTION: Index of all topics on aws
- #+ATTR_HTML: :border 2 :rules all :frame border
- | Link                                                              | Comment                                                                                                           | Source |
- |-------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+--------|
- | [[./tidb-on-aws.org][TiDB installation on AWS]]                                          | Deploy TiDB Cluster on the AWS using TiUP                                                                         |        |
- | [[./tidb-cloud.org][TiDB Cloud Cli]]                                                    | TiDB Cloud cli using RESTAPI implementation                                                                       |        |
- | [[./doc/workstation.org][Workstation preparation]]                                           | Prepare the workstation to access TiDB Cloud                                                                      |        |
- | [[./copyDataTiDB2Aurora.org][Data Migration from TiDB Cloud To Aurora MySQL]]                    | data copy from TiDB Cloud to Aurora through S3                                                                    |        |
- | [[./tidb2aurora.org][Incremental Replication from TiDB Cloud To Aurora]]                 | TiDB Cloud -> TiCDC -> Aurora                                                                                     |        |
- | [[./tidb2aurora_cloudformation.org][Incremental Replication from TiDB Cloud To Aurora(cloudformation)]] | TiDB Cloud -> TiCDC -> Aurora(cloudformation deployment)                                                          |        |
- | [[./tidb-on-eks.org][Migration from TiDB-on-EKS to TiDB Cloud]]                          |                                                                                                                   |        |
- | Data Migration from TiDB Cloud to TiDB-on-eks(S3)                 |                                                                                                                   |        |
- | Data Migration from TiDB Cloud to Aurora(S3)                      |                                                                                                                   |        |
- | [[./tidb2kafka2pg.org][Incremental sync from TiDB to Kafka to Postgres]]                   |                                                                                                                   |        |
- | [[./aurora2tidbcloud.org][Data Migration from Aurora(S3) to TiDB Cloud]]                      |                                                                                                                   |        |
- | [[./tidb-on-eks.deployment.org][TiDB Deployment on EKS]]                                            |                                                                                                                   |        |
- | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]                                    | Redshift --federated query--> TiDB Cloud(Not supported any more since redshift only allow the access to RDS by CA |        |
- | [[./tidbcloud2reshift-serverless.org][Serverless data migration from TiDBCloud To Redshift]]              | Use lambda function to migrate the data from TiDBCloud to redshift                                                |        |
- | Grant S3 bucket/folder permission to TiDB Cloud account           |                                                                                                                   |        |
- | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                                                                                   |        |
- | [[./prometheus2newrelic.org][Prometheus to Newrelic metrics]]                                    | Convert the Prometheus metrics to Newrelic                                                                        |        |
- | [[./thanos.org][THANOS for prometheus HA]]                                          | THANOS deployment                                                                                                 |        |
- | [[./pg-kafka-tidb.org][Replication from Postgres to TiDB through kafka]]                   | Postgres -> Debezium source connector -> kafka -> jdbc sink connector -> TiDB Cloud                               |        |
+   #+CAPTION: Index of all topics on aws
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | Link                                                              | Comment                                                                                                           | Source |
+   |-------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------+--------|
+   | [[./tidb-on-aws.org][TiDB installation on AWS]]                                          | Deploy TiDB Cluster on the AWS using TiUP                                                                         |        |
+   | [[./tidb-cloud.org][TiDB Cloud Cli]]                                                    | TiDB Cloud cli using RESTAPI implementation                                                                       |        |
+   | [[./doc/workstation.org][Workstation preparation]]                                           | Prepare the workstation to access TiDB Cloud                                                                      |        |
+   | [[./copyDataTiDB2Aurora.org][Data Migration from TiDB Cloud To Aurora MySQL]]                    | data copy from TiDB Cloud to Aurora through S3                                                                    |        |
+   | [[./tidb2aurora.org][Incremental Replication from TiDB Cloud To Aurora]]                 | TiDB Cloud -> TiCDC -> Aurora                                                                                     |        |
+   | [[./tidb2aurora_cloudformation.org][Incremental Replication from TiDB Cloud To Aurora(cloudformation)]] | TiDB Cloud -> TiCDC -> Aurora(cloudformation deployment)                                                          |        |
+   | [[./tidb-on-eks.org][Migration from TiDB-on-EKS to TiDB Cloud]]                          |                                                                                                                   |        |
+   | Data Migration from TiDB Cloud to TiDB-on-eks(S3)                 |                                                                                                                   |        |
+   | Data Migration from TiDB Cloud to Aurora(S3)                      |                                                                                                                   |        |
+   | [[./tidb2kafka2pg.org][Incremental sync from TiDB to Kafka to Postgres]]                   |                                                                                                                   |        |
+   | [[./aurora2tidbcloud.org][Data Migration from Aurora(S3) to TiDB Cloud]]                      |                                                                                                                   |        |
+   | [[./tidb-on-eks.deployment.org][TiDB Deployment on EKS]]                                            |                                                                                                                   |        |
+   | [[./federatedSQLtidbcloud2redshift.org][TiDB Cloud wrapper in redshift]]                                    | Redshift --federated query--> TiDB Cloud(Not supported any more since redshift only allow the access to RDS by CA |        |
+   | [[./doc/tidbcloud2bq.org][TiDB Cloud data Sync to BigQuery]]                                  | Data sync from TiDB Cloud to BigQuery through S3                                                                  |        |
+   | [[./tidbcloud2reshift-serverless.org][Serverless data migration from TiDBCloud To Redshift]]              | Use lambda function to migrate the data from TiDBCloud to redshift                                                |        |
+   | Grant S3 bucket/folder permission to TiDB Cloud account           |                                                                                                                   |        |
+   | [[./aurora_creation.org][Create Aurora(MySQL) using cloudformation]]                         |                                                                                                                   |        |
+   | [[./prometheus2newrelic.org][Prometheus to Newrelic metrics]]                                    | Convert the Prometheus metrics to Newrelic                                                                        |        |
+   | [[./thanos.org][THANOS for prometheus HA]]                                          | THANOS deployment                                                                                                 |        |
+   | [[./pg-kafka-tidb.org][Replication from Postgres to TiDB through kafka]]                   | Postgres -> Debezium source connector -> kafka -> jdbc sink connector -> TiDB Cloud                               |        |
 
+** TiDB feature
+   #+CAPTION: TiDB feature PoC
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | Link                   | Comment                                  |
+   |------------------------+------------------------------------------|
+   | [[./doc/multi-access-point.org][Multiple Access Point]]  | Create multiple access point by open api |
+   | [[./doc/tidb-readonly-mode.org][Readonly mode test]]     | Test read only mode                      |
+   | [[./doc/titan-performance.org][TiTan performance test]] | Test TiTan Storage performance           |
 
 ** Troubleshooting
-   
-
- #+CAPTION: Index of all topics on aws
- #+ATTR_HTML: :border 2 :rules all :frame border
- | Link                                   | Comment                                                   | Source |
- |----------------------------------------+-----------------------------------------------------------+--------|
- | [[./low-latency-during-batch-import.org][Low latency during heavy batch]]         | TiKV nodes isolation between batch and online transaction |        |
- | [[./scala-driver.org][connection failure for jdbc connection]] | Connection failure (connect/j) to TiDB Cloud              |        |
- | [[./prometheus2datadog.org][Prometheus datadog integration]]         | Integrate prometheus to datadog                           |        |
+   #+CAPTION: Index of all topics on aws
+   #+ATTR_HTML: :border 2 :rules all :frame border
+   | Link                                             | Comment                                                   | Source |
+   |--------------------------------------------------+-----------------------------------------------------------+--------|
+   | [[./low-latency-during-batch-import.org][Low latency during heavy batch]]                   | TiKV nodes isolation between batch and online transaction |        |
+   | [[./doc/low-latency-during-batch-import-resource-control.org][Low latency during heavy batch [resource control]] | Use resource control to limit resource usage on the TiKV  |        |
+   | [[./scala-driver.org][connection failure for jdbc connection]]           | Connection failure (connect/j) to TiDB Cloud              |        |
+   | [[./prometheus2datadog.org][Prometheus datadog integration]]                   | Integrate prometheus to datadog                           |        |
 
 * Roadmap
 ** Common
