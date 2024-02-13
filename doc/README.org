@@ -50,12 +50,12 @@
 ** Troubleshooting
    #+CAPTION: Index of all topics on aws
    #+ATTR_HTML: :border 2 :rules all :frame border
-   | Link                                             | Comment                                                   | Source |
-   |--------------------------------------------------+-----------------------------------------------------------+--------|
-   | [[./low-latency-during-batch-import.org][Low latency during heavy batch]]                   | TiKV nodes isolation between batch and online transaction |        |
-   | [[./doc/low-latency-during-batch-import-resource-control.org][Low latency during heavy batch [resource control]] | Use resource control to limit resource usage on the TiKV  |        |
-   | [[./scala-driver.org][connection failure for jdbc connection]]           | Connection failure (connect/j) to TiDB Cloud              |        |
-   | [[./prometheus2datadog.org][Prometheus datadog integration]]                   | Integrate prometheus to datadog                           |        |
+   | Link                                              | Comment                                                   | Source |
+   |---------------------------------------------------+-----------------------------------------------------------+--------|
+   | [[./low-latency-during-batch-import.org][Low latency during heavy batch]]                    | TiKV nodes isolation between batch and online transaction |        |
+   | [[./low-latency-during-batch-import-resource-control.org][Low latency during heavy batch (resource control)]] | Use resource control to limit resource usage on the TiKV  |        |
+   | [[./scala-driver.org][connection failure for jdbc connection]]            | Connection failure (connect/j) to TiDB Cloud              |        |
+   | [[./prometheus2datadog.org][Prometheus datadog integration]]                    | Integrate prometheus to datadog                           |        |
 
 * Roadmap
 ** Common
