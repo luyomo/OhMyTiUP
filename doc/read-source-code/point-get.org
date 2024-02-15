@@ -1,0 +1,1257 @@
+#+OPTIONS: ^:nil
+* Analysis query
+** Table
+   #+BEGIN_SRC
+MySQL$ CREATE TABLE test01(
+    col01 int primary key,
+    col02 int
+);
+   #+END_SRC
+** Data initialization
+   #+BEGIN_SRC
+MySQL$ insert into test01 values(1,1);
+   #+END_SRC
+** Analysis query
+   #+BEGIN_SRC
+MySQL$ select * from test01 where col01 = 1;
+   #+END_SRC
+* Logic Flow
+** Server Entry
+   + cmd/tidb-server/main.go: main()
+     #+BEGIN_SRC
+     func Main(){
+         ... ...
+         keyspaceName := keyspace.GetKeyspaceNameBySettings()
+         executor.Start()
+         resourcemanager.InstanceResourceManager.Start()
+         storage, dom := createStoreAndDomain(keyspaceName)
+         svr := createServer(storage, dom)
+
+         // Register error API is not thread-safe, the caller MUST NOT register errors after initialization.
+         // To prevent misuse, set a flag to indicate that register new error will panic immediately.
+         // For regression of issue like https://github.com/pingcap/tidb/issues/28190
+         terror.RegisterFinish()
+
+         exited := make(chan struct{})
+         signal.SetupSignalHandler(func() {
+             svr.Close()
+             cleanup(svr, storage, dom)
+             cpuprofile.StopCPUProfiler()
+             resourcemanager.InstanceResourceManager.Stop()
+             executor.Stop()
+             close(exited)
+         })
+         topsql.SetupTopSQL()
+         if config.GetGlobalConfig().Performance.ForceInitStats {
+             <-dom.StatsHandle().InitStatsDone
+         }
+         terror.MustNil(svr.Run())                                                                  # memo: Call the server process
+         <-exited
+         ... ...
+     }
+     #+END_SRC
+   + pkg/server/server.go: RUN()
+     #+BEGIN_SRC
+     func (s *Server) Run() error {
+        ... ...
+        go s.startNetworkListener(s.listener, false, errChan)                                       # memo: Open new thread to open network listener
+        go s.startNetworkListener(s.socket, true, errChan)
+        err := <-errChan
+        ... ...
+     }
+     #+END_SRC
+   + pkg/server/server.go: startNetworkListener()
+     #+BEGIN_SRC
+     func (s *Server) startNetworkListener(listener net.Listener, isUnixSocket bool, errChan chan error) {
+        ... ...
+        for {
+            conn, err := listener.Accept()                                                          # memo: Start the net listener
+            ... ...
+
+            clientConn := s.newConn(conn)                                                           # memo: Make client connection using the net connection
+            if isUnixSocket {
+                ... ...
+            }
+            ... ...
+
+            go s.onConn(clientConn)                                                                 # memo: Open one thread for the client connection
+        }
+
+     }
+     #+END_SRC
+** MySQL protocol - Get query
+*** Handshake
+   + pkg/server/server.go:onConn()
+     #+BEGIN_SRC
+    func (s *Server) onConn(conn *clientConn) {
+        // init the connInfo
+        _, _, err := conn.PeerHost("", false)
+        ... ...
+
+        extensions, err := extension.GetExtensions()
+        ... ...
+
+        if sessExtensions := extensions.NewSessionExtensions(); sessExtensions != nil {
+            conn.extensions = sessExtensions
+            conn.onExtensionConnEvent(extension.ConnConnected, nil)
+            ... ...
+        }
+
+        ctx := logutil.WithConnID(context.Background(), conn.connectionID)
+        if err := conn.handshake(ctx); err != nil {                                                 # Memo: Complete the handshake between client and server
+            ... ...
+        }
+        ... ...
+
+        if !s.registerConn(conn) {
+                return
+        }
+        ... ...
+        conn.Run(ctx)                                                                               # Memo: Start the connection to accept connection from client
+        ... ...
+      #+END_SRC
+*** Fetch query from connection
+   + pkg/server/conn.go: Run()
+     #+BEGIN_SRC
+     func (cc *clientConn) Run(ctx context.Context) {
+         ... ...
+         for {             ... ...
+             data, err := cc.readPacket()                                                           # memo: Read packet from client, here the query (select * from test01 where col01 = 1) will be got
+             ... ...
+             err = cc.dispatch(ctx, data)                                                           # memo: Dispatch the query to branch
+             ... ...
+         }
+     }
+     #+END_SRC
+   + pkg/server/conn.go: dispatch()
+     #+BEGIN_SRC
+     func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
+         ... ...
+         cmd := data[0]
+         data = data[1:]
+         ... ...
+         switch cmd {
+         ... ...
+         case mysql.ComQuery: // Most frequently used command.
+             // For issue 1989
+             // Input payload may end with byte '\0', we didn't find related mysql document about it, but mysql
+             // implementation accept that case. So trim the last '\0' here as if the payload an EOF string.
+             // See http://dev.mysql.com/doc/internals/en/com-query.html
+             if len(data) > 0 && data[len(data)-1] == 0 {
+                 data = data[:len(data)-1]
+                 dataStr = string(hack.String(data))
+             }
+             return cc.handleQuery(ctx, dataStr)                                                    # memo: The query is query type which goes into this branch
+     }
+     #+END_SRC
+** Parse Query to AST
+   + pkg/server/conn.go: handleQuery()
+     #+BEGIN_SRC
+     func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
+         var stmts []ast.StmtNode
+         ... ...
+         if stmts, err = cc.ctx.Parse(ctx, sql); err != nil {                                       # memo: The queries are parsed here to AST
+             ... ...
+         }
+         if len(stmts) == 0 {
+             return cc.writeOK(ctx)
+         }
+         ... ...
+         if len(stmts) > 1 {
+             ... ...
+             pointPlans, err = cc.prefetchPointPlanKeys(ctx, stmts)
+                 ... ...
+         }
+         if len(pointPlans) > 0 {
+              defer cc.ctx.ClearValue(plannercore.PointPlanKey)
+         }
+
+         for i, stmt := range stmts {
+             ... ...
+             lastStmt = stmt
+             ... ...
+             if len(pointPlans) > 0 {
+                 // Save the point plan in Session, so we don't need to build the point plan again.
+                 cc.ctx.SetValue(plannercore.PointPlanKey, plannercore.PointPlanVal{Plan: pointPlans[i]})
+             }
+             retryable, err = cc.handleStmt(ctx, stmt, parserWarns, i == len(stmts)-1)              # memo: This branch is reached to handle the query.
+             ... ...
+        }
+
+        if lastStmt != nil {
+                cc.onExtensionStmtEnd(lastStmt, sessVars.StmtCtx.TaskID != expiredStmtTaskID, err)
+        }
+     }
+     #+END_SRC
+** Convert AST to logic plan
+   + pkg/server/conn.go: handleStmt()
+     #+BEGIN_SRC
+     func (cc *clientConn) handleStmt(ctx context.Context, stmt ast.StmtNode, warns []stmtctx.SQLWarn, lastStmt bool) (bool, error) {
+         ... ...
+         rs, err := cc.ctx.ExecuteStmt(ctx, stmt)                                                   # memo: Execute the statement including optimizer
+         ... ...
+         reg.End()
+         ... ...
+         if rs != nil {
+             ... ...
+             if retryable, err := cc.writeResultSet(ctx, rs, false, status, 0); err != nil {        # memo: Write the result set to packet to client
+                 return retryable, err
+             }
+             return false, nil
+        }
+
+        handled, err := cc.handleFileTransInConn(ctx, status)                                       # memo: to check
+        ... ...
+     }
+     #+END_SRC
+   + pkg/server/driver_tidb.go: ExecuteStmt()
+     #+BEGIN_SRC
+     func (tc *TiDBContext) ExecuteStmt(ctx context.Context, stmt ast.StmtNode) (resultset.ResultSet, error) {
+         var rs sqlexec.RecordSet
+         ... ...
+         if s, ok := stmt.(*ast.NonTransactionalDMLStmt); ok {
+             rs, err = session.HandleNonTransactionalDML(ctx, s, tc.Session)
+         } else {
+             rs, err = tc.Session.ExecuteStmt(ctx, stmt)                                            # memo: Execute the statement
+         }
+         ... ...
+         return resultset.New(rs, nil), nil
+     }
+     #+END_SRC
+   + pkg/session/session.go: ExecuteStmt()
+     #+BEGIN_SRC
+     func (s *session) ExecuteStmt(ctx context.Context, stmtNode ast.StmtNode) (sqlexec.RecordSet, error) {
+         ... ...
+         if err := s.PrepareTxnCtx(ctx); err != nil {
+             return nil, err
+         }
+         if err := s.loadCommonGlobalVariablesIfNeeded(); err != nil {
+             return nil, err
+         }
+         ... ...
+         s.currentPlan = nil // reset current plan
+         s.SetProcessInfo(stmtNode.Text(), time.Now(), cmdByte, 0)
+         s.txn.onStmtStart(digest.String())
+         ... ...
+         stmt, err := compiler.Compile(ctx, stmtNode)                                               # memo: Compile the AST to logical plan using optimizer
+         ... ...
+         if stmt.PsStmt != nil { // point plan short path
+             recordSet, err = stmt.PointGet(ctx)
+             s.txn.changeToInvalid()
+         } else {
+             recordSet, err = runStmt(ctx, s, stmt)                                                 # memo: Execute the Stmt to fetch the data
+         }
+
+         return recordSet, nil
+     }
+     #+END_SRC
+   + pkg/executor/compiler.go: Compile()
+     #+BEGIN_SRC
+     func (c *Compiler) Compile(ctx context.Context, stmtNode ast.StmtNode) (_ *ExecStmt, err error) {
+         ... ...
+         ret := &plannercore.PreprocessorReturn{}
+         err = plannercore.Preprocess(ctx, c.Ctx,
+               stmtNode,
+               plannercore.WithPreprocessorReturn(ret),
+               plannercore.InitTxnContextProvider,
+         )
+         ... ...
+         if execStmt, ok := stmtNode.(*ast.ExecuteStmt); ok {
+             if preparedObj, err = plannercore.GetPreparedStmt(execStmt, sessVars); err != nil {
+                 return nil, err
+             }
+             if pointPlanShortPathOK, err = plannercore.IsPointPlanShortPathOK(c.Ctx, is, preparedObj); err != nil {
+                 return nil, err
+             }
+         }
+         finalPlan, names, err := planner.Optimize(ctx, c.Ctx, stmtNode, is)                        # memo: Use Optimize to convert the AST to plan
+         ... ...
+         stmtCtx.SetPlan(finalPlan)
+         stmt := &ExecStmt{
+             GoCtx:         ctx,
+             InfoSchema:    is,
+             Plan:          finalPlan,
+             LowerPriority: lowerPriority,
+             Text:          stmtNode.Text(),
+             StmtNode:      stmtNode,
+             Ctx:           c.Ctx,
+             OutputNames:   names,
+             Ti:            &TelemetryInfo{},
+         }
+         if err = sessiontxn.OptimizeWithPlanAndThenWarmUp(c.Ctx, stmt.Plan); err != nil {
+             return nil, err
+         }
+         return stmt, nil
+     }
+     #+END_SRC
+*** Determine the point get
+    + pkg/planner/optimize.go: Optimize()
+      #+BEGIN_SRC
+      func Optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is infoschema.InfoSchema) (plan core.Plan, slice types.NameSlice, retErr error) {
+          ... ...
+          if execAST, ok := node.(*ast.ExecuteStmt); ok {
+              p, names, err := OptimizeExecStmt(ctx, sctx, execAST, is)
+              return p, names, err
+          }
+          ... ...
+          tableHints := hint.ExtractTableHintsFromStmtNode(node, sctx)
+          originStmtHints, originStmtHintsOffs, warns := handleStmtHints(tableHints)
+          sessVars.StmtCtx.StmtHints = originStmtHints
+          ... ...
+          stmtNode, isStmtNode := node.(ast.StmtNode)
+          bindRecord, scope, match := matchSQLBinding(sctx, stmtNode)
+          useBinding := enableUseBinding && isStmtNode && match
+          ... ...
+          if isStmtNode {
+              // add the extra Limit after matching the bind record
+              stmtNode = core.TryAddExtraLimit(sctx, stmtNode)
+              node = stmtNode
+          }
+          ... ...
+          if sctx.GetSessionVars().EnableNonPreparedPlanCache &&
+              isStmtNode &&
+              !useBinding { // TODO: support binding
+
+              cachedPlan, names, ok, err := getPlanFromNonPreparedPlanCache(ctx, sctx, stmtNode, is)
+              ... ...
+              if ok {
+                   return cachedPlan, names, nil
+              }
+         }
+         ... ...
+         txnManger := sessiontxn.GetTxnManager(sctx)
+         if _, isolationReadContainTiKV := sessVars.IsolationReadEngines[kv.TiKV]; isolationReadContainTiKV {
+              var fp core.Plan
+              if fpv, ok := sctx.Value(core.PointPlanKey).(core.PointPlanVal); ok {
+                  // point plan is already tried in a multi-statement query.
+                  fp = fpv.Plan
+              } else {
+                  fp = core.TryFastPlan(sctx, node)                                                  # memo: Get the fast plan from here 
+              }
+              if fp != nil {
+                  return fp, fp.OutputNames(), nil
+              }
+          }
+      }
+      #+END_SRC  
+** Fetch Data from TiKV by golang client
+*** Key
+    #+BEGIN_SRC
+[key="kv.Key{0x74, 0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x66, 0x5f, 0x72, 0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1}"] 
+    #+END_SRC
+*** Value
+    #+BEGIN_SRC
+[value="[]byte{0x80, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2, 0x1, 0x0, 0x1}"] 
+    #+END_SRC
+*** Analysis
+    + pkg/server/conn.go: writeResultSet()
+      #+BEGIN_SRC
+      func (cc *clientConn) writeResultSet(ctx context.Context, rs resultset.ResultSet, binary bool, serverStatus uint16, fetchSize int) (retryable bool, runErr error) {
+          ... ...
+          cc.initResultEncoder(ctx)
+          ... ...
+          if mysql.HasCursorExistsFlag(serverStatus) {
+              crs, ok := rs.(resultset.CursorResultSet)
+              ... ...
+              if err := cc.writeChunksWithFetchSize(ctx, crs, serverStatus, fetchSize); err != nil {
+                   return false, err
+              }
+              return false, cc.flush(ctx)
+          }
+          if retryable, err := cc.writeChunks(ctx, rs, binary, serverStatus); err != nil {          # memo: Call this function to write the data to bufer
+              return retryable, err
+          }
+          return false, cc.flush(ctx)
+      }
+      #+END_SRC
+    + pkg/server/conn.go: writeChunks()
+      #+BEGIN_SRC
+      func (cc *clientConn) writeChunks(ctx context.Context, rs resultset.ResultSet, binary bool, serverStatus uint16) (bool, error) {
+          data := cc.alloc.AllocWithLen(4, 1024)
+          req := rs.NewChunk(cc.chunkAlloc)
+          gotColumnInfo := false
+          ... ...
+          for {
+             err := rs.Next(ctx, req)                                                               # Fetch the data into result set
+             ... ...
+             if !gotColumnInfo {
+                 // We need to call Next before we get columns.
+                 // Otherwise, we will get incorrect columns info.
+                 columns := rs.Columns()
+                 if stmtDetail != nil {
+                     start = time.Now()
+                 }
+                 if err = cc.writeColumnInfo(columns); err != nil {                                 # Write the column header
+                     return false, err
+                 }
+                 if cc.capability&mysql.ClientDeprecateEOF == 0 {
+                     // metadata only needs EOF marker for old clients without ClientDeprecateEOF
+                     if err = cc.writeEOF(ctx, serverStatus); err != nil {
+                         return false, err
+                     }
+                 }
+                 if stmtDetail != nil {
+                     stmtDetail.WriteSQLRespDuration += time.Since(start)
+                 }
+                 gotColumnInfo = true
+             }
+             rowCount := req.NumRows()
+             if rowCount == 0 {
+                 break
+             }
+             validNextCount++
+             firstNext = false
+             reg := trace.StartRegion(ctx, "WriteClientConn")
+             if stmtDetail != nil {
+                 start = time.Now()
+             }
+             for i := 0; i < rowCount; i++ {
+                 data = data[0:4]
+                 if binary {
+                     data, err = column.DumpBinaryRow(data, rs.Columns(), req.GetRow(i), cc.rsEncoder)
+                 } else {
+                     data, err = column.DumpTextRow(data, rs.Columns(), req.GetRow(i), cc.rsEncoder)
+                 }
+                 if err != nil {
+                     reg.End()
+                     return false, err
+                 }
+                 if err = cc.writePacket(data); err != nil {
+                     reg.End()
+                     return false, err
+                }
+             }
+             reg.End()
+             if stmtDetail != nil {
+                 stmtDetail.WriteSQLRespDuration += time.Since(start)
+             }
+          }
+          if stmtDetail != nil { 
+              start = time.Now() 
+          } 
+ 
+          err := cc.writeEOF(ctx, serverStatus)
+          if stmtDetail != nil {
+              stmtDetail.WriteSQLRespDuration += time.Since(start)
+          }
+          return false, err
+      }
+      #+END_SRC
+    + pkg/server/internal/resultset/resultset.go: Next()
+      #+BEGIN_SRC
+      func (trs *tidbResultSet) Next(ctx context.Context, req *chunk.Chunk) error {
+          return trs.recordSet.Next(ctx, req)
+      }
+      #+END_SRC
+    + pkg/executor/adapter.go: Next()
+      #+BEGIN_SRC
+      func (a *recordSet) Next(ctx context.Context, req *chunk.Chunk) (err error) {
+          ... ...
+          err = a.stmt.next(ctx, a.executor, req)                                                   # memo: Fetch the data from adapter
+          ... ...
+          numRows := req.NumRows()
+          if numRows == 0 {
+              if a.stmt != nil {
+                  a.stmt.Ctx.GetSessionVars().LastFoundRows = a.stmt.Ctx.GetSessionVars().StmtCtx.FoundRows()
+              }
+              return nil
+          }
+          if a.stmt != nil {
+              a.stmt.Ctx.GetSessionVars().StmtCtx.AddFoundRows(uint64(numRows))
+          }
+          return nil
+      }
+      #+END_SRC
+    + pkg/executor/adapter.go: next()
+      #+BEGIN_SRC
+      func (a *ExecStmt) next(ctx context.Context, e exec.Executor, req *chunk.Chunk) error {
+          start := time.Now()
+          err := exec.Next(ctx, e, req)                                                             # memo: Fetch data
+          a.phaseNextDurations[0] += time.Since(start)
+          return err
+      }
+      #+END_SRC
+    + pkg/executor/internal/exec/executor.go: Next()
+      #+BEGIN_SRC
+      func Next(ctx context.Context, e Executor, req *chunk.Chunk) error {
+          ... ...
+          err := e.Next(ctx, req)
+          ... ...
+      }
+      #+END_SRC
+    + pkg/executor/point_get.go: Next()
+      #+BEGIN_SRC
+      func (e *PointGetExecutor) Next(ctx context.Context, req *chunk.Chunk) error {
+          ... ...
+          key := tablecodec.EncodeRowKeyWithHandle(tblID, e.handle)
+          val, err := e.getAndLock(ctx, key)                                                        # memo: Go to executor to fetch the data
+          ... ...
+          err = DecodeRowValToChunk(e.Base().Ctx(), e.Schema(), e.tblInfo, e.handle, val, req, e.rowDecoder)
+          ... ...
+
+          err = table.FillVirtualColumnValue(e.virtualColumnRetFieldTypes, e.virtualColumnIndex,
+                e.Schema().Columns, e.columns, e.Ctx(), req)
+          ... ...
+          return nil
+      }
+      #+END_SRC
+    + pkg/executor/point_get.go: Next()
+      #+BEGIN_SRC
+      func (e *PointGetExecutor) getAndLock(ctx context.Context, key kv.Key) (val []byte, err error) {
+          ... ...
+          err = e.lockKeyIfNeeded(ctx, key)
+          ... ...
+          val, err = e.get(ctx, key)                                                                # memo: Fetch data
+          ... ...
+          return val, nil
+      }
+      #+END_SRC
+    + pkg/executor/point_get.go: get()
+      #+BEGIN_SRC
+      func (e *PointGetExecutor) get(ctx context.Context, key kv.Key) ([]byte, error) {
+          ... ...
+          _value, err := e.snapshot.Get(ctx, key)                                                   # memo: Fetch data from KV by go client v2
+          ... ...
+          return _value, err
+      }
+      #+END_SRC
+         
+** Make it to packet to send back to client
+
+
+* Handshake
+  #+BEGIN_SRC
+\u0000\u0000\u0000\u0000\n8.0.11-TiDB-v7.5.0-dirty\u0000\u0002\u0000@wubk\u0010 ts\r\u0000\ufffd\ufffd.\u0002\u0000\u001b\u0005\u0015\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u001f9+1\u0007)/\u001b\u001e1\u00178\u0000mysql_native_password\u0000
+  #+END_SRC
+* Flow(v7.5.0)
+** server/Server.go:onConn
+   #+BEGIN_SRC
+   conn.Run(ctx)     // Called here
+   #+END_SRC
+** server/conn.go:Run
+   #+BEGIN_SRC
+   ... ... 
+   data, err := cc.readPacket()              // Read the packet from the client
+   ... ...
+   startTime := time.Now()
+   // The data is query from client like below:
+   // data: \u0003select * from test01 where col01 = 1                                       // Received data from client
+   err = cc.dispatch(ctx, data)                                                              // Called here
+   cc.ctx.GetSessionVars().ClearAlloc(&cc.chunkAlloc, err != nil)
+   cc.chunkAlloc.Reset()
+   ... ...
+   #+END_SRC
+** server/conn.go:dispatch
+   #+BEGIN_SRC
+    switch cmd {
+      case mysql.ComQuery: // Most frequently used command.
+      // For issue 1989
+      // Input payload may end with byte '\0', we didn't find related mysql document about it, but mysql
+      // implementation accept that case. So trim the last '\0' here as if the payload an EOF string.
+      // See http://dev.mysql.com/doc/internals/en/com-query.html
+      if len(data) > 0 && data[len(data)-1] == 0 {
+         data = data[:len(data)-1]
+         dataStr = string(hack.String(data))
+      }
+      return cc.handleQuery(ctx, dataStr)                                                // Called here
+    }
+   #+END_SRC
+** server/conn.go:handleQuery
+   #+BEGIN_SRC
+        for i, stmt := range stmts {
+                if lastStmt != nil {
+                        cc.onExtensionStmtEnd(lastStmt, true, nil)
+                }
+
+                logutil.Logger(ctx).Info(fmt.Sprintf("Jay: 04 Loop stmt: %#v \n", stmt))
+                logutil.Logger(ctx).Info(fmt.Sprintf("Jay: 04 Point plan: %#v \n", pointPlans))
+                lastStmt = stmt
+
+                // expiredTaskID is the task ID of the previous statement. When executing a stmt,
+                // the StmtCtx will be reinit and the TaskID will change. We can compare the StmtCtx.TaskID
+                // with the previous one to determine whether StmtCtx has been inited for the current stmt.
+                expiredStmtTaskID = sessVars.StmtCtx.TaskID
+
+                if len(pointPlans) > 0 {
+                        // Save the point plan in Session, so we don't need to build the point plan again.
+                        cc.ctx.SetValue(plannercore.PointPlanKey, plannercore.PointPlanVal{Plan: pointPlans[i]})
+                }
+                retryable, err = cc.handleStmt(ctx, stmt, parserWarns, i == len(stmts)-1)
+                if err != nil {
+                        action, txnErr := sessiontxn.GetTxnManager(&cc.ctx).OnStmtErrorForNextAction(ctx, sessiontxn.StmtErrAfterQuery, err)
+                        if txnErr != nil {
+                                err = txnErr
+                                break
+                        }
+
+                        if retryable && action == sessiontxn.StmtActionRetryReady {
+                                cc.ctx.GetSessionVars().RetryInfo.Retrying = true
+                                _, err = cc.handleStmt(ctx, stmt, parserWarns, i == len(stmts)-1)                                     // Called
+                                cc.ctx.GetSessionVars().RetryInfo.Retrying = false
+                                if err != nil {
+                                        break
+                                }
+                                continue
+                        }
+                        if !retryable || !errors.ErrorEqual(err, storeerr.ErrTiFlashServerTimeout) {
+                                break
+                        }
+                        _, allowTiFlashFallback := cc.ctx.GetSessionVars().AllowFallbackToTiKV[kv.TiFlash]
+                        if !allowTiFlashFallback {
+                                break
+                        }
+                        // When the TiFlash server seems down, we append a warning to remind the user to check the status of the TiFlash
+                        // server and fallback to TiKV.
+                        warns := append(parserWarns, stmtctx.SQLWarn{Level: stmtctx.WarnLevelError, Err: err})
+                        delete(cc.ctx.GetSessionVars().IsolationReadEngines, kv.TiFlash)
+                        _, err = cc.handleStmt(ctx, stmt, warns, i == len(stmts)-1)
+                        cc.ctx.GetSessionVars().IsolationReadEngines[kv.TiFlash] = struct{}{}
+                        if err != nil {
+                                break
+                        }
+                }
+        }
+
+   #+END_SRC
+
+** server/conn.go:handleStmt
+   #+BEGIN_SRC
+   if rs != nil {
+     if cc.getStatus() == connStatusShutdown {
+       return false, exeerrors.ErrQueryInterrupted
+     }
+
+     if retryable, err := cc.writeResultSet(ctx, rs, false, status, 0); err != nil {                   // Called here
+       return retryable, err
+     }
+     return false, nil
+   }
+   #+END_SRC
+** server/conn.go:writeResultSet
+   #+BEGIN_SRC
+   if retryable, err := cc.writeChunks(ctx, rs, binary, serverStatus); err != nil {                    // Called here
+     return retryable, err
+   }
+   #+END_SRC
+** server/conn.go
+   #+BEGIN_SRC
+   err := rs.Next(ctx, req)                                                                            // Called here
+   if err != nil {
+     return firstNext, err
+   }
+   #+END_SRC
+** server/interal/resultset.go:Next
+   #+BEGIN_SRC
+   func (trs *tidbResultSet) Next(ctx context.Context, req *chunk.Chunk) error {
+     return trs.recordSet.Next(ctx, req)
+   }
+   #+END_SRC
+** executor/adapeter.go:
+   #+BEGIN_SRC
+   func (a *recordSet) Next(ctx context.Context, req *chunk.Chunk) (err error) {
+     defer func() {
+       r := recover()
+         if r == nil {
+           return
+         }
+         err = errors.Errorf("%v", r)
+       }()
+
+       err = a.stmt.next(ctx, a.executor, req)                                                                                // Called here
+       if err != nil {
+         a.lastErr = err
+         return err
+       }
+       numRows := req.NumRows()
+       if numRows == 0 {
+         if a.stmt != nil {
+           a.stmt.Ctx.GetSessionVars().LastFoundRows = a.stmt.Ctx.GetSessionVars().StmtCtx.FoundRows()
+         }
+         return nil
+       }
+       if a.stmt != nil {
+         a.stmt.Ctx.GetSessionVars().StmtCtx.AddFoundRows(uint64(numRows))
+       }
+       return nil
+   }
+   #+END_SRC
+** executor/adapter.go:next
+   #+BEGIN_SRC
+   func (a *ExecStmt) next(ctx context.Context, e exec.Executor, req *chunk.Chunk) error {
+     start := time.Now()
+     err := exec.Next(ctx, e, req)                                                                                            // Called here
+     a.phaseNextDurations[0] += time.Since(start)
+     return err
+   }
+   #+END_SRC
+** internal/exec/executor.go:Next
+   #+BEGIN_SRC
+   func Next(ctx context.Context, e Executor, req *chunk.Chunk) error {
+     base := e.Base()
+     if base.RuntimeStats() != nil {
+       start := time.Now()
+       defer func() { base.RuntimeStats().Record(time.Since(start), req.NumRows()) }()
+     }
+     sessVars := base.Ctx().GetSessionVars()
+     if atomic.LoadUint32(&sessVars.Killed) == 2 {
+       return exeerrors.ErrMaxExecTimeExceeded
+     }
+     if atomic.LoadUint32(&sessVars.Killed) == 1 {
+       return exeerrors.ErrQueryInterrupted
+     }
+
+     r, ctx := tracing.StartRegionEx(ctx, fmt.Sprintf("%T.Next", e))
+     defer r.End()
+
+     if topsqlstate.TopSQLEnabled() && sessVars.StmtCtx.IsSQLAndPlanRegistered.CompareAndSwap(false, true) {
+       RegisterSQLAndPlanInExecForTopSQL(sessVars)
+     }
+     err := e.Next(ctx, req)                                                                                      // Called here
+
+     if err != nil {
+       return err
+     }
+     // recheck whether the session/query is killed during the Next()
+     if atomic.LoadUint32(&sessVars.Killed) == 2 {
+       err = exeerrors.ErrMaxExecTimeExceeded
+     }
+     if atomic.LoadUint32(&sessVars.Killed) == 1 {
+       err = exeerrors.ErrQueryInterrupted
+     }
+     return err
+   }
+   #+END_SRC
+** executor/point_get.go:Next
+   #+BEGIN_SRC
+   key := tablecodec.EncodeRowKeyWithHandle(tblID, e.handle)
+
+   val, err := e.getAndLock(ctx, key)                                                                             // Called here
+   if err != nil {
+     return err
+   }
+   #+END_SRC
+** executor/point_get.go:getAndLock
+   #+BEGIN_SRC
+   err = e.lockKeyIfNeeded(ctx, key)
+   if err != nil {
+     return nil, err
+   }
+   val, err = e.get(ctx, key)                                                                                    // Called here
+   if err != nil {
+     if !kv.ErrNotExist.Equal(err) {
+       return nil, err
+     }
+     return nil, nil
+   }
+
+   #+END_SRC
+** executor/point_get.go: get
+   #+BEGIN_SRC
+   lock := e.tblInfo.Lock
+   if lock != nil && (lock.Tp == model.TableLockRead || lock.Tp == model.TableLockReadOnly) {
+     if e.Ctx().GetSessionVars().EnablePointGetCache {
+       cacheDB := e.Ctx().GetStore().GetMemCache()
+       val, err = cacheDB.UnionGet(ctx, e.tblInfo.ID, e.snapshot, key)
+       if err != nil {
+         return nil, err
+       }
+       return val, nil
+     }
+   }
+   // if not read lock or table was unlock then snapshot get
+   return e.snapshot.Get(ctx, key)
+   #+END_SRC
+
+* mysql interface
+  #+BEGIN_SRC
+workstation$ sudo ngrep -x -q -d any -d any port 4407
+T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #4
+  4d 00 00 00 0a 79 6f 6d    6f 44 42 30 30 31 00 06    M....yomoDB001..
+  00 00 00 53 21 1e 4f 4a    01 4b 27 00 0d a2 21 02    ...S!.OJ.K'...!.
+  00 09 01 15 00 00 00 00    00 00 00 00 00 00 12 0d    ................
+  4c 65 1a 63 0d 03 33 0b    45 79 00 6d 79 73 71 6c    Le.c..3.Ey.mysql
+  5f 6e 61 74 69 76 65 5f    70 61 73 73 77 6f 72 64    _native_password
+  00                                                    .               
+
+T 10.128.0.21:56982 -> 10.128.0.21:4407 [AP] #6
+  50 00 00 01 85 a6 ff 20    00 00 00 01 08 00 00 00    P...... ........
+  00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00    ................
+  00 00 00 00 6d 6f 63 6b    00 14 9c ac ce d5 2d 6e    ....mock......-n
+  15 4e a2 c9 bb 19 72 d5    5e af 68 62 95 aa 6d 79    .N....r.^.hb..my
+  73 71 6c 5f 6e 61 74 69    76 65 5f 70 61 73 73 77    sql_native_passw
+  6f 72 64 00                                           ord.            
+
+T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #8
+  07 00 00 02 00 00 00 02    00 00 00                   ...........     
+
+T 10.128.0.21:56982 -> 10.128.0.21:4407 [AP] #9
+  21 00 00 00 03 73 65 6c    65 63 74 20 40 40 76 65    !....select @@ve
+  72 73 69 6f 6e 5f 63 6f    6d 6d 65 6e 74 20 6c 69    rsion_comment li
+  6d 69 74 20 31                                        mit 1           
+
+T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #10
+  6c 00 00 01 ff 51 04 23    48 59 30 30 30 6d 6f 63    l....Q.#HY000moc
+  6b 2e 68 61 6e 64 6c 65    72 2e 71 75 65 72 79 5b    k.handler.query[
+  73 65 6c 65 63 74 20 40    40 76 65 72 73 69 6f 6e    select @@version
+  5f 63 6f 6d 6d 65 6e 74    20 6c 69 6d 69 74 20 31    _comment limit 1
+  5d 2e 65 72 72 6f 72 5b    63 61 6e 2e 6e 6f 74 2e    ].error[can.not.
+  66 6f 75 6e 64 2e 74 68    65 2e 63 6f 6e 64 2e 70    found.the.cond.p
+  6c 65 61 73 65 2e 73 65    74 2e 66 69 72 73 74 5d    lease.set.first]
+
+   #+END_SRC
+** handshake
+*** server -> client: Send handshake from server to client
+**** Example
+     #+BEgIN_SRC
+     4d 00 00 00 0a 79 6f 6d    6f 44 42 30 30 31 00 06    M....yomoDB001..
+     00 00 00 53 21 1e 4f 4a    01 4b 27 00 0d a2 21 02    ...S!.OJ.K'...!.
+     00 09 01 15 00 00 00 00    00 00 00 00 00 00 12 0d    ................
+     4c 65 1a 63 0d 03 33 0b    45 79 00 6d 79 73 71 6c    Le.c..3.Ey.mysql
+     5f 6e 61 74 69 76 65 5f    70 61 73 73 77 6f 72 64    _native_password
+     00
+     #+END_SRC
+**** Analysis
+     + test
+       #+BEGIN_EXPORT html
+<TABLE BORDER="1">
+  <TR>
+    <TD ROWSPAN="3">Packet Length</TD>
+    <TD>Sequence</TD>
+    <TD>Protocol Version</TD>
+    <TD ROWSPAN="7">Server Version</TD>
+    <TD ROWSPAN="4">CONNECTION ID</TD>
+  </TR>
+  <TR>
+    <TD>4d</TD>
+    <TD>00</TD>
+    <TD>00</TD>
+    <TD>00</TD>
+    <TD>0a</TD>
+    <TD>79</TD>
+    <TD>6f</TD>
+    <TD>6d</TD>
+    <TD>6f</TD>
+    <TD>44</TD>
+    <TD>42</TD>
+    <TD>30</TD>
+    <TD>30</TD>
+    <TD>31</TD>
+    <TD>00</TD>
+    <TD>06</TD>
+  </TR>
+</TABLE>
+#+END_EXPORT
+     + test
+       | N | N^2 | N^3 | N^4 | sqrt(n) | sqrt[4](N) |
+       |---+-----+-----+-----+---------+------------|
+       | / |   < |     |   > |       < |          > |
+       | 1 |   1 |   1 |   1 |       1 |          1 |
+       | 2 |   4 |   8 |  16 |  1.4142 |     1.1892 |
+       | 3 |   9 |  27 |  81 |  1.7321 |     1.3161 |
+       |---+-----+-----+-----+---------+------------|
+       #+TBLFM: $2=$1^2::$3=$1^3::$4=$1^4::$5=sqrt($1)::$6=sqrt(sqrt(($1)))
+
+     + Line 01
+       #+ATTR_HTML: :width 800 :style border:2px solid black;
+       | N | Packet Length |    |    | Sequence | Protocol Version | Server Version          | CONNECTION ID | test |
+       |   |            4d | 00 | 00 |       00 | 0a               | 79 6f 6d    6f 44 42 30 | 30 31 00 06   |      |
+       #+TBLSPAN: B0..B2
+
+     + Line 02
+       #+ATTR_HTML: :width 800 :style border:2px solid black;
+       | AUTH-PLUGIN-DATA-PART-1 | FILLER | CABILITY FLAGS(LOWER 2 BYTES) | CHARACTER SET | STATUS FLAGS | CABILITY FLAGS(UPPER 2 BYTES) |
+       | 00 00 00 53 21 1e 4f 4a |     01 | 4b 27                         |            00 | 0d a2        | 21 02                         |
+     + Line 03
+       #+ATTR_HTML: :width 800 :style border:2px solid black;
+       | LENGTH OF AUTH-PLUGIN-DATA | RESERVED                         |                AUTH-PLUGIN-DATA-PART-2 |
+       |                         00 | 09 01 15 00 00 00 00    00 00 00 |               00 00 00 12 0d   |
+     + Line 04
+       #+ATTR_HTML: :width 800 :style border:2px solid black;
+       | AUTH-PLUGIN-DATA-PART-2 | PLUGIN NAME             |
+       | 4c 65 1a 63 0d 03 33 0b | 45 79 00 6d 79 73 71 6c |
+     + Line 05
+       #+ATTR_HTML: :width 800 :style border:2px solid black;
+       | PLUGIN NAME                                        |
+       | 5f 6e 61 74 69 76 65 5f    70 61 73 73 77 6f 72 64 |
+       | 00                                                 |
+
+*** Examples
+
+   
+** AUTH
+   
+   #+BEGIN_SRC
+workstation$ mysql -h 10.128.0.21 -P 4407 -u mock -p1234Abcd
+
+T 10.128.0.21:60938 -> 10.128.0.21:4407 [AP] #12
+  50 00 00 01 85 a6 ff 20    00 00 00 01 08 00 00 00    P...... ........
+  00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00    ................
+  00 00 00 00 6d 6f 63 6b    00 14 32 49 98 45 f5 93    ....mock..2I.E..
+  dc be fa 4f a0 b3 77 e8    53 f2 39 89 31 00 6d 79    ...O..w.S.9.1.my
+  73 71 6c 5f 6e 61 74 69    76 65 5f 70 61 73 73 77    sql_native_passw
+  6f 72 64 00                                           ord.
+   #+END_SRC
+    
+** Data select
+   #+BEGIN_SRC
+MySQL [mock]> select * from mock;
++------+-----------+
+| id   | name      |
++------+-----------+
+|   10 | nice name |
++------+-----------+
+1 row in set (0.000 sec)
+
+T 10.128.0.21:58906 -> 10.128.0.21:4407 [AP] #3
+  13 00 00 00 03 73 65 6c    65 63 74 20 2a 20 66 72    .....select * fr
+  6f 6d 20 6d 6f 63 6b                                  om mock         
+
+T 10.128.0.21:4407 -> 10.128.0.21:58906 [AP] #4
+  01 00 00 01 02 18 00 00    02 03 64 65 66 00 00 00    ..........def...
+  02 69 64 00 0c 00 00 00    00 00 00 03 00 00 00 00    .id.............
+  00 1a 00 00 03 03 64 65    66 00 00 00 04 6e 61 6d    ......def....nam
+  65 00 0c 00 00 00 00 00    00 fd 00 00 00 00 00 05    e...............
+  00 00 04 fe 00 00 02 00    0d 00 00 05 02 31 30 09    .............10.
+  6e 69 63 65 20 6e 61 6d    65 05 00 00 06 fe 00 00    nice name.......
+  02 00                                                 ..           
+   #+END_SRC
+*** PART01: AppendColumns
+    How many columns are in these packets. Please refer to [[https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_binary_resultset.html][ProtocolBinary::Resultset]]
+    + Data
+    #+BEGIN_SRC
+  01 00 00 01 02
+    #+END_SRC
+    + Analysis
+     |     Data | Value | Comment                            |
+     |----------+-------+------------------------------------|
+     | 01 00 00 |     1 | Length of the part of packets      |
+     |       01 |     1 | The sequence of the part of packet |
+     |       02 |     2 | Number of columns in these packets |
+*** PART02: AppendColumns
+    Please refer to [[https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query_response_text_resultset_column_definition.html][Protocol::ColumnDefinition41]]
+    + Data structure
+      #+BEGIN_SRC
+query.Field{Name:"id", Type:263, Table:"", OrgTable:"", Database:"", OrgName:"", ColumnLength:0x0, Charset:0x0, Decimals:0x0, Flags:0x0}
+      #+END_SRC
+    + Raw data
+    #+BEGIN_SRC
+                 18 00 00    02 03 64 65 66 00 00 00
+  02 69 64 00 0c 00 00 00    00 00 00 03 00 00 00 00
+  00
+    #+END_SRC
+    + Analysis
+      |        Data | Value | Comment                                                      |
+      |-------------+-------+--------------------------------------------------------------|
+      |    18 00 00 |    24 | Length of the part of packets                                |
+      |          02 |     2 | The sequence of the part of packet                           |
+      |          03 |     3 | Length of the following character[def]                       |
+      |    64 65 66 |   def | lenenc_str Catalog, always 'def'                             |
+      |          00 |     0 | lenenc_str Schema                                            |
+      |          00 |     0 | lenenc_str Table                                             |
+      |          00 |     0 | lenenc_str Org_Table                                         |
+      |          02 |     2 | Length of the column name                                    |
+      |       69 64 |    id | lenenc_str Name                                              |
+      |          00 |     0 | lenenc_str Org_Name                                          |
+      |          0c |    0c | lenenc_int length of fixed-length fields [0c]   ?????        |
+      |       00 00 |  0x00 | character set                                                |
+      | 00 00 00 00 |  0x00 | column length                                                |
+      |          03 |  0x03 | 263(INT32) -> {typ: 3}>   sqlparser/depends/sqltypes/type.go |
+      |       00 00 |  0x00 | flags                                                        |
+      |          00 |  0x00 | Decimals                                                     |
+      |       00 00 |  0x00 | filler                                                       |
+*** PART03: AppendColumns
+    + Data structure:
+      #+BEGIN_SRC
+query.Field{Name:"name", Type:6165, Table:"", OrgTable:"", Database:"", OrgName:"", ColumnLength:0x0, Charset:0x0, Decimals:0x0, Flags:0x0}
+      #+END_SRC
+    + Raw data
+      #+BEGIN_SRC
+     1a 00 00 03 03 64 65    66 00 00 00 04 6e 61 6d
+  65 00 0c 00 00 00 00 00    00 fd 00 00 00 00 00
+      #+END_SRC
+    + Analysis
+      | Data        | Value | Comment                                                          |
+      |-------------+-------+------------------------------------------------------------------|
+      | 1a 00 00    |    26 | Length of the part of packets                                    |
+      | 03          |     3 | The sequence of the part of packet                               |
+      | 03          |     3 | Length of the following character[def]                           |
+      | 64 65 66    |   def | lenenc_str Catalog, always 'def'                                 |
+      | 00          |     0 | lenenc_str Schema                                                |
+      | 00          |     0 | lenenc_str Table                                                 |
+      | 00          |     0 | lenenc_str Org_Table                                             |
+      | 04          |     4 | Length of the column name                                        |
+      | 6e 61 6d 65 |  mock | lenenc_str Name                                                  |
+      | 00          |     0 | lenenc_str Org_Name                                              |
+      | 0c          |    0c | lenenc_int length of fixed-length fields [0c]   ?????            |
+      | 00 00       |  0x00 | character set                                                    |
+      | 00 00 00 00 |  0x00 | column length                                                    |
+      | fd          |  0xfd | 6165(VARCHAR) -> {typ: fd}>   sqlparser/depends/sqltypes/type.go |
+      | 00 00       |  0x00 | flags                                                            |
+      | 00          |  0x00 | Decimals                                                         |
+      | 00 00       |  0x00 | filler                                                           |
+*** PART04: AppendEOF
+    + Raw Data
+    #+BEGIN_SRC
+                                                  05
+  00 00 04 fe 00 00 02 00
+    #+END_SRC
+    + Analysis
+      | Data     | Value | Comment                            |
+      |----------+-------+------------------------------------|
+      | 05 00 00 |     5 | Length of the part of packets      |
+      | 04       |     4 | The sequence of the part of packet |
+      | fe       |  0xfe | EOF_PACKET is the EOF packet       |
+      | 00 00    |  0x00 | warnings                           |
+      | 02 00    |  0x02 | Status                             |
+*** PART05: appendTextRows
+    Please find the [[https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_binary_resultset.html#sect_protocol_binary_resultset_row][Binary Protocol Resultset Row]]
+    + Raw Data
+    #+BEGIN_SRC
+                             0d 00 00 05 02 31 30 09
+  6e 69 63 65 20 6e 61 6d    65
+    #+END_SRC
+    + Analysis
+      | Data                       |     Value | Comment                            |
+      |----------------------------+-----------+------------------------------------|
+      | 0d 00 00                   |        13 | Length of the part of packets      |
+      | 05                         |         5 | The sequence of the part of packet |
+      | 02                         |         2 | Length of the first value          |
+      | 31 30                      |        10 | Fisrt value                        |
+      | 09                         |         9 | Length of the second value         |
+      | 6e 69 63 65 20 6e 61 6d 65 | nick name | Second value                       |
+*** PART06: AppendEOF
+    Please refer to [[https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_eof_packet.html][EOF_Packet]]
+    + Raw data
+      #+BEGIN_SRC
+                                05 00 00 06 fe 00 00
+  02 00
+      #+END_SRC
+    + Analysis
+      | Data     | Value | Comment                            |
+      |----------+-------+------------------------------------|
+      | 05 00 00 |     5 | Length of the part of packets      |
+      | 06       |     6 | The sequence of the part of packet |
+      | fe       |  0xfe | EOF_PACKET is the EOF packet       |
+      | 00 00    |  0x00 | warnings                           |
+      | 02 00    |  0x02 | Status                             |
+* AST parsing
+** STMT relationship
+   | Level 01 | Level 02               | Level 03             | Level 04                  |   |
+   |----------+------------------------+----------------------+---------------------------+---|
+   | ast.node | stmtNode               | dmlNode              | SelectStmt                |   |
+   |          |                        |                      | DeleteStmt                |   |
+   |          |                        |                      | InsertStmt                |   |
+   |          |                        |                      | SetOprStmt                |   |
+   |          |                        |                      | UpdateStmt                |   |
+   |          |                        |                      | CallStmt                  |   |
+   |          |                        |                      | ShowStmt                  |   |
+   |          |                        |                      | LoadDataStmt              |   |
+   |          |                        |                      | ImportIntoStmt            |   |
+   |          |                        |                      | SplitRegionStmt           |   |
+   |          |                        |                      | NonTransactionalDMLStmt   |   |
+   |----------+------------------------+----------------------+---------------------------+---|
+   |          |                        | AdminStmt            |                           |   |
+   |          |                        | AlterUserStmt        |                           |   |
+   |          |                        | AlterRangeStmt       |                           |   |
+   |          |                        | BeginStmt            |                           |   |
+   |          |                        | BinlogStmt           |                           |   |
+   |          |                        | CommitStmt           |                           |   |
+   |          |                        | CreateUserStmt       |                           |   |
+   |          |                        | DeallocateStmt       |                           |   |
+   |          |                        | DoStmt               |                           |   |
+   |          |                        | ExecuteStmt          |                           |   |
+   |          |                        | ExplainStmt          |                           |   |
+   |          |                        | GrantStmt            |                           |   |
+   |          |                        | PrepareStmt          |                           |   |
+   |          |                        | RollbackStmt         |                           |   |
+   |          |                        | SetPwdStmt           |                           |   |
+   |          |                        | SetRoleStmt          |                           |   |
+   |          |                        | SetDefaultRoleStmt   |                           |   |
+   |          |                        | SetStmt              |                           |   |
+   |          |                        | SetSessionStatesStmt |                           |   |
+   |          |                        | UseStmt              |                           |   |
+   |          |                        | FlushStmt            |                           |   |
+   |          |                        | KillStmt             |                           |   |
+   |          |                        | CreateBindingStmt    |                           |   |
+   |          |                        | DropBindingStmt      |                           |   |
+   |          |                        | SetBindingStmt       |                           |   |
+   |          |                        | ShutdownStmt         |                           |   |
+   |          |                        | RestartStmt          |                           |   |
+   |          |                        | RenameUserStmt       |                           |   |
+   |          |                        | HelpStmt             |                           |   |
+   |          |                        | PlanReplayerStmt     |                           |   |
+   |          |                        | CompactTableStmt     |                           |   |
+   |          |                        | SetResourceGroupStmt |                           |   |
+   |----------+------------------------+----------------------+---------------------------+---|
+   |          |                        | ddlNode              | AlterTableStmt            |   |
+   |          |                        |                      | AlterSequenceStmt         |   |
+   |          |                        |                      | AlterPlacementPolicyStmt  |   |
+   |          |                        |                      | AlterResourceGroupStmt    |   |
+   |          |                        |                      | CreateDatabaseStmt        |   |
+   |          |                        |                      | CreateIndexStmt           |   |
+   |          |                        |                      | CreateTableStmt           |   |
+   |          |                        |                      | CreateViewStmt            |   |
+   |          |                        |                      | CreateSequenceStmt        |   |
+   |          |                        |                      | CreatePlacementPolicyStmt |   |
+   |          |                        |                      | CreateResourceGroupStmt   |   |
+   |          |                        |                      | DropDatabaseStmt          |   |
+   |          |                        |                      | FlashBackDatabaseStmt     |   |
+   |          |                        |                      | DropIndexStmt             |   |
+   |          |                        |                      | DropTableStmt             |   |
+   |          |                        |                      | DropSequenceStmt          |   |
+   |          |                        |                      | DropPlacementPolicyStmt   |   |
+   |          |                        |                      | DropResourceGroupStmt     |   |
+   |          |                        |                      | RenameTableStmt           |   |
+   |          |                        |                      | TruncateTableStmt         |   |
+   |          |                        |                      | RepairTableStmt           |   |
+   |          |                        |                      | SensitiveStmtNode         |   |
+   |----------+------------------------+----------------------+---------------------------+---|
+   |          | ExprNode               | FuncNode             |                           |   |
+   |          | ResultSetNode          |                      |                           |   |
+   |          | Assignment             |                      |                           |   |
+   |          | ByItem                 |                      |                           |   |
+   |          | FieldList              |                      |                           |   |
+   |          | GroupByClause          |                      |                           |   |
+   |          | HavingClause           |                      |                           |   |
+   |          | AsOfClause             |                      |                           |   |
+   |          | Join                   |                      |                           |   |
+   |          | Limit                  |                      |                           |   |
+   |          | OnCondition            |                      |                           |   |
+   |          | OrderByClause          |                      |                           |   |
+   |          | SelectField            |                      |                           |   |
+   |          | TableName              |                      |                           |   |
+   |          | TableRefsClause        |                      |                           |   |
+   |          | TableSource            |                      |                           |   |
+   |          | SetOprSelectList       |                      |                           |   |
+   |          | WildCardField          |                      |                           |   |
+   |          | WindowSpec             |                      |                           |   |
+   |          | PartitionByClause      |                      |                           |   |
+   |          | FrameClause            |                      |                           |   |
+   |          | FrameBound             |                      |                           |   |
+   |----------+------------------------+----------------------+---------------------------+---|
+   |          | AlterTableSpec         |                      |                           |   |
+   |          | ColumnDef              |                      |                           |   |
+   |          | ColumnOption           |                      |                           |   |
+   |          | ColumnPosition         |                      |                           |   |
+   |          | Constraint             |                      |                           |   |
+   |          | IndexPartSpecification |                      |                           |   |
+   |          | ReferenceDef           |                      |                           |   |
+** Check whether point get plan
+   planner/core/point_get_plan.go - tryPointGetPlan
+** AST example
+  #+BEGIN_SRC
+       ast.SelectStmt{
+           dmlNode:ast.dmlNode{
+               stmtNode:ast.stmtNode{
+                   node:ast.node{
+                       utf8Text:\"select * from test01 where col01 = 1\"
+                     , enc:(*charset.encodingLatin1)(0x92772c0)
+                     , once:(*sync.Once)(0xc006449db0)
+                     , text:\"select * from test01 where col01 = 1\"
+                     , offset:0
+                   }
+               }
+           }
+         , SelectStmtOpts:(*ast.SelectStmtOpts)(0xc006458cf0)
+         , Distinct:false
+         , From:(*ast.TableRefsClause)(0xc00621b860) 
+         , Where:(*ast.BinaryOperationExpr)(0xc00641cd20)
+         , Fields:(*ast.FieldList)(0xc0061d3c20)
+         , GroupBy:(*ast.GroupByClause)(nil)
+         , Having:(*ast.HavingClause)(nil)           
+         , WindowSpecs:[]ast.WindowSpec(nil)                                                              
+         , OrderBy:(*ast.OrderByClause)(nil)                                                              
+         , Limit:(*ast.Limit)(nil)                   
+         , LockInfo:(*ast.SelectLockInfo)(nil)       
+         , TableHints:[]*ast.TableOptimizerHint(nil)                                                      
+         , IsInBraces:false                                                                               
+         , WithBeforeBraces:false                                                                         
+         , QueryBlockOffset:0                                                                             
+         , SelectIntoOpt:(*ast.SelectIntoOption)(nil)                                                     
+         , AfterSetOperator:(*ast.SetOprType)(nil)   
+         , Kind:0x0, Lists:[]*ast.RowExpr(nil)       
+         , With:(*ast.WithClause)(nil)               
+         , AsViewSchema:false}"
+  #+END_SRC
+*** LIMIT - nil
+*** FROM
+In the function(getSingleTableNameAndAlias), the table is extracted.
+    #+BEGIN_SRC
+      ast.Join{
+        node:ast.node{
+          utf8Text:\"\"
+        , enc:charset.Encoding(nil)
+        , once:(*sync.Once)(nil)
+        , text:\"\"
+        , offset:0
+      }
+      , Left:(*ast.TableSource)(0xc003183ab0)
+      , Right:ast.ResultSetNode(nil)
+      , Tp:0
+      , On:(*ast.OnCondition)(nil)
+      , Using:[]*ast.ColumnName(nil)
+      , NaturalJoin:false
+      , StraightJoin:false
+      , ExplicitParens:false}"
+    #+END_SRC
+*** TableInfo
+    #+BEGIN_SRC
+      model.TableInfo{
+        ID:102
+      , Name:model.CIStr{
+        O:\"test01\"
+      , L:\"test01\"
+      }
+      , Charset:\"utf8mb4\"
+      , Collate:\"utf8mb4_bin\"
+      , Columns:[]*model.ColumnInfo{
+          (*model.ColumnInfo)(0xc001235ce0)
+        , (*model.ColumnInfo)(0xc001235e40)
+        }
+      , Indices:[]*model.IndexInfo(nil)
+      , Constraints:[]*model.ConstraintInfo(nil)
+      , ForeignKeys:[]*model.FKInfo(nil)
+      , State:0x5
+      , PKIsHandle:true
+      , IsCommonHandle:false
+      , CommonHandleVersion:0x0
+      , Comment:\"\"
+      , AutoIncID:0
+      , AutoIncIDExtra:0
+      , AutoIdCache:0
+      , AutoRandID:0
+      , MaxColumnID:2
+      , MaxIndexID:0
+      , MaxForeignKeyID:0
+      , MaxConstraintID:0
+      , UpdateTS:0x6343f8b80b00012
+      , OldSchemaID:0
+      , ShardRowIDBits:0x0
+      , MaxShardRowIDBits:0x0
+      , AutoRandomBits:0x0
+      , AutoRandomRangeBits:0x0
+      , PreSplitRegions:0x0
+      , Partition:(*model.PartitionInfo)(nil)
+      , Compression:\"\"
+      , View:(*model.ViewInfo)(nil)
+      , Sequence:(*model.SequenceInfo)(nil)
+      , Lock:(*model.TableLockInfo)(nil)
+      , Version:0x5
+      , TiFlashReplica:(*model.TiFlashReplicaInfo)(nil)
+      , IsColumnar:false
+      , TempTableType:0x0
+      , TableCacheStatusType:0
+      , PlacementPolicyRef:(*model.PolicyRefInfo)(nil)
+      , StatsOptions:(*model.StatsOptions)(nil)
+      , ExchangePartitionInfo:(*model.ExchangePartitionInfo)(nil)
+      , TTLInfo:(*model.TTLInfo)(nil)}
+    #+END_SRC
+* Todo
+** Step 01
+   MySQL Protocol interface
+   Handshake -> send response to client -> send credentias to server -> Send success to client -> Send select query to server
+** Step 02
+   Get the query from client -> Parse the query and go to query -> parse the query to AST -> Go to point get query -> Select data using snapshot -> Return data with mysql protocol 
+* Reference
+  [[https://alexravikovich.medium.com/quarantine-journey-writing-mysql-proxy-in-go-for-self-learning-part-1-tcp-proxy-39810479b7e9][Writing MySQL Proxy in GO for self-learning: Part 1 - TCP Proxy]]]
+  [[https://alexravikovich.medium.com/writing-mysql-proxy-in-go-for-learning-purposes-part-2-decoding-connection-phase-server-response-7091d87e877e][Writing MySQL Proxy in GO for self-learning: Part 2 - decoding handshake packet]]

@@ -1,0 +1,10 @@
+* Library
+** rayon
+   The library is used for computation.
+https://github.com/rayon-rs/rayon
+** tokio
+   Tokio is used for async request
+   https://github.com/tokio-rs/tokio
+** axum
+   web framework
+   https://github.com/tokio-rs/axum
