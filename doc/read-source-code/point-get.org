@@ -83,33 +83,38 @@ MySQL$ select * from test01 where col01 = 1;
 *** Handshake
    + pkg/server/server.go:onConn()
      #+BEGIN_SRC
-    func (s *Server) onConn(conn *clientConn) {
-        // init the connInfo
-        _, _, err := conn.PeerHost("", false)
-        ... ...
+     func (s *Server) onConn(conn *clientConn) {
+         // init the connInfo
+         _, _, err := conn.PeerHost("", false)
+         ... ...
 
-        extensions, err := extension.GetExtensions()
-        ... ...
+         extensions, err := extension.GetExtensions()
+         ... ...
 
-        if sessExtensions := extensions.NewSessionExtensions(); sessExtensions != nil {
-            conn.extensions = sessExtensions
-            conn.onExtensionConnEvent(extension.ConnConnected, nil)
-            ... ...
-        }
+         if sessExtensions := extensions.NewSessionExtensions(); sessExtensions != nil {
+             conn.extensions = sessExtensions
+             conn.onExtensionConnEvent(extension.ConnConnected, nil)
+             ... ...
+         }
 
-        ctx := logutil.WithConnID(context.Background(), conn.connectionID)
-        if err := conn.handshake(ctx); err != nil {                                                 # Memo: Complete the handshake between client and server
-            ... ...
-        }
-        ... ...
+         ctx := logutil.WithConnID(context.Background(), conn.connectionID)
+         if err := conn.handshake(ctx); err != nil {                                                 # Memo: Complete the handshake between client and server
+             ... ...
+         }
+         ... ...
 
-        if !s.registerConn(conn) {
-                return
-        }
-        ... ...
-        conn.Run(ctx)                                                                               # Memo: Start the connection to accept connection from client
-        ... ...
-      #+END_SRC
+         if !s.registerConn(conn) {
+              return
+         }
+         ... ...
+         conn.Run(ctx)                                                                               # Memo: Start the connection to accept connection from client
+         ... ...
+     }
+     #+END_SRC
+**** data
+     #+BEGIN_SRC
+\u0000\u0000\u0000\u0000\n8.0.11-TiDB-v7.5.0-dirty\u0000\u0002\u0000@wubk\u0010 ts\r\u0000\ufffd\ufffd.\u0002\u0000\u001b\u0005\u0015\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u001f9+1\u0007)/\u001b\u001e1\u00178\u0000mysql_native_password\u0000
+     #+END_SRC
 *** Fetch query from connection
    + pkg/server/conn.go: Run()
      #+BEGIN_SRC
@@ -143,6 +148,42 @@ MySQL$ select * from test01 where col01 = 1;
              }
              return cc.handleQuery(ctx, dataStr)                                                    # memo: The query is query type which goes into this branch
      }
+     #+END_SRC
+**** Data
+     #+BEGIN_SRC
+workstation$ sudo ngrep -x -q -d any -d any port 4407
+T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #4
+  4d 00 00 00 0a 79 6f 6d    6f 44 42 30 30 31 00 06    M....yomoDB001..
+  00 00 00 53 21 1e 4f 4a    01 4b 27 00 0d a2 21 02    ...S!.OJ.K'...!.
+  00 09 01 15 00 00 00 00    00 00 00 00 00 00 12 0d    ................
+  4c 65 1a 63 0d 03 33 0b    45 79 00 6d 79 73 71 6c    Le.c..3.Ey.mysql
+  5f 6e 61 74 69 76 65 5f    70 61 73 73 77 6f 72 64    _native_password
+  00                                                    .               
+
+T 10.128.0.21:56982 -> 10.128.0.21:4407 [AP] #6
+  50 00 00 01 85 a6 ff 20    00 00 00 01 08 00 00 00    P...... ........
+  00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00    ................
+  00 00 00 00 6d 6f 63 6b    00 14 9c ac ce d5 2d 6e    ....mock......-n
+  15 4e a2 c9 bb 19 72 d5    5e af 68 62 95 aa 6d 79    .N....r.^.hb..my
+  73 71 6c 5f 6e 61 74 69    76 65 5f 70 61 73 73 77    sql_native_passw
+  6f 72 64 00                                           ord.            
+
+T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #8
+  07 00 00 02 00 00 00 02    00 00 00                   ...........     
+
+T 10.128.0.21:56982 -> 10.128.0.21:4407 [AP] #9
+  21 00 00 00 03 73 65 6c    65 63 74 20 40 40 76 65    !....select @@ve
+  72 73 69 6f 6e 5f 63 6f    6d 6d 65 6e 74 20 6c 69    rsion_comment li
+  6d 69 74 20 31                                        mit 1           
+
+T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #10
+  6c 00 00 01 ff 51 04 23    48 59 30 30 30 6d 6f 63    l....Q.#HY000moc
+  6b 2e 68 61 6e 64 6c 65    72 2e 71 75 65 72 79 5b    k.handler.query[
+  73 65 6c 65 63 74 20 40    40 76 65 72 73 69 6f 6e    select @@version
+  5f 63 6f 6d 6d 65 6e 74    20 6c 69 6d 69 74 20 31    _comment limit 1
+  5d 2e 65 72 72 6f 72 5b    63 61 6e 2e 6e 6f 74 2e    ].error[can.not.
+  66 6f 75 6e 64 2e 74 68    65 2e 63 6f 6e 64 2e 70    found.the.cond.p
+  6c 65 61 73 65 2e 73 65    74 2e 66 69 72 73 74 5d    lease.set.first]
      #+END_SRC
 ** Parse Query to AST
    + pkg/server/conn.go: handleQuery()
@@ -183,6 +224,165 @@ MySQL$ select * from test01 where col01 = 1;
         }
      }
      #+END_SRC
+*** Data
+    [[./png/point_get_from.png]]
+    #+BEGIN_COMMENT
+    #+BEGIN_SRC plantuml :file ./png/point_get_from.png
+@startyaml
+#highlight "From(ast.TableRefsClause)" / "TableRefs(ast.Join)" / "Left(*ast.TableSource)" / "Source(ast.TableName)" / "Name(model.CIStr)" / "O"
+#highlight "From(ast.TableRefsClause)" / "TableRefs(ast.Join)" / "Left(*ast.TableSource)" / "Source(ast.TableName)" / "Name(model.CIStr)" / "L"
+#highlight "Where(BinaryOperationExp)" / "ast.exprNode" / "flag"
+#highlight "Where(BinaryOperationExp)" / "Op"
+#highlight "Where(BinaryOperationExp)" / "L(ast.ColumnNameExpr)" / "Name(*ast.ColumnName)" / "Name(model.CIStr)" / "O"
+#highlight "Where(BinaryOperationExp)" / "L(ast.ColumnNameExpr)" / "Name(*ast.ColumnName)" / "Name(model.CIStr)" / "L"
+
+SelectStmtOpts:
+  Distinct: false
+  SQLBigResult: false
+  SQLBufferResult: false
+  SQLCache: true
+  SQLSmallResult: false
+  CalcFoundRows: false
+  StraightJoin: false
+  Priority: 0
+  TableHints: nil
+  ExplicitAll: false
+Distinct: false   
+From(ast.TableRefsClause):
+  TableRefs(ast.Join):
+    Left(*ast.TableSource):
+      Source(ast.TableName):
+        Schema(model.CIStr): '{O:"", L:""}'
+        Name(model.CIStr):
+          O: test01
+          L: test01
+        DBInfo(model.DBInfo): nil
+        TableInfo(model.TableInfo): nil
+        IndexHints([]*ast.IndexHint{}):  nil
+        PartitionNames([]model.CIStr): nil
+        TableSample(ast.TableSample): nil
+      AsName(model.CIStr): '{O:"", L:""'
+    Right(ast.ResultSetNode): nil
+    Tp:0
+    On(ast.OnCondition): nil                                                                            
+    Using([]*ast.ColumnName): nil
+    NaturalJoin: false                                                                                     
+    StraightJoin: false                                                                                    
+    ExplicitParens: false                    
+Where(BinaryOperationExp):
+  ast.exprNode:
+    Type(types.FieldType):
+      tp: 0x0
+      flag: 0x0
+      flen: 0
+      decimal: 0
+      charset: "-"
+      collate: "-"
+      elems: "[]string(nil)"
+      elemsIsBinaryLit: "[]bool(nil)"
+      array: false
+    flag: 0x8
+  Op: 7
+  L(ast.ColumnNameExpr):
+    ast.exprNode:
+      Type(types.FieldType):
+        tp: 0x0
+        flag: 0x0
+        flen: 0
+        decimal: 0
+        charset: "-"
+        collate: "-"
+        elems: "[]string(nil)"
+        elemsIsBinaryLit: "[]bool(nil)"
+        array: false
+      flag: 0x8
+    Name(*ast.ColumnName):
+      Schema(model.CIStr): 'O:"", L:""'
+      Table(model.CIStr): 'O:"", L:""'
+      Name(model.CIStr):
+        O: col1
+        L: col1
+    Refer(*ast.ResultField): nil
+  R(driver.ValueExpr):
+    TexprNode(ast.exprNode):
+      Type(types.FieldType):
+        tp: 0x8
+        flag: 0x81
+        flen: 1
+        decimal: 0
+        charset: binary
+        collate: binary
+        elems: "[]string(nil)"
+        elemsIsBinaryLit: "[]bool(nil)"
+        array: false
+      flag: 0x0
+    Datum(types.Datum):
+      k: 0x1
+      decimal: 0x0
+      length: 0x0
+      i: 1
+      collation: "-"
+      b: "[]uint8(nil)"
+      x: "interface {}(nil)"
+    projectionOffset: -1
+Fields(ast.FieldList):
+  Fields([]*ast.SelectField):
+    -
+      Offset: 7
+      WildCard(ast.WildCardField):
+        Table(model.CIStr): '{O:, L:}'
+        Schema(model.CIStr): '{O:, L:}'
+      Expr(ast.ExprNode): nil
+      AsName(model.CIStr): '{O:, L:}'
+      Auxiliary: false
+      AuxiliaryColInAgg: false
+      AuxiliaryColInOrderBy: false
+GroupBy: nil     
+Having: nil     
+WindowSpecs: nil     
+OrderBy: nil     
+Limit: nil     
+LockInfo: nil     
+TableHints: nil     
+IsInBraces: false   
+WithBeforeBraces: false   
+QueryBlockOffset: 0       
+SelectIntoOpt: nil     
+AfterSetOperator: nil     
+Kind: 0x00    
+Lists: nil     
+With: nil     
+AsViewSchema: false   
+@endyaml
+     #+END_SRC
+     #+END_COMMENT
+     
+**** SelectStmt
+    | Field            | Value                   | type                  | Comment                                                                                                      |
+    |------------------+-------------------------+-----------------------+--------------------------------------------------------------------------------------------------------------|
+    | *SelectStmtOpts  | Refer to SelectStmtOpts |                       | SelectStmtOpts wraps around select hints and switches.                                                       |
+    | Distinct         | false                   | bool                  | Distinct represents whether the select has distinct option.                                                  |
+    | From             |                         | *TableRefsClause      | From is the from clause of the query.                                                                        |
+    | Where            |                         | ExprNode              | Where is the where clause in select statement.                                                               |
+    | Fields           |                         | *FieldList            | Fields is the select expression list.                                                                        |
+    | GroupBy          | nil                     | *GroupByClause        | GroupBy is the group by expression list.                                                                     |
+    | Having           | nil                     | *HavingClause         | Having is the having condition.                                                                              |
+    | WindowSpecs      | nil                     | []WindowSpec          | WindowSpecs is the window specification list.                                                                |
+    | OrderBy          | nil                     | *OrderByClause        | OrderBy is the ordering expression list.                                                                     |
+    | Limit            | nil                     | *Limit                | Limit is the limit clause.                                                                                   |
+    | LockInfo         | nil                     | *SelectLockInfo       | LockInfo is the lock type                                                                                    |
+    | TableHints       | nil                     | []*TableOptimizerHint | TableHints represents the table level Optimizer Hint for join type                                           |
+    | IsInBraces       | false                   | bool                  | IsInBraces indicates whether it's a stmt in brace.                                                           |
+    | WithBeforeBraces | false                   | bool                  | WithBeforeBraces indicates whether stmt's with clause is before the brace.                                   |
+    |                  |                         |                       | It's used to distinguish (with xxx select xxx) and with xxx (select xxx)                                     |
+    | QueryBlockOffset | 0                       | int                   | QueryBlockOffset indicates the order of this SelectStmt if counted from left to right in the sql text.       |
+    | SelectIntoOpt    | nil                     | *SelectIntoOption     | SelectIntoOpt is the select-into option.                                                                     |
+    | AfterSetOperator | nil                     | *SetOprType           | AfterSetOperator indicates the SelectStmt after which type of set operator                                   |
+    | Kind             | 0x00                    | SelectStmtKind        | Kind refer to three kind of statement: SelectStmt, TableStmt and ValuesStmt                                  |
+    | Lists            | nil                     | []*RowExpr            | Lists is filled only when Kind == SelectStmtKindValues                                                       |
+    | With             | nil                     | *WithClause           |                                                                                                              |
+    | AsViewSchema     | false                   | bool                  | AsViewSchema indicates if this stmt provides the schema for the view. It is only used when creating the view |  -
+
 ** Convert AST to logic plan
    + pkg/server/conn.go: handleStmt()
      #+BEGIN_SRC
@@ -520,9 +720,7 @@ MySQL$ select * from test01 where col01 = 1;
 
 
 * Handshake
-  #+BEGIN_SRC
-\u0000\u0000\u0000\u0000\n8.0.11-TiDB-v7.5.0-dirty\u0000\u0002\u0000@wubk\u0010 ts\r\u0000\ufffd\ufffd.\u0002\u0000\u001b\u0005\u0015\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u001f9+1\u0007)/\u001b\u001e1\u00178\u0000mysql_native_password\u0000
-  #+END_SRC
+
 * Flow(v7.5.0)
 ** server/Server.go:onConn
    #+BEGIN_SRC
@@ -763,42 +961,7 @@ MySQL$ select * from test01 where col01 = 1;
    #+END_SRC
 
 * mysql interface
-  #+BEGIN_SRC
-workstation$ sudo ngrep -x -q -d any -d any port 4407
-T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #4
-  4d 00 00 00 0a 79 6f 6d    6f 44 42 30 30 31 00 06    M....yomoDB001..
-  00 00 00 53 21 1e 4f 4a    01 4b 27 00 0d a2 21 02    ...S!.OJ.K'...!.
-  00 09 01 15 00 00 00 00    00 00 00 00 00 00 12 0d    ................
-  4c 65 1a 63 0d 03 33 0b    45 79 00 6d 79 73 71 6c    Le.c..3.Ey.mysql
-  5f 6e 61 74 69 76 65 5f    70 61 73 73 77 6f 72 64    _native_password
-  00                                                    .               
 
-T 10.128.0.21:56982 -> 10.128.0.21:4407 [AP] #6
-  50 00 00 01 85 a6 ff 20    00 00 00 01 08 00 00 00    P...... ........
-  00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00    ................
-  00 00 00 00 6d 6f 63 6b    00 14 9c ac ce d5 2d 6e    ....mock......-n
-  15 4e a2 c9 bb 19 72 d5    5e af 68 62 95 aa 6d 79    .N....r.^.hb..my
-  73 71 6c 5f 6e 61 74 69    76 65 5f 70 61 73 73 77    sql_native_passw
-  6f 72 64 00                                           ord.            
-
-T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #8
-  07 00 00 02 00 00 00 02    00 00 00                   ...........     
-
-T 10.128.0.21:56982 -> 10.128.0.21:4407 [AP] #9
-  21 00 00 00 03 73 65 6c    65 63 74 20 40 40 76 65    !....select @@ve
-  72 73 69 6f 6e 5f 63 6f    6d 6d 65 6e 74 20 6c 69    rsion_comment li
-  6d 69 74 20 31                                        mit 1           
-
-T 10.128.0.21:4407 -> 10.128.0.21:56982 [AP] #10
-  6c 00 00 01 ff 51 04 23    48 59 30 30 30 6d 6f 63    l....Q.#HY000moc
-  6b 2e 68 61 6e 64 6c 65    72 2e 71 75 65 72 79 5b    k.handler.query[
-  73 65 6c 65 63 74 20 40    40 76 65 72 73 69 6f 6e    select @@version
-  5f 63 6f 6d 6d 65 6e 74    20 6c 69 6d 69 74 20 31    _comment limit 1
-  5d 2e 65 72 72 6f 72 5b    63 61 6e 2e 6e 6f 74 2e    ].error[can.not.
-  66 6f 75 6e 64 2e 74 68    65 2e 63 6f 6e 64 2e 70    found.the.cond.p
-  6c 65 61 73 65 2e 73 65    74 2e 66 69 72 73 74 5d    lease.set.first]
-
-   #+END_SRC
 ** handshake
 *** server -> client: Send handshake from server to client
 **** Example
