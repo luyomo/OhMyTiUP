@@ -384,6 +384,125 @@ AsViewSchema: false
     | AsViewSchema     | false                   | bool                  | AsViewSchema indicates if this stmt provides the schema for the view. It is only used when creating the view |  -
 
 ** Convert AST to logic plan
+    #+BEGIN_SRC plantuml :file ./png/point_get_logical_plan.png
+@startyaml
+core.PointGetPlan:
+  dbName: test
+  schema(*expression.Schema):
+    Columns([]*expression.Column):
+      -
+        RetType(*types.FieldType): to add
+        ID: 1
+        UniqueID: 0
+        Index: 0                                                                                               
+        hashcode([]uint8): nil                                                                                 
+        VirtualExpr(expression.Expression): nil
+        OrigName: col01
+        IsHidden: false
+        IsPrefix: false
+        InOperand: false
+        collationInfo(expression.collationInfo): 
+          coer:0                                                                                              
+          coerInit(atomic.Bool):
+            atomic.nocmp: -
+            v(atomic.Uint32):
+              atomic.nocmp: -
+              v: 0x0                    
+          repertoire: 0                                   
+          charset: -                                   
+          collation: -
+        CorrelatedColUniqueID: 0
+      -
+        RetType(*types.FieldType): to add
+        ID: 2
+        UniqueID: 1
+        Index: 1                                                                                               
+        hashcode([]uint8): nil                                                                                 
+        VirtualExpr(expression.Expression): nil
+        OrigName: col02
+        IsHidden: false
+        IsPrefix: false
+        InOperand: false
+        collationInfo(expression.collationInfo): 
+          coer:0                                                                                              
+          coerInit(atomic.Bool):
+            atomic.nocmp: -
+            v(atomic.Uint32):
+              atomic.nocmp: -
+              v: 0x0                    
+          repertoire: 0                                   
+          charset: -                                   
+          collation: -
+        CorrelatedColUniqueID: 0
+    Keys([]expression.KeyInfo): nil
+    UniqueKeys([]expression.KeyInfo): nil
+  TblInfo(*model.TableInfo): to add
+  IndexInfo(*model.IndexInfo): nil
+  PartitionInfo(*model.PartitionDefinition): nil
+  Handle: 1
+  HandleConstant(*expression.Constant): nil
+  handleFieldType(*types.FieldType): to add
+  IndexValues([]types.Datum): nil
+  IndexConstants([]*expression.Constant): nil
+  ColsFieldType([]*types.FieldType): nil
+  IdxCols([]*expression.Column): nil
+  IdxColLens([]int): nil
+  AccessConditions([]expression.Expression): nil
+  ctx(sessionctx.Context): nil
+  UnsignedHandle: false
+  IsTableDual: false
+  Lock: false                                                                                            
+  outputNames([]*types.FieldName):
+    -
+      types.FieldName:
+        OrigTblName(model.CIStr):
+          O: test01
+          L: test01
+        OrigColName(model.CIStr): '{O:, L:}'
+        DBName(model.CIStr):
+          O: test
+          L: test
+        TblName(model.CIStr):
+          O: test01
+          L: test01
+        ColName(model.CIStr):
+          O: col01
+          L: col01
+        Hidden: false                                                                                      
+        NotExplicitUsable: false                                                                           
+        Redundant: false
+    -
+      types.FieldName:
+        OrigTblName(model.CIStr):
+          O: test01
+          L: test01
+        OrigColName(model.CIStr): '{O:, L:}'
+        DBName(model.CIStr):
+          O: test
+          L: test
+        TblName(model.CIStr):
+          O: test01
+          L: test01
+        ColName(model.CIStr):
+          O: col02
+          L: col02
+        Hidden: false                                                                                      
+        NotExplicitUsable: false                                                                           
+        Redundant: false
+  LockWaitTime: 0
+  partitionColumnPos: 0
+  Columns([]*model.ColumnInfo): nil
+  cost: 0                                                                                               
+  planCostInit: false                                                                                   
+  planCost: 0                                                                                           
+  planCostVer2(core.costVer2):
+    cost: 0
+    trace(*core.costTrace): nil
+  accessCols([]*expression.Column): nil                                                                  
+  probeParents([]core.PhysicalPlan): nil
+  stmtHints(*stmtctx.StmtHints): nil
+@endyaml
+    #+END_SRC
    + pkg/server/conn.go: handleStmt()
      #+BEGIN_SRC
      func (cc *clientConn) handleStmt(ctx context.Context, stmt ast.StmtNode, warns []stmtctx.SQLWarn, lastStmt bool) (bool, error) {
