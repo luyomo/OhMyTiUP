@@ -2,7 +2,7 @@ version: "3"
 
 services:
   app:
-    image: ngoduykhanh/powerdns-admin:latest
+    image: ngoduykhanh/powerdns-admin:0.2.2
     container_name: powerdns_admin
     logging:
       driver: json-file

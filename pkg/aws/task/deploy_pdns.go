@@ -110,40 +110,30 @@ func (c *DeployPDNS) Execute(ctx context.Context) error {
 	command := fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create user if not exists %s identified by \"%s\"'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBUser, tidbConn.TiDBPass)
 	stdout, _, err := (*workstation).Execute(ctx, command, true)
 	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBName)
 	stdout, _, err = (*workstation).Execute(ctx, command, true)
 	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'grant all on %s.* to %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", tidbConn.TiDBName, tidbConn.TiDBUser)
 	stdout, _, err = (*workstation).Execute(ctx, command, true)
 	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'create database if not exists %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", "pdns")
 	stdout, _, err = (*workstation).Execute(ctx, command, true)
 	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 
 	command = fmt.Sprintf(`mysql -h %s -P %d -u %s -e 'grant all on %s.* to %s'`, tidbConn.TiDBHost, tidbConn.TiDBPort, "root", "pdns", tidbConn.TiDBUser)
 	stdout, _, err = (*workstation).Execute(ctx, command, true)
 	if err != nil {
-		fmt.Printf("The command is <%s> \n\n\n", command)
-		fmt.Printf("The ut data is <%s> \n\n\n", string(stdout))
 		return err
 	}
 

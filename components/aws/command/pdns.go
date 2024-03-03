@@ -28,6 +28,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	PDNSCluster = "ohmytiup-tidb"
+)
+
 func newPDNS() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pdns <sub_command>",
@@ -69,7 +73,7 @@ aws pdns list all
 				teleTopology = string(data)
 			}
 
-			return cm.PDNSDeploy(clusterName, topoFile, opt, postDeployHook, skipConfirm, gOpt)
+			return cm.PDNSDeploy(clusterName, PDNSCluster, topoFile, opt, postDeployHook, skipConfirm, gOpt)
 		},
 	}
 
@@ -96,7 +100,7 @@ func newListPDNSCmd() *cobra.Command {
 
 			clusterName := args[0]
 
-			return cm.ListPDNSService(clusterName, opt)
+			return cm.ListPDNSService(clusterName, PDNSCluster, opt)
 		},
 	}
 
@@ -135,7 +139,7 @@ You can retain some nodes and roles data when destroy cluster, eg:
 				}
 			}
 
-			return cm.DestroyPDNSService(clusterName, gOpt, destroyOpt, skipConfirm)
+			return cm.DestroyPDNSService(clusterName, PDNSCluster, gOpt, destroyOpt, skipConfirm)
 		},
 	}
 
