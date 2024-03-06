@@ -1,41 +1,48 @@
 #+OPTIONS: \n:t
 #+OPTIONS: ^:nil
 #+TITLE: TiDB deployment on EKS
-* Architure
-  #+CAPTION: workstation preparation 01
-  #+ATTR_HTML: :width 800 :style border:2px solid black;
-  [[./png/tidb-on-eks/architecture.eks.png]]
+
+
   
 * workstation setup
-*** Workstation creation by stack
-    Please refer to [[https://s3.ap-northeast-1.amazonaws.com/tidb.cloudformation.template/common/workstation.yaml][workstation cloudformation template]] to create the workstation.
-#+CAPTION: workstation preparation 01
-#+ATTR_HTML: :width 800 :style border:2px solid black;
-[[./png/tidb-on-eks/01.workstation.01.png]]
-#+CAPTION: workstation preparation 02
-#+ATTR_HTML: :width 800 :style border:2px solid black;
-[[./png/tidb-on-eks/01.workstation.02.png]]
-#+CAPTION: workstation preparation 03
-#+ATTR_HTML: :width 800 :style border:2px solid black;
-[[./png/tidb-on-eks/01.workstation.03.png]]
-*** AWS config
-    Login to the workstation and setup the aws cli (Please refer to [[https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html][AWS Configuration Basis]] for setup).
-*** eksctl and kubectl installation
+** Workstation creation by stack (Replace it with cli to create workstation)
+**** yaml file
+     #+BEGIN_SRC yaml
+OhMyTiUP$ more more embed/examples/aws/workstation.yaml
+workstation:    
+  cidr: 172.82.0.0/16
+  instance_type: m5.2xlarge
+  keyname: key-name
+  keyfile: /home/pi/.ssh/private-key.pem
+  username: admin
+  imageid: ami-07d02ee1eeb0c996c
+  volumeSize: 100
+     #+END_SRC
+*** Deployment
+    #+BEGIN_SRC
+OhMyTiUP$ ./bin/aws workstation deploy wseks embed/examples/aws/workstation.yaml
+    #+END_SRC
+
+** AWS config
+   Login to the workstation and setup the aws cli (Please refer to [[https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html][AWS Configuration Basis]] for setup).
+** eksctl and kubectl installation
     Please refer to [[https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html][Getting started with Amazon EKS -eksctl]] to install the eksctl and kubectl in the workstation.
     #+BEGIN_SRC shell
-admin@ip-172-81-11-52:~$ curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/kubectl
+admin@ip-172-81-11-52:~$ curl -LO "https://dl.k8s.io/release/v1.29.2/bin/linux/amd64/kubectl"
 admin@ip-172-81-11-52:~$ chmod 755 kubectl
 admin@ip-172-81-11-52:~$ sudo mv kubectl /usr/local/bin/
-admin@ip-172-81-11-52:~$ kubectl version --short --client
+admin@ip-172-81-11-52:~$ kubectl version
+Client Version: v1.29.0-eks-5e0fdde
+Kustomize Version: v5.0.4-0.20230601165947-6ce0bf390ce3
 Client Version: v1.21.2-13+d2965f0db10712
 admin@ip-172-81-11-52:~$ curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
 admin@ip-172-81-11-52:~$ sudo mv /tmp/eksctl /usr/local/bin/
 admin@ip-172-81-11-52:~$ eksctl version
-0.82.0
+      0.173.0
     #+END_SRC
-*** helm installation
+** helm installation
     Please refer to [[https://helm.sh/docs/intro/install/][Helm installation]]
-    #+BEGIN_SRC
+    #+BEGIN_SRC shell
 admin@ip-172-81-11-52:~$ curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 admin@ip-172-81-11-52:~$ chmod 700 get_helm.sh
 admin@ip-172-81-11-52:~$ ./get_helm.sh
@@ -48,8 +55,8 @@ admin@ip-172-81-11-52:
 admin@ip-172-81-11-52:~$ helm version 
 version.BuildInfo{Version:"v3.8.0", GitCommit:"d14138609b01886f544b2025f5000351c9eb092e", GitTreeState:"clean", GoVersion:"go1.17.5"}
     #+END_SRC
-*** aws-ami-authenticator
-    Please refer to [[https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html][aws-iam-authenticator]]
+** aws-ami-authenticator
+    Please refer to [[https://weaveworks-gitops.awsworkshop.io/60_workshop_6_ml/00_prerequisites.md/50_install_aws_iam_auth.html][aws-iam-authenticator]]
     #+BEGIN_SRC
 admin@ip-172-81-11-52:~$ curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.21.2/2021-07-05/bin/linux/amd64/aws-iam-authenticator
 admin@ip-172-81-11-52:~$ chmod +x ./aws-iam-authenticator
@@ -58,15 +65,18 @@ admin@ip-172-81-11-52:~$ aws-iam-authenticator version
 {"Version":"v0.5.0","Commit":"1cfe2a90f68381eacd7b6dcfa2bf689e76eb8b4b"}
     #+END_SRC
 * EKS setup
-   Please refer to [[https://docs.pingcap.com/tidb-in-kubernetes/stable/deploy-on-aws-eks][deploy-on-aws-eks]]. Now let's have your cup of coffee for a rest until the aws resources are completed.
-   
-   #+BEGIN_SRC
+  Please refer to [[https://docs.pingcap.com/tidb-in-kubernetes/stable/deploy-on-aws-eks][deploy-on-aws-eks]]. Now let's have your cup of coffee for a rest until the aws resources are completed.
+  #+BEGIN_SRC
 admin@ip-172-81-11-52:~$ more eks.cluster.yaml
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 metadata:
   name: tidb2cloudcdc
-  region: ap-northeast-1
+  region: us-east-1
+addons:
+  - name: aws-ebs-csi-driver
+
+availabilityZones: ['us-east-1a', 'us-east-1b', 'us-east-1c', 'us-east-1d', 'us-east-1f']
 
 nodeGroups:
   - name: admin
@@ -74,179 +84,261 @@ nodeGroups:
     privateNetworking: true
     labels:
       dedicated: admin
-
-  - name: tidb-1a
-    desiredCapacity: 1
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1a"]
-    instanceType: c5.2xlarge
-    labels:
-      dedicated: tidb
-    taints:
-      dedicated: tidb:NoSchedule
-  - name: tidb-1d
-    desiredCapacity: 0
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1d"]
-    instanceType: c5.2xlarge
-    labels:
-      dedicated: tidb
-    taints:
-      dedicated: tidb:NoSchedule
-  - name: tidb-1c
-    desiredCapacity: 1
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1c"]
-    instanceType: c5.2xlarge
-    labels:
-      dedicated: tidb
-    taints:
-      dedicated: tidb:NoSchedule
-
-  - name: pd-1a
-    desiredCapacity: 1
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1a"]
-    instanceType: c5.xlarge
-    labels:
-      dedicated: pd
-    taints:
-      dedicated: pd:NoSchedule
-  - name: pd-1d
-    desiredCapacity: 1
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1d"]
-    instanceType: c5.xlarge
-    labels:
-      dedicated: pd
-    taints:
-      dedicated: pd:NoSchedule
-  - name: pd-1c
-    desiredCapacity: 1
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1c"]
-    instanceType: c5.xlarge
-    labels:
-      dedicated: pd
-    taints:
-      dedicated: pd:NoSchedule
-
-  - name: tikv-1a
-    desiredCapacity: 1
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1a"]
-    instanceType: r5b.2xlarge
-    labels:
-      dedicated: tikv
-    taints:
-      dedicated: tikv:NoSchedule
-  - name: tikv-1d
-    desiredCapacity: 1
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1d"]
-    instanceType: r5b.2xlarge
-    labels:
-      dedicated: tikv
-    taints:
-      dedicated: tikv:NoSchedule
-  - name: tikv-1c
-    desiredCapacity: 1
-    privateNetworking: true
-    availabilityZones: ["ap-northeast-1c"]
-    instanceType: r5b.2xlarge
-    labels:
-      dedicated: tikv
-    taints:
-      dedicated: tikv:NoSchedule
-admin@ip-172-81-11-52:~$ eksctl create cluster -f eks.cluster.yaml
-2022-02-06 11:59:25   eksctl version 0.82.0
-... ...
-2022-02-06 12:17:37   saved kubeconfig as "/home/admin/.kube/config"
-2022-02-06 12:17:37   no tasks
-2022-02-06 12:17:37   all EKS cluster resources for "tidb2cloudcdc" have been created
-... ...
-2022-02-06 12:24:52   kubectl command should work with "/home/admin/.kube/config", try 'kubectl get nodes'
-2022-02-06 12:24:52   EKS cluster "tidb2cloudcdc" in "ap-northeast-1" region is ready
-admin@ip-172-81-11-52:~$
-admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster tidb2cloudcdc
-CLUSTER        NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID
-tidb2cloudcdc  admin           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       m5.large        ami-0b49509d917c6649b
-tidb2cloudcdc  pd-1a           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-tidb2cloudcdc  pd-1c           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-tidb2cloudcdc  pd-1d           CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.xlarge       ami-0b49509d917c6649b
-tidb2cloudcdc  tidb-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-tidb2cloudcdc  tidb-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       c5.2xlarge      ami-0b49509d917c6649b
-tidb2cloudcdc  tidb-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    0               0               0                       c5.2xlarge      ami-0b49509d917c6649b
-tidb2cloudcdc  tikv-1a         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-tidb2cloudcdc  tikv-1c         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-tidb2cloudcdc  tikv-1d         CREATE_COMPLETE 2022-02-06T12:13:29Z    1               1               1                       r5b.2xlarge     ami-0b49509d917c6649b
-   #+END_SRC
-
-   Todo: I am still check what's the difference as the below config
-   Please refer to [[https://docs.amazonaws.cn/autoscaling/ec2/userguide/as-dg.pdf][auto scaling tutorial]]
-   #+BEGIN_SRC
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-metadata:
-  name: tidb2cloudcdc
-  region: ap-northeast-1
-
-nodeGroups:
-  - name: admin
-    desiredCapacity: 1
-    privateNetworking: true
-    labels:
-      dedicated: admin
-
+    iam:
+      withAddonPolicies:
+        ebs: true
   - name: tidb
-    desiredCapacity: 3
+    desiredCapacity: 2
     privateNetworking: true
-    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
-    instanceType: c5.2xlarge
+    instanceType: t2.medium
     labels:
       dedicated: tidb
     taints:
       dedicated: tidb:NoSchedule
-
+    iam:
+      withAddonPolicies:
+        ebs: true
   - name: pd
     desiredCapacity: 3
     privateNetworking: true
-    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
-    instanceType: c5.xlarge
+    instanceType: t2.medium
     labels:
       dedicated: pd
     taints:
       dedicated: pd:NoSchedule
-
+    iam:
+      withAddonPolicies:
+        ebs: true
   - name: tikv
     desiredCapacity: 3
     privateNetworking: true
-    availabilityZones: ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
-    instanceType: r5b.2xlarge
+    instanceType: t2.medium
     labels:
       dedicated: tikv
     taints:
       dedicated: tikv:NoSchedule
-   #+END_SRC
+    iam:
+      withAddonPolicies:
+        ebs: true
 
+admin@ip-172-81-11-52:~$ eksctl create cluster -f eks.cluster.yaml
+2024-03-06 00:09:53   eksctl version 0.173.0
+... ...
+2024-03-06 00:09:53   using Kubernetes version 1.29
+... ...
+2024-03-06 00:24:21   saved kubeconfig as "/home/admin/.kube/config"
+2024-03-06 00:24:21   no tasks
+2024-03-06 00:24:21   all EKS cluster resources for "tidb2cloudcdc" have been created
+... ...
+2024-03-06 00:24:21   OIDC is disabled but policies are required/specified for this addon. Users are responsible for attaching the policies to all nodegroup roles
+admin@ip-172-81-11-52:~$
+admin@ip-172-81-11-52:~$ eksctl get nodegroup --cluster tidb2cloudcdc
+CLUSTER         NODEGROUP       STATUS          CREATED                 MIN SIZE        MAX SIZE        DESIRED CAPACITY        INSTANCE TYPE   IMAGE ID                ASG NAME    TYPE
+tidb2cloudcdc   admin           CREATE_COMPLETE 2024-03-06T00:19:55Z    1               1               1                       m5.large        ami-0a5010afd9acfaa26   eksctl-tidb2cloudcdc-nodegroup-admin-NodeGroup-cdInB3oy3ShN  unmanaged
+tidb2cloudcdc   pd              CREATE_COMPLETE 2024-03-06T00:19:55Z    3               3               3                       t2.medium       ami-0a5010afd9acfaa26   eksctl-tidb2cloudcdc-nodegroup-pd-NodeGroup-LF5Qewygo6FL     unmanaged
+tidb2cloudcdc   tidb            CREATE_COMPLETE 2024-03-06T00:19:55Z    2               2               2                       t2.medium       ami-0a5010afd9acfaa26   eksctl-tidb2cloudcdc-nodegroup-tidb-NodeGroup-n4jgbAYCTbq4   unmanaged
+tidb2cloudcdc   tikv            CREATE_COMPLETE 2024-03-06T00:19:55Z    3               3               3                       t2.medium       ami-0a5010afd9acfaa26   eksctl-tidb2cloudcdc-nodegroup-tikv-NodeGroup-7Kwz3VRmMFel   unmanaged
+   #+END_SRC
+** [[https://docs.aws.amazon.com/eks/latest/userguide/csi-iam-role.html][Create IODC from EKS cluster]]
+   #+BEGIN_SRC
+workstation$ eksctl utils associate-iam-oidc-provider --region=us-east-1 --cluster=tidb2cloudcdc --approve
+2024-03-06 00:41:52    1 iamserviceaccount (kube-system/ebs-csi-controller-sa) was included (based on the include/exclude rules)
+2024-03-06 00:41:52    created IAM Open ID Connect provider for cluster "tidb2cloudcdc" in "us-east-1"
+workstation$ eksctl create iamserviceaccount \
+    --name ebs-csi-controller-sa \
+    --namespace kube-system \
+    --cluster tidb2cloudcdc \
+    --role-name jay-eks-oidc-role \
+    --role-only \
+    --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+    --approve
+
+2024-03-06 00:42:42    1 iamserviceaccount (kube-system/ebs-csi-controller-sa) was included (based on the include/exclude rules)
+2024-03-06 00:42:42    serviceaccounts in Kubernetes will not be created or modified, since the option --role-only is used
+2024-03-06 00:42:42    1 task: { create IAM role for serviceaccount "kube-system/ebs-csi-controller-sa" }
+2024-03-06 00:42:42    building iamserviceaccount stack "eksctl-tidb2cloudcdc-addon-iamserviceaccount-kube-system-ebs-csi-controller-sa"
+2024-03-06 00:42:42    deploying stack "eksctl-tidb2cloudcdc-addon-iamserviceaccount-kube-system-ebs-csi-controller-sa"
+2024-03-06 00:42:42    waiting for CloudFormation stack "eksctl-tidb2cloudcdc-addon-iamserviceaccount-kube-system-ebs-csi-controller-sa"
+2024-03-06 00:43:12    waiting for CloudFormation stack "eksctl-tidb2cloudcdc-addon-iamserviceaccount-kube-system-ebs-csi-controller-sa"
+   #+END_SRC
+*** Minimun permission policy
+    Please refer to [[https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/example-iam-policy.json][link]]
+    #+BEGIN_SRC
+workstation$ more oidc-policy.json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateSnapshot",
+        "ec2:AttachVolume",
+        "ec2:DetachVolume",
+        "ec2:ModifyVolume",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeInstances",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeTags",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeVolumesModifications"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateTags"
+      ],
+      "Resource": [
+        "arn:aws:ec2:*:*:volume/*",
+        "arn:aws:ec2:*:*:snapshot/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": [
+            "CreateVolume",
+            "CreateSnapshot"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DeleteTags"
+      ],
+      "Resource": [
+        "arn:aws:ec2:*:*:volume/*",
+        "arn:aws:ec2:*:*:snapshot/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateVolume"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "aws:RequestTag/ebs.csi.aws.com/cluster": "true"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateVolume"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "aws:RequestTag/CSIVolumeName": "*"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DeleteVolume"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "ec2:ResourceTag/ebs.csi.aws.com/cluster": "true"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DeleteVolume"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "ec2:ResourceTag/CSIVolumeName": "*"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DeleteVolume"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "ec2:ResourceTag/kubernetes.io/created-for/pvc/name": "*"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DeleteSnapshot"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "ec2:ResourceTag/CSIVolumeSnapshotName": "*"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DeleteSnapshot"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "ec2:ResourceTag/ebs.csi.aws.com/cluster": "true"
+        }
+      }
+    }
+  ]
+}
+workstation$ aws iam create-policy   --policy-name jay-eks-oidc-policy   --policy-document file://oidc-policy.json
+{
+    "Policy": {
+        "PolicyName": "jay-eks-oidc-policy",
+        "PolicyId": "ANPA2TXTRGT4RJRJT6GA3",
+        "Arn": "arn:aws:iam::729581434105:policy/jay-eks-oidc-policy",
+        "Path": "/",
+        "DefaultVersionId": "v1",
+        "AttachmentCount": 0,
+        "PermissionsBoundaryUsageCount": 0,
+        "IsAttachable": true,
+        "CreateDate": "2024-03-06T01:35:57+00:00",
+        "UpdateDate": "2024-03-06T01:35:57+00:00"
+    }
+}
+workstation$ aws iam attach-role-policy \
+  --policy-arn arn:aws:iam::111122223333:policy/jay-eks-oidc-policy \
+  --role-name jay-eks-oidc-role
+    #+END_SRC
+* TiDB Cluster Creation
 ** TiDB Cluster operator installation
    Please refer to [[https://docs.pingcap.com/tidb-in-kubernetes/stable/get-started#step-2-deploy-tidb-operator][Deploy TiDB Operator]]
    #+BEGIN_SRC
-admin@ip-172-81-11-52:~$ kubectl apply -f https://raw.githubusercontent.com/pingcap/tidb-operator/v1.2.4/manifests/crd.yaml
-Warning: apiextensions.k8s.io/v1beta1 CustomResourceDefinition is deprecated in v1.16+, unavailable in v1.22+; use apiextensions.k8s.io/v1 CustomResourceDefinition
-customresourcedefinition.apiextensions.k8s.io/tidbclusters.pingcap.com created
-customresourcedefinition.apiextensions.k8s.io/dmclusters.pingcap.com created
+admin@ip-172-81-11-52:~$ aws eks update-kubeconfig --name tidb2cloudcdc
+admin@ip-172-81-11-52:~$ kubectl create -f https://raw.githubusercontent.com/pingcap/tidb-operator/v1.5.2/manifests/crd.yaml 
 customresourcedefinition.apiextensions.k8s.io/backups.pingcap.com created
-customresourcedefinition.apiextensions.k8s.io/restores.pingcap.com created
 customresourcedefinition.apiextensions.k8s.io/backupschedules.pingcap.com created
-customresourcedefinition.apiextensions.k8s.io/tidbmonitors.pingcap.com created
-customresourcedefinition.apiextensions.k8s.io/tidbinitializers.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/dmclusters.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/restores.pingcap.com created
 customresourcedefinition.apiextensions.k8s.io/tidbclusterautoscalers.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbclusters.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbdashboards.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbinitializers.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbmonitors.pingcap.com created
+customresourcedefinition.apiextensions.k8s.io/tidbngmonitorings.pingcap.com created
+
 admin@ip-172-81-11-52:~$ helm repo add pingcap https://charts.pingcap.org/
 "pingcap" has been added to your repositories
 admin@ip-172-81-11-52:~$ kubectl create namespace tidb-admin
 namespace/tidb-admin created
-admin@ip-172-81-11-52:~$ helm install --namespace tidb-admin tidb-operator pingcap/tidb-operator --version v1.2.6
+admin@ip-172-81-11-52:~$ helm install --namespace tidb-admin tidb-operator pingcap/tidb-operator --version v1.5.2
 NAME: tidb-operator
 LAST DEPLOYED: Sun Feb  6 12:32:57 2022
 NAMESPACE: tidb-admin
@@ -259,25 +351,83 @@ Make sure tidb-operator components are running:
     kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
 
 admin@ip-172-81-11-52:~$ kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=tidb-operator
-NAME                                       READY   STATUS    RESTARTS   AGE
-tidb-controller-manager-56b57bf6c5-hmtbm   1/1     Running   0          34s
-tidb-scheduler-7f8cc67d78-pq5c4            2/2     Running   0          34s
+NAME                                      READY   STATUS    RESTARTS     AGE
+tidb-controller-manager-86bb89ddd-668fs   1/1     Running   0            20s
+tidb-scheduler-7dc44b5cc7-pqpmg           1/2     Error     1 (8s ago)   20s
+admin@ip-172-81-11-52:~$ kubectl delete deployment tidb-scheduler -n tidb-admin
+deployment.apps "tidb-scheduler" deleted
+   #+END_SRC
+** [[https://docs.pingcap.com/tidb-in-kubernetes/stable/deploy-on-aws-eks][Patch storageclass]]
+   #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ kubectl create namespace tidb-cluster
+namespace/tidb-cluster created
+
+workstation$ kubectl patch -n kube-system ds ebs-csi-node -p '{"spec":{"template":{"spec":{"tolerations":[{"operator":"Exists"}]}}}}'
+workstation$ more storageClass.yaml
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: gp3
+provisioner: ebs.csi.aws.com
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  type: gp3
+  fsType: ext4
+  iops: "4000"
+  throughput: "400"
+mountOptions:
+  - nodelalloc
+  - noatime
+workstation$ kubectl apply -f storageClass.yaml -n tidb-cluster
+storageclass.storage.k8s.io/gp3 created
+workstation$ kubectl get sc -n tidb-cluster
+NAME            PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+gp2 (default)   kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  114m
+gp3             ebs.csi.aws.com         Delete          WaitForFirstConsumer   true                   32s
    #+END_SRC
 ** TiDB Cluster setup
    Please refer to [[https://docs.pingcap.com/tidb-in-kubernetes/stable/deploy-on-aws-eks][deploy-on-aws-eks]]
    #+BEGIN_SRC
-admin@ip-172-81-11-52:~$ kubectl create namespace tidb-cluster
-namespace/tidb-cluster created
 admin@ip-172-81-11-52:~$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/aws/tidb-cluster.yaml
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100  3004  100  3004    0     0  13779      0 --:--:-- --:--:-- --:--:-- 13716
+workstation$ more tidb-cluter.yaml
+...
+spec:
+  tikv:
+    ...
+    storageClassName: gp3
+...
+admin@ip-172-81-11-52:~$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster 
+tidbcluster.pingcap.com/basic created
+admin@ip-172-81-11-52:~$ kubectl get pods -n tidb-cluster
+NAME                               READY   STATUS    RESTARTS   AGE
+basic-discovery-766d55464c-h5rql   1/1     Running   0          2m4s
+basic-pd-0                         1/1     Running   0          2m4s
+basic-pd-1                         1/1     Running   0          2m4s
+basic-pd-2                         1/1     Running   0          2m4s
+basic-tidb-0                       2/2     Running   0          35s
+basic-tidb-1                       2/2     Running   0          35s
+basic-tikv-0                       1/1     Running   0          95s
+basic-tikv-1                       1/1     Running   0          95s
+basic-tikv-2                       1/1     Running   0          95s
+admin@ip-172-81-11-52:~$ kubectl get service -n tidb-cluster
+NAME              TYPE           CLUSTER-IP      EXTERNAL-IP                                                                     PORT(S)                          AGE
+basic-discovery   ClusterIP      10.100.92.135   <none>                                                                          10261/TCP,10262/TCP              3m33s
+basic-pd          ClusterIP      10.100.58.24    <none>                                                                          2379/TCP                         3m33s
+basic-pd-peer     ClusterIP      None            <none>                                                                          2380/TCP,2379/TCP                3m33s
+basic-tidb        LoadBalancer   10.100.239.36   a9f2e75b621234337a992c1378d572fc-78c59fea67e90490.elb.us-east-1.amazonaws.com   4000:31203/TCP,10080:32488/TCP   2m4s
+basic-tidb-peer   ClusterIP      None            <none>                                                                          10080/TCP                        2m4s
+basic-tikv-peer   ClusterIP      None            <none>                                                                          20160/TCP                        3m4s
+   #+END_SRC
+** Monitor deployment
+   #+BEGIN_SRC
 admin@ip-172-81-11-52:~$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/master/examples/aws/tidb-monitor.yaml
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100  1639  100  1639    0     0   7552      0 --:--:-- --:--:-- --:--:--  7552
-admin@ip-172-81-11-52:~$ kubectl apply -f tidb-cluster.yaml -n tidb-cluster 
-tidbcluster.pingcap.com/basic created
 admin@ip-172-81-11-52:~$ kubectl apply -f tidb-monitor.yaml -n tidb-cluster
 tidbmonitor.pingcap.com/basic created
 admin@ip-172-81-11-52:~$ kubectl get pods -n tidb-cluster 
@@ -292,76 +442,234 @@ basic-tidb-1                       2/2     Running   0          44s
 basic-tikv-0                       1/1     Running   0          87s
 basic-tikv-1                       1/1     Running   0          87s
 basic-tikv-2                       1/1     Running   0          87s
-admin@ip-172-81-11-52:~$ kubectl get service -n tidb-cluster 
-NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP                                                                          PORT(S)                          AGE
-basic-discovery          ClusterIP      10.100.166.42   <none>                                                                               10261/TCP,10262/TCP              2m57s
-basic-grafana            LoadBalancer   10.100.91.214   ac456684a300244be8e8c4d19e228d52-ddbfb659f9296b3c.elb.ap-northeast-1.amazonaws.com   3000:31601/TCP                   2m34s
-basic-monitor-reloader   NodePort       10.100.123.67   <none>                                                                               9089:32115/TCP                   2m34s
-basic-pd                 ClusterIP      10.100.226.81   <none>                                                                               2379/TCP                         2m57s
-basic-pd-peer            ClusterIP      None            <none>                                                                               2380/TCP                         2m57s
-basic-prometheus         NodePort       10.100.166.52   <none>                                                                               9090:30872/TCP                   2m34s
-basic-tidb               LoadBalancer   10.100.195.98   ac8985bb5178c4b898d9fc8024d30a8d-baf9ea7b93667dc7.elb.ap-northeast-1.amazonaws.com   4000:31174/TCP,10080:30152/TCP   71s
-basic-tidb-peer          ClusterIP      None            <none>                                                                               10080/TCP                        71s
-basic-tikv-peer          ClusterIP      None            <none>                                                                               20160/TCP                        114s
+
+admin@ip-172-81-11-52:~$ kubectl get service -n tidb-cluster
+NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP                                                                     PORT(S)                          AGE
+basic-discovery          ClusterIP      10.100.92.135   <none>                                                                          10261/TCP,10262/TCP              9m44s
+basic-pd                 ClusterIP      10.100.58.24    <none>                                                                          2379/TCP                         9m44s
+basic-pd-peer            ClusterIP      None            <none>                                                                          2380/TCP,2379/TCP                9m44s
+basic-tidb               LoadBalancer   10.100.239.36   a9f2e75b621234337a992c1378d572fc-78c59fea67e90490.elb.us-east-1.amazonaws.com   4000:31203/TCP,10080:32488/TCP   8m15s
+basic-tidb-peer          ClusterIP      None            <none>                                                                          10080/TCP                        8m15s
+basic-tikv-peer          ClusterIP      None            <none>                                                                          20160/TCP                        9m15s
+   #+END_SRC
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-on-eks/001.png]]
+** Dashboard deployment
+   #+BEGIN_SRC
+admin@ip-172-81-11-52:~$ curl -O https://raw.githubusercontent.com/pingcap/tidb-operator/v1.5.2/examples/aws/tidb-dashboard.yaml
+admin@ip-172-81-11-52:~$ kubectl apply -f tidb-dashboard.yaml -n tidb-cluster
+tidbdashboard.pingcap.com/basic created
+
+admin@ip-172-81-11-52:~$ kubectl get pods -n tidb-cluster
+NAME                               READY   STATUS    RESTARTS   AGE
+basic-discovery-766d55464c-h5rql   1/1     Running   0          4h27m
+basic-monitor-0                    4/4     Running   0          4h22m
+basic-pd-0                         1/1     Running   0          4h27m
+basic-pd-1                         1/1     Running   0          4h27m
+basic-pd-2                         1/1     Running   0          4h27m
+basic-tidb-0                       2/2     Running   0          4h25m
+basic-tidb-1                       2/2     Running   0          4h25m
+basic-tidb-dashboard-0             1/1     Running   0          4h14m
+basic-tikv-0                       1/1     Running   0          4h26m
+basic-tikv-1                       1/1     Running   0          4h26m
+basic-tikv-2                       1/1     Running   0          4h26m
+
+admin@ip-172-81-11-52:~$ kubectl get service -n tidb-cluster
+NAME                           TYPE           CLUSTER-IP      EXTERNAL-IP                                                                     PORT(S)                          AGE
+basic-discovery                ClusterIP      10.100.92.135   <none>                                                                          10261/TCP,10262/TCP              13m
+basic-grafana                  LoadBalancer   10.100.90.179   ac16a24dc54014b939e1f49285135bc2-259754dded7961c1.elb.us-east-1.amazonaws.com   3000:30301/TCP                   8m47s
+basic-monitor-reloader         NodePort       10.100.56.197   <none>                                                                          9089:31207/TCP                   8m47s
+basic-pd                       ClusterIP      10.100.58.24    <none>                                                                          2379/TCP                         13m
+basic-pd-peer                  ClusterIP      None            <none>                                                                          2380/TCP,2379/TCP                13m
+basic-prometheus               NodePort       10.100.20.201   <none>                                                                          9090:31780/TCP                   8m47s
+basic-tidb                     LoadBalancer   10.100.239.36   a9f2e75b621234337a992c1378d572fc-78c59fea67e90490.elb.us-east-1.amazonaws.com   4000:31203/TCP,10080:32488/TCP   11m
+basic-tidb-dashboard-exposed   LoadBalancer   10.100.58.75    a210508a67be9428fa46658984f527e7-9713cfde9553208c.elb.us-east-1.amazonaws.com   12333:32569/TCP                  45s
+basic-tidb-peer                ClusterIP      None            <none>                                                                          10080/TCP                        11m
+basic-tikv-peer                ClusterIP      None            <none>                                                                          20160/TCP                        12m
+   #+END_SRC
+   
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/tidb-on-eks/002.png]]
+** Create endpoint between TiDB and user vpc
+*** endpoint service preparation
+    #+BEGIN_SRC
+workstation$ aws ec2 create-vpc-endpoint-service-configuration --no-acceptance-required --network-load-balancer-arns arn:aws:elasticloadbalancing:us-east-1:729581434105:loadbalancer/net/a9f2e75b621234337a992c1378d572fc/78c59fea67e90490
+{
+    "ServiceConfiguration": {
+        "ServiceType": [
+            {
+                "ServiceType": "Interface"
+            }
+        ],
+        "ServiceId": "vpce-svc-0185bc2f7991f8536",
+        "ServiceName": "com.amazonaws.vpce.us-east-1.vpce-svc-0185bc2f7991f8536",
+        "ServiceState": "Available",
+        "AvailabilityZones": [
+            "us-east-1a",
+            "us-east-1b",
+            "us-east-1c",
+            "us-east-1d",
+            "us-east-1f"
+        ],
+        "AcceptanceRequired": false,
+        "ManagesVpcEndpoints": false,
+        "NetworkLoadBalancerArns": [
+            "arn:aws:elasticloadbalancing:us-east-1:729581434105:loadbalancer/net/a9f2e75b621234337a992c1378d572fc/78c59fea67e90490"
+        ],
+        "SupportedIpAddressTypes": [
+            "ipv4"
+        ],
+        "BaseEndpointDnsNames": [
+            "vpce-svc-0185bc2f7991f8536.us-east-1.vpce.amazonaws.com"
+        ],
+        "PrivateDnsNameConfiguration": {}
+    }
+}
 
    #+END_SRC
-** VPC peering setup and test connectivity
-*** VPC peering setup
-    #+CAPTION: VPC peering setup between workstation and eks
-    #+ATTR_HTML: :width 800 :style border:2px solid black;
-    [[./png/tidb-on-eks/02.vpc.peering.png]]
-*** Route addition on workstation
-    #+CAPTION: Set route rule in workstation to access eks
-    #+ATTR_HTML: :width 800 :style border:2px solid black;
-    [[./png/tidb-on-eks/03.route.01.png]]
-*** Route addition on eks
-    There are three route tables for each subnet in the eks VPC. Need to add the rule to all the route tables.
-    #+CAPTION: Set route rule in eks to access workstation
-    #+ATTR_HTML: :width 800 :style border:2px solid black;
-    [[./png/tidb-on-eks/03.route.02.png]]
-    #+CAPTION: Set route rule in eks to access workstation
-    #+ATTR_HTML: :width 800 :style border:2px solid black;
-    [[./png/tidb-on-eks/03.route.03.png]]    
-*** Test the contivity between workstation and TiDB
-    Use kubectl to get all the services, in which find out the LoadBalancer server for tidb and use it as the host to connect to.
-#+BEGIN_SRC
-admin@ip-172-81-11-52:~$ sudo apt-get -y update
-admin@ip-172-81-11-52:~$ sudo apt-get install -y mariadb-client
-admin@ip-172-81-11-52:~$ kubectl get service -n tidb-cluster 
-NAME                     TYPE           CLUSTER-IP      EXTERNAL-IP                                                                          PORT(S)                          AGE
-basic-discovery          ClusterIP      10.100.166.42   <none>                                                                               10261/TCP,10262/TCP              26m
-basic-grafana            LoadBalancer   10.100.91.214   ac456684a300244be8e8c4d19e228d52-ddbfb659f9296b3c.elb.ap-northeast-1.amazonaws.com   3000:31601/TCP                   26m
-basic-monitor-reloader   NodePort       10.100.123.67   <none>                                                                               9089:32115/TCP                   26m
-basic-pd                 ClusterIP      10.100.226.81   <none>                                                                               2379/TCP                         26m
-basic-pd-peer            ClusterIP      None            <none>                                                                               2380/TCP                         26m
-basic-prometheus         NodePort       10.100.166.52   <none>                                                                               9090:30872/TCP                   26m
-basic-tidb               LoadBalancer   10.100.195.98   ac8985bb5178c4b898d9fc8024d30a8d-baf9ea7b93667dc7.elb.ap-northeast-1.amazonaws.com   4000:31174/TCP,10080:30152/TCP   24m
-basic-tidb-peer          ClusterIP      None            <none>                                                                               10080/TCP                        24m
-basic-tikv-peer          ClusterIP      None            <none>                                                                               20160/TCP                        25m
+*** Private Endpoint Preparation
+    #+BEGIN_SRC
+ workstation$ aws ec2 create-vpc-endpoint --vpc-endpoint-type Interface --vpc-id vpc-0e04e4247fc97ee54 --service-name com.amazonaws.vpce.us-east-1.vpce-svc-0185bc2f7991f8536 --subnet-ids subnet-020feb710073d52cb --security-group-ids sg-01d462e2ae4714a61 --tag-specifications ResourceType=vpc-endpoint,Tags=[{Key=Name,Value=tidb-service}]
+ {
+     "VpcEndpoint": {
+         "VpcEndpointId": "vpce-06d6434a4e51eb0e4",
+         "VpcEndpointType": "Interface",
+         "VpcId": "vpc-0e04e4247fc97ee54",
+         "ServiceName": "com.amazonaws.vpce.us-east-1.vpce-svc-0185bc2f7991f8536",
+         "State": "pending",
+         "RouteTableIds": [],
+         "SubnetIds": [
+             "subnet-020feb710073d52cb"
+         ],
+         "Groups": [
+             {
+                 "GroupId": "sg-01d462e2ae4714a61",
+                 "GroupName": "autodrtest-public"
+             }
+         ],
+         "IpAddressType": "ipv4",
+         "DnsOptions": {
+             "DnsRecordIpType": "ipv4"
+         },
+         "PrivateDnsEnabled": false,
+         "RequesterManaged": false,
+         "NetworkInterfaceIds": [
+             "eni-0a8148f614afa26de"
+         ],
+         "DnsEntries": [
+             {
+                 "DnsName": "vpce-06d6434a4e51eb0e4-mgt7r9iy.vpce-svc-0185bc2f7991f8536.us-east-1.vpce.amazonaws.com",
+                 "HostedZoneId": "Z7HUB22UULQXV"
+             },
+             {
+                 "DnsName": "vpce-06d6434a4e51eb0e4-mgt7r9iy-us-east-1a.vpce-svc-0185bc2f7991f8536.us-east-1.vpce.amazonaws.com",
+                 "HostedZoneId": "Z7HUB22UULQXV"
+             }
+         ],
+         "CreationTimestamp": "2024-03-06T07:11:41.925000+00:00",
+         "OwnerId": "729581434105"
+     }
+ }
+ workstation$ mysql -h 172.81.31.217 -u root -P 4000 test 
+ Welcome to the MariaDB monitor.  Commands end with ; or \g.
+ Your MySQL connection id is 4053
+ Server version: 5.7.25-TiDB-v7.1.1 TiDB Server (Apache License 2.0) Community Edition, MySQL 5.7 compatible
 
-admin@ip-172-81-11-52:~$ mysql -h ac8985bb5178c4b898d9fc8024d30a8d-baf9ea7b93667dc7.elb.ap-northeast-1.amazonaws.com -u root -P 4000
-Welcome to the MariaDB monitor.  Commands end with ; or \g.
-Your MySQL connection id is 307
-Server version: 5.7.25-TiDB-v5.3.0 TiDB Server (Apache License 2.0) Community Edition, MySQL 5.7 compatible
+ Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
 
-Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+ Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
 
-Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+ MySQL [test]> select tidb_version();
+ +----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+ | tidb_version()                                                                                                                                                                                                                                                                               |
+ +----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+ | Release Version: v7.1.1
+ Edition: Community
+ Git Commit Hash: cf441574864be63938524e7dfcf7cc659edc3dd8
+ Git Branch: heads/refs/tags/v7.1.1
+ UTC Build Time: 2023-07-19 10:20:53
+ GoVersion: go1.20.6
+ Race Enabled: false
+ TiKV Min Version: 6.2.0-alpha
+ Check Table Before Drop: false
+ Store: tikv |
+ +----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+ 1 row in set (0.002 sec)
+    #+END_SRC
+** diag
+*** [[https://docs.pingcap.com/tidb-in-kubernetes/stable/clinic-user-guide#troubleshoot-tidb-cluster-using-pingcap-clinic][Deployment]]
+    #+BEGIN_SRC
+workstation$ helm search repo diag
+NAME            CHART VERSION   APP VERSION     DESCRIPTION                          
+pingcap/diag    v1.3.1          v1.3.1          clinic diag Helm chart for Kubernetes
+    #+END_SRC
+*** Online deployment
+    #+BEGIN_SRC
+workstation$ helm install --namespace tidb-admin diag-collector pingcap/diag --version v1.3.1 --set diag.clinicToken=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --set diag.clinicRegion=US
+NAME: diag-collector
+LAST DEPLOYED: Wed Mar  6 09:26:51 2024
+NAMESPACE: tidb-admin
+STATUS: deployed
+REVISION: 1
+NOTES:
+Make sure diag-collector components are running:
 
-MySQL [(none)]> 
+    kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=diag-collector
+    kubectl get svc --namespace tidb-admin -l app.kubernetes.io/name=diag-collector
 
-#+END_SRC
+workstation$ kubectl get pods --namespace tidb-admin -l app.kubernetes.io/instance=diag-collector
+NAME                    READY   STATUS    RESTARTS   AGE
+diag-76b5c65cdf-bns4z   1/1     Running   0          80s
+workstation$ kubectl get svc --namespace tidb-admin -l app.kubernetes.io/name=diag-collector
+NAME   TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+diag   NodePort   10.100.82.175   <none>        4917:31936/TCP   103s
+workstation$ kubectl port-forward diag-76b5c65cdf-bns4z -n tidb-admin 4917:4917
+Forwarding from 127.0.0.1:4917 -> 4917
+Forwarding from [::1]:4917 -> 4917
+workstation-session02$ curl -s http://localhost:4917/api/v1/collectors -X POST -d '{"clusterName": "basic","namespace": "tidb-cluster","from": "2024-03-06 16:00 +0900","to": "2024-03-06 18:00 +0900"}'
+{
+  "clusterName":"tidb-cluster/basic",
+  "collectors":[
+    "config","monitor"
+  ],
+  "date":"2024-03-06T09:30:33Z",
+  "from":"2024-03-06 16:00 +0900",
+  "id":"gmtcdM7RvSz",
+  "status":"accepted",
+  "to":"2024-03-06 18:00 +0900"
+}
+workstation-session02$ curl -s http://127.0.0.1:4917/api/v1/collectors/gmtcdM7RvSz | jq 
+{
+  "clusterName": "tidb-cluster/basic",
+  "collectors": [
+    "config",
+    "monitor"
+  ],
+  "date": "2024-03-06T09:30:33Z",
+  "dir": "/diag/collector/diag-gmtcdM7RvSz",
+  "from": "2024-03-06 16:00 +0900",
+  "id": "gmtcdM7RvSz",
+  "status": "finished",
+  "to": "2024-03-06 18:00 +0900"
+}
 
+workstation-session02$ curl -s http://127.0.0.1:4917/api/v1/data/gmtcdM7RvSz/upload -XPOST | jq 
+{
+  "date": "2024-03-06T11:49:51Z",
+  "id": "gmtcdM7RvSz",
+  "status": "accepted"
+}
+    #+END_SRC
 
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb-on-eks/003.png]]
+    #+attr_html: :width 800px
+    [[https://www.51yomo.net/static/doc/tidb-on-eks/004.png]]
 
-* Reference
-#+BEGIN_SRC
-admin@ip-172-81-11-14:/DATA$ time aws s3 cp s3://tidbdata/data/test.ontime.000000000.sql ./
-download: s3://tidbdata/data/test.ontime.000000000.sql to ./test.ontime.000000000.sql
-
-real    11m36.388s
-user    3m11.385s
-sys     2m27.900s
-admin@ip-172-81-11-14:/DATA$ ls -alrth test.ontime.000000000.sql
--rw-r--r-- 1 admin admin 32G Feb  9 11:51 test.ontime.000000000.sql
-#+END_SRC
+* Destroy
+  + Private Link
+  + Private service
+  + destroy eks
+    #+BEGIN_SRC
+workstation$ eksctl delete cluster -f /tmp/eks.cluster.yaml --disable-nodegroup-eviction
+    #+END_SRC

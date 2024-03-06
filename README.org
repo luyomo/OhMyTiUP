@@ -1,10 +1,13 @@
 * Oh My TiUP
   [[https://luyomo.github.io/OhMyTiUP/index.html][gitee]]
 ** Contents
+  - [[./README.org#Deployment][Deployment]]
   - [[./README.org#Replication to TiDB][Replication to TiDB]]
   - [[./README.org#Replication to TiDB][Replication from TiDB]]
   - [[./README.org#Others][Others]]
 
+** Deployment
+  + [[./doc/tidb-on-eks.deployment.org][TiDB on EKS]] - TiDB Deployment on EKS(Cluster/Monitoring/Dashboard/Online Diag)
 ** Replication to TiDB
   + [[./doc/tidb2oracle.msk.org][TiDB to Oracle(MSK/Glue)]] - Data replication from TiDB to Oracle through TiCDC, MSK(confluent jdbc sink) and Glue schema registry
   + [[./doc/tidb2oracle.s3.org][TiDB to Oracle(S3)]] - Data replication from TiDB to Oracle through TiCDC, S3 (CSV files)
