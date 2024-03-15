@@ -1,0 +1,249 @@
+* Test case
+** Number of tables in the DB
+   | Number table | Execution Time | Comment                    |
+   |--------------+----------------+----------------------------|
+   |            2 |          0.233 |                            |
+   |         1000 |          0.249 | 100 columns for each table |
+** Number of rows in the table
+   | number of rows | Execution Time | Comment |
+   |----------------+----------------+---------|
+   |        no data |          0.233 |         |
+   |         442700 |          0.309 |         |
+   |        5270893 |          0.309 |         |
+** Number of times of the rename ddl
+   No changes
+** parallel rename table running
+   | Number Parallel rename | Number Analysis | Max Execution Time |
+   |------------------------+-----------------+--------------------|
+   |                      5 |                 | 2.044s             |
+   |                     10 |                 | 3.050s             |
+   |                      5 |              20 | 2.854s             |
+   |                     10 |              20 | 5.849s             |
+
+   + Script - table creation
+     #+BEGIN_SRC
+#!/bin/sh
+
+for i in $(seq -f "%05g" 21 1000)
+do
+        mysql -h 10.128.0.21 -u root -P 4000 test -e "create table test${i}(col01 int primary key, col02 int, col03 varchar(20), col04 text , col05 int, col06 varchar(20), col07 tex
+t , col08 int, col09 varchar(20), col10 text , col11 int, col12 varchar(20), col13 text , col14 int, col15 varchar(20), col16 text , col17 int, col18 varchar(20), col19 text , col20
+ int, col21 varchar(20), col22 text , col23 int, col24 varchar(20), col25 text , col26 int, col27 varchar(20), col28 text , col29 int, col30 varchar(20), col31 text , col32 int, col
+33 varchar(20), col34 text , col35 int, col36 varchar(20), col37 text , col38 int, col39 varchar(20), col40 text , col41 int, col42 varchar(20), col43 text , col44 int, col45 varcha
+r(20), col46 text , col47 int, col48 varchar(20), col49 text , col50 int, col51 varchar(20), col52 text , col53 int, col54 varchar(20), col55 text , col56 int, col57 varchar(20), co
+l58 text , col59 int, col60 varchar(20), col61 text , col62 int, col63 varchar(20), col64 text , col65 int, col66 varchar(20), col67 text , col68 int, col69 varchar(20), col70 text 
+, col71 int, col72 varchar(20), col73 text , col74 int, col75 varchar(20), col76 text , col77 int, col78 varchar(20), col79 text , col80 int, col81 varchar(20), col82 text , col83 i
+nt, col84 varchar(20), col85 text , col86 int, col87 varchar(20), col88 text , col89 int, col90 varchar(20), col91 text , col92 int, col93 varchar(20), col94 text , col95 int, col96
+ varchar(20), col97 text  )"
+done
+     #+END_SRC
+   + Script - Table rename
+     #+BEGIN_SRC
+#!/bin/sh
+
+
+for i in $(seq -f "%05g" 200 220)
+do
+    mysql -vvv -h 10.128.0.21 -u root -P 4000 test -e "analyze table test${i}" > /dev/null &
+done
+
+for i in $(seq -f "%05g" 21 25)
+do
+    mysql -vvv -h 10.128.0.21 -u root -P 4000 test -e "rename table test${i} to test${i}_copy" > /tmp/timing_${i} &
+#    mysql -vvv -h 10.128.0.21 -u root -P 4000 test -e "rename table test${i}_copy to test${i}" > /tmp/timing_${i} &
+done
+     #+END_SRC
+     
+* Log analysis
+** Python script
+   + Replace [ddl] with <ddl> for easy python script
+   + Run the script to check the slow job
+     #+BEGIN_SRC python
+ #!/usr/bin/python3
+ 
+ import re
+ import time
+ import datetime
+  
+ summaries = dict()
+ 
+ idx=0
+ with open("/tmp/tidb_198.18.139.12_4000.log") as file:
+   for item in file:
+     res = re.findall(r'\[.*?\]', item)
+ 
+     theTimestamp = time.mktime(datetime.datetime.strptime(res[0].replace("[", "").replace("]", ""), "%Y/%m/%d %H:%M:%S.%f +09:00").timetuple())
+     # printing result
+     for element in res:
+         value = element.replace("[", "").replace("]", "").split("=")
+         if value[0] == "job":
+             mapValue = dict()
+             jobValue = value[1].split(",")
+             jobId = jobValue[0].replace("\"ID:", "")
+             jobType = jobValue[1].replace("\"Type:", "")
+             if res[3] == "[\"<ddl> run DDL job\"]":
+                 if jobId in summaries:
+                     continue
+                 summaries[jobId] = dict()
+                 summaries[jobId]["type"] = jobType
+                 summaries[jobId]["start"] = theTimestamp
+             if res[3] == "[\"<ddl> finish DDL job\"]":
+                 summaries[jobId]["end"] = theTimestamp
+                 summaries[jobId]["duration"] = theTimestamp - summaries[jobId]["start"]
+ 
+ for jobId in summaries:
+     if summaries[jobId]["duration"] > 1:
+         print(f"job id: {jobId}, job: {summaries[jobId]}")
+ 
+ 
+ ## 7165857
+ #for jobId in summaries:
+ #    if jobId > "7165800" and jobId < "7168872":
+ #        print(f"job id: {jobId}, job: {summaries[jobId]}")
+     #+END_SRC
+   + DDL whose duration is more than 1 second
+     #+BEGIN_SRC
+job id: 7165857, job: {'type': ' Type:rename table', 'start': 1709821803.0, 'end': 1709821807.0, 'duration': 4.0}
+job id: 7165858, job: {'type': ' Type:rename table', 'start': 1709821807.0, 'end': 1709821811.0, 'duration': 4.0}
+job id: 7165859, job: {'type': ' Type:rename table', 'start': 1709821812.0, 'end': 1709821816.0, 'duration': 4.0}
+job id: 7165860, job: {'type': ' Type:rename table', 'start': 1709821816.0, 'end': 1709821820.0, 'duration': 4.0}
+job id: 7165861, job: {'type': ' Type:rename table', 'start': 1709821820.0, 'end': 1709821825.0, 'duration': 5.0}
+job id: 7165862, job: {'type': ' Type:rename table', 'start': 1709821825.0, 'end': 1709821829.0, 'duration': 4.0}
+job id: 7165863, job: {'type': ' Type:rename table', 'start': 1709821829.0, 'end': 1709821838.0, 'duration': 9.0}
+job id: 7165864, job: {'type': ' Type:rename table', 'start': 1709821833.0, 'end': 1709821838.0, 'duration': 5.0}
+job id: 7165865, job: {'type': ' Type:rename table', 'start': 1709821838.0, 'end': 1709821843.0, 'duration': 5.0}
+job id: 7165866, job: {'type': ' Type:rename table', 'start': 1709821843.0, 'end': 1709821847.0, 'duration': 4.0}
+job id: 7166868, job: {'type': ' Type:truncate table', 'start': 1709821847.0, 'end': 1709821867.0, 'duration': 20.0}
+job id: 7167870, job: {'type': ' Type:truncate table', 'start': 1709821854.0, 'end': 1709821877.0, 'duration': 23.0}
+job id: 7168872, job: {'type': ' Type:truncate table', 'start': 1709821877.0, 'end': 1709821890.0, 'duration': 13.0}
+job id: 7169003, job: {'type': ' Type:update tiflash replica status', 'start': 1709822020.0, 'end': 1709822022.0, 'duration': 2.0}
+job id: 7169005, job: {'type': ' Type:update tiflash replica status', 'start': 1709822023.0, 'end': 1709822025.0, 'duration': 2.0}
+     #+END_SRC
+   + Get the job which run more than 1 seconds
+     #+BEGIN_SRC
+job id: 7165857, job: {'type': ' Type:rename table', 'start': 1709821803.0, 'end': 1709821807.0, 'duration': 4.0}
+job id: 7165858, job: {'type': ' Type:rename table', 'start': 1709821807.0, 'end': 1709821811.0, 'duration': 4.0}
+job id: 7165859, job: {'type': ' Type:rename table', 'start': 1709821812.0, 'end': 1709821816.0, 'duration': 4.0}
+job id: 7165860, job: {'type': ' Type:rename table', 'start': 1709821816.0, 'end': 1709821820.0, 'duration': 4.0}
+job id: 7165861, job: {'type': ' Type:rename table', 'start': 1709821820.0, 'end': 1709821825.0, 'duration': 5.0}
+job id: 7165862, job: {'type': ' Type:rename table', 'start': 1709821825.0, 'end': 1709821829.0, 'duration': 4.0}
+job id: 7165863, job: {'type': ' Type:rename table', 'start': 1709821829.0, 'end': 1709821838.0, 'duration': 9.0}
+job id: 7165864, job: {'type': ' Type:rename table', 'start': 1709821833.0, 'end': 1709821838.0, 'duration': 5.0}
+job id: 7165865, job: {'type': ' Type:rename table', 'start': 1709821838.0, 'end': 1709821843.0, 'duration': 5.0}
+job id: 7165866, job: {'type': ' Type:rename table', 'start': 1709821843.0, 'end': 1709821847.0, 'duration': 4.0}
+job id: 7166868, job: {'type': ' Type:truncate table', 'start': 1709821847.0, 'end': 1709821867.0, 'duration': 20.0}
+job id: 7167870, job: {'type': ' Type:truncate table', 'start': 1709821854.0, 'end': 1709821877.0, 'duration': 23.0}
+job id: 7168872, job: {'type': ' Type:truncate table', 'start': 1709821877.0, 'end': 1709821890.0, 'duration': 13.0}
+job id: 7169003, job: {'type': ' Type:update tiflash replica status', 'start': 1709822020.0, 'end': 1709822022.0, 'duration': 2.0}
+job id: 7169005, job: {'type': ' Type:update tiflash replica status', 'start': 1709822023.0, 'end': 1709822025.0, 'duration': 2.0}
+     #+END_SRC
+   + Log
+     #+BEGIN_SRC
+... ...
+[2024/03/10 12:56:28.319 +00:00] [INFO] [ddl_worker.go:1219] ["wait latest schema version changed(get the metadata lock if tidb_enable_metadata_lock is true)"] [category=ddl] [ver=2115] ["take time"=54.041878ms] [job="ID:2645, Type:rename table, State:running, SchemaState:public, SchemaID:2, TableID:213, RowCount:0, ArgLen:1, start time: 2024-03-10 12:56:26.342 +0000 UTC, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+[2024/03/10 12:56:28.486 +00:00] [INFO] [ddl_worker.go:1219] ["wait latest schema version changed(get the metadata lock if tidb_enable_metadata_lock is true)"] [category=ddl] [ver=2116] ["take time"=60.889987ms] [job="ID:2645, Type:rename table, State:done, SchemaState:public, SchemaID:2, TableID:213, RowCount:0, ArgLen:1, start time: 2024-03-10 12:56:26.342 +0000 UTC, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+[2024/03/10 12:56:28.839 +00:00] [INFO] [ddl_worker.go:1219] ["wait latest schema version changed(get the metadata lock if tidb_enable_metadata_lock is true)"] [category=ddl] [ver=2117] ["take time"=67.784153ms] [job="ID:2646, Type:rename table, State:running, SchemaState:public, SchemaID:2, TableID:211, RowCount:0, ArgLen:1, start time: 2024-03-10 12:56:26.342 +0000 UTC, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+[2024/03/10 12:56:29.030 +00:00] [INFO] [ddl_worker.go:1219] ["wait latest schema version changed(get the metadata lock if tidb_enable_metadata_lock is true)"] [category=ddl] [ver=2118] ["take time"=56.559299ms] [job="ID:2646, Type:rename table, State:done, SchemaState:public, SchemaID:2, TableID:211, RowCount:0, ArgLen:1, start time: 2024-03-10 12:56:26.342 +0000 UTC, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+     #+END_SRC
+** Rename analysis
+Please refer to [[https://docs.pingcap.com/tidb/stable/metadata-lock][metadata-lock]]
+   #+BEGIN_SRC
+[2024/03/07 23:30:29.829 +09:00] [Info] [ddl_worker.go:981] ["<ddl> run DDL job"] [worker="worker 1, tp general"] [job="ID:7165863, Type:rename table, State:queueing, SchemaState:none, SchemaID:83, TableID:7140820, RowCount:0, ArgLen:0, start time: 2024-03-07 23:30:21.696 +0900 JST, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+[2024/03/07 23:30:33.881 +09:00] [Info] [domain.go:837] ["mdl gets lock, update to owner"] [jobID=7165863] [version=3394932]
+[2024/03/07 23:30:33.913 +09:00] [Info] [syncer.go:360] ["<ddl> syncer check all versions, someone is not synced"] [info="instance ip 198.18.139.7, port 4000, id ad00c0b8-4b1a-411e-b6a4-284f52deebbd"] ["ddl job id"=7165863] [ver=3394932]
+[2024/03/07 23:30:33.942 +09:00] [Info] [ddl_worker.go:1205] ["<ddl> wait latest schema version changed(get the metadata lock if tidb_enable_metadata_lock is true)"] [ver=3394932] ["take time"=107.153091ms] [job="ID:7165863, Type:rename table, State:running, SchemaState:public, SchemaID:83, TableID:7140820, RowCount:0, ArgLen:1, start time: 2024-03-07 23:30:21.696 +0900 JST, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+[2024/03/07 23:30:38.342 +09:00] [Info] [ddl_worker.go:981] ["<ddl> run DDL job"] [worker="worker 1, tp general"] [job="ID:7165863, Type:rename table, State:running, SchemaState:public, SchemaID:83, TableID:7140820, RowCount:0, ArgLen:0, start time: 2024-03-07 23:30:21.696 +0900 JST, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+[2024/03/07 23:30:38.413 +09:00] [Info] [domain.go:837] ["mdl gets lock, update to owner"] [jobID=7165863] [version=3394934]
+[2024/03/07 23:30:38.442 +09:00] [Info] [syncer.go:360] ["<ddl> syncer check all versions, someone is not synced"] [info="instance ip 198.18.139.6, port 4000, id 81f0e065-deff-4ca3-b1f3-63d54b592276"] ["ddl job id"=7165863] [ver=3394934]
+[2024/03/07 23:30:38.473 +09:00] [Info] [ddl_worker.go:1205] ["<ddl> wait latest schema version changed(get the metadata lock if tidb_enable_metadata_lock is true)"] [ver=3394934] ["take time"=101.013797ms] [job="ID:7165863, Type:rename table, State:done, SchemaState:public, SchemaID:83, TableID:7140820, RowCount:0, ArgLen:1, start time: 2024-03-07 23:30:21.696 +0900 JST, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+[2024/03/07 23:30:38.501 +09:00] [Info] [ddl_worker.go:602] ["<ddl> finish DDL job"] [worker="worker 1, tp general"] [job="ID:7165863, Type:rename table, State:synced, SchemaState:public, SchemaID:83, TableID:7140820, RowCount:0, ArgLen:0, start time: 2024-03-07 23:30:21.696 +0900 JST, Err:<nil>, ErrCount:0, SnapshotVersion:0"]
+   #+END_SRC
+* Source Code
+** Only one worker for general ddl
+   + ddl.ddl.go
+   #+BEGIN_SRC
+func (d *ddl) prepareWorkers4ConcurrencyDDL() {
+        workerFactory := func(tp workerType) func() (pools.Resource, error) {
+                return func() (pools.Resource, error) {
+                        wk := newWorker(d.ctx, tp, d.sessPool, d.delRangeMgr, d.ddlCtx)
+                        sessForJob, err := d.sessPool.Get()
+                        if err != nil {
+                                return nil, err
+                        }
+                        sessForJob.SetDiskFullOpt(kvrpcpb.DiskFullOpt_AllowedOnAlmostFull) 
+                        wk.sess = sess.NewSession(sessForJob)
+                        metrics.DDLCounter.WithLabelValues(fmt.Sprintf("%s_%s", metrics.CreateDDL, wk.String())).Inc()
+                        return wk, nil
+                }
+        }
+        // reorg worker count at least 1 at most 10.
+        reorgCnt := min(max(runtime.GOMAXPROCS(0)/4, 1), reorgWorkerCnt)
+        d.reorgWorkerPool = newDDLWorkerPool(pools.NewResourcePool(workerFactory(addIdxWorker), reorgCnt, reorgCnt, 0), reorg)
+        d.generalDDLWorkerPool = newDDLWorkerPool(pools.NewResourcePool(workerFactory(generalWorker), generalWorkerCnt, generalWorkerCnt, 0), general)
+        failpoint.Inject("NoDDLDispatchLoop", func(val failpoint.Value) {
+                if val.(bool) {
+                        failpoint.Return()
+                }
+        })
+        d.wg.Run(d.startDispatchLoop)
+}
+   #+END_SRC
+   + [[https://pkg.go.dev/github.com/reborndb/reborn@v0.0.0-20160725010638-70285c89f882/Godeps/_workspace/src/github.com/ngaut/pools][resource pool]]
+** DDL entry
+   #+BEGIN_SRC
+server/server.go(705): onConn
+server/conn.go(1074): Run
+server/conn.go(1301): dispatch
+server/conn.go(1851): handleQuery
+server/conn.go(2067): handleStmt
+server/driver_tidb.go(292): ExecuteStmt
+session/session.go(2288): ExecuteStmt
+session/session.go(2453): runStmt
+executor/adapter.go(586): Exec
+executor/adapter.go(808): handleNoDelay
+executor/adapter.go(983): handleNoDelayExecutor
+executor/adapter.go(1238): (*ExecStmt).next
+executor/internal/exec/executor.go(283): exec.Next
+executor/ddl.go(188): (*DDLExec).Next                          -> The context is only avaiable here
+executor/ddl.go(248): executeRenameTable
+
+
+domain/domainctx.go(37)
+domain/domain.go(516):
+ddl/ddl_api.go(6796): RenameTable
+ddl/ddl_api.go(6817): renameTable
+ddl/ddl.go(1040): DoDDLJob
+
+/* ******************************* */
+func (e *DDLExec) executeRenameTable(s *ast.RenameTableStmt) error {
+        for _, tables := range s.TableToTables {
+                if _, ok := e.getLocalTemporaryTable(tables.OldTable.Schema, tables.OldTable.Name); ok {
+                        return dbterror.ErrUnsupportedLocalTempTableDDL.GenWithStackByArgs("RENAME TABLE")
+                }
+        }
+        return domain.GetDomain(e.Ctx()).DDL().RenameTable(e.Ctx(), s)
+}
+   #+END_SRC
+** DDL worker process
+  #+BEGIN_SRC
+cmd/tidb-server/main.go(305): main
+cmd/tidb-server/main.go(405): createStoreAndDomain
+session/session.go(3316): session.BootstrapSession
+session/session.go(3362): bootstrapSessionImpl
+session/session.go(3587): createSessions
+session/session.go(3600): createSessionsImpl
+session/session.go(3615): createSession
+session/session.go(3623): createSessionWithOpt
+session/tidb.go: Get
+util/misc.go(69): RunWithRetry     comment: retryAble, err = f(): 
+session/tidb.go(93): Get
+domain/domain.go(1238): Init  
+ddl/ddl.go: Start
+ddl/ddl.go: prepareWorkers4ConcurrencyDDL
+ddl/job_table.go: startDispatchLoop
+ddl/job_table.go: loadDDLJobAndRun
+ddl/job_table.go: delivery2worker
+ddl/ddl_worker.go: HandleDDLJobTable 
+ddl/ddl_worker.go : runDDLJob     -> Start
+  #+END_SRC
+
