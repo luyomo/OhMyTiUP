@@ -1,0 +1,14 @@
+* Create Private Link Service
+  #+BEGIN_SRC
+workstation$ az network private-link-service create -g resource-name -n private-endpoint-service-name --vnet-name aks-vnet-xxxxxxxx --subnet aks-subnet --lb-name tidb-nlb --lb-frontend-ip-configs xxxxxxxxxxc1b4955a5ad6xxxxxxxxxx -l japaneast
+  #+END_SRC
+* Create Private Endpoint from Service
+  #+BEGIN_SRC
+workstation$ az network private-endpoint create -g resource-name -n tidb-endpoint --vnet-name jayworkstation --subnet default --private-connection-resource-id "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/${resource-name}/providers/Microsoft.Network/privateLinkServices/jayworkstation-nsg" --connection-name tttt -l japaneast
+  #+END_SRC
+  #+attr_html: :width 800px
+  [[http://www.51yomo.net/static/doc/tidb-on-aks/private-link.01.png]]
+  #+attr_html: :width 800px
+  [[http://www.51yomo.net/static/doc/tidb-on-aks/private-link.02.png]]
+* Reference
+  + [[https://learn.microsoft.com/en-us/azure/private-link/private-link-faq#can-private-endpoint-connect-to-azure-paas-resources-across-azure-regions-][Private Endpoints can connect to Azure PaaS resources across Azure regions]]
