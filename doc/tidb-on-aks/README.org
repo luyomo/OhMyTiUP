@@ -12,6 +12,7 @@
    + [[./blue-green-ticdc-k8s-upgrade.org][AKS upgrade using TiCDC]] - Setup blue green structure to upgrade AKS version with TiCDC
    + [[./blue-green-k8s-upgrade.org][AKS upgrade using PITR]]  - Setup blue green structure to upgrade AKS version with PITR
    + [[./k8s-rolling-upgrade.org][AKS rolling upgrade]]     - Move pod to new version nodepool
+   + [[./upgrade-soaktime.org][AKS upgrade]]     - Move pod to new version nodepool
 ** Others
    + Performance test
    + [[./scaling.org][Scaling out/in]] - Only scaling out procedures is prepared

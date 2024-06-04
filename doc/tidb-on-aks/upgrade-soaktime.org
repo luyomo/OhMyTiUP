@@ -1,0 +1,49 @@
+* Process
+** soaktime update
+   Change the soak time from the cli. So far the GUI does not provide the change.
+   #+BEGIN_SRC
+$ az aks nodepool show --name tikv --cluster-name jaytest001 --resource-group azure-jp-presales-demo | jq '.upgradeSettings'
+{
+  "drainTimeoutInMinutes": 30,
+  "maxSurge": "10%",
+  "nodeSoakDurationInMinutes": 5
+}
+$ az aks nodepool update --name tikv --resource-group azure-jp-presales-demo --cluster-name jaytest001 --max-surge 10% --node-soak-duration 10
+...
+$ az aks nodepool show --name tikv --cluster-name jaytest001 --resource-group azure-jp-presales-demo | jq '.upgradeSettings'
+{
+  "drainTimeoutInMinutes": 30,
+  "maxSurge": "10%",
+  "nodeSoakDurationInMinutes": 10
+}
+   #+END_SRC
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/soaktime.01.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/soaktime.02.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/soaktime.03.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/soaktime.04.png]]
+** Control Plane upgrade
+   This step only upgrades the aks cluster's control plane version without nodepool which will be done one by one in the next step.
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/k8s.01.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/k8s.02.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/k8s.03.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/k8s.04.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/k8s.05.png]]
+** Node Pool Upgrade
+   Each node is the nodepool is upgraded one by one after 10 minutes duration. From the pod timelife, you will see it will not upgrade soon after the previous one.
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/nodepool.01.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/nodepool.02.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/nodepool.03.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/upgrade-soak-time/nodepool.04.png]]
