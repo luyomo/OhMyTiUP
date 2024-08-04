@@ -1,0 +1,42 @@
+* Jmeter introduction
+** Background
+   + GUI
+     #+attr_html: :width 600px
+     [[https://www.51yomo.net/static/doc/jmeter/001.png]]
+   + Command Line
+     #+attr_html: :width 600px
+     [[https://www.51yomo.net/static/doc/jmeter/002.png]]
+   + Distribution
+** How to install driver
+* Workload Test scenario
+** Parameter from CSV file
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/jmeter/003.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/jmeter/004.png]]
+*** Test case: direct value
+    Prepare one test case to insert data into table.
+    #+attr_html: :width 600px
+    [[https://www.51yomo.net/static/doc/jmeter/005.png]]
+*** Test case: Variable
+    Prepare one test case to select data from on table.
+    #+attr_html: :width 600px
+    [[https://www.51yomo.net/static/doc/jmeter/006.png]]
+*** Test case: Transaction
+    Read parameter from csv file for test case 01/test case 02
+    #+attr_html: :width 600px
+    [[https://www.51yomo.net/static/doc/jmeter/007.png]]
+    #+attr_html: :width 600px
+    [[https://www.51yomo.net/static/doc/jmeter/008.png]]
+** Parameter from another query
+   Read oarameters from another table for test case.
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/jmeter/009.png]]
+   #+attr_html: :width 600px
+   [[https://www.51yomo.net/static/doc/jmeter/010.png]]
+** Combination insert and select into one query
+* Export the test case file and run it from command
+  #+attr_html: :width 600px
+  [[https://www.51yomo.net/static/doc/jmeter/011.png]]
+* Generate graph using command
+  [[https://www.51yomo.net/static/html/][Jmeter Report]]
