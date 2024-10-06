@@ -38,5 +38,20 @@
 * Export the test case file and run it from command
   #+attr_html: :width 600px
   [[https://www.51yomo.net/static/doc/jmeter/011.png]]
+* Run From Command
+  + install openjdk-8-jdk
+    #+BEGIN_SRC
+jmeter$ yum install java-1.8.0-openjdk.x86_64
+    #+END_SRC
+  + install jdbc-driver
+    Download mysql-connector-j-8.4.0.jar and save it to lib under jmeter
+  + jmeter install
+    Go to the page [[https://jmeter.apache.org/download_jmeter.cgi][jmeter]] to determine the latest jmeter version.
+    #+BEGIN_SRC
+jmeter$ wget https://dlcdn.apache.org//jmeter/binaries/apache-jmeter-5.6.3.zip
+jmeter$ wget https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.28/mysql-connector-java-8.0.28.jar
+jmeter$ unzip apache-jmeter-5.6.3.zip
+jmeter$ mv mysql-connector-java-8.0.28.jar apache-jmeter-5.6.3/lib/
+    #+END_SRC
 * Generate graph using command
   [[https://www.51yomo.net/static/html/][Jmeter Report]]
