@@ -8,7 +8,7 @@ module "masteraks" {
     k8s_version = "1.25.11"
     ticdc_node_count = 3
     kube_config_file = "/tmp/master_kubeconfig"
-    cluster_version = "v7.1.1"
+    cluster_version = "v8.0.0"
 
     register_app_client_id = "${var.register_app_client_id}"
     register_app_client_secret = "${var.register_app_client_secret}"

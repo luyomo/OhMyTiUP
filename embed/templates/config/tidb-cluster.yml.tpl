@@ -9,7 +9,7 @@ server_configs:
     per-table-memory-quota: 20971520
 {{- end }}
   tidb:
-    performance.txn-total-size-limit: 107374182400
+    performance.txn-total-size-limit: 10737418240
   pd:
     controller.ltb-max-wait-duration: "2h"
 {{- if (and (.Servers.Labels) (gt (len .Servers.Labels) 0)) }}

@@ -20,7 +20,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/joomcode/errorx"
-	"github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
+	// "github.com/luyomo/OhMyTiUP/pkg/aws/clusterutil"
 	operator "github.com/luyomo/OhMyTiUP/pkg/aws/operation"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/spec"
 	"github.com/luyomo/OhMyTiUP/pkg/aws/task"
@@ -30,7 +30,7 @@ import (
 	"github.com/luyomo/OhMyTiUP/pkg/logger"
 
 	"github.com/luyomo/OhMyTiUP/pkg/meta"
-	"github.com/luyomo/OhMyTiUP/pkg/set"
+	// "github.com/luyomo/OhMyTiUP/pkg/set"
 	"github.com/luyomo/OhMyTiUP/pkg/tui"
 	"github.com/luyomo/OhMyTiUP/pkg/utils"
 	perrs "github.com/pingcap/errors"
@@ -60,125 +60,62 @@ import (
 
 // Deploy a cluster.
 func (m *Manager) WorkstationDeploy(
-	name string,
+	name, clusterType string,
 	topoFile string,
 	opt DeployOptions,
 	// afterDeploy func(b *task.Builder, newPart spec.Topology),
 	skipConfirm bool,
 	gOpt operator.Options,
 ) error {
-	// 1. Preparation phase
+
+	// 01. Preparation phase
 	var timer awsutils.ExecutionTimer
 	timer.Initialize([]string{"Step", "Duration(s)"})
 
-	if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
-		return err
-	}
-
-	exist, err := m.specManager.Exist(name)
-	if err != nil {
-		return err
-	}
-
-	if exist {
-		// FIXME: When change to use args, the suggestion text need to be updatem.
-		return errDeployNameDuplicate.
-			New("Cluster name '%s' is duplicated", name).
-			WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
-	}
-
+	// 02. Get the topo file and parse it
 	metadata := m.specManager.NewMetadata()
 	topo := metadata.GetTopology()
 
-	if err := spec.ParseTopologyYaml(topoFile, topo); err != nil {
-		return err
-	}
-
-	// spec.ExpandRelativeDir(topo)
-
+	// 03. Setup the ssh type
 	base := topo.BaseTopo()
-	// fmt.Printf("The config is <%#v> \n\n\n", base.AwsTopoConfigs.TiKV)
-	// fmt.Printf("All the labels is <%#v> \n\n\n", base.AwsTopoConfigs.TiKV.Labels)
-	// for _, label := range base.AwsTopoConfigs.TiKV.Labels {
-	// 	fmt.Printf("The label is <%#v> \n\n\n", label)
-	// 	for _, nodeLabel := range label.Values {
-	// 		fmt.Printf("The node label is <%#v> \n\n\n", nodeLabel)
-	// 	}
-	// }
-	// fmt.Printf("All the modal type is <%#v> \n\n\n", base.AwsTopoConfigs.TiKV.ModalTypes)
-	// return nil
 	if sshType := gOpt.SSHType; sshType != "" {
 		base.GlobalOptions.SSHType = sshType
 	}
 
-	// var (
-	// 	sshConnProps  *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	// 	sshProxyProps *tui.SSHConnectionProps = &tui.SSHConnectionProps{}
-	// )
-	// if gOpt.SSHType != executor.SSHTypeNone {
-	// 	var err error
-	// 	if sshConnProps, err = tui.ReadIdentityFileOrPassword(opt.IdentityFile, opt.UsePassword); err != nil {
-	// 		return err
-	// 	}
-	// 	if len(gOpt.SSHProxyHost) != 0 {
-	// 		if sshProxyProps, err = tui.ReadIdentityFileOrPassword(gOpt.SSHProxyIdentity, gOpt.SSHProxyUsePassword); err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	// }
-
-	// if err := m.fillHostArch(sshConnProps, sshProxyProps, topo, &gOpt, opt.User); err != nil {
-	// 	return err
-	// }
-
-	if !skipConfirm {
-		if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
-			return err
-		}
-	}
-
-	// if err := os.MkdirAll(m.specManager.Path(name), 0755); err != nil {
-	// 	return errorx.InitializationFailed.
-	// 		Wrap(err, "Failed to create cluster metadata directory '%s'", m.specManager.Path(name)).
-	// 		WithProperty(tui.SuggestionFromString("Please check file system permissions and try again."))
-	// }
-
-	var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
-
-	// globalOptions := base.GlobalOptions
-
-	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
-	if err != nil {
+	// 04. Confirm the topo config
+	if err := spec.ParseTopologyYaml(topoFile, topo); err != nil {
 		return err
 	}
-	clusterType := "ohmytiup-workstation"
 
 	ctx := context.WithValue(context.Background(), "clusterName", name)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
-	ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
-	ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
+
+	if err := m.makeExeContext(ctx, nil, &gOpt, EXC_WS, ws.EXC_AWS_ENV); err != nil {
+		return err
+	}
 
 	var workstationInfo task.ClusterInfo
 
-	if base.AwsWSConfigs.InstanceType == "" {
-		return errors.New("No workstation instance is specified")
-	}
+	var task001 []*task.StepDisplay // tasks which are used to initialize environment
 
 	fpMakeWSContext := func() error {
 		if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
 			return err
 		}
+
 		return nil
 	}
-	t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
+	t1 := task.NewBuilder().
+		CreateWorkstationCluster(&m.localExe, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
 		BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
-	envInitTasks = append(envInitTasks, t1)
+	task001 = append(task001, t1)
 
-	builder := task.NewBuilder().ParallelStep("+ Deploying workstation ... ...", false, envInitTasks...)
+	paraTask001 := task.NewBuilder().
+		CreateTransitGateway(&m.localExe).
+		ParallelStep("+ Deploying all the sub components", false, task001...).
+		BuildAsStep("Parallel Main step")
 
-	t := builder.Build()
-
-	if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
+	if err := paraTask001.Execute(ctxt.New(ctx, 10)); err != nil {
 		if errorx.Cast(err) != nil {
 			// FIXME: Map possible task errors and give suggestions.
 			return err
@@ -193,10 +130,101 @@ func (m *Manager) WorkstationDeploy(
 
 	logger.OutputDebugLog("aws-nodes")
 	return nil
+	// --------------------------
+
+	// // 1. Preparation phase
+	// var timer awsutils.ExecutionTimer
+	// timer.Initialize([]string{"Step", "Duration(s)"})
+
+	// if err := clusterutil.ValidateClusterNameOrError(name); err != nil {
+	// 	return err
+	// }
+
+	// exist, err := m.specManager.Exist(name)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if exist {
+	// 	// FIXME: When change to use args, the suggestion text need to be updatem.
+	// 	return errDeployNameDuplicate.
+	// 		New("Cluster name '%s' is duplicated", name).
+	// 		WithProperty(tui.SuggestionFromFormat("Please specify another cluster name"))
+	// }
+
+	// metadata := m.specManager.NewMetadata()
+	// topo := metadata.GetTopology()
+
+	// if err := spec.ParseTopologyYaml(topoFile, topo); err != nil {
+	// 	return err
+	// }
+
+	// base := topo.BaseTopo()
+
+	// if sshType := gOpt.SSHType; sshType != "" {
+	// 	base.GlobalOptions.SSHType = sshType
+	// }
+
+	// if !skipConfirm {
+	// 	if err := m.confirmTopology(name, "v5.1.0", topo, set.NewStringSet()); err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	// var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+	// // globalOptions := base.GlobalOptions
+
+	// sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
+	// if err != nil {
+	// 	return err
+	// }
+	// clusterType := "ohmytiup-workstation"
+
+	// ctx := context.WithValue(context.Background(), "clusterName", name)
+	// ctx = context.WithValue(ctx, "clusterType", clusterType)
+	// ctx = context.WithValue(ctx, "tagOwner", gOpt.TagOwner)
+	// ctx = context.WithValue(ctx, "tagProject", gOpt.TagProject)
+
+	// var workstationInfo task.ClusterInfo
+
+	// if base.AwsWSConfigs.InstanceType == "" {
+	// 	return errors.New("No workstation instance is specified")
+	// }
+
+	// fpMakeWSContext := func() error {
+	// 	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV); err != nil {
+	// 		return err
+	// 	}
+	// 	return nil
+	// }
+	// t1 := task.NewBuilder().CreateWorkstationCluster(&sexecutor, "workstation", base.AwsWSConfigs, &workstationInfo, &m.wsExe, &gOpt, fpMakeWSContext).
+	// 	BuildAsStep(fmt.Sprintf("  - Preparing workstation"))
+	// envInitTasks = append(envInitTasks, t1)
+
+	// builder := task.NewBuilder().ParallelStep("+ Deploying workstation ... ...", false, envInitTasks...)
+
+	// t := builder.Build()
+
+	// if err := t.Execute(ctxt.New(ctx, gOpt.Concurrency)); err != nil {
+	// 	if errorx.Cast(err) != nil {
+	// 		// FIXME: Map possible task errors and give suggestions.
+	// 		return err
+	// 	}
+	// 	return err
+	// }
+
+	// timer.Take("Execution")
+
+	// // 8. Print the execution summary
+	// timer.Print()
+
+	// logger.OutputDebugLog("aws-nodes")
+	// return nil
 }
 
 // DestroyCluster destroy the cluster.
-func (m *Manager) DestroyWorkstation(name string, gOpt operator.Options, skipConfirm bool) error {
+func (m *Manager) DestroyWorkstation(name, clusterType string, gOpt operator.Options, skipConfirm bool) error {
 	_, err := m.meta(name)
 	if err != nil && !errors.Is(perrs.Cause(err), meta.ErrValidate) &&
 		!errors.Is(perrs.Cause(err), spec.ErrNoTiSparkMaster) &&
@@ -205,7 +233,7 @@ func (m *Manager) DestroyWorkstation(name string, gOpt operator.Options, skipCon
 		return err
 	}
 
-	clusterType := "ohmytiup-workstation"
+	// clusterType := "ohmytiup-workstation"
 
 	sexecutor, err := executor.New(executor.SSHTypeNone, false, executor.SSHConfig{Host: "127.0.0.1", User: utils.CurrentUser()}, []string{})
 	if err != nil {
@@ -241,11 +269,11 @@ func (m *Manager) DestroyWorkstation(name string, gOpt operator.Options, skipCon
 
 // Cluster represents a clsuter
 // ListCluster list the clusters.
-func (m *Manager) ListWorkstation(clusterName string, opt DeployOptions) error {
+func (m *Manager) ListWorkstation(clusterName, clusterType string, opt DeployOptions) error {
 
 	var listTasks []*task.StepDisplay // tasks which are used to initialize environment
 
-	clusterType := "ohmytiup-workstation"
+	// clusterType := "ohmytiup-workstation"
 	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
 	ctx = context.WithValue(ctx, "clusterType", clusterType)
 

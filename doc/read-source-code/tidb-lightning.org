@@ -1,0 +1,344 @@
+* Flow
+  + Read config file
+  + app.RunOnceWithOptions(lightning/lightning.go)
+    + run(lighting/lighting.go)
+** Failed to fetch store info
+*** Source Code
+    + lightning/backend/local/local.go  
+      executeJob -> store, err = local.pdCtl.GetStoreInfo(ctx, peer.StoreId)
+    + pdutil/pd.go
+      GetStoreInfo -> getStoreInfoWith
+   #+BEGIN_SRC
+workstation$ curl http://10.128.0.21:12379/pd/api/v1/store/133013
+   #+END_SRC
+
+** region scan failed
+*** Data
+    + lightning/backend/local/local.go(readAndSplitIntoRange)
+      #+BEGIN_SRC
+      start = 7480000000000000665F728000000000000001
+      end   = 7480000000000000665F728000000000000006
+      #+END_SRC
+    + Before encode
+    #+BEGIN_SRC
+      start = 7480000000000000  665F728000000000  000001
+        end = 7480000000000000  665F728000000000  000006
+ pair start = 7480000000000000  665F728000000000  000001
+   pair end = 7480000000000000  665F728000000000  000005
+encoded key = 7480000000000000FF665F728000000000FF0000010000000000FA
+encoded key = 7480000000000000FF665F728000000000FF0000060000000000FA
+    #+END_SRC
+    + After encode
+*** Source code
+    + lightning/backend/local/local.go  
+        regions, err := split.PaginateScanRegion(ctx, local.splitCli, startKey, endKey, scanRegionLimit)
+      + restore/split/split.go
+        batch, err = client.ScanRegions(ctx, scanStartKey, endKey, limit)
+        + restore/split/client.go (ScanRegions)
+          regions, err := c.client.ScanRegions(ctx, key, endKey, limit)
+
+ 
+
+** Table_import
+*** Controller
+      #+BEGIN_SRC
+&importer.Controller{
+    taskCtx:(*context.cancelCtx)(0xc000e1e820)
+  , cfg:(*config.Config)(0xc000e14000)
+  , dbMetas:[]*mydump.MDDatabaseMeta{(*mydump.MDDatabaseMeta)(0xc0006fa4b0)}
+  , dbInfos:map[string]*checkpoints.TidbDBInfo{
+       "test":(*checkpoints.TidbDBInfo)(0xc000629020)}
+     , tableWorkers:(*worker.Pool)(0xc00ca4ecf0)
+     , indexWorkers:(*worker.Pool)(0xc00ca4ed50)
+     , regionWorkers:(*worker.Pool)(0xc00091ad50)
+     , ioWorkers:(*worker.Pool)(0xc00091ac30)
+     , checksumWorks:(*worker.Pool)(0xc00091adb0)
+     , pauser:(*common.Pauser)(0x8d6d1d0)
+     , engineMgr:backend.EngineManager{backend:(*local.Backend)(0xc0008b2e00)}
+     , backend:(*local.Backend)(0xc0008b2e00)
+     , db:(*sql.DB)(0xc000dbc750)
+     , pdCli:(*pd.client)(0xc000e2a0c0)
+     , alterTableLock:sync.Mutex{state:0, sema:0x0}
+     , sysVars:map[string]string{
+         "block_encryption_mode":"aes-128-ecb"
+       , "default_week_format":"0"
+       , "div_precision_increment":"4"
+       , "group_concat_max_len":"1024"
+       , "lc_time_names":"en_US"
+       , "max_allowed_packet":"67108864"
+       , "tidb_backoff_weight":"2"
+       , "tidb_row_format_version":"2"
+       , "time_zone":"SYSTEM"}
+     , tls:(*common.TLS)(0xc000e60640)
+     , checkTemplate:(*importer.SimpleTemplate)(0xc000ef8a20)
+     , errorSummaries:importer.errorSummaries{
+         Mutex:sync.Mutex{state:0, sema:0x0}
+       , logger:log.Logger{Logger:(*zap.Logger)(0xc000da30a0)}
+       , summary:map[string]importer.errorSummary{}}
+     , checkpointsDB:(*checkpoints.FileCheckpointsDB)(0xc0008ca060)
+     , saveCpCh:(chan importer.saveCp)(0xc000948180)
+     , checkpointsWg:sync.WaitGroup{
+          noCopy:sync.noCopy{}
+        , state:atomic.Uint64{_:atomic.noCopy{}
+        , _:atomic.align64{}
+        , v:0x100000000 }
+     , sema:0x0}
+   , closedEngineLimit:(*worker.Pool)(0xc00091ae40)
+   , addIndexLimit:(*worker.Pool)(0xc00091aea0)
+   , store:(*storage.LocalStorage)(0xc000e57260)
+   , ownStore:true
+   , metaMgrBuilder:importer.singleMgrBuilder{taskID:1710909109939848971}
+   , errorMgr:(*errormanager.ErrorManager)(0xc000dc7780)
+   , taskMgr:(*importer.singleTaskMetaMgr)(0xc000dab540)
+   , diskQuotaLock:sync.RWMutex{
+       w:sync.Mutex{state:0, sema:0x0}
+     , writerSem:0x0
+     , readerSem:0x0
+     , readerCount:atomic.Int32{_:atomic.noCopy{}, v:0}
+     , readerWait:atomic.Int32{_:atomic.noCopy{}, v:0}}
+     , diskQuotaState:atomic.Int32{_:atomic.nocmp{}, v:0}
+     , compactState:atomic.Int32{_:atomic.nocmp{}, v:0}
+     , status:(*importer.LightningStatus)(0xc000dca470)
+     , dupIndicator:(*atomic.Bool)(nil)
+     , preInfoGetter:(*importer.PreImportInfoGetterImpl)(0xc000ee5680)
+     , precheckItemBuilder:(*importer.PrecheckItemBuilder)(0xc000ee3360)
+     , encBuilder:(*local.encodingBuilder)(0xc000b35478)
+     , tikvModeSwitcher:(*local.switcher)(0xc000df76c0)
+     , keyspaceName:""
+     , resourceGroupName:"rg1"
+     , taskType:"lightning"}
+      #+END_SRC
+*** Check point
+    #+BEGIN_SRC
+checkpoints.TableCheckpoint{
+    Status:0x1e
+  , AllocBase:0
+  , Engines:map[int32]*checkpoints.EngineCheckpoint{}
+  , TableID:102
+  , TableInfo:(*model.TableInfo)(0xc00a038380)
+  , Checksum:verification.KVChecksum{base:0x0, prefixLen:0, bytes:0x0, kvs:0x0, checksum:0x0}
+}
+    #+END_SRC
+      
+    + Checkpoint Status
+      | Name                            | Value |
+      |---------------------------------+-------|
+      | CheckpointStatusMissing         |     0 |
+      | CheckpointStatusMaxInvalid      |    25 |
+      | CheckpointStatusLoaded          |    30 |
+      | CheckpointStatusAllWritten      |    60 |
+      | CheckpointStatusDupDetected     |    70 |
+      | CheckpointStatusIndexDropped    |    80 |
+      | CheckpointStatusClosed          |    90 |
+      | CheckpointStatusImported        |   120 |
+      | CheckpointStatusIndexImported   |   140 |
+      | CheckpointStatusAlteredAutoInc  |   150 |
+      | CheckpointStatusChecksumSkipped |   170 |
+      | CheckpointStatusChecksummed     |   180 |
+      | CheckpointStatusIndexAdded      |   190 |
+      | CheckpointStatusAnalyzeSkipped  |   200 |
+      | CheckpointStatusAnalyzed        |   210 |
+
+
+
+** DataDivideConfig
+   #+BEGIN_SRC
+   "divide config"="&mydump.DataDivideConfig{                                                            
+        ColumnCnt:2                                                                                       
+      , EngineDataSize:0                                                                                  
+      , MaxChunkSize:268435456                                                                            
+      , Concurrency:6                                                                                     
+      , EngineConcurrency:6                                                                               
+      , BatchImportRatio:0.75                                                                             
+      , IOWorkers:(*worker.Pool)(0xc0004c9dd0)                                                            
+      , Store:(*storage.LocalStorage)(0xc000e92eb0)                                                       
+      , TableMeta:(*mydump.MDTableMeta)(0xc00076b900)                                                     
+      , StrictFormat:false                                                                                
+      , DataCharacterSet:\"binary\"                                                                       
+      , DataInvalidCharReplace:\"\",                                                                      
+      , ReadBlockSize:65536                                                                               
+      , CSV:config.CSVConfig{                                                                             
+          Separator:","                                                                                   
+        , Delimiter:\"\\\"\"                                                                              
+        , Terminator:\"\"                                                                                 
+        , Null:config.StringOrStringSlice{\"\\\\N\"}                                                      
+        , Header:false                                                                                    
+        , HeaderSchemaMatch:true                                                                          
+        , TrimLastSep:false                                                                               
+        , NotNull:false                                                                                   
+        , BackslashEscape:true                                                                            
+        , EscapedBy:\"\\\\\"                                                                              
+        , StartingBy:\"\"                            
+        , AllowEmptyLine:false                       
+        , QuotedNullIsText:false                     
+        , UnescapedQuote:false}}
+   #+END_SRC
+** Table Region
+   #+BEGIN_SRC
+    &mydump.TableRegion{
+      EngineID:0
+    , DB:"test"
+    , Table:"test01"
+    , FileMeta:mydump.SourceFileMeta{
+        Path:"test.test01.csv"
+      , Type:4
+      , Compression:0
+      , SortKey:""
+      , FileSize:20
+      , ExtendData:mydump.ExtendColumnData{
+          Columns:[]string(nil)
+        , Values:[]string(nil)}
+      , RealSize:20
+      , Rows:0
+    }
+    , ExtendData:mydump.ExtendColumnData{Columns:[]string(nil), Values:[]string(nil)}
+    , Chunk:mydump.Chunk{                                                                                 
+        Offset:0                                     
+      , EndOffset:20                                 
+      , RealOffset:0                                 
+      , PrevRowIDMax:0, RowIDMax:10, Columns:[]string(nil)}
+    }
+   #+END_SRC
+** version string
+   #+BEGIN_SRC
+Release Version: v7.5.0-1-g169c811715-dirty\nEdition: Community\nGit Commit Hash: 169c81171584eef924b88fa16a6b946823205cff\nGit Branch: v7.5.0-rename\nUTC Build Time: 2024-03-09 14:43:51\nGoVersion: go1.21.5\nRace Enabled: false\nCheck Table Before Drop: false\nStore: tikv
+   #+END_SRC
+** version info
+   #+BEGIN_SRC
+version.ServerInfo{ServerType:3, ServerVersion:(*semver.Version)(0xc000fabc00), HasTiKV:false}
+
+"Server version"="&semver.Version{
+    Major:7
+  , Minor:5
+  , Patch:0
+  , PreRelease:\"1-g169c811715-dirty\"
+  , Metadata:\"\"}"
+   #+END_SRC
+
+** importer/meta_manager.go:AllocTableRowIDs
+   How to populate the data into task_meta_v2?
+* Flow data import
+  #+BEGIN_SRC
+//  1. Create a `Backend` for the whole process.
+//  2. For each table,
+//     i. Split into multiple "batches" consisting of data files with roughly equal total size.
+//     ii. For each batch,
+//     a. Create an `OpenedEngine` via `backend.OpenEngine()`
+//     b. For each chunk, deliver data into the engine via `engine.WriteRows()`
+//     c. When all chunks are written, obtain a `ClosedEngine` via `engine.Close()`
+//     d. Import data via `engine.Import()`
+//     e. Cleanup via `engine.Cleanup()`
+//  3. Close the connection via `backend.Close()`
+  #+END_SRC
+
+  + importer/table_import.go
+    + dataClosedEngine, err := tr.preprocessEngine(ctx, rc, indexEngine, eid, ecp)
+      + err := cr.process(ctx, tr, engineID, dataWriter, indexWriter, rc)
+
+        importer/chunk_process.go:newChunkProcessor
+          importer/chunk_process.go:openParser
+
+* Summary
+** Calling Flow
+   + importer/import.go: Run
+     #+BEGIN_SRC plantuml :file ./png/lightning_backend.png
+participant Controller_Run [
+    =Controller
+    ----
+    ""Run""
+]
+
+participant Controller
+
+participant TableImporter
+
+participant TableImporter_importEngines [
+    =TableImporter
+    ----
+    ""importEngines""
+]
+
+participant TableImporter_preprocessEngine [
+    =TableImporter
+    ----
+    ""preprocessEngine""
+]
+
+Controller_Run->Controller: setGlobalVariables
+Controller_Run->Controller: restoreSchema
+Controller_Run->Controller: restoreSchema
+Controller_Run->Controller: preCheckRequirements
+Controller_Run->Controller: initCheckpoint
+Controller_Run->Controller: importTables
+Controller->TableImporter: importTable
+TableImporter->EngineManager: OpenEngine
+EngineManager->Backend: OpenEngine(important)
+TableImporter->TableImporter_importEngines
+TableImporter_importEngines->TableImporter_preprocessEngine
+TableImporter_preprocessEngine->chunkProcessor: process
+chunkProcessor->chunkProcessor:deliverLoop
+chunkProcessor->Writer: AppendRows
+Writer->tidbBackend: WriteRows
+Controller_Run->Controller: cleanCheckpoints
+     #+END_SRC 
+  + region split logic
+    #+BEGIN_SRC plantuml :file ./png/region_split.png
+    participant Backend_ImportEngine
+
+    participant Backend_startWorker [
+        =Backend
+        ----
+        ""startWorker""
+    ]
+    participant Backend_executeJob [
+        =Backend
+        ----
+        ""executeJob""
+    ]
+    participant Backend_writeToTiKV [
+        =Backend
+        ----
+        ""writeToTiKV""
+    ]
+    participant Backend_ingest [
+        =Backend
+        ----
+        ""ingest""
+    ]
+
+    Backend_ImportEngine->Backend_ImportEngine: externalEngine
+    Backend_ImportEngine->Backend_ImportEngine:KVStatistics
+    Backend_ImportEngine->Backend_ImportEngine:GetRegionSplitSizeKeys
+    Backend_ImportEngine->Backend_ImportEngine:PausePDSchedulerScopeTable
+    Backend_ImportEngine->readAndSplitIntoRange: Split range
+    readAndSplitIntoRange->readAndSplitIntoRange: GetKeyRange
+    readAndSplitIntoRange->Engine_SplitRanges
+    Engine_SplitRanges->getSizePropertiesFn: Get properties for region split
+    Engine_SplitRanges->splitRangeBySizeProps: Split region
+    Backend_ImportEngine->Backend_ImportEngine: SwitchModeByKeyRanges
+    Backend_ImportEngine->Backend_ImportEngine:doImport
+    Backend_ImportEngine->Backend_startWorker: start worker to do import
+    Backend_startWorker->Backend_executeJob: execute job
+    Backend_executeJob->Backend_executeJob: Check store access and size
+    Backend_executeJob->Backend_writeToTiKV: Todo need to dig into detail
+    Backend_executeJob->Backend_ingest: todo
+    #+END_SRC
+* Reference Code
+** Run call
+   #+BEGIN_SRC
+        opts := []func(context.Context) error{
+                rc.setGlobalVariables,
+                rc.restoreSchema,
+                rc.preCheckRequirements,
+                rc.initCheckpoint,
+                rc.importTables,
+                rc.fullCompact,
+                rc.cleanCheckpoints,
+        }
+   #+END_SRC
+* Questions
+** How is the split command sent to PD?
+   The region split might not through PD. It is calculated from lighting itself. 
+** Does doImport only generate sst file from pebble? If this is the case, the sst file must be uploaded to TiKV?
+** Where is the logic to decide which peer is elected as one sst file?
+** What's the relationship between sst file? Is it same on the lighting

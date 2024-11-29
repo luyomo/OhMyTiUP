@@ -1,16 +1,27 @@
+workstation:
+  cidr: 172.82.0.0/16                             # The cidr for the VPC
+  imageid: ami-07d02ee1eeb0c996c                  # Workstation EC2 instance
+  keyname: jay-us-east-01                         # Public key for workstation instance deployment
+  keyfile: /home/pi/.ssh/jay-us-east-01.pem       # Private key to access the workstation
+  volumeSize: 100                                 # disk size in the workstation
+  enable_monitoring: enabled                      # enable the moniroting on the workstation
+  instance_type: t2.medium                        # Instance type for PD component
 aws_topo_configs:
   general:
-    imageid: ami-0ac97798ccf296e02            # Image ID for TiDB cluster's EC2 node
-    keyname: jay.pingcap                      # key name to login from workstation to EC2 nodes 
-    cidr: 172.83.0.0/16                       # VPC cidr
-    instance_type: t2.medium                  # default instance type for EC2 nodes
-    tidb_version: v5.2.0                      # TiDB version to deploy
+    imageid: ami-07d02ee1eeb0c996c                # Image ID for TiDB cluster's EC2 node
+    keyname: jay-us-east-01                       # Public key for workstation instance deployment
+    keyfile: /home/pi/.ssh/jay-us-east-01.pem     # Private key to access the workstation
+    cidr: 172.83.0.0/16                           # VPC cidr
+    instance_type: t2.medium                      # default instance type for EC2 nodes
+    tidb_version: v7.5.0                          # TiDB version to deploy
+    network_type: nat                             # network type: nat, private
   pd:
-    instance_type: t2.micro                   # PD instance type
-    count: 3                                  # Number of PD nodes to generate
+    instance_type: t2.micro                       # PD instance type
+    count: 3                                      # Number of PD nodes to generate
   tidb:
-    instance_type: t2.medium                  # TiDB instance type
-    count: 2                                  # Number of TiDB nodes to generate
+    instance_type: t2.medium                      # TiDB instance type
+    count: 2                                      # Number of TiDB nodes to generate
   tikv:
-    instance_type: t2.medium                  # TiKV instance type
-    count: 3                                  # Number of TiKV nodes to generate
+    - 
+      instance_type: t2.medium                    # TiKV instance type
+      count: 3                                    # Number of TiKV nodes to generate

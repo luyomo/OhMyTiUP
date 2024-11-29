@@ -422,6 +422,235 @@ func (m *Manager) TiDBScale(
 	return nil
 }
 
+// ------------- Placement Rule
+func (m *Manager) TiDBPlacementRulePrepareCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	// 01. Setup the execution environment
+	ctx := context.WithValue(context.Background(), "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	var timer awsutils.ExecutionTimer
+	timer.Initialize([]string{"Step", "Duration(s)"})
+
+	if err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.INC_AWS_ENV); err != nil {
+		return err
+	}
+
+	if err := m.workstation.InstallPackages(&[]string{"zip", "sysbench"}); err != nil {
+		return err
+	}
+
+	if err := m.workstation.InstallToolkit("v7.5.0"); err != nil {
+		return err
+	}
+
+	timer.Take("Package Install")
+
+	// 03. Create the necessary tidb resources
+	var queries []string
+	if opt.TiKVMode == "partition" {
+		queries = []string{"drop database if exists latencytest", // Drop the latencytest if not exists(For batch)
+			fmt.Sprintf("drop database if exists %s", opt.SysbenchDBName),             // Drop the sbtest if not exists(fosysbench)
+			"DROP PLACEMENT POLICY if exists policy_online",                           // Drop the placement rule
+			"DROP PLACEMENT POLICY if exists policy_batch",                            // Drop the placement rule
+			"CREATE PLACEMENT POLICY policy_online CONSTRAINTS=\"[+db_type=online]\"", // Add the placement policy for online label
+			"CREATE PLACEMENT POLICY policy_batch CONSTRAINTS=\"[+db_type=batch]\"",   // Add the placement policy for batch
+			"set global tidb_enable_alter_placement=true",
+			// Todo set one parameter to allow the database creation with placement rule
+			fmt.Sprintf("create database %s PLACEMENT POLICY=policy_online", opt.SysbenchDBName), // Create the database assigned with online label
+			"create database latencytest PLACEMENT POLICY=policy_batch",                          // Create the database assigned with batch label
+		}
+	} else {
+		queries = []string{"drop database if exists latencytest",
+			"create database latencytest",
+			fmt.Sprintf("drop database if exists %s", opt.SysbenchDBName),
+			fmt.Sprintf("create database %s", opt.SysbenchDBName),
+		}
+	}
+
+	queries = append(queries, "create user if not exists `batchusr`@`%` identified by \"1234Abcd\"",
+		"create user if not exists `onlineusr`@`%` identified by \"1234Abcd\"",
+		"grant all on *.* to `onlineusr`@`%` ",
+		"grant all on *.* to `batchusr`@`%` ",
+	)
+
+	// if opt.IsolationMode == "ResourceControl" {
+	// 	queries = append(queries, "create resource group if not exists sg_online ru_per_sec=15000 priority = high burstable",
+	// 		"create resource group if not exists sg_batch ru_per_sec=2000 priority = low QUERY_LIMIT=(EXEC_ELAPSED=\"120m\", ACTION=COOLDOWN)",
+	// 		"alter user `onlineusr`@`%` resource group sg_online",
+	// 		"alter user `batchusr`@`%` resource group sg_batch",
+	// 	)
+	// }
+
+	for _, query := range queries {
+		if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query mysql '%s'", query), false, 1*time.Hour); err != nil {
+			return err
+		}
+	}
+
+	// 04. Create ontime table to populate test data
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_from_file %s '%s'", "latencytest", "/opt/tidb/sql/ontime_tidb.ddl"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/run_tidb_query %s '%s'", "latencytest", "create table ontime01 like ontime;"), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	timer.Take("DB Resource preparation")
+
+	// 05. Data preparation from external
+	for _, file := range []string{"download_import_ontime.sh", "ontime_batch_insert.sh", "ontime_shard_batch_insert.sh"} {
+		if err := task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/%s", file), fmt.Sprintf("/opt/scripts/%s", file), "0755", []string{}); err != nil {
+			return err
+		}
+	}
+
+	// 06. Get DB info
+	dbConnInfo, err := m.workstation.GetTiDBDBInfo()
+	if err != nil {
+		return err
+	}
+
+	// Render dumpling script
+	tplDumpling := make(map[string]string)
+	tplDumpling["TiDBHost"] = (*dbConnInfo).DBHost
+	tplDumpling["TiDBPort"] = strconv.FormatInt(int64((*dbConnInfo).DBPort), 10) // fmt.Sprintf("%s", (*dbConnInfo).DBPort)
+	tplDumpling["TiDBUser"] = "batchusr"
+	tplDumpling["TiDBPassword"] = "1234Abcd"
+	tplDumpling["DBName"] = "latencytest"
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/scripts/dumpling_data.sh.tpl", "/usr/local/bin/dumpling_data", "0755", tplDumpling); err != nil {
+		return err
+	}
+
+	tplSysbenchParam := make(map[string]string)
+	tplSysbenchParam["TiDBHost"] = (*dbConnInfo).DBHost
+	tplSysbenchParam["TiDBPort"] = strconv.FormatInt(int64((*dbConnInfo).DBPort), 10) // fmt.Sprintf("%s", (*dbConnInfo).DBPort)
+	tplSysbenchParam["TiDBUser"] = "onlineusr"
+	tplSysbenchParam["TiDBPassword"] = "1234Abcd"
+	tplSysbenchParam["TiDBDBName"] = opt.SysbenchDBName
+	tplSysbenchParam["ExecutionTime"] = strconv.FormatInt(int64(opt.SysbenchExecutionTime), 10)
+	tplSysbenchParam["Thread"] = strconv.Itoa(opt.SysbenchThread)
+	tplSysbenchParam["ReportInterval"] = strconv.Itoa(opt.SysbenchReportInterval)
+
+	// 05. Setup the sysbench
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/sysbench.toml.tpl", "/opt/sysbench.toml", "0644", tplSysbenchParam); err != nil {
+		return err
+	}
+
+	if err = task.TransferToWorkstation(&m.wsExe, "templates/config/tidb-lightning.toml.tpl", "/opt/tidb-lightning.toml", "0644", tplSysbenchParam); err != nil {
+		return err
+	}
+	timer.Take("Template render")
+
+	// Truncate table before data import(lightning local)
+	if err := m.workstation.ExecuteTiDB("latencytest", "truncate table ontime01"); err != nil {
+		return err
+	}
+
+	startYM := strings.Split(opt.OnTimeStart, "-")
+	endYM := strings.Split(opt.OnTimeEnd, "-")
+
+	// Download the data for ontime data population
+	if _, _, err := m.wsExe.Execute(ctx, fmt.Sprintf("/opt/scripts/download_import_ontime.sh %s %s %s %s %s %s 1>/dev/null", "latencytest", "ontime01", startYM[0], strings.TrimLeft(startYM[1], "0"), endYM[0], strings.TrimLeft(endYM[1], "0")), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	timer.Take("Batch data import(ontime)")
+
+	if _, _, err = m.wsExe.Execute(ctx, fmt.Sprintf("sysbench --config-file=%s %s --tables=%d --table-size=%d prepare", "/opt/sysbench.toml", opt.SysbenchPluginName, opt.SysbenchNumTables, opt.SysbenchNumRows), false, 1*time.Hour); err != nil {
+		return err
+	}
+
+	timer.Take("sysbench preparation")
+
+	for _, file := range []string{"tidb_common.lua", "tidb_oltp_insert.lua", "tidb_oltp_point_select.lua", "tidb_oltp_read_write.lua", "tidb_oltp_insert_simple.lua", "tidb_oltp_point_select_simple.lua", "tidb_oltp_read_write_simple.lua", "tidb_bulk_insert.lua"} {
+		if err = task.TransferToWorkstation(&m.wsExe, fmt.Sprintf("templates/scripts/sysbench/%s", file), fmt.Sprintf("/usr/share/sysbench/%s", file), "0644", []string{}); err != nil {
+			return err
+		}
+	}
+
+	timer.Take("sysbench scripts render ")
+	timer.Print()
+
+	return nil
+
+}
+
+// isolation-mode:
+// 01. No
+// 02. PlacementRule
+func (m *Manager) TiDBPlacementRuleRunCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ctx = context.WithValue(ctx, "clusterName", clusterName)
+	ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+	err := m.makeExeContext(ctx, nil, &gOpt, INC_WS, ws.EXC_AWS_ENV)
+	if err != nil {
+		return err
+	}
+
+	var sysbenchResult [][]string
+	var cntInsert int64
+	for idx := 0; idx < opt.RunCount; idx++ {
+
+		for idxBatchSize, batchSize := range strings.Split(opt.BatchSizeArray, ",") {
+			cntInsert = 0
+			// 01. Set the context
+			ctx, cancel = context.WithCancel(context.Background())
+			ctx = context.WithValue(ctx, "clusterName", clusterName)
+			ctx = context.WithValue(ctx, "clusterType", clusterType)
+
+			// 02. Prepare the task
+			var envInitTasks []*task.StepDisplay // tasks which are used to initialize environment
+
+			t1 := task.NewBuilder().RunSysbench(&m.wsExe, "/opt/sysbench.toml", &sysbenchResult, &opt, &cancel).BuildAsStep(fmt.Sprintf("  - Running Ontime Transaction"))
+			envInitTasks = append(envInitTasks, t1)
+
+			// 03. If the batch size is not x, run the data batch insert
+			if batchSize != "x" {
+				opt.BatchSize, err = strconv.Atoi(batchSize)
+				if err != nil {
+					return err
+				}
+
+				opt.BatchMode = "insert"
+				t2 := task.NewBuilder().RunOntimeBatchInsert(&m.workstation, &opt, &cntInsert).BuildAsStep(fmt.Sprintf("  - Running Ontime batch"))
+				envInitTasks = append(envInitTasks, t2)
+			} else {
+				opt.BatchSize = 0
+			}
+
+			// 04. Run sysbench
+			builder := task.NewBuilder().ParallelStep(fmt.Sprintf("+ Running %d round %d th test for batch-size: %s", idx+1, idxBatchSize+1, batchSize), false, envInitTasks...)
+
+			t := builder.Build()
+
+			if err := t.Execute(ctxt.New(ctx, 2)); err != nil {
+				if errorx.Cast(err) != nil {
+					return err
+				}
+				return err
+			}
+
+			time.Sleep(20 * time.Second)
+
+			lastItem := sysbenchResult[len(sysbenchResult)-1]
+
+			lastItem = append([]string{fmt.Sprintf("%d", cntInsert)}, lastItem...)
+			lastItem = append([]string{fmt.Sprintf("batchsize: %s", batchSize)}, lastItem...)
+
+			// 008. Fixed the message
+			sysbenchResult = append(sysbenchResult[:len(sysbenchResult)-1], lastItem)
+		}
+
+	}
+
+	tui.PrintTable(sysbenchResult, true)
+
+	return nil
+}
+
 // ------------- Latency measurement
 func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
 	// 01. Setup the execution environment
@@ -576,6 +805,15 @@ func (m *Manager) TiDBMeasureLatencyPrepareCluster(clusterName, clusterType stri
 
 }
 
+func (m *Manager) TiDBPlacementRuleCleanupCluster(clusterName, clusterType string, gOpt operator.Options) error {
+	fmt.Printf("Running in the clean phase ")
+	fmt.Printf("Remove the database")
+	return nil
+}
+
+// isolation-mode:
+// 01. No
+// 02. PlacementRule
 func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, opt operator.LatencyWhenBatchOptions, gOpt operator.Options) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -587,15 +825,15 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 		return err
 	}
 
-	_data, err := m.workstation.QueryTiDB("test", "calibrate resource")
-	if err != nil {
-		return err
-	}
-	rcQuota := (*_data)[0]["QUOTA"].(float64)
-
 	var sysbenchResult [][]string
 	for idx := 0; idx < opt.RunCount; idx++ {
 		if opt.IsolationMode == "ResourceControl" {
+			_data, err := m.workstation.QueryTiDB("test", "calibrate resource")
+			if err != nil {
+				return err
+			}
+			rcQuota := (*_data)[0]["QUOTA"].(float64)
+
 			// var arrConfig [][]string
 			arrConfig := [][]string{
 				//       title,       rcu
@@ -612,13 +850,6 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 			}
 
 			for _, _testCase := range arrConfig {
-				// 001. Count the batch table before batch
-				// _data, err := m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
-				// if err != nil {
-				// 	return err
-				// }
-				// originalCnt := (*_data)[0]["ontime_cnt"].(float64)
-
 				// 002. Change the resource control for batch
 				if _testCase[1] != "" {
 					intCoe, err := strconv.Atoi(_testCase[1])
@@ -663,17 +894,8 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 					return err
 				}
 
-				// 007. Count after execution
-				// _data, err = m.workstation.QueryTiDB("test", "select count(*) ontime_cnt from latencytest.ontime")
-				// if err != nil {
-				// 	return err
-				// }
-				// cnt := (*_data)[0]["ontime_cnt"].(float64) - originalCnt
-
-				// fmt.Printf("Inserted row here: %d vs %f \n\n\n\n\n\n", dumplingCnt, cnt)
-
 				lastItem := sysbenchResult[len(sysbenchResult)-1]
-				// lastItem = append([]string{fmt.Sprintf("%d", int(math.Round(cnt)))}, lastItem...)
+
 				lastItem = append([]string{fmt.Sprintf("%d", dumplingCnt)}, lastItem...)
 				lastItem = append([]string{_testCase[0]}, lastItem...)
 
@@ -683,6 +905,8 @@ func (m *Manager) TiDBMeasureLatencyRunCluster(clusterName, clusterType string, 
 				time.Sleep(30 * time.Second)
 			}
 		} else {
+			// Placement rule:
+
 			for idxBatchSize, batchSize := range strings.Split(opt.BatchSizeArray, ",") {
 				// 01. Set the context
 				ctx, cancel = context.WithCancel(context.Background())
