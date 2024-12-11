@@ -16,8 +16,9 @@
   + [[https://www.51yomo.net/tidbonaks/dashboard][TiDB on AKS(BOYC)]] - TiDB Deployment on AKS on customer's account
   + [[./doc/kafka.org][KAFKA Deployment]] - KAFKA OP deployment on AWS using one command script
   
-** Replication to TiDB
+** Replication from TiDB
   + [[./doc/replication-tidb-on-eks-2-tidbcloud.org][TiDB on EKS to TiDB Cloud]] - Data migration from TiDB on EKS to TiDB Cloud
+  + [[./doc/copyDataTiDB2TiDB.org][TiDB to TiDB full copy]] - Data copy from TiDB Cloud to TiDB
   + [[./doc/tidb2oracle.msk.org][TiDB to Oracle(MSK/Glue)]] - Data replication from TiDB to Oracle through TiCDC, MSK(confluent jdbc sink) and Glue schema registry
   + [[./doc/tidb2oracle.s3.org][TiDB to Oracle(S3)]] - Data replication from TiDB to Oracle through TiCDC, S3 (CSV files)
   + [[./doc/tidb2kafka2pg.org][TiDB to Postgres]] - Data replication from TiDB to Postgres through TiCDC and kafka(debezium source and confluent jdbc sink)
@@ -26,7 +27,6 @@
   + [[./doc/tidb2kafka2redshift.org][TiDB to Redshift]] - Data replication from TiDB to redshift through TiCDC, Kafka(confluent redshift)
   + [[./doc/tidb2kafka2redshift.msk.org][TiDB to Redshift(MSK/Glue)]] - Data replication from TiDB to redshift through TiCDC, MSK(confluent redshift) and Glue schema registry
   + [[./doc/copyDataTiDB2Aurora.org][TiDB to Aurora full copy]] - Data copy from TiDB Cloud to Aurora
-  + [[./doc/copyDataTiDB2TiDB.org][TiDB to TiDB full copy]] - Data copy from TiDB Cloud to TiDB
   + [[./doc/glue-etl.org][TiDB data transfer to S3 with Glue ETL]] - Use Glue ETL to transfer the data from TiDB to AWS S3. 
 
 ** Replication to TiDB
@@ -60,5 +60,6 @@
   + [[./doc/binary_vs_utf8mb4_bin.org][encoding comparison between binary and utf8mb4]] - Comparison between binary and utf8mb4
   + [[./doc/federatedSQLtidbcloud2redshift.org][Data access from redshift to TiDB Cloud]] - Redshift access TiDB Cloud Data through federated query
   + [[./doc/jmeter.org][Performance test with Jmeter]] - Use Jmeter to do the performance test against TiDB Cloud
-  + mockdata(tidb) - generate mockdata for TiDB to do performance and compatibility test
-  + mockdata(orcle) - genreate oracle data for data replication. One customer needs to do hundreds of table migration verification
+  + [[https://github.com/luyomo/mockdata][mockdata(tidb)]] - generate mockdata for TiDB to do performance and compatibility test
+  + [[https://github.com/luyomo/mockdata/blob/main/docs/mock-oracle-data.md][mockdata(orcle)]] - genreate oracle data for data replication. One customer needs to do hundreds of table migration verification
+  + [[https://github.com/luyomo/mask-data][mask data(tidb)]] - mask the data with config rule
