@@ -13,7 +13,7 @@
   + [[./doc/tidb-on-aws.org][TiDB installation on AWS]] - Deploy TiDB Cluster on the AWS using TiUP
   + [[./doc/tidb-cloud.org][TiDB Cloud Cli(to deprecate)]] - TiDB Cloud cli using RESTAPI implementation
   + [[./doc/tidb-on-aks/README.org][TiDB on AKS(terraform)]] - TiDB Deployment on AKS(Cluster/Monitoring/Dashboard/Scaling) with terraform
-  + [[https://www.51yomo.net/tidbonaks/dashboard][TiDB on AKS(BOYC)]] - TiDB Deployment on AKS on customer's account
+  + [[./doc/byoc-azure.org][TiDB on AKS(BYOC)]] - TiDB Deployment on AKS on customer's account
   + [[./doc/kafka.org][KAFKA Deployment]] - KAFKA OP deployment on AWS using one command script
   
 ** Replication from TiDB

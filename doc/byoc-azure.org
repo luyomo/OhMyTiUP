@@ -1,0 +1,85 @@
+* Structure
+  #+CAPTION: BYOC - TiDB on Azure
+  #+attr_html: :width 800px
+  [[https://www.51yomo.net/static/doc/tidb-on-aks/boyc/tidb-boyc.png]]
+* What is BYOC?
+  *BYOC (Bring Your Own Cloud)* is a deployment approach where customers utilize their own cloud infrastructure to host applications, data, and services instead of relying on vendor-managed infrastructure. This model is particularly suited for organizations with stringent security, compliance, and operational requirements.  
+
+  In a BYOC setup:  
+  - Customers maintain full control over their resources within their chosen cloud provider—such as Azure—ensuring their data remains secure and compliant with organizational policies.  
+  - Vendors deliver services and support directly on the customer’s cloud environment, enabling tailored solutions without compromising data security.  
+
+  This approach empowers customers to balance flexibility and control, making BYOC an ideal choice for businesses concerned about data privacy, regulatory compliance, and vendor lock-in.
+
+* Implementation Design: Keeping Data Secure and Providing Services
+
+** Objective
+To ensure customer data remains fully within their Azure account while enabling the vendor to manage and support their services securely and effectively.
+
+** Design Details
+
+*** Keeping Data Secure in the User's Account
+   *Core Principle*: The customer’s data and credentials must remain secure and isolated from the vendor’s backend.
+
+  - *Browser-Only API Calls*:
+    - All Azure API interactions are executed directly from the user’s browser.
+    - OAuth2 credentials are used for authentication but are never sent to the backend.
+    - Sensitive data resides exclusively on the customer’s device, preventing exposure to external systems.
+  - *Backend Isolation*:
+    - The backend system is designed to operate without access to sensitive credentials or data.
+    - This architectural choice ensures no unauthorized or accidental data access occurs.
+
+*** Providing Managed Services
+The implementation is divided into two levels of access and service provisioning.
+
+**** First Level: Monitoring Service
+     - Customer Control:
+       + Monitoring services are implemented in the user’s Azure environment (e.g., Azure Monitor, Log Analytics).
+       + The vendor can access metrics and logs **only** with explicit customer approval.
+     - Transparency and Security
+       + Customers can define what monitoring data is shared with the vendor.
+       + Access is controlled through Azure role-based access control (RBAC) and policy enforcement.
+
+**** Second Level: Infrastructure Support
+     - Jump Server for Secure Access
+       + A dedicated jump server is provisioned in the user’s Azure account for vendor support teams.
+       + All access to infrastructure must go through this jump server, which enforces audit logging and strict authentication measures.
+     - Conditional Access to Infrastructure
+       + The vendor’s access to the customer’s infrastructure is restricted and granted **only upon explicit customer approval**.
+       + This access is time-bound and scoped to specific troubleshooting tasks, ensuring minimal risk to customer data.
+
+**** Issue Management and Alerts
+     - Proactive Alerts
+       + Alerts are configured to notify the vendor of potential issues (e.g., performance degradation, resource limits).
+       + Notifications are limited to essential information, ensuring sensitive data remains secure.
+     - Support Workflow:
+       + Upon receiving alerts, the vendor performs predefined actions or troubleshooting steps.
+       + No direct access to sensitive customer data is required during this process.
+
+** Benefits of the BYOC Model with Azure
+   - Customer Control
+     + Full ownership of data and resources ensures customers maintain control over their environment.
+   - Enhanced Security
+     + Sensitive credentials and data remain isolated from the vendor’s systems.
+     + Auditing and monitoring ensure compliance with security policies.
+   - Transparency
+     + A multi-level access structure clarifies vendor permissions and activities.
+   - Proactive Support
+     + Monitoring and alerting enable timely resolution of issues without compromising data security.
+** Addressing Common Customer Concerns
+   - Data Security
+     BYOC ensures sensitive data never leaves the customer’s Azure account. This approach mitigates concerns about data breaches and unauthorized access.
+   - Compliance
+     Organizations can comply with regulatory requirements by maintaining complete control over their data, reducing the risk of violations associated with vendor-managed solutions.
+   - Operational Independence
+     BYOC eliminates reliance on vendor infrastructure, giving customers the flexibility to configure and manage their resources according to their needs.
+
+** Conclusion
+   The BYOC model bridges the gap between customer control and vendor-provided services. By leveraging Azure, customers can host their applications and data securely within their environment while benefiting from managed services. This approach ensures data security, compliance, and operational independence, making BYOC an ideal choice for organizations with stringent requirements.  
+   This implementation not only addresses security concerns but also provides a clear framework for delivering effective and transparent managed services to customers.  
+* Demo
+  [https://www.youtube.com/watch?v=Nzxo9t9OAT4][BYOC]
+
+* Reference
+** authentication
+  [[https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow][azure OAuth 2.0 client credentials]] is used for authentication to run the azure api for deployment in the customer's account.
