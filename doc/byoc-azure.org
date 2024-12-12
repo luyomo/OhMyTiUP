@@ -74,12 +74,14 @@ The implementation is divided into two levels of access and service provisioning
    - Operational Independence
      BYOC eliminates reliance on vendor infrastructure, giving customers the flexibility to configure and manage their resources according to their needs.
 
-** Conclusion
+
+* Conclusion
    The BYOC model bridges the gap between customer control and vendor-provided services. By leveraging Azure, customers can host their applications and data securely within their environment while benefiting from managed services. This approach ensures data security, compliance, and operational independence, making BYOC an ideal choice for organizations with stringent requirements.  
    This implementation not only addresses security concerns but also provides a clear framework for delivering effective and transparent managed services to customers.  
-* Demo
-  [https://www.youtube.com/watch?v=Nzxo9t9OAT4][BYOC]
-
 * Reference
+** Demo
+  [[https://www.youtube.com/watch?v=Nzxo9t9OAT4][BYOC Demo on Youtube]]
+** Web page
+  [[https://www.51yomo.net/tidbonaks/login][TiDB on AKS (BYOC)]]
 ** authentication
   [[https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow][azure OAuth 2.0 client credentials]] is used for authentication to run the azure api for deployment in the customer's account.
