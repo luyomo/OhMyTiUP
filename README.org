@@ -63,3 +63,4 @@
   + [[https://github.com/luyomo/mockdata][mockdata(tidb)]] - generate mockdata for TiDB to do performance and compatibility test
   + [[https://github.com/luyomo/mockdata/blob/main/docs/mock-oracle-data.md][mockdata(orcle)]] - genreate oracle data for data replication. One customer needs to do hundreds of table migration verification
   + [[https://github.com/luyomo/mask-data][mask data(tidb)]] - mask the data with config rule
+  + [[https://github.com/luyomo/cheatsheet/tree/main/java-tidb-scaling-in][JDBC connection pool automatic recovery]] - - Verify that the JDBC connection pool automatic recovery during the TiDB Scaling in
