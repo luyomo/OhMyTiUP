@@ -4,31 +4,63 @@
   - [[./README.org#Deployment][Deployment]]
   - [[./README.org#Replication to TiDB][Replication to TiDB]]
   - [[./README.org#Replication to TiDB][Replication from TiDB]]
-  - [[./README.org#Others][Others]]
+  - [[./README.org#TiDB Feature verification][TiDB Feature verification]]
+  - [[./README.org#PoC support][PoC support]]
 
 ** Deployment
+  + [[./doc/workstation.org][Workstation preparation]] - Prepare the workstation to access TiDB Cloud 
   + [[./doc/tidb-on-eks.deployment.org][TiDB on EKS]] - TiDB Deployment on EKS(Cluster/Monitoring/Dashboard/Online Diag)
-** Replication to TiDB
+  + [[./doc/tidb-on-aws.org][TiDB installation on AWS]] - Deploy TiDB Cluster on the AWS using TiUP
+  + [[./doc/tidb-cloud.org][TiDB Cloud Cli(to deprecate)]] - TiDB Cloud cli using RESTAPI implementation
+  + [[./doc/tidb-on-aks/README.org][TiDB on AKS(terraform)]] - TiDB Deployment on AKS(Cluster/Monitoring/Dashboard/Scaling) with terraform
+  + [[./doc/byoc-azure.org][TiDB on AKS(BYOC)]] - TiDB Deployment on AKS on customer's account
+  + [[./doc/kafka.org][KAFKA Deployment]] - KAFKA OP deployment on AWS using one command script
+  
+** Replication from TiDB
+  + [[./doc/replication-tidb-on-eks-2-tidbcloud.org][TiDB on EKS to TiDB Cloud]] - Data migration from TiDB on EKS to TiDB Cloud
+  + [[./doc/copyDataTiDB2TiDB.org][TiDB to TiDB full copy]] - Data copy from TiDB Cloud to TiDB
   + [[./doc/tidb2oracle.msk.org][TiDB to Oracle(MSK/Glue)]] - Data replication from TiDB to Oracle through TiCDC, MSK(confluent jdbc sink) and Glue schema registry
   + [[./doc/tidb2oracle.s3.org][TiDB to Oracle(S3)]] - Data replication from TiDB to Oracle through TiCDC, S3 (CSV files)
   + [[./doc/tidb2kafka2pg.org][TiDB to Postgres]] - Data replication from TiDB to Postgres through TiCDC and kafka(debezium source and confluent jdbc sink)
-  + [[./doc/tidb2es.org][TiDB to Elasticsearch]] - Data replication from TiDB to Elasticsearch through TiCDC and kafka(debezium sink)
+  + [[./doc/tidb2es.org][TiDB to Elasticsearch]] - Data replication from TiDB to Elasticsearch through TiCDC and op kafka(debezium sink)
   + [[./doc/tidb2es.msk.org][TiDB to Elasticsearch(MSK/Glue)]] - Data replication from TiDB to Elasticsearch through TiCDC, MSK(debezium sink) and Glue schema registry
   + [[./doc/tidb2kafka2redshift.org][TiDB to Redshift]] - Data replication from TiDB to redshift through TiCDC, Kafka(confluent redshift)
   + [[./doc/tidb2kafka2redshift.msk.org][TiDB to Redshift(MSK/Glue)]] - Data replication from TiDB to redshift through TiCDC, MSK(confluent redshift) and Glue schema registry
+  + [[./doc/copyDataTiDB2Aurora.org][TiDB to Aurora full copy]] - Data copy from TiDB Cloud to Aurora
+  + [[./doc/glue-etl.org][TiDB data transfer to S3 with Glue ETL]] - Use Glue ETL to transfer the data from TiDB to AWS S3. 
 
 ** Replication to TiDB
   + [[./doc/mongo2kafka2TiDB.org][Mongo to TiDB]] - Data replication from MongoDB to TiDB through kafka(debezium mongo source and customized jdbc sink)
   + [[./doc/aurora2tidbcloud.org][Aurora to TiDBCloud]] - Data replication from Aurora to TiDB through DM
-  + [[./doc/aurora2tidbcloud-api.org][Aurora to TiDBCloud with TiDB Cloud API]]- Data replication from Aurora to TiDB through DM with TiDB Cloud API which makes the process much more easy
+  + [[./doc/aurora2tidbcloud-api.org][Aurora to TiDBCloud with TiDB Cloud API ]]- Data replication from Aurora to TiDB through DM with TiDB Cloud API which makes the process much more easy
+  + [[./doc/sync-ms2tidb-kafka.org][SQL Server to TiDB Cloud with kafka]] - Data migration from SQL Server to TiDB Cloud with kafka
   + [[./doc/mysql2tidb.org][MySQL to TiDBCloud]] - Data migration from MySQL on EC2 to TiDB Cloud which use DM on cloud
+  + [[./doc/pg-kafka-tidb.org][Postgres to TiDB Cloud with Confluent]] - Data replication from postgres to TiDB Cloud with Confluent kafka
+  + [[doc/pg2kafka2tidb.org][Postgres to TiDB Cloud with OP KAFKA]] - Data replication from postgres to TiDB Cloud with OP kafka
     
-** Integration
-  + [[./doc/glue-etl.org][TiDB data transfer to S3 with Glue ETL]] - Use Glue ETL to transfer the data from TiDB to AWS S3. 
-    
-** Others
+** TiDB Feature verification
+  + [[./doc/ru_estimate.org][RU estimation]] - Estimate RU according to different operations
   + [[./doc/count_performance.org][Count performance tuning]] - Performance tuning for table count
-  + [[./doc/transferdb.org][transferdb ddl conversion]] - Data conversion from oracle to mysql document. Please refer to [[https://github.com/wentaojin/transferdb][transferdb]]
   + [[./doc/low-latency-during-batch-import.org][Low latency during heavy batch]] - TiKV nodes isolation between batch and online transaction
   + [[./doc/low-latency-during-batch-import-resource-control.org][Resource control to improve latency during heavy batch]] - Resource control between batch and online transaction to reduce impact to online [batch: insert/select, dumpling]
+  + [[./doc/multi-access-point.org][Multiple Access Point]] - Create multiple access point by open api 
+  + [[./doc/tidb-readonly-mode.org][Readonly mode test]] - Test read only mode
+  + [[./doc/titan-performance.org][TiTan performance test]] - Test TiTan Storage performance
+  + [[./doc/ossinsight-aurora.org][OSS Insight on AWS]] - Query performance test using OSS Insight project's tables(https://ossinsight.io/)
+  + [[./doc/auditlog-op.org][AUDIT LOG]] - AUDIT LOG verification on the OP env
     
+** PoC support
+  + [[./doc/transferdb.org][transferdb ddl conversion]] - Data conversion from oracle to mysql document. Please refer to [[https://github.com/wentaojin/transferdb][transferdb]]
+  + [[./doc/baidu-uuid.org][uuid generator]] - Use uid-generator from baidu to generate sequence id ( [[https://github.com/baidu/uid-generator.git]] )
+  + [[./doc/powerdns.org][powerdns on TiDB]] - Deploy powerdbs on TiDB
+  + [[./doc/prometheus2newrelic.org][Prometheus to Newrelic metrics(to deprecate)]] - Convert the Prometheus metrics to Newrelic
+  + [[./doc/prometheus2datadog.org][Prometheus datadog integration]] - Integrate prometheus to datadog
+  + [[./doc/thanos.org][THANOS for prometheus HA]] - THANOS deployment
+  + [[./doc/scala-driver.org][connection failure for jdbc connection]] - Connection failure (connect/j) to TiDB Cloud
+  + [[./doc/binary_vs_utf8mb4_bin.org][encoding comparison between binary and utf8mb4]] - Comparison between binary and utf8mb4
+  + [[./doc/federatedSQLtidbcloud2redshift.org][Data access from redshift to TiDB Cloud]] - Redshift access TiDB Cloud Data through federated query
+  + [[./doc/jmeter.org][Performance test with Jmeter]] - Use Jmeter to do the performance test against TiDB Cloud
+  + [[https://github.com/luyomo/mockdata][mockdata(tidb)]] - generate mockdata for TiDB to do performance and compatibility test
+  + [[https://github.com/luyomo/mockdata/blob/main/docs/mock-oracle-data.md][mockdata(orcle)]] - genreate oracle data for data replication. One customer needs to do hundreds of table migration verification
+  + [[https://github.com/luyomo/mask-data][mask data(tidb)]] - mask the data with config rule
+  + [[https://github.com/luyomo/cheatsheet/tree/main/java-tidb-scaling-in][JDBC connection pool automatic recovery]] - - Verify that the JDBC connection pool automatic recovery during the TiDB Scaling in

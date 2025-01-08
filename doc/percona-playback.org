@@ -1,0 +1,64 @@
+* Description
+** Option 01
+  + Install MariaDB
+  + Install PDNS
+  + Install TiDB
+  +
+** Option 02
+   + MariaDB install
+   + Slow query setup
+   + TPCH run
+   + Data migration from mariadb to TiDB
+   + Playback Run On TiDB
+   + Report check
+* Install
+  Compile the lib from docker image because the dependency is absolute old. 
+** docker install
+   #+BEGIN_SRC
+workstation$ sudo apt-get install docker.io
+workstation$ sudo chmod -aG docker user
+workstation$ docker ps
+   #+END_SRC
+** Compile the source code
+#+BEGIN_SRC
+workstation$ docker pull centos:7
+workstation$ docker run -it -v $(pwd)/output:/opt/output centos:7 bash
+root@centos$ yum update -y
+root@centos$ yum -y install tbb tbb-devel cmake boost boost-devel make git gcc-c++.x86_64 mariadb-devel.x86_64
+root@centos$ git clone https://github.com/Percona-Lab/query-playback.git
+root@centos$ cd query-playback/
+root@centos$ mkdir build_dir
+root@centos$ cd build_dir
+root@centos$ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+root@centos$ make
+root@centos$ cp percona-playback /opt/output/
+root@centos$ exit
+workstation$ ls output
+percona-playback
+#+END_SRC
+* MARIADB Install
+* PDNS Install
+* Slow query setup
+* Run percona-playback
+  #+BEGIN_SRC
+sudo apt-get install libssl-dev
+cd /lib/x86_64-linux-gnu
+sudo ln -s libssl.so.1.0.0 libssl.so.10
+sudo ln -s libcrypto.so.1.0.0 libcrypto.so.10
+
+
+wget http://snapshot.debian.org/archive/debian/20190501T215844Z/pool/main/g/glibc/multiarch-support_2.28-10_amd64.deb
+sudo dpkg -i multiarch-support*.deb
+
+wget http://snapshot.debian.org/archive/debian/20170705T160707Z/pool/main/o/openssl/libssl1.0.0_1.0.2l-1%7Ebpo8%2B1_amd64.deb
+sudo dpkg -i libssl1.0.0*.deb
+
+
+workstation$ cd /usr/lib/x86_64-linux-gnu
+workstation$ sudo ln -s libmysqlclient.so libmysqlclient.so.18
+
+
+
+
+
+  #+END_SRC

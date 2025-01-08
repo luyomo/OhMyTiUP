@@ -1,0 +1,8 @@
+* [[https://weblabo.oscasierra.net/docker-centos7/][Pull centos docker image]]
+* [[https://serverfault.com/questions/904304/could-not-resolve-host-mirrorlist-centos-org-centos-7][Replace yum repo]]
+* Install procedure
+  #+BEGIN_SRC
+$ yum -y install tbb tbb-devel cmake boost boost-devel
+$ yum install cmake make gcc gcc-c++
+$ yum install -y mariadb-devel.x86_64 
+  #+END_SRC

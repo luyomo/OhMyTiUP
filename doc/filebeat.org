@@ -1,0 +1,6 @@
+* autodiscover
+  + https://github.com/elastic/beats.git
+    -> libbeat/autodiscover/providers/kubernetes/kubernetes.go: init()
+      -> libbeat/autodiscover/providers/kubernetes/kubernetes.go: AutodiscoverBuilder
+         -> libbeat/autodiscover/providers/kubernetes/kubernetes.go: NewEventerManager
+            -> libbeat/autodiscover/providers/kubernetes/pod.go: NewPodEventer
