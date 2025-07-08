@@ -105,5 +105,9 @@ variable "register_app_client_id" {
 variable "register_app_client_secret" {
   type        = string
   description = "client secret of the registered application"
-  default     = "v1.5.0"
+}
+
+variable "resource_group" {
+  type        = string
+  description = "Resource group for aks cluster"
 }

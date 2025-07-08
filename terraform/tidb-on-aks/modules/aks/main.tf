@@ -1,6 +1,6 @@
 
 data "azurerm_resource_group" "rg" {
-  name = "azure-jp-tech-team"
+  name = "${var.resource_group}"
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "pd" {
@@ -104,7 +104,7 @@ resource "azurerm_kubernetes_cluster" "k8s" {
     admin_username = var.username
 
     ssh_key {
-      key_data = jsondecode(azapi_resource_action.ssh_public_key_gen.output).publicKey
+      key_data = azapi_resource_action.ssh_public_key_gen.output.publicKey
     }
   }
   network_profile {

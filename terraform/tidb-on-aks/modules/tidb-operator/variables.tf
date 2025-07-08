@@ -73,7 +73,7 @@ variable "kube_config_file" {
 variable "operator_version" {
   type        = string
   description = "The kube config file"
-  default     = "v1.5.0"
+  default     = "v1.6.0"
 }
 
 variable "base_values" {
@@ -88,7 +88,7 @@ variable "override_values" {
 
 variable "tidb_cluster_chart_version" {
   description = "tidb-cluster chart version"
-  default     = "v1.5.0"
+  default     = "v1.6.0"
 }
 
 variable "kube_config" {
