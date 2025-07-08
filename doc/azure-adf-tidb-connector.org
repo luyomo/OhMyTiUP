@@ -1,0 +1,76 @@
+* TiDB Cloud Connection on Azure from ADF
+  Azure Data Factory's MySQL connector can be used to connect to TiDB Cloud from ADF. However, this requires a self-hosted Integration Runtime (IR) and Private Endpoint configuration to TiDB Cloud.  
+  Note: During my testing, this setup did not work when accessed directly from the Azure Console.
+** Private Endpoint Setup in the ADF
+   - Private Link Service Resource ID from TiDB Cloud
+   - ADF
+     + Resource Control
+     + ADF name
+#+BEGIN_SRC
+$ az datafactory managed-private-endpoint create
+    --name "tidbcloudservice"
+    --factory-name "jaytest002"
+    --managed-virtual-network-name "default"
+    --resource-group "resource-group-adf"
+    --private-link-resource-id "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx/resourceGroups/tidbcloud-resourcegroup/providers/Microsoft.Network/privateLinkServices/ddddddddddddddddddd"
+    --group-id "default"
+    --fqdns "mycustomservice.yourdomain.com"
+
+Command group 'datafactory managed-private-endpoint' is in preview and under development. Reference and support levels: https://aka.ms/CLI_refstatus
+{                                                                                         
+  "etag": null,                                                                           
+  "id": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/resource-group-adf/providers/Microsoft.DataFactory/factories/jaytest002/managedvirtualnetworks/defaul
+t/managedprivateendpoints/tidbcloudservice",
+  "name": "tidbcloudservice",
+  "properties": { 
+    "connectionState": {
+      "actionsRequired": "",
+      "description": "",
+      "status": ""
+    },                  
+    "error": null,
+    "fqdns": [                      
+      "mycustomservice.yourdomain.com"
+    ],           
+    "groupId": "",
+    "ipAddress": null,
+    "isReserved": null,
+    "linkId": null,
+    "privateLinkResourceId": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxx/resourceGroups/tidbcloud-resourcegroup/providers/Microsoft.Network/privateLinkServices/ddddddddddddddddddd",
+    "provisioningState": "Provisioning",
+    "resourceId": "/subscriptions/290f2358-f4a5-4a2f-a7a3-441aa54ff0d4/resourceGroups/vnet-290f2358-eastus2-130-rg/providers/Microsoft.Network/privateEndpoints/jaytest002.tidbclouds
+ervice"                  
+  },
+  "resourceGroup": "resource-group-adf",
+  "type": "Microsoft.DataFactory/factories/managedvirtualnetworks/managedprivateendpoints" 
+}     
+#+END_SRC
+
+** Aprove it from TiDB Cloud Console
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/001.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/002.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/003.png]]
+
+** Create TiDB Linked Service
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/101.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/102.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/103.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/104.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/105.png]]
+** Create Dataset to show the data
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/201.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/202.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/203.png]]
+   #+attr_html: :width 800px
+   [[https://www.51yomo.net/static/doc/ADF-connector/204.png]]
