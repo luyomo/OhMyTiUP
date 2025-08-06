@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+    <hashTree>
+        <TestPlan guiclass="" testclass="TestPlan" testname="general">
+            <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="" testclass="Arguments" testname="User Defined Variables">
+                <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+        </TestPlan>
+        <hashTree>
+            <ThreadGroup guiclass="" testclass="ThreadGroup" testname="general - query 01" enabled="true">
+                <intProp name="ThreadGroup.num_threads">400</intProp>
+                <intProp name="ThreadGroup.ramp_time">1</intProp>
+                <boolProp name="ThreadGroup.same_user_on_next_iteration">false</boolProp>
+                <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+                <longProp name="ThreadGroup.duration">2400</longProp>
+                <boolProp name="ThreadGroup.scheduler">true</boolProp>
+                <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="" testclass="LoopController" testname="Loop Controller">
+                    <stringProp name="LoopController.loops">-1</stringProp>
+                    <boolProp name="LoopController.continue_forever">true</boolProp>
+                </elementProp>
+            </ThreadGroup>
+            <hashTree>
+                <!-- tidb_ignore_prepared_cache_close_stmt = OFF -->
+                <JDBCSampler guiclass="" testclass="JDBCSampler" testname="general - QUERY 01">
+                    <stringProp name="dataSource">DBConnRoot</stringProp>
+                    <stringProp name="queryType">Prepared Select Statement</stringProp>
+                    <stringProp name="usePrepared">true</stringProp>
+                    <stringProp name="query">select * from addresses where account_id in ( ?, ? ) and currency = 'BTC' order by coalesce( least(created_at, updated_at ), created_at, updated_at) </stringProp>
+                    <stringProp name="queryArguments">${__Random(1, 100000000)},${__Random(1, 100000000)}</stringProp>
+                    <stringProp name="queryArgumentsTypes">integer,integer</stringProp>
+                    <stringProp name="variableNames"></stringProp>
+                    <stringProp name="resultVariable"></stringProp>
+                    <stringProp name="queryTimeout"></stringProp>
+                    <stringProp name="resultSetMaxRows"></stringProp>
+                    <stringProp name="resultSetHandler">Store as String</stringProp>
+                </JDBCSampler>
+		<hashTree/>
+                </hashTree>
+        </hashTree>
+        <JDBCDataSource guiclass="" testclass="JDBCDataSource" testname="DBConnRoot">
+            <stringProp name="dataSource">DBConnRoot</stringProp>
+            <stringProp name="poolMax">400</stringProp>
+            <stringProp name="timeout">60</stringProp>
+            <stringProp name="trimInterval">600</stringProp>
+            <boolProp name="autocommit">true</boolProp>
+            <stringProp name="transactionIsolation">DEFAULT</stringProp>
+            <boolProp name="preinit">false</boolProp>
+            <stringProp name="initQuery"></stringProp>
+            <boolProp name="keepAlive">true</boolProp>
+            <stringProp name="connectionAge">5000</stringProp>
+            <stringProp name="checkQuery"></stringProp>
+            <stringProp name="dbUrl">jdbc:mysql://10.0.3.6:4000/plancachedb?useServerPrepStmts=true</stringProp>
+            <stringProp name="driver">com.mysql.cj.jdbc.Driver</stringProp>
+            <stringProp name="username">root</stringProp>
+            <stringProp name="password">1234Abcd</stringProp>
+            <stringProp name="connectionProperties"/>
+        </JDBCDataSource>
+        <hashTree/>
+    </hashTree>
+</jmeterTestPlan>

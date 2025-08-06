@@ -1,0 +1,82 @@
+#+OPTIONS: \n:t
+#+OPTIONS: ^:nil
+#+TITLE: Unlocking TiDB Performance: A Deep Dive into Query Plan Caching
+* Plan Caching Test
+Optimizing database performance is a constant pursuit for developers and database administrators. In the world of distributed SQL databases like TiDB, the query plan cache plays a pivotal role in achieving high throughput and low latency. This article delves into a recent test report, highlighting key findings on how different query types, functions, and client-side configurations impact TiDB's query plan cache, ultimately revealing strategies for significant performance gains.
+
+Our test results clearly demonstrate that leveraging the query plan cache can more than double your TiDB's performance. Let's break down the insights.
+
+#+CAPTION: Test Result
+#+ATTR_HTML: border 2 :rules all :frame border :align center
+| Case      | Function                        | tidb_ignore_prepared_cache_close_stmt | useServerPrepStmts | cachePrepStmts=true... | QPS   | Latency (99%) | Plan Cache                  |
+|-----------+---------------------------------+---------------------------------------+--------------------+------------------------+-------+---------------+-----------------------------|
+| Case 01   | No                              | ON                                    | no                 | no                     | 17k   | 55ms          | Non-Prepared Plan Cache Hit |
+| Case 02   | lease                           | ON                                    | no                 | no                     | 8.8k  | 117ms         | Non-Prepared Plan Cache Miss|
+| Case 03   | coalesce/least                  | OFF                                   | yes                | no                     | 7.5k  | 86ms          | Prepared Plan Cache Miss    |
+| Case 04   | coalesce/least                  | ON                                    | yes                | no                     | 7.5k  | 85ms          | Prepared Plan Cache Miss    |
+| Case 05   | least                           | ON                                    | yes                | no                     | 12k   | 48ms          | Prepared Plan Cache Hit     |
+| Case 06   | least                           | ON                                    | yes                | yes                    | 19k   | 45ms          | Prepared Plan Cache Hit     |
+| Case 07   | no                              | ON                                    | yes                | yes                    | 19k   | 38ms          | Prepared Plan Cache Hit     |
+| Case 08   | no                              | ON                                    | yes                | yes                    | 17k   | 52ms          | Prepared Plan Cache Hit     |
+
+    #+CAPTION: A diagram related to QPS/Latency in TiDB.
+    #+NAME: plan-cache-diagram
+    #+ATTR_HTML: :width 800 :style border:2px solid black;
+    [[https://www.51yomo.net/static/doc/plancacheOnTiDB/001.png]]
+
+    #+CAPTION: A diagram related to CPU in TiDB.
+    #+NAME: plan-cache-diagram
+    #+ATTR_HTML: :width 800 :style border:2px solid black;
+    [[https://www.51yomo.net/static/doc/plancacheOnTiDB/002.png]]
+
+    #+CAPTION: A diagram related to Plan Cache hit/miss in TiDB.
+    #+NAME: plan-cache-diagram
+    #+ATTR_HTML: :width 800 :style border:2px solid black;
+    [[https://www.51yomo.net/static/doc/plancacheOnTiDB/003.png]]
+
+** The Power of Non-Prepared Query Plan Cache (and its Achilles' Heel)
+When executing SQL queries, TiDB can often reuse execution plans for identical or structurally similar queries, thanks to its non-prepared query plan cache.
+
+  - Case 01 vs. Case 02: Our tests showed a dramatic performance difference. Case 01, where non-prepared queries successfully hit the plan cache, achieved a QPS (Queries Per Second) of 17k with a 99% latency of 55ms. In contrast, Case 02, which used the LEAST function in the ORDER BY clause, saw the QPS drop to 8.8k and latency jump to 117ms. This represents nearly a 100% performance improvement when the plan cache is utilized effectively.
+
+This stark difference highlights a crucial point: certain functions can cause the non-prepared query plan cache to miss. The LEAST function, when used in the ORDER BY clause, was identified as one such culprit. 
+
+** Prepared Queries: A Major Performance Boost, But Watch Out for COALESCE
+Prepared statements are generally recommended for repeated query execution as they allow the database to parse, optimize, and store the execution plan once, then reuse it for subsequent executions with different parameters.
+
+  - Case 04 vs. Case 05: The benefits of prepared statements are evident. Comparing Case 04 (prepared query with COALESCE causing a miss, QPS 7.5k) and Case 05 (prepared query with LEAST hitting the cache, QPS 12k), we observe an impressive 80% improvement in QPS when the prepared plan cache is hit.
+
+However, similar to non-prepared queries, certain functions can hinder the effectiveness of prepared statement caching. Our tests confirmed that the COALESCE function, when used in a prepared statement, caused the prepared query plan cache to miss (as seen in Case 03 and 04). This reinforces the need to carefully consider function usage if maximizing plan cache hits is a priority.
+It's important to be aware that other functions can also lead to plan cache misses. For a comprehensive list of functions that might affect plan cacheability, you can refer to TiDB's source code, specifically the function_traits.go file, which defines their properties:
+https://github.com/pingcap/tidb/blob/v8.5.2/pkg/expression/function_traits.go#L23
+
+** The Critical Role of JDBC Driver Settings
+Beyond server-side caching, the client-side configuration, particularly for JDBC drivers, plays a significant role in overall performance.
+
+  - Case 05 vs. Case 06: This comparison underscores the immense impact of proper JDBC settings. Case 05, using prepared statements with the plan cache hit (QPS 12k), was significantly outperformed by Case 06, which also used prepared statements but with specific JDBC configurations. Case 06 achieved a QPS of 19k with a 99% latency of 45ms – a 60% QPS improvement!
+
+The winning JDBC configuration was: cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048. This setup clearly demonstrated superior performance compared to relying solely on the tidb_ignore_prepared_cache_close_stmt setting. This indicates that client-side caching of prepared statements is crucial for optimal performance in TiDB.
+
+** CASE WHEN as a Plan Cache-Friendly Alternative
+Given that certain functions can cause plan cache misses, what's the alternative for customers who need similar logic?
+
+Our tests showed that using CASE WHEN statements can achieve the same logical outcome as functions like COALESCE while allowing the query plan cache to hit successfully. This provides a viable and performant alternative for customers who need conditional logic without sacrificing the benefits of plan caching.
+
+* Conclusion: Embrace the Plan Cache for Peak TiDB Performance
+The findings from this test report are unequivocal: the query plan cache is a powerful performance multiplier in TiDB. By understanding how non-prepared and prepared queries interact with the cache, identifying functions that cause misses (like LEAST and COALESCE), and configuring JDBC drivers optimally, users can unlock substantial performance improvements.
+
+For any TiDB deployment, actively promoting and implementing strategies to maximize plan cache hits should be a top recommendation. It's a proven path to achieving higher QPS and lower latencies, ultimately leading to a more responsive and efficient database system.
+
+* Reference
+  - config files
+    - [[./resources/plancacheOnTiDB/case01.jmx][Case 01 JMX Config]]
+    - [[./resources/plancacheOnTiDB/case01.jmx][Case 02 JMX Config]]
+    - [[./resources/plancacheOnTiDB/case01.jmx][Case 03 JMX Config]]
+    - [[./resources/plancacheOnTiDB/case01.jmx][Case 04 JMX Config]]
+    - [[./resources/plancacheOnTiDB/case01.jmx][Case 05 JMX Config]]
+    - [[./resources/plancacheOnTiDB/case01.jmx][Case 06 JMX Config]]
+    - [[./resources/plancacheOnTiDB/case01.jmx][Case 07 JMX Config]]
+    - [[./resources/plancacheOnTiDB/case01.jmx][Case 08 JMX Config]]
+  - doc
+    - [[https://docs.pingcap.com/tidb/stable/sql-prepared-plan-cache/][SQL Prepared Execution Plan Cache]]
+    - [[https://docs.pingcap.com/tidb/stable/sql-non-prepared-plan-cache/][SQL Non-Prepared Execution Plan Cache]]

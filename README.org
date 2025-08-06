@@ -48,6 +48,7 @@
   + [[./doc/titan-performance.org][TiTan performance test]] - Test TiTan Storage performance
   + [[./doc/ossinsight-aurora.org][OSS Insight on AWS]] - Query performance test using OSS Insight project's tables(https://ossinsight.io/)
   + [[./doc/auditlog-op.org][AUDIT LOG]] - AUDIT LOG verification on the OP env
+  + [[./doc/plancacheOnTiDB.org][Performance Improvement by Plan Cache]] - Plan Cache Hit performance improvement by 100% in some cases
     
 ** PoC support
   + [[./doc/transferdb.org][transferdb ddl conversion]] - Data conversion from oracle to mysql document. Please refer to [[https://github.com/wentaojin/transferdb][transferdb]]
