@@ -1,0 +1,34 @@
+#+TITLE: TiDB Batch Update Test Summary
+#+AUTHOR: jay
+#+DATE: 2025-10-13
+
+* 1. Test Environment and Configuration
+** Cloud Platform: TiDB Cloud on Azure
+** Cluster Specs:
+*** TiDB Nodes: 2 x (8 Cores / 32 GB RAM)
+*** TiKV Nodes: 3 x (8 Cores / 32 GB RAM)
+** TiDB Version: v8.5.3
+* 2. Data Details and Objective
+** Target Table: test.orders
+** Total Rows Generated: 160 Million
+** Rows to be Updated: 32 Million (where type_id = 1)
+** Objective: Perform a large-scale, non-transactional UPDATE to prevent OOM errors.
+
+* 3. Execution Method
+** Method: TiDB BATCH DML
+** Reference: https://docs.pingcap.com/tidb/stable/sql-statement-batch/
+** Batch Size: 50,000 rows
+** Execution Query:
+   #+BEGIN_SRC sql
+   BATCH ON test.orders.id LIMIT 50000 UPDATE orders SET update_dt = CURRENT_TIMESTAMP WHERE type_id = 1;
+   #+END_SRC
+
+* 4. Results
+** Total Jobs Executed: 641 batches
+** Job Status: All Succeeded
+** Total Execution Time: 26 minutes 0.425 seconds
+
+* 5. Caveats and Next Steps
+** Data Limitation: The data used was synthetically generated. The size and distribution of this test data differ from actual production data.
+** Reference Only: This result should serve only as a **reference benchmark**.
+** Recommendation: Verification with actual production data is recommended. If the observed performance does not meet required SLAs, further **performance tuning** can be carried out.
